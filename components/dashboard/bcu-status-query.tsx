@@ -1,32 +1,69 @@
 "use client"
 
 import { useState } from "react"
-import { Calendar, Clock, Search, Battery, Thermometer, Zap } from "lucide-react"
+import { Calendar, Clock, Search } from "lucide-react"
+import { 
+  ScatterChart, Scatter, LineChart, Line, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer, Legend, ZAxis 
+} from "recharts"
 
-// Mock BCU data
-const mockBCUData = {
-  groupVoltage: 768.5,
-  current: 125.8,
-  soc: 68.5,
-  cellVoltages: [
-    3.256, 3.261, 3.258, 3.255, 3.262, 3.259, 3.257, 3.260,
-    3.254, 3.263, 3.258, 3.256, 3.261, 3.259, 3.257, 3.255,
-  ],
-  cellTemps: [
-    28.5, 29.2, 28.8, 29.0, 28.6, 29.1, 28.9, 28.7,
-    29.3, 28.4, 29.0, 28.8, 28.6, 29.2, 28.9, 28.5,
-  ],
+// Generate mock cell voltage data for 50 cells
+const generateCellVoltages = () => {
+  return Array.from({ length: 50 }, (_, i) => ({
+    cell: i + 1,
+    voltage: 3.2 + Math.random() * 0.15,
+    name: `#${i + 1}`,
+  }))
+}
+
+// Generate mock temperature data for 50 cells x 3 temps each
+const generateCellTemperatures = () => {
+  const data: { cell: number; temp: number; sensor: number; name: string }[] = []
+  for (let cell = 1; cell <= 50; cell++) {
+    for (let sensor = 1; sensor <= 3; sensor++) {
+      data.push({
+        cell,
+        temp: 25 + Math.random() * 10,
+        sensor,
+        name: `#${cell}-T${sensor}`,
+      })
+    }
+  }
+  return data
+}
+
+// Generate time series data for voltage, current, SOC
+const generateTimeSeriesData = () => {
+  return Array.from({ length: 24 }, (_, i) => ({
+    time: `${i}:00`,
+    voltage: 750 + Math.random() * 50,
+    current: -50 + Math.random() * 200,
+    soc: 30 + (i / 24) * 50 + Math.random() * 5,
+  }))
 }
 
 export function BCUStatusQuery() {
   const [queryDate, setQueryDate] = useState("")
   const [queryTime, setQueryTime] = useState("")
   const [hasQueried, setHasQueried] = useState(true)
-  const [data] = useState(mockBCUData)
+  const [activeTab, setActiveTab] = useState<"overview" | "voltage" | "temperature">("overview")
+  
+  const [voltageData] = useState(() => generateCellVoltages())
+  const [temperatureData] = useState(() => generateCellTemperatures())
+  const [timeSeriesData] = useState(() => generateTimeSeriesData())
 
   const handleQuery = () => {
     setHasQueried(true)
   }
+
+  // Calculate stats
+  const avgVoltage = voltageData.reduce((sum, d) => sum + d.voltage, 0) / voltageData.length
+  const maxVoltage = Math.max(...voltageData.map(d => d.voltage))
+  const minVoltage = Math.min(...voltageData.map(d => d.voltage))
+  
+  const avgTemp = temperatureData.reduce((sum, d) => sum + d.temp, 0) / temperatureData.length
+  const maxTemp = Math.max(...temperatureData.map(d => d.temp))
+  const minTemp = Math.min(...temperatureData.map(d => d.temp))
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4">
@@ -64,76 +101,280 @@ export function BCUStatusQuery() {
         </button>
       </div>
 
+      {/* Tab Navigation */}
+      <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1 mb-4">
+        <button
+          onClick={() => setActiveTab("overview")}
+          className={`px-3 py-1.5 text-sm rounded-md transition-all ${
+            activeTab === "overview"
+              ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
+              : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+          }`}
+        >
+          组电压/电流/SOC
+        </button>
+        <button
+          onClick={() => setActiveTab("voltage")}
+          className={`px-3 py-1.5 text-sm rounded-md transition-all ${
+            activeTab === "voltage"
+              ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
+              : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+          }`}
+        >
+          电芯电压(50芯)
+        </button>
+        <button
+          onClick={() => setActiveTab("temperature")}
+          className={`px-3 py-1.5 text-sm rounded-md transition-all ${
+            activeTab === "temperature"
+              ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
+              : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+          }`}
+        >
+          电芯温度(50x3)
+        </button>
+      </div>
+
       {hasQueried && (
         <div className="space-y-4">
-          {/* Main Metrics */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-gradient-to-br from-[#3b82f6]/20 to-[#3b82f6]/5 rounded-lg p-3 border border-[#3b82f6]/30">
-              <div className="flex items-center gap-2 mb-1">
-                <Zap className="w-4 h-4 text-[#3b82f6]" />
-                <span className="text-xs text-[#7b8ab8]">组电压</span>
+          {activeTab === "overview" && (
+            <>
+              {/* Overview Trend Chart - Voltage, Current, SOC */}
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={timeSeriesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
+                    <XAxis 
+                      dataKey="time" 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#7b8ab8", fontSize: 10 }}
+                    />
+                    <YAxis 
+                      yAxisId="voltage"
+                      orientation="left"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#3b82f6", fontSize: 10 }}
+                      domain={[700, 850]}
+                      label={{ value: 'V', angle: -90, position: 'insideLeft', fill: "#3b82f6", fontSize: 10 }}
+                    />
+                    <YAxis 
+                      yAxisId="current"
+                      orientation="right"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#f97316", fontSize: 10 }}
+                      domain={[-100, 200]}
+                      label={{ value: 'A', angle: 90, position: 'insideRight', fill: "#f97316", fontSize: 10 }}
+                    />
+                    <YAxis 
+                      yAxisId="soc"
+                      orientation="right"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#00d4aa", fontSize: 10 }}
+                      domain={[0, 100]}
+                      hide
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#0d1233",
+                        border: "1px solid #1a2654",
+                        borderRadius: "8px",
+                      }}
+                      labelStyle={{ color: "#7b8ab8" }}
+                    />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: "10px" }}
+                      formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
+                    />
+                    <Line
+                      yAxisId="voltage"
+                      type="monotone"
+                      dataKey="voltage"
+                      name="组电压(V)"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      yAxisId="current"
+                      type="monotone"
+                      dataKey="current"
+                      name="电流(A)"
+                      stroke="#f97316"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      yAxisId="soc"
+                      type="monotone"
+                      dataKey="soc"
+                      name="SOC(%)"
+                      stroke="#00d4aa"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-              <div className="text-xl font-bold text-[#3b82f6] font-mono">{data.groupVoltage}V</div>
-            </div>
-            <div className="bg-gradient-to-br from-[#f97316]/20 to-[#f97316]/5 rounded-lg p-3 border border-[#f97316]/30">
-              <div className="flex items-center gap-2 mb-1">
-                <Zap className="w-4 h-4 text-[#f97316]" />
-                <span className="text-xs text-[#7b8ab8]">电流</span>
-              </div>
-              <div className="text-xl font-bold text-[#f97316] font-mono">{data.current}A</div>
-            </div>
-            <div className="bg-gradient-to-br from-[#00d4aa]/20 to-[#00d4aa]/5 rounded-lg p-3 border border-[#00d4aa]/30">
-              <div className="flex items-center gap-2 mb-1">
-                <Battery className="w-4 h-4 text-[#00d4aa]" />
-                <span className="text-xs text-[#7b8ab8]">SOC</span>
-              </div>
-              <div className="text-xl font-bold text-[#00d4aa] font-mono">{data.soc}%</div>
-            </div>
-          </div>
+            </>
+          )}
 
-          {/* Cell Voltages */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Zap className="w-4 h-4 text-[#22d3ee]" />
-              <span className="text-sm text-[#7b8ab8]">电芯电压 (V)</span>
-            </div>
-            <div className="grid grid-cols-8 gap-1.5">
-              {data.cellVoltages.map((voltage, index) => (
-                <div
-                  key={index}
-                  className="bg-[#1a2654]/50 rounded px-1.5 py-1 text-center"
-                >
-                  <div className="text-[10px] text-[#7b8ab8]">#{index + 1}</div>
-                  <div className="text-xs font-mono text-[#22d3ee]">{voltage.toFixed(3)}</div>
+          {activeTab === "voltage" && (
+            <>
+              {/* Voltage Stats */}
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                  <div className="text-xs text-[#7b8ab8]">平均电压</div>
+                  <div className="text-sm font-bold text-[#22d3ee] font-mono">{avgVoltage.toFixed(3)}V</div>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                  <div className="text-xs text-[#7b8ab8]">最大电压</div>
+                  <div className="text-sm font-bold text-[#f97316] font-mono">{maxVoltage.toFixed(3)}V</div>
+                </div>
+                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                  <div className="text-xs text-[#7b8ab8]">最小电压</div>
+                  <div className="text-sm font-bold text-[#3b82f6] font-mono">{minVoltage.toFixed(3)}V</div>
+                </div>
+                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                  <div className="text-xs text-[#7b8ab8]">压差</div>
+                  <div className="text-sm font-bold text-[#00d4aa] font-mono">{((maxVoltage - minVoltage) * 1000).toFixed(1)}mV</div>
+                </div>
+              </div>
+              
+              {/* Cell Voltage Scatter Chart */}
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
+                    <XAxis 
+                      type="number"
+                      dataKey="cell"
+                      name="电芯"
+                      domain={[0, 51]}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#7b8ab8", fontSize: 10 }}
+                      label={{ value: '电芯编号', position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
+                    />
+                    <YAxis 
+                      type="number"
+                      dataKey="voltage"
+                      name="电压"
+                      domain={[3.15, 3.4]}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#7b8ab8", fontSize: 10 }}
+                      label={{ value: 'V', angle: -90, position: 'insideLeft', fill: "#7b8ab8", fontSize: 10 }}
+                    />
+                    <ZAxis range={[50, 50]} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#0d1233",
+                        border: "1px solid #1a2654",
+                        borderRadius: "8px",
+                      }}
+                      formatter={(value: number, name: string) => {
+                        if (name === "电压") return [`${value.toFixed(3)}V`, name]
+                        return [value, name]
+                      }}
+                    />
+                    <Scatter 
+                      name="电芯电压" 
+                      data={voltageData} 
+                      fill="#22d3ee"
+                    />
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
 
-          {/* Cell Temperatures */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Thermometer className="w-4 h-4 text-[#f97316]" />
-              <span className="text-sm text-[#7b8ab8]">电芯温度 (°C)</span>
-            </div>
-            <div className="grid grid-cols-8 gap-1.5">
-              {data.cellTemps.map((temp, index) => (
-                <div
-                  key={index}
-                  className={`rounded px-1.5 py-1 text-center ${
-                    temp > 29 
-                      ? 'bg-[#f97316]/20 border border-[#f97316]/30' 
-                      : 'bg-[#1a2654]/50'
-                  }`}
-                >
-                  <div className="text-[10px] text-[#7b8ab8]">#{index + 1}</div>
-                  <div className={`text-xs font-mono ${temp > 29 ? 'text-[#f97316]' : 'text-[#22d3ee]'}`}>
-                    {temp.toFixed(1)}
-                  </div>
+          {activeTab === "temperature" && (
+            <>
+              {/* Temperature Stats */}
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                  <div className="text-xs text-[#7b8ab8]">平均温度</div>
+                  <div className="text-sm font-bold text-[#22d3ee] font-mono">{avgTemp.toFixed(1)}°C</div>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                  <div className="text-xs text-[#7b8ab8]">最高温度</div>
+                  <div className="text-sm font-bold text-[#f97316] font-mono">{maxTemp.toFixed(1)}°C</div>
+                </div>
+                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                  <div className="text-xs text-[#7b8ab8]">最低温度</div>
+                  <div className="text-sm font-bold text-[#3b82f6] font-mono">{minTemp.toFixed(1)}°C</div>
+                </div>
+                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                  <div className="text-xs text-[#7b8ab8]">温差</div>
+                  <div className="text-sm font-bold text-[#00d4aa] font-mono">{(maxTemp - minTemp).toFixed(1)}°C</div>
+                </div>
+              </div>
+
+              {/* Cell Temperature Scatter Chart */}
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
+                    <XAxis 
+                      type="number"
+                      dataKey="cell"
+                      name="电芯"
+                      domain={[0, 51]}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#7b8ab8", fontSize: 10 }}
+                      label={{ value: '电芯编号', position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
+                    />
+                    <YAxis 
+                      type="number"
+                      dataKey="temp"
+                      name="温度"
+                      domain={[20, 40]}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#7b8ab8", fontSize: 10 }}
+                      label={{ value: '°C', angle: -90, position: 'insideLeft', fill: "#7b8ab8", fontSize: 10 }}
+                    />
+                    <ZAxis range={[30, 30]} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#0d1233",
+                        border: "1px solid #1a2654",
+                        borderRadius: "8px",
+                      }}
+                      formatter={(value: number, name: string) => {
+                        if (name === "温度") return [`${value.toFixed(1)}°C`, name]
+                        return [value, name]
+                      }}
+                    />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: "5px" }}
+                      formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>}
+                    />
+                    <Scatter 
+                      name="T1传感器" 
+                      data={temperatureData.filter(d => d.sensor === 1)} 
+                      fill="#3b82f6"
+                    />
+                    <Scatter 
+                      name="T2传感器" 
+                      data={temperatureData.filter(d => d.sensor === 2)} 
+                      fill="#f97316"
+                    />
+                    <Scatter 
+                      name="T3传感器" 
+                      data={temperatureData.filter(d => d.sensor === 3)} 
+                      fill="#00d4aa"
+                    />
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
