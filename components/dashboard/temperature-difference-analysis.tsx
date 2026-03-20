@@ -32,13 +32,13 @@ const getInitialData = () => {
 const getYesterdayRange = () => {
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
-  
+
   const startDate = new Date(yesterday)
   startDate.setHours(0, 0, 0, 0)
-  
+
   const endDate = new Date(yesterday)
   endDate.setHours(23, 59, 59, 0)
-  
+
   const formatDateTime = (date: Date) => {
     const year = date.getFullYear()
     const month = (date.getMonth() + 1).toString().padStart(2, "0")
@@ -48,7 +48,7 @@ const getYesterdayRange = () => {
     const seconds = date.getSeconds().toString().padStart(2, "0")
     return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
   }
-  
+
   return { start: formatDateTime(startDate), end: formatDateTime(endDate) }
 }
 
@@ -71,22 +71,20 @@ export function TemperatureDifferenceAnalysis() {
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
           <h3 className="text-base font-semibold text-[#00d4aa]">电芯温差一致性分析</h3>
-          <span className="text-xs text-[#7b8ab8] ml-2">(日报数据)</span>
+
         </div>
         <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1">
           <button
             onClick={() => setViewMode("chart")}
-            className={`p-1.5 rounded-md transition-all ${
-              viewMode === "chart" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
-            }`}
+            className={`p-1.5 rounded-md transition-all ${viewMode === "chart" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
+              }`}
           >
             <LineChartIcon className="w-4 h-4" />
           </button>
           <button
             onClick={() => setViewMode("table")}
-            className={`p-1.5 rounded-md transition-all ${
-              viewMode === "table" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
-            }`}
+            className={`p-1.5 rounded-md transition-all ${viewMode === "table" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
+              }`}
           >
             <Table className="w-4 h-4" />
           </button>
@@ -127,13 +125,13 @@ export function TemperatureDifferenceAnalysis() {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-              <XAxis 
-                dataKey="day" 
+              <XAxis
+                dataKey="day"
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: "#7b8ab8", fontSize: 10 }}
               />
-              <YAxis 
+              <YAxis
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: "#7b8ab8", fontSize: 10 }}
@@ -148,7 +146,7 @@ export function TemperatureDifferenceAnalysis() {
                 labelStyle={{ color: "#7b8ab8" }}
                 formatter={(value: string) => [`${value}°C`]}
               />
-              <Legend 
+              <Legend
                 wrapperStyle={{ paddingTop: "10px" }}
                 formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
               />
