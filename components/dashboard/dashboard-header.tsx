@@ -4,17 +4,17 @@ import { createContext, useContext, useState, useEffect } from "react"
 import { Zap, Bell, Settings, ChevronDown } from "lucide-react"
 
 export const projects = [
-  { 
-    id: "jintan", 
+  {
+    id: "jintan",
     name: "金坛储能中心",
     ratedPower: "2.0 MW",
     ratedCapacity: "4.0 MWh",
     commissioningDate: "2023-06-15",
     image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=200&fit=crop"
   },
-  { 
-    id: "ordos", 
-    name: "鄂尔多斯储能中心",
+  {
+    id: "ordos",
+    name: "鄂尔多斯",
     ratedPower: "5.0 MW",
     ratedCapacity: "10.0 MWh",
     commissioningDate: "2024-03-20",
@@ -30,14 +30,14 @@ const ProjectContext = createContext<{
   setSelectedProject: (project: Project) => void
 }>({
   selectedProject: projects[0],
-  setSelectedProject: () => {},
+  setSelectedProject: () => { },
 })
 
 export const useProject = () => useContext(ProjectContext)
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [selectedProject, setSelectedProject] = useState(projects[0])
-  
+
   return (
     <ProjectContext.Provider value={{ selectedProject, setSelectedProject }}>
       {children}
@@ -70,7 +70,7 @@ export function DashboardHeader() {
     <header className="relative px-6 py-4 border-b border-[#1a2654]">
       {/* Background gradient line */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[2px] bg-gradient-to-r from-transparent via-[#00d4aa] to-transparent" />
-      
+
       <div className="flex items-center justify-between">
         {/* Left: Logo and Project Selector */}
         <div className="flex items-center gap-3">
@@ -95,9 +95,8 @@ export function DashboardHeader() {
                       setSelectedProject(project)
                       setDropdownOpen(false)
                     }}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-[#1a2654] transition-colors ${
-                      selectedProject.id === project.id ? 'text-[#00d4aa] bg-[#1a2654]/50' : 'text-[#e8f4fc]'
-                    }`}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-[#1a2654] transition-colors ${selectedProject.id === project.id ? 'text-[#00d4aa] bg-[#1a2654]/50' : 'text-[#e8f4fc]'
+                      }`}
                   >
                     {project.name}
                   </button>
