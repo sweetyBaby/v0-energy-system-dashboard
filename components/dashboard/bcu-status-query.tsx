@@ -65,7 +65,7 @@ const getInitialTimeSeriesData = () => Array.from({ length: 24 }, (_, i) => ({ t
 export function BCUStatusQuery() {
   const [queryDate, setQueryDate] = useState("")
   const [hasQueried, setHasQueried] = useState(true)
-  const [activeTab, setActiveTab] = useState<"overview" | "voltage" | "temperature">("overview")
+  const [activeTab, setActiveTab] = useState<"overview" | "voltage" | "temperature">("temperature")
   const [mounted, setMounted] = useState(false)
 
   const [voltageData, setVoltageData] = useState(getInitialVoltageData)
