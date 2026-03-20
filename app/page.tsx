@@ -14,54 +14,55 @@ import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 export default function EnergyStorageDashboard() {
   return (
     <ProjectProvider>
-    <div className="min-h-screen bg-[#0a0e27] text-[#e8f4fc]">
-      <DashboardHeader />
-      
-      <main className="p-4 space-y-4">
-        {/* Row 1: Project Info + Charge/Discharge Table + Efficiency */}
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 lg:col-span-3">
-            <ProjectInfo />
-          </div>
-          <div className="col-span-12 lg:col-span-5">
-            <ChargeDischargeTable />
-          </div>
-          <div className="col-span-12 lg:col-span-4">
-            <EfficiencyChart />
-          </div>
-        </div>
+      <div className="min-h-screen bg-[#0a0e27] text-[#e8f4fc]">
+        <DashboardHeader />
 
-        {/* Row 2: Power Curve + Energy Statistics */}
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 lg:col-span-6">
-            <PowerCurveQuery />
+        <main className="p-4 space-y-4">
+          {/* Row 1: Project Info + Charge/Discharge Table + Efficiency */}
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-12 lg:col-span-3">
+              <ProjectInfo />
+            </div>
+            <div className="col-span-12 lg:col-span-5">
+              <ChargeDischargeTable />
+            </div>
+            <div className="col-span-12 lg:col-span-4">
+              <EfficiencyChart />
+            </div>
           </div>
-          <div className="col-span-12 lg:col-span-6">
-            <EnergyCurveQuery />
-          </div>
-        </div>
 
-        {/* Row 4: Voltage Difference + Temperature Difference */}
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 lg:col-span-6">
-            <VoltageDifferenceAnalysis />
+          {/* Row 2: Energy Statistics + Power Curve */}
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-12 lg:col-span-6">
+              <EnergyCurveQuery />
+            </div>
+            <div className="col-span-12 lg:col-span-6">
+              <PowerCurveQuery />
+            </div>
           </div>
-          <div className="col-span-12 lg:col-span-6">
-            <TemperatureDifferenceAnalysis />
-          </div>
-        </div>
 
-        {/* Row 5: BCU Status + Cell Voltage */}
-        <div className="grid grid-cols-12 gap-4 items-stretch">
-          <div className="col-span-12 lg:col-span-6 flex">
-            <BCUStatusQuery />
+          {/* Row 4: Voltage Difference + Temperature Difference */}
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-12 lg:col-span-6">
+              <VoltageDifferenceAnalysis />
+            </div>
+            <div className="col-span-12 lg:col-span-6">
+              <TemperatureDifferenceAnalysis />
+            </div>
           </div>
-          <div className="col-span-12 lg:col-span-6 flex">
-            <CellVoltageAnalysis />
+
+          {/* Row 5: BCU Status + Cell Voltage */}
+          <div className="grid grid-cols-12 gap-4 items-stretch">
+            <div className="col-span-12 lg:col-span-6 flex">
+              <CellVoltageAnalysis />
+            </div>
+            <div className="col-span-12 lg:col-span-6 flex">
+              <BCUStatusQuery />
+            </div>
+
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
     </ProjectProvider>
   )
 }
