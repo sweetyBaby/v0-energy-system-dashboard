@@ -37,7 +37,7 @@ export function EnergyStatsCombined() {
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
           <h3 className="text-base font-semibold text-[#00d4aa]">充放电电量统计</h3>
-          <span className="text-xs text-[#7b8ab8] ml-2">(日报数据)</span>
+
         </div>
       </div>
 
@@ -47,21 +47,19 @@ export function EnergyStatsCombined() {
         <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1">
           <button
             onClick={() => setViewType("curve")}
-            className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-              viewType === "curve"
+            className={`px-3 py-1.5 text-sm rounded-md transition-all ${viewType === "curve"
                 ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-            }`}
+              }`}
           >
             曲线图
           </button>
           <button
             onClick={() => setViewType("bar")}
-            className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-              viewType === "bar"
+            className={`px-3 py-1.5 text-sm rounded-md transition-all ${viewType === "bar"
                 ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-            }`}
+              }`}
           >
             柱状图
           </button>
@@ -71,21 +69,19 @@ export function EnergyStatsCombined() {
         <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1">
           <button
             onClick={() => setQueryType("month")}
-            className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-              queryType === "month"
+            className={`px-3 py-1.5 text-sm rounded-md transition-all ${queryType === "month"
                 ? "bg-[#3b82f6] text-white font-medium"
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-            }`}
+              }`}
           >
             本月
           </button>
           <button
             onClick={() => setQueryType("custom")}
-            className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-              queryType === "custom"
+            className={`px-3 py-1.5 text-sm rounded-md transition-all ${queryType === "custom"
                 ? "bg-[#3b82f6] text-white font-medium"
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-            }`}
+              }`}
           >
             自定义
           </button>
@@ -95,21 +91,19 @@ export function EnergyStatsCombined() {
         <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1">
           <button
             onClick={() => setUnitType("Ah")}
-            className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-              unitType === "Ah"
+            className={`px-3 py-1.5 text-sm rounded-md transition-all ${unitType === "Ah"
                 ? "bg-[#f97316] text-white font-medium"
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-            }`}
+              }`}
           >
             Ah
           </button>
           <button
             onClick={() => setUnitType("Wh")}
-            className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-              unitType === "Wh"
+            className={`px-3 py-1.5 text-sm rounded-md transition-all ${unitType === "Wh"
                 ? "bg-[#f97316] text-white font-medium"
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-            }`}
+              }`}
           >
             Wh
           </button>
@@ -158,7 +152,7 @@ export function EnergyStatsCombined() {
         <div className="bg-[#1a2654]/30 rounded-lg p-3 text-center">
           <div className="text-xs text-[#7b8ab8]">月充电量</div>
           <div className="text-lg font-bold text-[#3b82f6] font-mono">
-            {unitType === "Wh" 
+            {unitType === "Wh"
               ? `${(totalCharge / 1000).toFixed(1)} MWh`
               : `${(totalCharge / 1000).toFixed(1)} kAh`
             }
@@ -167,7 +161,7 @@ export function EnergyStatsCombined() {
         <div className="bg-[#1a2654]/30 rounded-lg p-3 text-center">
           <div className="text-xs text-[#7b8ab8]">月放电量</div>
           <div className="text-lg font-bold text-[#f97316] font-mono">
-            {unitType === "Wh" 
+            {unitType === "Wh"
               ? `${(totalDischarge / 1000).toFixed(1)} MWh`
               : `${(totalDischarge / 1000).toFixed(1)} kAh`
             }
@@ -187,14 +181,14 @@ export function EnergyStatsCombined() {
           {viewType === "curve" ? (
             <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-              <XAxis 
-                dataKey="day" 
+              <XAxis
+                dataKey="day"
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: "#7b8ab8", fontSize: 10 }}
                 interval={4}
               />
-              <YAxis 
+              <YAxis
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: "#7b8ab8", fontSize: 10 }}
@@ -208,7 +202,7 @@ export function EnergyStatsCombined() {
                 labelStyle={{ color: "#7b8ab8" }}
                 formatter={(value: number) => [`${value.toLocaleString()} ${unitType}`]}
               />
-              <Legend 
+              <Legend
                 wrapperStyle={{ paddingTop: "10px" }}
                 formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
               />
@@ -232,14 +226,14 @@ export function EnergyStatsCombined() {
           ) : (
             <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" vertical={false} />
-              <XAxis 
-                dataKey="day" 
+              <XAxis
+                dataKey="day"
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: "#7b8ab8", fontSize: 9 }}
                 interval={2}
               />
-              <YAxis 
+              <YAxis
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: "#7b8ab8", fontSize: 10 }}
@@ -253,23 +247,23 @@ export function EnergyStatsCombined() {
                 labelStyle={{ color: "#7b8ab8" }}
                 formatter={(value: number) => [`${value.toLocaleString()} ${unitType}`]}
               />
-              <Legend 
+              <Legend
                 wrapperStyle={{ paddingTop: "10px" }}
                 formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
               />
-              <Bar 
-                dataKey={unitType === "Ah" ? "chargeAh" : "chargeWh"} 
-                name={`充电量(${unitType})`} 
-                fill="#3b82f6" 
-                radius={[2, 2, 0, 0]} 
-                barSize={8} 
+              <Bar
+                dataKey={unitType === "Ah" ? "chargeAh" : "chargeWh"}
+                name={`充电量(${unitType})`}
+                fill="#3b82f6"
+                radius={[2, 2, 0, 0]}
+                barSize={8}
               />
-              <Bar 
-                dataKey={unitType === "Ah" ? "dischargeAh" : "dischargeWh"} 
-                name={`放电量(${unitType})`} 
-                fill="#f97316" 
-                radius={[2, 2, 0, 0]} 
-                barSize={8} 
+              <Bar
+                dataKey={unitType === "Ah" ? "dischargeAh" : "dischargeWh"}
+                name={`放电量(${unitType})`}
+                fill="#f97316"
+                radius={[2, 2, 0, 0]}
+                barSize={8}
               />
             </BarChart>
           )}

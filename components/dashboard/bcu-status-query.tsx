@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { Calendar, Clock, Search } from "lucide-react"
-import { 
-  ScatterChart, Scatter, LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, Legend, ZAxis 
+import { useState, useEffect } from "react"
+import { Calendar, Search } from "lucide-react"
+import {
+  ScatterChart, Scatter, LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Legend, ZAxis
 } from "recharts"
 
 // Generate mock cell voltage data for 50 cells
@@ -42,15 +42,44 @@ const generateTimeSeriesData = () => {
   }))
 }
 
+// Get yesterday's date in YYYY-MM-DD format
+const getYesterdayDate = () => {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  return yesterday.toISOString().split('T')[0]
+}
+
+// Static initial data for SSR
+const getInitialVoltageData = () => Array.from({ length: 50 }, (_, i) => ({ cell: i + 1, voltage: 3.25, name: `#${i + 1}` }))
+const getInitialTempData = () => {
+  const data: { cell: number; temp: number; sensor: number; name: string }[] = []
+  for (let cell = 1; cell <= 50; cell++) {
+    for (let sensor = 1; sensor <= 3; sensor++) {
+      data.push({ cell, temp: 28, sensor, name: `#${cell}-T${sensor}` })
+    }
+  }
+  return data
+}
+const getInitialTimeSeriesData = () => Array.from({ length: 24 }, (_, i) => ({ time: `${i}:00`, voltage: 780, current: 50, soc: 50 }))
+
 export function BCUStatusQuery() {
   const [queryDate, setQueryDate] = useState("")
-  const [queryTime, setQueryTime] = useState("")
   const [hasQueried, setHasQueried] = useState(true)
   const [activeTab, setActiveTab] = useState<"overview" | "voltage" | "temperature">("overview")
-  
-  const [voltageData] = useState(() => generateCellVoltages())
-  const [temperatureData] = useState(() => generateCellTemperatures())
-  const [timeSeriesData] = useState(() => generateTimeSeriesData())
+  const [mounted, setMounted] = useState(false)
+
+  const [voltageData, setVoltageData] = useState(getInitialVoltageData)
+  const [temperatureData, setTemperatureData] = useState(getInitialTempData)
+  const [timeSeriesData, setTimeSeriesData] = useState(getInitialTimeSeriesData)
+
+  // Initialize on client side - set default to yesterday
+  useEffect(() => {
+    setQueryDate(getYesterdayDate())
+    setVoltageData(generateCellVoltages())
+    setTemperatureData(generateCellTemperatures())
+    setTimeSeriesData(generateTimeSeriesData())
+    setMounted(true)
+  }, [])
 
   const handleQuery = () => {
     setHasQueried(true)
@@ -60,7 +89,7 @@ export function BCUStatusQuery() {
   const avgVoltage = voltageData.reduce((sum, d) => sum + d.voltage, 0) / voltageData.length
   const maxVoltage = Math.max(...voltageData.map(d => d.voltage))
   const minVoltage = Math.min(...voltageData.map(d => d.voltage))
-  
+
   const avgTemp = temperatureData.reduce((sum, d) => sum + d.temp, 0) / temperatureData.length
   const maxTemp = Math.max(...temperatureData.map(d => d.temp))
   const minTemp = Math.min(...temperatureData.map(d => d.temp))
@@ -72,8 +101,9 @@ export function BCUStatusQuery() {
         <h3 className="text-base font-semibold text-[#00d4aa]">BCU运行状态查询</h3>
       </div>
 
-      {/* Query Controls */}
+      {/* Query Controls - Single date only, default to yesterday */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-xs text-[#7b8ab8]">查询日期:</span>
         <div className="relative">
           <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
           <input
@@ -83,16 +113,7 @@ export function BCUStatusQuery() {
             className="pl-8 pr-3 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-sm focus:outline-none focus:border-[#00d4aa]"
           />
         </div>
-        <div className="relative">
-          <Clock className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
-          <input
-            type="time"
-            value={queryTime}
-            onChange={(e) => setQueryTime(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-sm focus:outline-none focus:border-[#00d4aa]"
-          />
-        </div>
-        <button 
+        <button
           onClick={handleQuery}
           className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors"
         >
@@ -104,35 +125,34 @@ export function BCUStatusQuery() {
       {/* Tab Navigation */}
       <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1 mb-4">
         <button
-          onClick={() => setActiveTab("overview")}
-          className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-            activeTab === "overview"
+          onClick={() => setActiveTab("temperature")}
+          className={`px-3 py-1.5 text-sm rounded-md transition-all ${activeTab === "temperature"
               ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
               : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-          }`}
+            }`}
         >
-          组电压/电流/SOC
+          电芯温度
         </button>
         <button
           onClick={() => setActiveTab("voltage")}
-          className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-            activeTab === "voltage"
+          className={`px-3 py-1.5 text-sm rounded-md transition-all ${activeTab === "voltage"
               ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
               : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-          }`}
+            }`}
         >
-          电芯电压(50芯)
+          电芯电压
         </button>
         <button
-          onClick={() => setActiveTab("temperature")}
-          className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-            activeTab === "temperature"
+          onClick={() => setActiveTab("overview")}
+          className={`px-3 py-1.5 text-sm rounded-md transition-all ${activeTab === "overview"
               ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
               : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-          }`}
+            }`}
         >
-          电芯温度(50x3)
+          组电压/电流/SOC
         </button>
+
+
       </div>
 
       {hasQueried && (
@@ -144,13 +164,13 @@ export function BCUStatusQuery() {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={timeSeriesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-                    <XAxis 
-                      dataKey="time" 
+                    <XAxis
+                      dataKey="time"
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: "#7b8ab8", fontSize: 10 }}
                     />
-                    <YAxis 
+                    <YAxis
                       yAxisId="voltage"
                       orientation="left"
                       axisLine={false}
@@ -159,7 +179,7 @@ export function BCUStatusQuery() {
                       domain={[700, 850]}
                       label={{ value: 'V', angle: -90, position: 'insideLeft', fill: "#3b82f6", fontSize: 10 }}
                     />
-                    <YAxis 
+                    <YAxis
                       yAxisId="current"
                       orientation="right"
                       axisLine={false}
@@ -168,7 +188,7 @@ export function BCUStatusQuery() {
                       domain={[-100, 200]}
                       label={{ value: 'A', angle: 90, position: 'insideRight', fill: "#f97316", fontSize: 10 }}
                     />
-                    <YAxis 
+                    <YAxis
                       yAxisId="soc"
                       orientation="right"
                       axisLine={false}
@@ -185,7 +205,7 @@ export function BCUStatusQuery() {
                       }}
                       labelStyle={{ color: "#7b8ab8" }}
                     />
-                    <Legend 
+                    <Legend
                       wrapperStyle={{ paddingTop: "10px" }}
                       formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
                     />
@@ -243,13 +263,13 @@ export function BCUStatusQuery() {
                   <div className="text-sm font-bold text-[#00d4aa] font-mono">{((maxVoltage - minVoltage) * 1000).toFixed(1)}mV</div>
                 </div>
               </div>
-              
+
               {/* Cell Voltage Scatter Chart */}
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-                    <XAxis 
+                    <XAxis
                       type="number"
                       dataKey="cell"
                       name="电芯"
@@ -259,7 +279,7 @@ export function BCUStatusQuery() {
                       tick={{ fill: "#7b8ab8", fontSize: 10 }}
                       label={{ value: '电芯编号', position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
                     />
-                    <YAxis 
+                    <YAxis
                       type="number"
                       dataKey="voltage"
                       name="电压"
@@ -281,9 +301,9 @@ export function BCUStatusQuery() {
                         return [value, name]
                       }}
                     />
-                    <Scatter 
-                      name="电芯电压" 
-                      data={voltageData} 
+                    <Scatter
+                      name="电芯电压"
+                      data={voltageData}
                       fill="#22d3ee"
                     />
                   </ScatterChart>
@@ -319,7 +339,7 @@ export function BCUStatusQuery() {
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-                    <XAxis 
+                    <XAxis
                       type="number"
                       dataKey="cell"
                       name="电芯"
@@ -329,7 +349,7 @@ export function BCUStatusQuery() {
                       tick={{ fill: "#7b8ab8", fontSize: 10 }}
                       label={{ value: '电芯编号', position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
                     />
-                    <YAxis 
+                    <YAxis
                       type="number"
                       dataKey="temp"
                       name="温度"
@@ -351,23 +371,23 @@ export function BCUStatusQuery() {
                         return [value, name]
                       }}
                     />
-                    <Legend 
+                    <Legend
                       wrapperStyle={{ paddingTop: "5px" }}
                       formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>}
                     />
-                    <Scatter 
-                      name="T1传感器" 
-                      data={temperatureData.filter(d => d.sensor === 1)} 
+                    <Scatter
+                      name="T1传感器"
+                      data={temperatureData.filter(d => d.sensor === 1)}
                       fill="#3b82f6"
                     />
-                    <Scatter 
-                      name="T2传感器" 
-                      data={temperatureData.filter(d => d.sensor === 2)} 
+                    <Scatter
+                      name="T2传感器"
+                      data={temperatureData.filter(d => d.sensor === 2)}
                       fill="#f97316"
                     />
-                    <Scatter 
-                      name="T3传感器" 
-                      data={temperatureData.filter(d => d.sensor === 3)} 
+                    <Scatter
+                      name="T3传感器"
+                      data={temperatureData.filter(d => d.sensor === 3)}
                       fill="#00d4aa"
                     />
                   </ScatterChart>
@@ -377,6 +397,7 @@ export function BCUStatusQuery() {
           )}
         </div>
       )}
+
     </div>
   )
 }

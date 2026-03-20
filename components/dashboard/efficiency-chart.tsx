@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, Cell, LabelList, CartesianGrid, Tooltip } from "recharts"
 import { Calendar, Search } from "lucide-react"
 
@@ -36,11 +36,53 @@ const generateEfficiencyData = (type: string) => {
   }
 }
 
+// Generate initial static data for SSR
+const getInitialData = () => {
+  return Array.from({ length: 24 }, (_, i) => ({
+    time: `${i}:00`,
+    efficiency: 95,
+  }))
+}
+
+// Get yesterday's datetime range
+const getYesterdayRange = () => {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  
+  const startDate = new Date(yesterday)
+  startDate.setHours(0, 0, 0, 0)
+  
+  const endDate = new Date(yesterday)
+  endDate.setHours(23, 59, 59, 0)
+  
+  const formatDateTime = (date: Date) => {
+    const year = date.getFullYear()
+    const month = (date.getMonth() + 1).toString().padStart(2, "0")
+    const day = date.getDate().toString().padStart(2, "0")
+    const hours = date.getHours().toString().padStart(2, "0")
+    const minutes = date.getMinutes().toString().padStart(2, "0")
+    const seconds = date.getSeconds().toString().padStart(2, "0")
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+  }
+  
+  return { start: formatDateTime(startDate), end: formatDateTime(endDate) }
+}
+
 export function EfficiencyChart() {
   const [queryType, setQueryType] = useState<"yesterday" | "week" | "month" | "year" | "custom">("yesterday")
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
-  const [data, setData] = useState(() => generateEfficiencyData("yesterday"))
+  const [startDateTime, setStartDateTime] = useState("")
+  const [endDateTime, setEndDateTime] = useState("")
+  const [data, setData] = useState(getInitialData)
+  const [mounted, setMounted] = useState(false)
+
+  // Generate random data only on client side
+  useEffect(() => {
+    setMounted(true)
+    setData(generateEfficiencyData("yesterday"))
+    const { start, end } = getYesterdayRange()
+    setStartDateTime(start)
+    setEndDateTime(end)
+  }, [])
 
   const handleQueryTypeChange = (type: "yesterday" | "week" | "month" | "year" | "custom") => {
     setQueryType(type)
@@ -50,10 +92,10 @@ export function EfficiencyChart() {
   }
 
   const handleCustomQuery = () => {
-    if (startDate && endDate) {
-      const start = new Date(startDate)
-      const end = new Date(endDate)
-      const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    if (startDateTime && endDateTime) {
+      const start = new Date(startDateTime)
+      const end = new Date(endDateTime)
+      const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
       if (diffDays > 7) {
         alert("自定义查询最多一周范围")
         return
@@ -63,15 +105,33 @@ export function EfficiencyChart() {
   }
 
   // Calculate average efficiency
-  const avgEfficiency = data.reduce((sum, item) => sum + item.efficiency, 0) / data.length
+  const avgEfficiency = data.length > 0 
+    ? data.reduce((sum, item) => sum + item.efficiency, 0) / data.length 
+    : 95
 
-  // Summary data for circular indicators
+  // Summary data for circular indicators (static values)
   const summaryData = [
     { name: "昨日", value: 95.26, color: "#3b82f6" },
     { name: "本周", value: 94.56, color: "#22d3ee" },
     { name: "本月", value: 94.82, color: "#00d4aa" },
     { name: "本年", value: 95.18, color: "#f97316" },
   ]
+
+  // Show loading state during SSR/hydration
+  if (!mounted) {
+    return (
+      <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 h-full flex flex-col">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
+          <h3 className="text-base font-semibold text-[#00d4aa]">充放电效率</h3>
+          <span className="text-xs text-[#7b8ab8] ml-2">(%)</span>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <span className="text-[#7b8ab8] text-sm">加载中...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 h-full flex flex-col">
@@ -111,20 +171,22 @@ export function EfficiencyChart() {
           <div className="relative">
             <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b8ab8]" />
             <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="pl-7 pr-2 py-1 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa] w-32"
+              type="datetime-local"
+              step="1"
+              value={startDateTime}
+              onChange={(e) => setStartDateTime(e.target.value)}
+              className="pl-7 pr-1 py-1 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-[10px] focus:outline-none focus:border-[#00d4aa]"
             />
           </div>
           <span className="text-[#7b8ab8] text-xs">至</span>
           <div className="relative">
             <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b8ab8]" />
             <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="pl-7 pr-2 py-1 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa] w-32"
+              type="datetime-local"
+              step="1"
+              value={endDateTime}
+              onChange={(e) => setEndDateTime(e.target.value)}
+              className="pl-7 pr-1 py-1 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-[10px] focus:outline-none focus:border-[#00d4aa]"
             />
           </div>
           <button 

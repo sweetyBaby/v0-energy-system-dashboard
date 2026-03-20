@@ -1,13 +1,11 @@
 "use client"
 
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
+import { DashboardHeader, ProjectProvider } from "@/components/dashboard/dashboard-header"
 import { ProjectInfo } from "@/components/dashboard/project-info"
 import { ChargeDischargeTable } from "@/components/dashboard/charge-discharge-table"
 import { EfficiencyChart } from "@/components/dashboard/efficiency-chart"
 import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
 import { EnergyCurveQuery } from "@/components/dashboard/energy-curve-query"
-import { AnnualMonthlyChart } from "@/components/dashboard/annual-monthly-chart"
-import { MonthlyDailyChart } from "@/components/dashboard/monthly-daily-chart"
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
 import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysis"
@@ -15,6 +13,7 @@ import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 
 export default function EnergyStorageDashboard() {
   return (
+    <ProjectProvider>
     <div className="min-h-screen bg-[#0a0e27] text-[#e8f4fc]">
       <DashboardHeader />
       
@@ -32,23 +31,13 @@ export default function EnergyStorageDashboard() {
           </div>
         </div>
 
-        {/* Row 2: Power Curve + Energy Curve */}
+        {/* Row 2: Power Curve + Energy Statistics */}
         <div className="grid grid-cols-12 gap-4">
           <div className="col-span-12 lg:col-span-6">
             <PowerCurveQuery />
           </div>
           <div className="col-span-12 lg:col-span-6">
             <EnergyCurveQuery />
-          </div>
-        </div>
-
-        {/* Row 3: Annual Monthly + Monthly Daily */}
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 lg:col-span-6">
-            <AnnualMonthlyChart />
-          </div>
-          <div className="col-span-12 lg:col-span-6">
-            <MonthlyDailyChart />
           </div>
         </div>
 
@@ -73,5 +62,6 @@ export default function EnergyStorageDashboard() {
         </div>
       </main>
     </div>
+    </ProjectProvider>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { Calendar, Search, Table, LineChartIcon } from "lucide-react"
 
@@ -18,11 +18,52 @@ const generateTempData = (days: number) => {
   return data
 }
 
+// Static initial data for SSR
+const getInitialData = () => {
+  return Array.from({ length: 15 }, (_, i) => ({
+    day: `${i + 1}日`,
+    maxTemp: "40.0",
+    minTemp: "24.0",
+    tempDiff: "12.0",
+  }))
+}
+
+// Get yesterday's datetime range
+const getYesterdayRange = () => {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  const startDate = new Date(yesterday)
+  startDate.setHours(0, 0, 0, 0)
+
+  const endDate = new Date(yesterday)
+  endDate.setHours(23, 59, 59, 0)
+
+  const formatDateTime = (date: Date) => {
+    const year = date.getFullYear()
+    const month = (date.getMonth() + 1).toString().padStart(2, "0")
+    const day = date.getDate().toString().padStart(2, "0")
+    const hours = date.getHours().toString().padStart(2, "0")
+    const minutes = date.getMinutes().toString().padStart(2, "0")
+    const seconds = date.getSeconds().toString().padStart(2, "0")
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+  }
+
+  return { start: formatDateTime(startDate), end: formatDateTime(endDate) }
+}
+
 export function TemperatureDifferenceAnalysis() {
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+  const [startDateTime, setStartDateTime] = useState("")
+  const [endDateTime, setEndDateTime] = useState("")
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
-  const [data] = useState(() => generateTempData(15))
+  const [data, setData] = useState(getInitialData)
+
+  useEffect(() => {
+    setData(generateTempData(15))
+    const { start, end } = getYesterdayRange()
+    setStartDateTime(start)
+    setEndDateTime(end)
+  }, [])
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4">
@@ -30,47 +71,47 @@ export function TemperatureDifferenceAnalysis() {
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
           <h3 className="text-base font-semibold text-[#00d4aa]">电芯温差一致性分析</h3>
-          <span className="text-xs text-[#7b8ab8] ml-2">(日报数据)</span>
+
         </div>
         <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1">
           <button
             onClick={() => setViewMode("chart")}
-            className={`p-1.5 rounded-md transition-all ${
-              viewMode === "chart" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
-            }`}
+            className={`p-1.5 rounded-md transition-all ${viewMode === "chart" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
+              }`}
           >
             <LineChartIcon className="w-4 h-4" />
           </button>
           <button
             onClick={() => setViewMode("table")}
-            className={`p-1.5 rounded-md transition-all ${
-              viewMode === "table" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
-            }`}
+            className={`p-1.5 rounded-md transition-all ${viewMode === "table" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
+              }`}
           >
             <Table className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Date Range Query */}
-      <div className="flex items-center gap-2 mb-4">
+      {/* Date Range Query with datetime */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="relative">
           <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
           <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-sm focus:outline-none focus:border-[#00d4aa]"
+            type="datetime-local"
+            step="1"
+            value={startDateTime}
+            onChange={(e) => setStartDateTime(e.target.value)}
+            className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
           />
         </div>
-        <span className="text-[#7b8ab8]">至</span>
+        <span className="text-[#7b8ab8] text-sm">至</span>
         <div className="relative">
           <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
           <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-sm focus:outline-none focus:border-[#00d4aa]"
+            type="datetime-local"
+            step="1"
+            value={endDateTime}
+            onChange={(e) => setEndDateTime(e.target.value)}
+            className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
           />
         </div>
         <button className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors">
@@ -84,13 +125,13 @@ export function TemperatureDifferenceAnalysis() {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-              <XAxis 
-                dataKey="day" 
+              <XAxis
+                dataKey="day"
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: "#7b8ab8", fontSize: 10 }}
               />
-              <YAxis 
+              <YAxis
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: "#7b8ab8", fontSize: 10 }}
@@ -105,7 +146,7 @@ export function TemperatureDifferenceAnalysis() {
                 labelStyle={{ color: "#7b8ab8" }}
                 formatter={(value: string) => [`${value}°C`]}
               />
-              <Legend 
+              <Legend
                 wrapperStyle={{ paddingTop: "10px" }}
                 formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
               />

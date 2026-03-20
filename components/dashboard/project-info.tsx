@@ -1,15 +1,10 @@
 "use client"
 
 import { Battery, Zap, Calendar } from "lucide-react"
+import { useProject } from "./dashboard-header"
 
 export function ProjectInfo() {
-  const projectData = {
-    name: "北工大软件园储能电站",
-    image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=200&fit=crop",
-    ratedPower: "2.0 MW",
-    ratedCapacity: "4.0 MWh",
-    commissioningDate: "2023-06-15",
-  }
+  const { selectedProject } = useProject()
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 h-full">
@@ -22,13 +17,13 @@ export function ProjectInfo() {
         {/* Project Image */}
         <div className="relative rounded-lg overflow-hidden h-32">
           <img
-            src={projectData.image}
-            alt={projectData.name}
+            src={selectedProject.image}
+            alt={selectedProject.name}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0d1233]/80 to-transparent" />
           <div className="absolute bottom-2 left-2 text-sm font-medium">
-            {projectData.name}
+            {selectedProject.name}
           </div>
         </div>
 
@@ -41,7 +36,7 @@ export function ProjectInfo() {
                 额定功率
               </td>
               <td className="py-2 text-right font-mono text-[#00d4aa]">
-                {projectData.ratedPower}
+                {selectedProject.ratedPower}
               </td>
             </tr>
             <tr className="border-b border-[#1a2654]">
@@ -50,7 +45,7 @@ export function ProjectInfo() {
                 额定容量
               </td>
               <td className="py-2 text-right font-mono text-[#00d4aa]">
-                {projectData.ratedCapacity}
+                {selectedProject.ratedCapacity}
               </td>
             </tr>
             <tr>
@@ -59,7 +54,7 @@ export function ProjectInfo() {
                 投运日期
               </td>
               <td className="py-2 text-right font-mono text-[#00d4aa]">
-                {projectData.commissioningDate}
+                {selectedProject.commissioningDate}
               </td>
             </tr>
           </tbody>
