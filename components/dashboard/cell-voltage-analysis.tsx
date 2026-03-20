@@ -74,7 +74,7 @@ export function CellVoltageAnalysis() {
   const avgV = data.length > 0 ? (data.reduce((sum, d) => sum + parseFloat(d.avgVoltage), 0) / data.length).toFixed(3) : "3.32"
 
   return (
-    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4">
+    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
@@ -146,7 +146,7 @@ export function CellVoltageAnalysis() {
       </div>
 
       {viewMode === "chart" ? (
-        <div className="h-48">
+        <div className="h-64 flex-1">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
@@ -184,7 +184,7 @@ export function CellVoltageAnalysis() {
           </ResponsiveContainer>
         </div>
       ) : (
-        <div className="h-48 overflow-auto">
+        <div className="h-64 flex-1 overflow-auto">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-[#0d1233]">
               <tr className="text-[#7b8ab8] border-b border-[#1a2654]">

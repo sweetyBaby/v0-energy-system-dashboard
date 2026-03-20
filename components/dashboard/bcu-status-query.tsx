@@ -95,7 +95,7 @@ export function BCUStatusQuery() {
   const minTemp = Math.min(...temperatureData.map(d => d.temp))
 
   return (
-    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4">
+    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full">
       <div className="flex items-center gap-2 mb-4">
         <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
         <h3 className="text-base font-semibold text-[#00d4aa]">BCU运行状态查询</h3>
