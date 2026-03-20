@@ -372,21 +372,21 @@ export function BCUStatusQuery() {
                       }}
                     />
                     <Legend
-                      wrapperStyle={{ paddingTop: "5px" }}
+                      wrapperStyle={{ paddingTop: "20px" }}
                       formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>}
                     />
                     <Scatter
-                      name="T1传感器"
+                      name="T1"
                       data={temperatureData.filter(d => d.sensor === 1)}
                       fill="#3b82f6"
                     />
                     <Scatter
-                      name="T2传感器"
+                      name="T2"
                       data={temperatureData.filter(d => d.sensor === 2)}
                       fill="#f97316"
                     />
                     <Scatter
-                      name="T3传感器"
+                      name="T3"
                       data={temperatureData.filter(d => d.sensor === 3)}
                       fill="#00d4aa"
                     />
