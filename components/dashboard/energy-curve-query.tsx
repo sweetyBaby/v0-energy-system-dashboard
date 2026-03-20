@@ -127,7 +127,6 @@ export function EnergyCurveQuery() {
   const [unitType, setUnitType] = useState<"kWh" | "MWh">("kWh")
   const [mounted, setMounted] = useState(false)
   const [data, setData] = useState<DataPoint[]>([])
-  const [dataLabel, setDataLabel] = useState("本周充放电统计（按日）")
   
   // Custom date range state
   const [customStart, setCustomStart] = useState("")
@@ -161,23 +160,17 @@ export function EnergyCurveQuery() {
     
     if (timeRange === "week") {
       setData(generateWeeklyData())
-      setDataLabel("本周充放电统计（按日）")
     } else if (timeRange === "month") {
       const now = new Date()
       const daysInMonth = getDaysInMonth(now.getFullYear(), now.getMonth())
       setData(generateDailyData(daysInMonth))
-      setDataLabel("本月充放电统计（按日）")
     } else if (timeRange === "year") {
       setData(generateMonthlyData())
-      setDataLabel("本年充放电统计（按月）")
     } else if (timeRange === "custom") {
       if (appliedStart && appliedEnd) {
-        const daysDiff = getDaysDiff(appliedStart, appliedEnd)
         setData(generateCustomRangeData(appliedStart, appliedEnd))
-        setDataLabel(daysDiff <= 1 ? "自定义范围统计（按小时）" : "自定义范围统计（按日）")
       } else {
         setData([])
-        setDataLabel("请选择日期范围并点击查询")
       }
     }
   }, [timeRange, appliedStart, appliedEnd, mounted])
@@ -257,9 +250,6 @@ export function EnergyCurveQuery() {
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
           <h3 className="text-base font-semibold text-[#00d4aa]">充放电电量统计</h3>
-          {dataLabel && (
-            <span className="text-xs text-[#7b8ab8] ml-2">({dataLabel})</span>
-          )}
         </div>
       </div>
 

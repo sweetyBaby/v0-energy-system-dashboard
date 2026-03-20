@@ -1,16 +1,53 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { createContext, useContext, useState, useEffect } from "react"
 import { Zap, Bell, Settings, ChevronDown } from "lucide-react"
 
-const projects = [
-  { id: "jintan", name: "金坛储能中心" },
-  { id: "ordos", name: "鄂尔多斯储能中心" },
+export const projects = [
+  { 
+    id: "jintan", 
+    name: "金坛储能中心",
+    ratedPower: "2.0 MW",
+    ratedCapacity: "4.0 MWh",
+    commissioningDate: "2023-06-15",
+    image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=200&fit=crop"
+  },
+  { 
+    id: "ordos", 
+    name: "鄂尔多斯储能中心",
+    ratedPower: "5.0 MW",
+    ratedCapacity: "10.0 MWh",
+    commissioningDate: "2024-03-20",
+    image: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=200&fit=crop"
+  },
 ]
+
+export type Project = typeof projects[number]
+
+// Create context for project selection
+const ProjectContext = createContext<{
+  selectedProject: Project
+  setSelectedProject: (project: Project) => void
+}>({
+  selectedProject: projects[0],
+  setSelectedProject: () => {},
+})
+
+export const useProject = () => useContext(ProjectContext)
+
+export function ProjectProvider({ children }: { children: React.ReactNode }) {
+  const [selectedProject, setSelectedProject] = useState(projects[0])
+  
+  return (
+    <ProjectContext.Provider value={{ selectedProject, setSelectedProject }}>
+      {children}
+    </ProjectContext.Provider>
+  )
+}
 
 export function DashboardHeader() {
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
-  const [selectedProject, setSelectedProject] = useState(projects[0])
+  const { selectedProject, setSelectedProject } = useProject()
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
   useEffect(() => {

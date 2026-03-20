@@ -27,7 +27,7 @@ const generateMinuteData = (hours: number) => {
     data.push({
       time,
       chargePower: Math.round(chargePower),
-      dischargePower: Math.round(dischargePower),
+      dischargePower: -Math.round(dischargePower), // Negative for discharge
     })
   }
   return data
@@ -97,7 +97,6 @@ export function PowerCurveQuery() {
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
           <h3 className="text-base font-semibold text-[#00d4aa]">充放电功率曲线</h3>
-          <span className="text-xs text-[#7b8ab8] ml-2">(分钟级数据)</span>
         </div>
       </div>
 
@@ -146,7 +145,6 @@ export function PowerCurveQuery() {
               <Search className="w-4 h-4" />
               查询
             </button>
-            <span className="text-xs text-[#7b8ab8]">(不超过一周)</span>
           </div>
         )}
       </div>

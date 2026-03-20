@@ -120,7 +120,6 @@ export function BCUStatusQuery() {
           <Search className="w-4 h-4" />
           查询
         </button>
-        <span className="text-xs text-[#7b8ab8]">(默认昨日)</span>
       </div>
 
       {/* Tab Navigation */}
