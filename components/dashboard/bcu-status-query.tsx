@@ -143,7 +143,7 @@ export function BCUStatusQuery() {
               : "text-[#7b8ab8] hover:text-[#e8f4fc]"
           }`}
         >
-          电芯电压(50芯)
+          电芯电压
         </button>
         <button
           onClick={() => setActiveTab("temperature")}
@@ -153,7 +153,7 @@ export function BCUStatusQuery() {
               : "text-[#7b8ab8] hover:text-[#e8f4fc]"
           }`}
         >
-          电芯温度(50x3)
+          电芯温度
         </button>
       </div>
 

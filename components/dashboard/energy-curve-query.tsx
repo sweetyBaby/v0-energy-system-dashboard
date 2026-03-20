@@ -136,14 +136,15 @@ export function EnergyCurveQuery() {
   const [appliedEnd, setAppliedEnd] = useState<Date | null>(null)
   const [customError, setCustomError] = useState<string | null>(null)
 
-  // Initialize on client side only
+  // Initialize on client side only - default to yesterday
   useEffect(() => {
-    const now = new Date()
-    const defaultStart = new Date(now)
-    defaultStart.setDate(now.getDate() - 7)
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    
+    const defaultStart = new Date(yesterday)
     defaultStart.setHours(0, 0, 0, 0)
     
-    const defaultEnd = new Date(now)
+    const defaultEnd = new Date(yesterday)
     defaultEnd.setHours(23, 59, 59, 0)
     
     setCustomStart(formatDateTimeLocal(defaultStart))

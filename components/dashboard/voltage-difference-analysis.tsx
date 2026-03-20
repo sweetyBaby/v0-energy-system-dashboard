@@ -28,6 +28,30 @@ const getInitialData = () => {
   }))
 }
 
+// Get yesterday's datetime range
+const getYesterdayRange = () => {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  
+  const startDate = new Date(yesterday)
+  startDate.setHours(0, 0, 0, 0)
+  
+  const endDate = new Date(yesterday)
+  endDate.setHours(23, 59, 59, 0)
+  
+  const formatDateTime = (date: Date) => {
+    const year = date.getFullYear()
+    const month = (date.getMonth() + 1).toString().padStart(2, "0")
+    const day = date.getDate().toString().padStart(2, "0")
+    const hours = date.getHours().toString().padStart(2, "0")
+    const minutes = date.getMinutes().toString().padStart(2, "0")
+    const seconds = date.getSeconds().toString().padStart(2, "0")
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+  }
+  
+  return { start: formatDateTime(startDate), end: formatDateTime(endDate) }
+}
+
 export function VoltageDifferenceAnalysis() {
   const [startDateTime, setStartDateTime] = useState("")
   const [endDateTime, setEndDateTime] = useState("")
@@ -36,6 +60,9 @@ export function VoltageDifferenceAnalysis() {
 
   useEffect(() => {
     setData(generateVoltageData(15))
+    const { start, end } = getYesterdayRange()
+    setStartDateTime(start)
+    setEndDateTime(end)
   }, [])
 
   return (

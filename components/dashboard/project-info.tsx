@@ -4,7 +4,7 @@ import { Battery, Zap, Calendar } from "lucide-react"
 
 export function ProjectInfo() {
   const projectData = {
-    name: "北工大软件园储能电站",
+    name: "金坛储能中心",
     image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=200&fit=crop",
     ratedPower: "2.0 MW",
     ratedCapacity: "4.0 MWh",
