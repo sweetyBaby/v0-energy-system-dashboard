@@ -51,13 +51,13 @@ export default function EnergyStorageDashboard() {
           </div>
         </div>
 
-        {/* Row 5: Cell Voltage + BCU Status */}
+        {/* Row 5: BCU Status + Cell Voltage */}
         <div className="grid grid-cols-12 gap-4">
           <div className="col-span-12 lg:col-span-6">
-            <CellVoltageAnalysis />
+            <BCUStatusQuery />
           </div>
           <div className="col-span-12 lg:col-span-6">
-            <BCUStatusQuery />
+            <CellVoltageAnalysis />
           </div>
         </div>
       </main>
