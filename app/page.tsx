@@ -31,13 +31,13 @@ export default function EnergyStorageDashboard() {
           </div>
         </div>
 
-        {/* Row 2: Power Curve + Energy Statistics */}
+        {/* Row 2: Energy Statistics + Power Curve */}
         <div className="grid grid-cols-12 gap-4">
           <div className="col-span-12 lg:col-span-6">
-            <PowerCurveQuery />
+            <EnergyCurveQuery />
           </div>
           <div className="col-span-12 lg:col-span-6">
-            <EnergyCurveQuery />
+            <PowerCurveQuery />
           </div>
         </div>
 
