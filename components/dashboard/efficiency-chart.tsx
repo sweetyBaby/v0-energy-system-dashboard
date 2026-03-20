@@ -46,8 +46,8 @@ const getInitialData = () => {
 
 export function EfficiencyChart() {
   const [queryType, setQueryType] = useState<"yesterday" | "week" | "month" | "year" | "custom">("yesterday")
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+  const [startDateTime, setStartDateTime] = useState("")
+  const [endDateTime, setEndDateTime] = useState("")
   const [data, setData] = useState(getInitialData)
   const [mounted, setMounted] = useState(false)
 
@@ -65,10 +65,10 @@ export function EfficiencyChart() {
   }
 
   const handleCustomQuery = () => {
-    if (startDate && endDate) {
-      const start = new Date(startDate)
-      const end = new Date(endDate)
-      const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    if (startDateTime && endDateTime) {
+      const start = new Date(startDateTime)
+      const end = new Date(endDateTime)
+      const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
       if (diffDays > 7) {
         alert("自定义查询最多一周范围")
         return
@@ -144,20 +144,22 @@ export function EfficiencyChart() {
           <div className="relative">
             <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b8ab8]" />
             <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="pl-7 pr-2 py-1 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa] w-32"
+              type="datetime-local"
+              step="1"
+              value={startDateTime}
+              onChange={(e) => setStartDateTime(e.target.value)}
+              className="pl-7 pr-1 py-1 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-[10px] focus:outline-none focus:border-[#00d4aa]"
             />
           </div>
           <span className="text-[#7b8ab8] text-xs">至</span>
           <div className="relative">
             <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b8ab8]" />
             <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="pl-7 pr-2 py-1 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa] w-32"
+              type="datetime-local"
+              step="1"
+              value={endDateTime}
+              onChange={(e) => setEndDateTime(e.target.value)}
+              className="pl-7 pr-1 py-1 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-[10px] focus:outline-none focus:border-[#00d4aa]"
             />
           </div>
           <button 

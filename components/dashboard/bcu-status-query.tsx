@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Calendar, Clock, Search } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Calendar, Search } from "lucide-react"
 import { 
   ScatterChart, Scatter, LineChart, Line, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, Legend, ZAxis 
@@ -42,15 +42,44 @@ const generateTimeSeriesData = () => {
   }))
 }
 
+// Get yesterday's date in YYYY-MM-DD format
+const getYesterdayDate = () => {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  return yesterday.toISOString().split('T')[0]
+}
+
+// Static initial data for SSR
+const getInitialVoltageData = () => Array.from({ length: 50 }, (_, i) => ({ cell: i + 1, voltage: 3.25, name: `#${i + 1}` }))
+const getInitialTempData = () => {
+  const data: { cell: number; temp: number; sensor: number; name: string }[] = []
+  for (let cell = 1; cell <= 50; cell++) {
+    for (let sensor = 1; sensor <= 3; sensor++) {
+      data.push({ cell, temp: 28, sensor, name: `#${cell}-T${sensor}` })
+    }
+  }
+  return data
+}
+const getInitialTimeSeriesData = () => Array.from({ length: 24 }, (_, i) => ({ time: `${i}:00`, voltage: 780, current: 50, soc: 50 }))
+
 export function BCUStatusQuery() {
   const [queryDate, setQueryDate] = useState("")
-  const [queryTime, setQueryTime] = useState("")
   const [hasQueried, setHasQueried] = useState(true)
   const [activeTab, setActiveTab] = useState<"overview" | "voltage" | "temperature">("overview")
+  const [mounted, setMounted] = useState(false)
   
-  const [voltageData] = useState(() => generateCellVoltages())
-  const [temperatureData] = useState(() => generateCellTemperatures())
-  const [timeSeriesData] = useState(() => generateTimeSeriesData())
+  const [voltageData, setVoltageData] = useState(getInitialVoltageData)
+  const [temperatureData, setTemperatureData] = useState(getInitialTempData)
+  const [timeSeriesData, setTimeSeriesData] = useState(getInitialTimeSeriesData)
+  
+  // Initialize on client side - set default to yesterday
+  useEffect(() => {
+    setQueryDate(getYesterdayDate())
+    setVoltageData(generateCellVoltages())
+    setTemperatureData(generateCellTemperatures())
+    setTimeSeriesData(generateTimeSeriesData())
+    setMounted(true)
+  }, [])
 
   const handleQuery = () => {
     setHasQueried(true)
@@ -72,23 +101,15 @@ export function BCUStatusQuery() {
         <h3 className="text-base font-semibold text-[#00d4aa]">BCU运行状态查询</h3>
       </div>
 
-      {/* Query Controls */}
+      {/* Query Controls - Single date only, default to yesterday */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-xs text-[#7b8ab8]">查询日期:</span>
         <div className="relative">
           <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
           <input
             type="date"
             value={queryDate}
             onChange={(e) => setQueryDate(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-sm focus:outline-none focus:border-[#00d4aa]"
-          />
-        </div>
-        <div className="relative">
-          <Clock className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
-          <input
-            type="time"
-            value={queryTime}
-            onChange={(e) => setQueryTime(e.target.value)}
             className="pl-8 pr-3 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-sm focus:outline-none focus:border-[#00d4aa]"
           />
         </div>
@@ -99,6 +120,7 @@ export function BCUStatusQuery() {
           <Search className="w-4 h-4" />
           查询
         </button>
+        <span className="text-xs text-[#7b8ab8]">(默认昨日)</span>
       </div>
 
       {/* Tab Navigation */}

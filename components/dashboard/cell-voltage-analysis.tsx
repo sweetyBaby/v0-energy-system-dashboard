@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts"
 import { Calendar, Search, Table, LineChartIcon } from "lucide-react"
 
@@ -19,16 +19,32 @@ const generateCellVoltageData = (days: number) => {
   return data
 }
 
-export function CellVoltageAnalysis() {
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
-  const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
-  const [data] = useState(() => generateCellVoltageData(15))
+// Static initial data for SSR
+const getInitialData = () => {
+  return Array.from({ length: 15 }, (_, i) => ({
+    day: `${i + 1}日`,
+    maxVoltage: "3.450",
+    minVoltage: "3.200",
+    avgVoltage: "3.320",
+  }))
+}
 
-  // Calculate statistics
-  const maxV = Math.max(...data.map(d => parseFloat(d.maxVoltage)))
-  const minV = Math.min(...data.map(d => parseFloat(d.minVoltage)))
-  const avgV = (data.reduce((sum, d) => sum + parseFloat(d.avgVoltage), 0) / data.length).toFixed(3)
+export function CellVoltageAnalysis() {
+  const [startDateTime, setStartDateTime] = useState("")
+  const [endDateTime, setEndDateTime] = useState("")
+  const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
+  const [data, setData] = useState(getInitialData)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setData(generateCellVoltageData(15))
+    setMounted(true)
+  }, [])
+
+  // Calculate statistics - use safe defaults if data is empty
+  const maxV = data.length > 0 ? Math.max(...data.map(d => parseFloat(d.maxVoltage))) : 3.45
+  const minV = data.length > 0 ? Math.min(...data.map(d => parseFloat(d.minVoltage))) : 3.2
+  const avgV = data.length > 0 ? (data.reduce((sum, d) => sum + parseFloat(d.avgVoltage), 0) / data.length).toFixed(3) : "3.32"
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4">
@@ -57,25 +73,27 @@ export function CellVoltageAnalysis() {
         </div>
       </div>
 
-      {/* Date Range Query */}
-      <div className="flex items-center gap-2 mb-4">
+      {/* Date Range Query with datetime */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="relative">
           <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
           <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-sm focus:outline-none focus:border-[#00d4aa]"
+            type="datetime-local"
+            step="1"
+            value={startDateTime}
+            onChange={(e) => setStartDateTime(e.target.value)}
+            className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
           />
         </div>
-        <span className="text-[#7b8ab8]">至</span>
+        <span className="text-[#7b8ab8] text-sm">至</span>
         <div className="relative">
           <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
           <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-sm focus:outline-none focus:border-[#00d4aa]"
+            type="datetime-local"
+            step="1"
+            value={endDateTime}
+            onChange={(e) => setEndDateTime(e.target.value)}
+            className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
           />
         </div>
         <button className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { Calendar, Search, Table, LineChartIcon } from "lucide-react"
 
@@ -18,11 +18,25 @@ const generateTempData = (days: number) => {
   return data
 }
 
+// Static initial data for SSR
+const getInitialData = () => {
+  return Array.from({ length: 15 }, (_, i) => ({
+    day: `${i + 1}日`,
+    maxTemp: "40.0",
+    minTemp: "24.0",
+    tempDiff: "12.0",
+  }))
+}
+
 export function TemperatureDifferenceAnalysis() {
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+  const [startDateTime, setStartDateTime] = useState("")
+  const [endDateTime, setEndDateTime] = useState("")
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
-  const [data] = useState(() => generateTempData(15))
+  const [data, setData] = useState(getInitialData)
+
+  useEffect(() => {
+    setData(generateTempData(15))
+  }, [])
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4">
@@ -52,25 +66,27 @@ export function TemperatureDifferenceAnalysis() {
         </div>
       </div>
 
-      {/* Date Range Query */}
-      <div className="flex items-center gap-2 mb-4">
+      {/* Date Range Query with datetime */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="relative">
           <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
           <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-sm focus:outline-none focus:border-[#00d4aa]"
+            type="datetime-local"
+            step="1"
+            value={startDateTime}
+            onChange={(e) => setStartDateTime(e.target.value)}
+            className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
           />
         </div>
-        <span className="text-[#7b8ab8]">至</span>
+        <span className="text-[#7b8ab8] text-sm">至</span>
         <div className="relative">
           <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
           <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-sm focus:outline-none focus:border-[#00d4aa]"
+            type="datetime-local"
+            step="1"
+            value={endDateTime}
+            onChange={(e) => setEndDateTime(e.target.value)}
+            className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
           />
         </div>
         <button className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors">
