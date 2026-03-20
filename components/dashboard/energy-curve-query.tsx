@@ -245,7 +245,7 @@ export function EnergyCurveQuery() {
   }
 
   return (
-    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4">
+    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full h-full">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
@@ -389,7 +389,7 @@ export function EnergyCurveQuery() {
       </div>
 
       {/* Combined Chart */}
-      <div className="h-72">
+      <div className="h-72 flex-1">
         {data.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
