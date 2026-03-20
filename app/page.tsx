@@ -6,8 +6,6 @@ import { ChargeDischargeTable } from "@/components/dashboard/charge-discharge-ta
 import { EfficiencyChart } from "@/components/dashboard/efficiency-chart"
 import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
 import { EnergyCurveQuery } from "@/components/dashboard/energy-curve-query"
-import { AnnualMonthlyChart } from "@/components/dashboard/annual-monthly-chart"
-import { MonthlyDailyChart } from "@/components/dashboard/monthly-daily-chart"
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
 import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysis"
@@ -32,23 +30,17 @@ export default function EnergyStorageDashboard() {
           </div>
         </div>
 
-        {/* Row 2: Power Curve + Energy Curve */}
+        {/* Row 2: Power Curve */}
         <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 lg:col-span-6">
+          <div className="col-span-12">
             <PowerCurveQuery />
-          </div>
-          <div className="col-span-12 lg:col-span-6">
-            <EnergyCurveQuery />
           </div>
         </div>
 
-        {/* Row 3: Annual Monthly + Monthly Daily */}
+        {/* Row 3: Energy Statistics (Combined Chart) */}
         <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 lg:col-span-6">
-            <AnnualMonthlyChart />
-          </div>
-          <div className="col-span-12 lg:col-span-6">
-            <MonthlyDailyChart />
+          <div className="col-span-12">
+            <EnergyCurveQuery />
           </div>
         </div>
 

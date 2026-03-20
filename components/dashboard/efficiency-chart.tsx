@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, Cell, LabelList, CartesianGrid, Tooltip } from "recharts"
 import { Calendar, Search } from "lucide-react"
 
@@ -36,11 +36,26 @@ const generateEfficiencyData = (type: string) => {
   }
 }
 
+// Generate initial static data for SSR
+const getInitialData = () => {
+  return Array.from({ length: 24 }, (_, i) => ({
+    time: `${i}:00`,
+    efficiency: 95,
+  }))
+}
+
 export function EfficiencyChart() {
   const [queryType, setQueryType] = useState<"yesterday" | "week" | "month" | "year" | "custom">("yesterday")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
-  const [data, setData] = useState(() => generateEfficiencyData("yesterday"))
+  const [data, setData] = useState(getInitialData)
+  const [mounted, setMounted] = useState(false)
+
+  // Generate random data only on client side
+  useEffect(() => {
+    setMounted(true)
+    setData(generateEfficiencyData("yesterday"))
+  }, [])
 
   const handleQueryTypeChange = (type: "yesterday" | "week" | "month" | "year" | "custom") => {
     setQueryType(type)
@@ -63,15 +78,33 @@ export function EfficiencyChart() {
   }
 
   // Calculate average efficiency
-  const avgEfficiency = data.reduce((sum, item) => sum + item.efficiency, 0) / data.length
+  const avgEfficiency = data.length > 0 
+    ? data.reduce((sum, item) => sum + item.efficiency, 0) / data.length 
+    : 95
 
-  // Summary data for circular indicators
+  // Summary data for circular indicators (static values)
   const summaryData = [
     { name: "昨日", value: 95.26, color: "#3b82f6" },
     { name: "本周", value: 94.56, color: "#22d3ee" },
     { name: "本月", value: 94.82, color: "#00d4aa" },
     { name: "本年", value: 95.18, color: "#f97316" },
   ]
+
+  // Show loading state during SSR/hydration
+  if (!mounted) {
+    return (
+      <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 h-full flex flex-col">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
+          <h3 className="text-base font-semibold text-[#00d4aa]">充放电效率</h3>
+          <span className="text-xs text-[#7b8ab8] ml-2">(%)</span>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <span className="text-[#7b8ab8] text-sm">加载中...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 h-full flex flex-col">
