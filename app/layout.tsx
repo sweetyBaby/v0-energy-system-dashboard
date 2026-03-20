@@ -7,7 +7,7 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: '独立储能电站能量云 - 储能系统数据大屏',
+  title: '储能数据监测云平台',
   description: '智能储能电站监控管理平台，实时监控储能系统运行状态',
   generator: 'v0.app',
   icons: {
