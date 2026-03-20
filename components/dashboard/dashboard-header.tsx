@@ -9,7 +9,7 @@ export const projects = [
     name: "金坛储能中心",
     ratedPower: "2.0 MW",
     ratedCapacity: "4.0 MWh",
-    commissioningDate: "2023-06-15",
+    commissioningDate: "2025-11-15",
     image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=200&fit=crop"
   },
   {
@@ -17,7 +17,7 @@ export const projects = [
     name: "鄂尔多斯",
     ratedPower: "5.0 MW",
     ratedCapacity: "10.0 MWh",
-    commissioningDate: "2024-03-20",
+    commissioningDate: "2025-11-20",
     image: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=200&fit=crop"
   },
 ]
