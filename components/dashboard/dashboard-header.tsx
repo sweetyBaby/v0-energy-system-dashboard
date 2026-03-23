@@ -8,6 +8,7 @@ export const projects = [
   {
     id: "jintan",
     name: "金坛储能中心",
+    nameEn: "Jintan Energy Storage Center",
     ratedPower: "2.0 MW",
     ratedCapacity: "4.0 MWh",
     commissioningDate: "2025-11-15",
@@ -16,6 +17,7 @@ export const projects = [
   {
     id: "ordos",
     name: "鄂尔多斯",
+    nameEn: "Ordos",
     ratedPower: "5.0 MW",
     ratedCapacity: "10.0 MWh",
     commissioningDate: "2025-11-20",
@@ -85,7 +87,7 @@ export function DashboardHeader() {
               onClick={() => setDropdownOpen(!dropdownOpen)}
               className="flex items-center gap-2 px-3 py-2 bg-[#1a2654] border border-[#3b82f6]/30 rounded-lg text-sm hover:border-[#00d4aa] transition-colors"
             >
-              <span className="text-[#e8f4fc]">{selectedProject.name}</span>
+              <span className="text-[#e8f4fc]">{language === "zh" ? selectedProject.name : selectedProject.nameEn}</span>
               <ChevronDown className={`w-4 h-4 text-[#7b8ab8] transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
             </button>
             {dropdownOpen && (
@@ -100,7 +102,7 @@ export function DashboardHeader() {
                     className={`w-full px-3 py-2 text-left text-sm hover:bg-[#1a2654] transition-colors ${selectedProject.id === project.id ? 'text-[#00d4aa] bg-[#1a2654]/50' : 'text-[#e8f4fc]'
                       }`}
                   >
-                    {project.name}
+                    {language === "zh" ? project.name : project.nameEn}
                   </button>
                 ))}
               </div>
@@ -128,7 +130,7 @@ export function DashboardHeader() {
           >
             <Globe className="w-4 h-4 text-[#00d4aa]" />
             <span className="text-sm text-[#e8f4fc] font-medium">
-              {language === "zh" ? "EN" : "中文"}
+              {language === "zh" ? "中文" : "EN"}
             </span>
           </button>
           

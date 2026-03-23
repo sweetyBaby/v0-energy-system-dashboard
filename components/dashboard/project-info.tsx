@@ -6,7 +6,7 @@ import { useLanguage } from "@/components/language-provider"
 
 export function ProjectInfo() {
   const { selectedProject } = useProject()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 h-full">
@@ -20,12 +20,12 @@ export function ProjectInfo() {
         <div className="relative rounded-lg overflow-hidden h-32">
           <img
             src={selectedProject.image}
-            alt={selectedProject.name}
+            alt={language === "zh" ? selectedProject.name : selectedProject.nameEn}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0d1233]/80 to-transparent" />
           <div className="absolute bottom-2 left-2 text-sm font-medium">
-            {selectedProject.name}
+            {language === "zh" ? selectedProject.name : selectedProject.nameEn}
           </div>
         </div>
 
