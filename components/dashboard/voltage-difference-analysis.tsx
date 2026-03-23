@@ -6,11 +6,11 @@ import { Calendar, Search, Table, LineChartIcon } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 // Generate voltage difference data
-const generateVoltageData = (days: number) => {
+const generateVoltageData = (days: number, language: string) => {
   const data = []
   for (let i = 1; i <= days; i++) {
     data.push({
-      day: `${i}日`,
+      day: language === "zh" ? `${i}日` : `Day ${i}`,
       maxDiff: (20 + Math.random() * 30).toFixed(1),
       avgDiff: (10 + Math.random() * 15).toFixed(1),
       minDiff: (5 + Math.random() * 8).toFixed(1),
@@ -20,9 +20,9 @@ const generateVoltageData = (days: number) => {
 }
 
 // Static initial data for SSR
-const getInitialData = () => {
+const getInitialData = (language: string) => {
   return Array.from({ length: 15 }, (_, i) => ({
-    day: `${i + 1}日`,
+    day: language === "zh" ? `${i + 1}日` : `Day ${i + 1}`,
     maxDiff: "35.0",
     avgDiff: "18.0",
     minDiff: "8.0",
@@ -57,15 +57,15 @@ export function VoltageDifferenceAnalysis() {
   const [startDateTime, setStartDateTime] = useState("")
   const [endDateTime, setEndDateTime] = useState("")
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
-  const [data, setData] = useState(getInitialData)
+  const [data, setData] = useState(() => getInitialData("zh"))
   const { t, language } = useLanguage()
 
   useEffect(() => {
-    setData(generateVoltageData(15))
+    setData(generateVoltageData(15, language))
     const { start, end } = getYesterdayRange()
     setStartDateTime(start)
     setEndDateTime(end)
-  }, [])
+  }, [language])
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4">
@@ -160,7 +160,7 @@ export function VoltageDifferenceAnalysis() {
           </ResponsiveContainer>
         </div>
       ) : (
-        <div className="h-56 overflow-auto">
+        <div className="h-56 overflow-auto custom-scrollbar">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-[#0d1233]">
               <tr className="text-[#7b8ab8] border-b border-[#1a2654]">

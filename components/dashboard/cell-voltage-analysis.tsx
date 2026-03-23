@@ -6,12 +6,12 @@ import { Calendar, Search, Table, LineChartIcon } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 // Generate cell voltage data
-const generateCellVoltageData = (days: number) => {
+const generateCellVoltageData = (days: number, language: string) => {
   const data = []
   for (let i = 1; i <= days; i++) {
     const base = 3.2 + Math.random() * 0.4
     data.push({
-      day: `${i}日`,
+      day: language === "zh" ? `${i}日` : `Day ${i}`,
       maxVoltage: (base + 0.15 + Math.random() * 0.1).toFixed(3),
       minVoltage: (base - 0.05 - Math.random() * 0.1).toFixed(3),
       avgVoltage: base.toFixed(3),
@@ -21,9 +21,9 @@ const generateCellVoltageData = (days: number) => {
 }
 
 // Static initial data for SSR
-const getInitialData = () => {
+const getInitialData = (language: string) => {
   return Array.from({ length: 15 }, (_, i) => ({
-    day: `${i + 1}日`,
+    day: language === "zh" ? `${i + 1}日` : `Day ${i + 1}`,
     maxVoltage: "3.450",
     minVoltage: "3.200",
     avgVoltage: "3.320",
@@ -58,17 +58,17 @@ export function CellVoltageAnalysis() {
   const [startDateTime, setStartDateTime] = useState("")
   const [endDateTime, setEndDateTime] = useState("")
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
-  const [data, setData] = useState(getInitialData)
+  const [data, setData] = useState(() => getInitialData("zh"))
   const [mounted, setMounted] = useState(false)
   const { t, language } = useLanguage()
 
   useEffect(() => {
-    setData(generateCellVoltageData(15))
+    setData(generateCellVoltageData(15, language))
     setMounted(true)
     const { start, end } = getYesterdayRange()
     setStartDateTime(start)
     setEndDateTime(end)
-  }, [])
+  }, [language])
 
   // Calculate statistics - use safe defaults if data is empty
   const maxV = data.length > 0 ? Math.max(...data.map(d => parseFloat(d.maxVoltage))) : 3.45
@@ -76,7 +76,7 @@ export function CellVoltageAnalysis() {
   const avgV = data.length > 0 ? (data.reduce((sum, d) => sum + parseFloat(d.avgVoltage), 0) / data.length).toFixed(3) : "3.32"
 
   return (
-    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full">
+    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full h-[540px]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
@@ -148,7 +148,7 @@ export function CellVoltageAnalysis() {
       </div>
 
       {viewMode === "chart" ? (
-        <div className="h-64 flex-1">
+        <div className="flex-1">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
@@ -186,7 +186,7 @@ export function CellVoltageAnalysis() {
           </ResponsiveContainer>
         </div>
       ) : (
-        <div className="h-64 flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto custom-scrollbar">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-[#0d1233]">
               <tr className="text-[#7b8ab8] border-b border-[#1a2654]">

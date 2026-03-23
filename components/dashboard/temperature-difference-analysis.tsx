@@ -6,11 +6,11 @@ import { Calendar, Search, Table, LineChartIcon } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 // Generate temperature difference data
-const generateTempData = (days: number) => {
+const generateTempData = (days: number, language: string) => {
   const data = []
   for (let i = 1; i <= days; i++) {
     data.push({
-      day: `${i}日`,
+      day: language === "zh" ? `${i}日` : `Day ${i}`,
       maxTemp: (35 + Math.random() * 10).toFixed(1),
       minTemp: (20 + Math.random() * 8).toFixed(1),
       tempDiff: (8 + Math.random() * 7).toFixed(1),
@@ -20,9 +20,9 @@ const generateTempData = (days: number) => {
 }
 
 // Static initial data for SSR
-const getInitialData = () => {
+const getInitialData = (language: string) => {
   return Array.from({ length: 15 }, (_, i) => ({
-    day: `${i + 1}日`,
+    day: language === "zh" ? `${i + 1}日` : `Day ${i + 1}`,
     maxTemp: "40.0",
     minTemp: "24.0",
     tempDiff: "12.0",
@@ -57,15 +57,15 @@ export function TemperatureDifferenceAnalysis() {
   const [startDateTime, setStartDateTime] = useState("")
   const [endDateTime, setEndDateTime] = useState("")
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
-  const [data, setData] = useState(getInitialData)
+  const [data, setData] = useState(() => getInitialData("zh"))
   const { t, language } = useLanguage()
 
   useEffect(() => {
-    setData(generateTempData(15))
+    setData(generateTempData(15, language))
     const { start, end } = getYesterdayRange()
     setStartDateTime(start)
     setEndDateTime(end)
-  }, [])
+  }, [language])
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4">
@@ -159,7 +159,7 @@ export function TemperatureDifferenceAnalysis() {
           </ResponsiveContainer>
         </div>
       ) : (
-        <div className="h-56 overflow-auto">
+        <div className="h-56 overflow-auto custom-scrollbar">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-[#0d1233]">
               <tr className="text-[#7b8ab8] border-b border-[#1a2654]">
