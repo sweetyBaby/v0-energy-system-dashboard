@@ -247,20 +247,20 @@ export function BCUStatusQuery() {
           {activeTab === "voltage" && (
             <>
               {/* Voltage Stats */}
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+              <div className="grid grid-cols-4 gap-1 mb-2">
+                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
                   <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "平均电压" : "Avg Voltage"}</div>
                   <div className="text-sm font-bold text-[#22d3ee] font-mono">{avgVoltage.toFixed(3)}V</div>
                 </div>
-                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
                   <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最大电压" : "Max Voltage"}</div>
                   <div className="text-sm font-bold text-[#f97316] font-mono">{maxVoltage.toFixed(3)}V</div>
                 </div>
-                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
                   <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最小电压" : "Min Voltage"}</div>
                   <div className="text-sm font-bold text-[#3b82f6] font-mono">{minVoltage.toFixed(3)}V</div>
                 </div>
-                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
                   <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "压差" : "Diff"}</div>
                   <div className="text-sm font-bold text-[#00d4aa] font-mono">{((maxVoltage - minVoltage) * 1000).toFixed(1)}mV</div>
                 </div>
@@ -269,7 +269,7 @@ export function BCUStatusQuery() {
               {/* Cell Voltage Scatter Chart */}
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                  <ScatterChart margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
                     <XAxis
                       type="number"
@@ -317,27 +317,27 @@ export function BCUStatusQuery() {
           {activeTab === "temperature" && (
             <>
               {/* Temperature Stats */}
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+              <div className="grid grid-cols-4 gap-1 mb-2">
+                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
                   <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "平均温度" : "Avg Temp"}</div>
                   <div className="text-sm font-bold text-[#22d3ee] font-mono">{avgTemp.toFixed(1)}°C</div>
                 </div>
-                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
                   <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最高温度" : "Max Temp"}</div>
                   <div className="text-sm font-bold text-[#f97316] font-mono">{maxTemp.toFixed(1)}°C</div>
                 </div>
-                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
                   <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最低温度" : "Min Temp"}</div>
                   <div className="text-sm font-bold text-[#3b82f6] font-mono">{minTemp.toFixed(1)}°C</div>
                 </div>
-                <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
+                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
                   <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "温差" : "Diff"}</div>
                   <div className="text-sm font-bold text-[#00d4aa] font-mono">{(maxTemp - minTemp).toFixed(1)}°C</div>
                 </div>
               </div>
 
               {/* Cell Temperature Scatter Chart */}
-              <div className="h-64">
+              <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
@@ -374,7 +374,7 @@ export function BCUStatusQuery() {
                       }}
                     />
                     <Legend
-                      wrapperStyle={{ paddingTop: "20px" }}
+                      wrapperStyle={{ paddingTop: "25px" }}
                       formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>}
                     />
                     <Scatter
