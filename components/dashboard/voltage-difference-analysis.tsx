@@ -160,7 +160,7 @@ export function VoltageDifferenceAnalysis() {
           </ResponsiveContainer>
         </div>
       ) : (
-        <div className="h-56 overflow-auto">
+        <div className="h-56 overflow-auto custom-scrollbar">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-[#0d1233]">
               <tr className="text-[#7b8ab8] border-b border-[#1a2654]">
