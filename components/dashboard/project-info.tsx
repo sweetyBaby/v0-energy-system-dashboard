@@ -1,6 +1,6 @@
 "use client"
 
-import { Battery, Zap, Calendar } from "lucide-react"
+import { Battery, Zap, Calendar, MapPin } from "lucide-react"
 import { useProject } from "./dashboard-header"
 import { useLanguage } from "@/components/language-provider"
 
@@ -23,15 +23,21 @@ export function ProjectInfo() {
             alt={language === "zh" ? selectedProject.name : selectedProject.nameEn}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0d1233]/80 to-transparent" />
-          <div className="absolute bottom-2 left-2 text-sm font-medium">
-            {language === "zh" ? selectedProject.name : selectedProject.nameEn}
-          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0d1233]/40 to-transparent" />
         </div>
 
         {/* Project Details Table */}
         <table className="w-full text-sm">
           <tbody>
+            <tr className="border-b border-[#1a2654]">
+              <td className="py-2 text-[#7b8ab8] flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[#00d4aa]" />
+                {t("site")}
+              </td>
+              <td className="py-2 text-right font-mono text-[#00d4aa]">
+                {language === "zh" ? selectedProject.name : selectedProject.nameEn}
+              </td>
+            </tr>
             <tr className="border-b border-[#1a2654]">
               <td className="py-2 text-[#7b8ab8] flex items-center gap-2">
                 <Zap className="w-4 h-4 text-[#f97316]" />

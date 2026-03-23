@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import {
   ComposedChart,
   Bar,
@@ -124,12 +124,14 @@ const formatDateTimeLocal = (date: Date) => {
 }
 
 export function EnergyCurveQuery() {
-  const [timeRange, setTimeRange] = useState<TimeRange>("week")
+  const [timeRange, setTimeRange] = useState<TimeRange>("month")
   const [unitType, setUnitType] = useState<"kWh" | "MWh">("kWh")
   const [mounted, setMounted] = useState(false)
   const [data, setData] = useState<DataPoint[]>([])
   const { t, language } = useLanguage()
-  
+  const languageRef = useRef(language)
+  languageRef.current = language
+
   // Custom date range state
   const [customStart, setCustomStart] = useState("")
   const [customEnd, setCustomEnd] = useState("")
@@ -137,37 +139,84 @@ export function EnergyCurveQuery() {
   const [appliedEnd, setAppliedEnd] = useState<Date | null>(null)
   const [customError, setCustomError] = useState<string | null>(null)
 
-  // Initialize on client side only - default to yesterday
+  // Initialize on client side only - default to today
   useEffect(() => {
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    
-    const defaultStart = new Date(yesterday)
+    const today = new Date()
+
+    const defaultStart = new Date(today)
     defaultStart.setHours(0, 0, 0, 0)
-    
-    const defaultEnd = new Date(yesterday)
+
+    const defaultEnd = new Date(today)
     defaultEnd.setHours(23, 59, 59, 0)
-    
+
     setCustomStart(formatDateTimeLocal(defaultStart))
     setCustomEnd(formatDateTimeLocal(defaultEnd))
     
-    // Generate initial data for "week"
-    setData(generateWeeklyData())
+    // Generate initial data for "month"
+    const now = new Date()
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+    const monthData: DataPoint[] = []
+    let d = new Date(firstDay)
+    while (d <= now) {
+      monthData.push({
+        label: `${d.getDate()}`,
+        charge: Math.round(1500 + Math.random() * 1000),
+        discharge: Math.round(1400 + Math.random() * 950),
+      })
+      d.setDate(d.getDate() + 1)
+    }
+    setData(monthData)
     setMounted(true)
   }, [])
 
   // Regenerate data when time range changes (only on client)
   useEffect(() => {
     if (!mounted) return
-    
+
+    const monthNamesEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
     if (timeRange === "week") {
-      setData(generateWeeklyData())
+      // Last 7 days
+      const today = new Date()
+      const data: DataPoint[] = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(today)
+        d.setDate(today.getDate() - 6 + i)
+        return {
+          label: `${d.getMonth() + 1}/${d.getDate()}`,
+          charge: Math.round(1500 + Math.random() * 1000),
+          discharge: Math.round(1400 + Math.random() * 950),
+        }
+      })
+      setData(data)
     } else if (timeRange === "month") {
+      // From 1st of this month to today
       const now = new Date()
-      const daysInMonth = getDaysInMonth(now.getFullYear(), now.getMonth())
-      setData(generateDailyData(daysInMonth))
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+      const data: DataPoint[] = []
+      let date = new Date(firstDay)
+      while (date <= now) {
+        data.push({
+          label: languageRef.current === "zh" ? `${date.getDate()}日` : `${date.getDate()}`,
+          charge: Math.round(1500 + Math.random() * 1000),
+          discharge: Math.round(1400 + Math.random() * 950),
+        })
+        date.setDate(date.getDate() + 1)
+      }
+      setData(data)
     } else if (timeRange === "year") {
-      setData(generateMonthlyData())
+      // From 1st Jan to current month
+      const now = new Date()
+      const data: DataPoint[] = []
+      let date = new Date(now.getFullYear(), 0, 1)
+      while (date.getMonth() <= now.getMonth()) {
+        data.push({
+          label: languageRef.current === "zh" ? `${date.getMonth() + 1}月` : monthNamesEn[date.getMonth()],
+          charge: Math.round(40000 + Math.random() * 25000),
+          discharge: Math.round(38000 + Math.random() * 24000),
+        })
+        date.setMonth(date.getMonth() + 1)
+      }
+      setData(data)
     } else if (timeRange === "custom") {
       if (appliedStart && appliedEnd) {
         setData(generateCustomRangeData(appliedStart, appliedEnd))
@@ -186,6 +235,13 @@ export function EnergyCurveQuery() {
     
     const start = new Date(customStart)
     const end = new Date(customEnd)
+    const today = new Date()
+    today.setHours(23, 59, 59, 0)
+    
+    if (end > today) {
+      setCustomError(language === "zh" ? "结束日期不能超过当前日期" : "End date cannot be later than today")
+      return false
+    }
     
     if (start >= end) {
       setCustomError(t("endTimeMustBeLater"))
@@ -200,7 +256,7 @@ export function EnergyCurveQuery() {
     
     setCustomError(null)
     return true
-  }, [customStart, customEnd, t])
+  }, [customStart, customEnd, t, language])
 
   // Handle search button click
   const handleSearch = useCallback(() => {

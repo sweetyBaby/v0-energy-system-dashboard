@@ -22,6 +22,7 @@ export const translations: Translations = {
   "ratedPower": { zh: "额定功率", en: "Rated Power" },
   "ratedCapacity": { zh: "额定容量", en: "Rated Capacity" },
   "commissioningDate": { zh: "并网时间", en: "Commissioning Date" },
+  "site": { zh: "站点", en: "Site" },
 
   // Charge/Discharge
   "chargeDischargeStats": { zh: "充放电电量统计", en: "Charge/Discharge Statistics" },
@@ -31,7 +32,7 @@ export const translations: Translations = {
   "dischargeBar": { zh: "放电量(柱状)", en: "Discharge (Bar)" },
   "chargeLine": { zh: "充电量(曲线)", en: "Charge (Line)" },
   "dischargeLine": { zh: "放电量(曲线)", en: "Discharge (Line)" },
-  "thisWeek": { zh: "本周", en: "This Week" },
+  "thisWeek": { zh: "近7天", en: "Last 7 Days" },
   "thisMonth": { zh: "本月", en: "This Month" },
   "thisYear": { zh: "本年", en: "This Year" },
   "custom": { zh: "自定义", en: "Custom" },
