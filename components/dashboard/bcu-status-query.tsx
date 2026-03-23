@@ -267,9 +267,9 @@ export function BCUStatusQuery() {
               </div>
 
               {/* Cell Voltage Scatter Chart */}
-              <div className="h-64">
+              <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                  <ScatterChart margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
                     <XAxis
                       type="number"

@@ -129,7 +129,7 @@ const LanguageContext = createContext<LanguageContextType>({
 export const useLanguage = () => useContext(LanguageContext)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>("zh")
+  const [language, setLanguage] = useState<Language>("en")
 
   const t = (key: string): string => {
     if (translations[key]) {
