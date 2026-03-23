@@ -1,12 +1,14 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect } from "react"
-import { Zap, Bell, Settings, ChevronDown } from "lucide-react"
+import { Zap, Bell, Settings, ChevronDown, Globe } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
 
 export const projects = [
   {
     id: "jintan",
     name: "金坛储能中心",
+    nameEn: "Jintan Energy Storage Center",
     ratedPower: "2.0 MW",
     ratedCapacity: "4.0 MWh",
     commissioningDate: "2025-11-15",
@@ -15,6 +17,7 @@ export const projects = [
   {
     id: "ordos",
     name: "鄂尔多斯",
+    nameEn: "Ordos",
     ratedPower: "5.0 MW",
     ratedCapacity: "10.0 MWh",
     commissioningDate: "2025-11-20",
@@ -49,6 +52,7 @@ export function DashboardHeader() {
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const { selectedProject, setSelectedProject } = useProject()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const { language, setLanguage, t } = useLanguage()
 
   useEffect(() => {
     setCurrentTime(new Date())
@@ -83,7 +87,7 @@ export function DashboardHeader() {
               onClick={() => setDropdownOpen(!dropdownOpen)}
               className="flex items-center gap-2 px-3 py-2 bg-[#1a2654] border border-[#3b82f6]/30 rounded-lg text-sm hover:border-[#00d4aa] transition-colors"
             >
-              <span className="text-[#e8f4fc]">{selectedProject.name}</span>
+              <span className="text-[#e8f4fc]">{language === "zh" ? selectedProject.name : selectedProject.nameEn}</span>
               <ChevronDown className={`w-4 h-4 text-[#7b8ab8] transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
             </button>
             {dropdownOpen && (
@@ -98,7 +102,7 @@ export function DashboardHeader() {
                     className={`w-full px-3 py-2 text-left text-sm hover:bg-[#1a2654] transition-colors ${selectedProject.id === project.id ? 'text-[#00d4aa] bg-[#1a2654]/50' : 'text-[#e8f4fc]'
                       }`}
                   >
-                    {project.name}
+                    {language === "zh" ? project.name : project.nameEn}
                   </button>
                 ))}
               </div>
@@ -109,7 +113,7 @@ export function DashboardHeader() {
         {/* Center: Title */}
         <div className="absolute left-1/2 -translate-x-1/2 text-center">
           <h1 className="text-2xl font-bold tracking-wider bg-gradient-to-r from-[#00d4aa] via-[#22d3ee] to-[#00d4aa] bg-clip-text text-transparent">
-            储能数据监测
+            {t("energyMonitoring")}
           </h1>
         </div>
 
@@ -118,6 +122,18 @@ export function DashboardHeader() {
           <span className="text-sm text-[#7b8ab8] font-mono">
             {currentTime ? formatDate(currentTime) : "----/--/-- --:--:--"}
           </span>
+          
+          {/* Language Toggle */}
+          <button
+            onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a2654] hover:bg-[#1a2654]/80 border border-[#3b82f6]/30 transition-colors"
+          >
+            <Globe className="w-4 h-4 text-[#00d4aa]" />
+            <span className="text-sm text-[#e8f4fc] font-medium">
+              {language === "zh" ? "中文" : "EN"}
+            </span>
+          </button>
+          
           <button className="p-2 rounded-lg hover:bg-[#1a2654] transition-colors">
             <Bell className="w-5 h-5 text-[#7b8ab8]" />
           </button>

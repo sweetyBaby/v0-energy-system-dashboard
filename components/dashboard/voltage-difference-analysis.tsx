@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { Calendar, Search, Table, LineChartIcon } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
 
 // Generate voltage difference data
 const generateVoltageData = (days: number) => {
@@ -57,6 +58,7 @@ export function VoltageDifferenceAnalysis() {
   const [endDateTime, setEndDateTime] = useState("")
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
   const [data, setData] = useState(getInitialData)
+  const { t, language } = useLanguage()
 
   useEffect(() => {
     setData(generateVoltageData(15))
@@ -70,7 +72,7 @@ export function VoltageDifferenceAnalysis() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">电芯电压压差分析</h3>
+          <h3 className="text-base font-semibold text-[#00d4aa]">{t("voltageDiffAnalysis")}</h3>
 
 
         </div>
@@ -104,7 +106,7 @@ export function VoltageDifferenceAnalysis() {
             className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
           />
         </div>
-        <span className="text-[#7b8ab8] text-sm">至</span>
+        <span className="text-[#7b8ab8] text-sm">{t("to")}</span>
         <div className="relative">
           <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
           <input
@@ -117,7 +119,7 @@ export function VoltageDifferenceAnalysis() {
         </div>
         <button className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors">
           <Search className="w-4 h-4" />
-          查询
+          {t("search")}
         </button>
       </div>
 
@@ -151,9 +153,9 @@ export function VoltageDifferenceAnalysis() {
                 wrapperStyle={{ paddingTop: "10px" }}
                 formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
               />
-              <Line type="monotone" dataKey="maxDiff" name="最大压差" stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} />
-              <Line type="monotone" dataKey="avgDiff" name="平均压差" stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} />
-              <Line type="monotone" dataKey="minDiff" name="最小压差" stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} />
+              <Line type="monotone" dataKey="maxDiff" name={language === "zh" ? "最大压差" : "Max Diff"} stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} />
+              <Line type="monotone" dataKey="avgDiff" name={language === "zh" ? "平均压差" : "Avg Diff"} stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} />
+              <Line type="monotone" dataKey="minDiff" name={language === "zh" ? "最小压差" : "Min Diff"} stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -162,10 +164,10 @@ export function VoltageDifferenceAnalysis() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-[#0d1233]">
               <tr className="text-[#7b8ab8] border-b border-[#1a2654]">
-                <th className="py-2 px-2 text-left">日期</th>
-                <th className="py-2 px-2 text-right">最大压差(mV)</th>
-                <th className="py-2 px-2 text-right">平均压差(mV)</th>
-                <th className="py-2 px-2 text-right">最小压差(mV)</th>
+                <th className="py-2 px-2 text-left">{t("date")}</th>
+                <th className="py-2 px-2 text-right">{language === "zh" ? "最大压差(mV)" : "Max Diff (mV)"}</th>
+                <th className="py-2 px-2 text-right">{language === "zh" ? "平均压差(mV)" : "Avg Diff (mV)"}</th>
+                <th className="py-2 px-2 text-right">{language === "zh" ? "最小压差(mV)" : "Min Diff (mV)"}</th>
               </tr>
             </thead>
             <tbody>

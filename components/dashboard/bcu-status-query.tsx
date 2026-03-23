@@ -6,6 +6,7 @@ import {
   ScatterChart, Scatter, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, ZAxis
 } from "recharts"
+import { useLanguage } from "@/components/language-provider"
 
 // Generate mock cell voltage data for 50 cells
 const generateCellVoltages = () => {
@@ -67,6 +68,7 @@ export function BCUStatusQuery() {
   const [hasQueried, setHasQueried] = useState(true)
   const [activeTab, setActiveTab] = useState<"overview" | "voltage" | "temperature">("temperature")
   const [mounted, setMounted] = useState(false)
+  const { t, language } = useLanguage()
 
   const [voltageData, setVoltageData] = useState(getInitialVoltageData)
   const [temperatureData, setTemperatureData] = useState(getInitialTempData)
@@ -98,12 +100,12 @@ export function BCUStatusQuery() {
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full">
       <div className="flex items-center gap-2 mb-4">
         <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-        <h3 className="text-base font-semibold text-[#00d4aa]">BCU运行状态查询</h3>
+        <h3 className="text-base font-semibold text-[#00d4aa]">{t("bcuStatusQuery")}</h3>
       </div>
 
       {/* Query Controls - Single date only, default to yesterday */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <span className="text-xs text-[#7b8ab8]">查询日期:</span>
+        <span className="text-xs text-[#7b8ab8]">{language === "zh" ? "查询日期:" : "Query Date:"}</span>
         <div className="relative">
           <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
           <input
@@ -118,7 +120,7 @@ export function BCUStatusQuery() {
           className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors"
         >
           <Search className="w-4 h-4" />
-          查询
+          {t("search")}
         </button>
       </div>
 
@@ -127,29 +129,29 @@ export function BCUStatusQuery() {
         <button
           onClick={() => setActiveTab("temperature")}
           className={`px-3 py-1.5 text-sm rounded-md transition-all ${activeTab === "temperature"
-              ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
-              : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+            ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
+            : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
         >
-          电芯温度
+          {language === "zh" ? "电芯温度" : "Cell Temp"}
         </button>
         <button
           onClick={() => setActiveTab("voltage")}
           className={`px-3 py-1.5 text-sm rounded-md transition-all ${activeTab === "voltage"
-              ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
-              : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+            ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
+            : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
         >
-          电芯电压
+          {language === "zh" ? "电芯电压" : "Cell Voltage"}
         </button>
         <button
           onClick={() => setActiveTab("overview")}
           className={`px-3 py-1.5 text-sm rounded-md transition-all ${activeTab === "overview"
-              ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
-              : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+            ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
+            : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
         >
-          组电压/电流/SOC
+          {language === "zh" ? "组电压/电流/SOC" : "Voltage/Current/SOC"}
         </button>
 
 
@@ -213,7 +215,7 @@ export function BCUStatusQuery() {
                       yAxisId="voltage"
                       type="monotone"
                       dataKey="voltage"
-                      name="组电压(V)"
+                      name={language === "zh" ? "组电压(V)" : "Voltage (V)"}
                       stroke="#3b82f6"
                       strokeWidth={2}
                       dot={false}
@@ -222,7 +224,7 @@ export function BCUStatusQuery() {
                       yAxisId="current"
                       type="monotone"
                       dataKey="current"
-                      name="电流(A)"
+                      name={language === "zh" ? "电流(A)" : "Current (A)"}
                       stroke="#f97316"
                       strokeWidth={2}
                       dot={false}
@@ -247,19 +249,19 @@ export function BCUStatusQuery() {
               {/* Voltage Stats */}
               <div className="grid grid-cols-4 gap-2 mb-3">
                 <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
-                  <div className="text-xs text-[#7b8ab8]">平均电压</div>
+                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "平均电压" : "Avg Voltage"}</div>
                   <div className="text-sm font-bold text-[#22d3ee] font-mono">{avgVoltage.toFixed(3)}V</div>
                 </div>
                 <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
-                  <div className="text-xs text-[#7b8ab8]">最大电压</div>
+                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最大电压" : "Max Voltage"}</div>
                   <div className="text-sm font-bold text-[#f97316] font-mono">{maxVoltage.toFixed(3)}V</div>
                 </div>
                 <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
-                  <div className="text-xs text-[#7b8ab8]">最小电压</div>
+                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最小电压" : "Min Voltage"}</div>
                   <div className="text-sm font-bold text-[#3b82f6] font-mono">{minVoltage.toFixed(3)}V</div>
                 </div>
                 <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
-                  <div className="text-xs text-[#7b8ab8]">压差</div>
+                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "压差" : "Diff"}</div>
                   <div className="text-sm font-bold text-[#00d4aa] font-mono">{((maxVoltage - minVoltage) * 1000).toFixed(1)}mV</div>
                 </div>
               </div>
@@ -277,7 +279,7 @@ export function BCUStatusQuery() {
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                      label={{ value: '电芯编号', position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
+                      label={{ value: t('cellNumber'), position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
                     />
                     <YAxis
                       type="number"
@@ -317,19 +319,19 @@ export function BCUStatusQuery() {
               {/* Temperature Stats */}
               <div className="grid grid-cols-4 gap-2 mb-3">
                 <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
-                  <div className="text-xs text-[#7b8ab8]">平均温度</div>
+                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "平均温度" : "Avg Temp"}</div>
                   <div className="text-sm font-bold text-[#22d3ee] font-mono">{avgTemp.toFixed(1)}°C</div>
                 </div>
                 <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
-                  <div className="text-xs text-[#7b8ab8]">最高温度</div>
+                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最高温度" : "Max Temp"}</div>
                   <div className="text-sm font-bold text-[#f97316] font-mono">{maxTemp.toFixed(1)}°C</div>
                 </div>
                 <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
-                  <div className="text-xs text-[#7b8ab8]">最低温度</div>
+                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最低温度" : "Min Temp"}</div>
                   <div className="text-sm font-bold text-[#3b82f6] font-mono">{minTemp.toFixed(1)}°C</div>
                 </div>
                 <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
-                  <div className="text-xs text-[#7b8ab8]">温差</div>
+                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "温差" : "Diff"}</div>
                   <div className="text-sm font-bold text-[#00d4aa] font-mono">{(maxTemp - minTemp).toFixed(1)}°C</div>
                 </div>
               </div>
@@ -347,7 +349,7 @@ export function BCUStatusQuery() {
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                      label={{ value: '电芯编号', position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
+                      label={{ value: t('cellNumber'), position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
                     />
                     <YAxis
                       type="number"

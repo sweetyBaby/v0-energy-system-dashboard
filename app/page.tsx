@@ -10,11 +10,13 @@ import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-differ
 import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
 import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysis"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
+import { LanguageProvider } from "@/components/language-provider"
 
 export default function EnergyStorageDashboard() {
   return (
-    <ProjectProvider>
-      <div className="min-h-screen bg-[#0a0e27] text-[#e8f4fc]">
+    <LanguageProvider>
+      <ProjectProvider>
+        <div className="min-h-screen bg-[#0a0e27] text-[#e8f4fc]">
         <DashboardHeader />
 
         <main className="p-4 space-y-4">
@@ -62,7 +64,8 @@ export default function EnergyStorageDashboard() {
 
           </div>
         </main>
-      </div>
-    </ProjectProvider>
+        </div>
+      </ProjectProvider>
+    </LanguageProvider>
   )
 }
