@@ -129,8 +129,8 @@ export function BCUStatusQuery() {
         <button
           onClick={() => setActiveTab("temperature")}
           className={`px-3 py-1.5 text-sm rounded-md transition-all ${activeTab === "temperature"
-              ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
-              : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+            ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
+            : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
         >
           {language === "zh" ? "电芯温度" : "Cell Temp"}
@@ -138,8 +138,8 @@ export function BCUStatusQuery() {
         <button
           onClick={() => setActiveTab("voltage")}
           className={`px-3 py-1.5 text-sm rounded-md transition-all ${activeTab === "voltage"
-              ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
-              : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+            ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
+            : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
         >
           {language === "zh" ? "电芯电压" : "Cell Voltage"}
@@ -147,8 +147,8 @@ export function BCUStatusQuery() {
         <button
           onClick={() => setActiveTab("overview")}
           className={`px-3 py-1.5 text-sm rounded-md transition-all ${activeTab === "overview"
-              ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
-              : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+            ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
+            : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
         >
           {language === "zh" ? "组电压/电流/SOC" : "Voltage/Current/SOC"}
@@ -279,7 +279,7 @@ export function BCUStatusQuery() {
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                      label={{ value: '电芯编号', position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
+                      label={{ value: t('cellNumber'), position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
                     />
                     <YAxis
                       type="number"
@@ -349,7 +349,7 @@ export function BCUStatusQuery() {
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                      label={{ value: '电芯编号', position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
+                      label={{ value: t('cellNumber'), position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
                     />
                     <YAxis
                       type="number"

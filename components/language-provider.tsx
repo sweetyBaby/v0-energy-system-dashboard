@@ -16,13 +16,13 @@ export const translations: Translations = {
   // Header
   "energyMonitoring": { zh: "储能数据监测", en: "Energy Storage Monitoring" },
   "enterSystem": { zh: "进入系统", en: "Enter System" },
-  
+
   // Project Info
   "projectInfo": { zh: "项目信息", en: "Project Info" },
   "ratedPower": { zh: "额定功率", en: "Rated Power" },
   "ratedCapacity": { zh: "额定容量", en: "Rated Capacity" },
   "commissioningDate": { zh: "并网时间", en: "Commissioning Date" },
-  
+
   // Charge/Discharge
   "chargeDischargeStats": { zh: "充放电电量统计", en: "Charge/Discharge Statistics" },
   "chargeAmount": { zh: "充电量", en: "Charge" },
@@ -43,7 +43,7 @@ export const translations: Translations = {
   "selectCompleteDateRange": { zh: "请选择完整的日期范围", en: "Please select complete date range" },
   "endTimeMustBeLater": { zh: "结束时间必须大于开始时间", en: "End time must be later than start time" },
   "maxOneMonth": { zh: "自定义日期范围最多为一个月", en: "Custom date range cannot exceed one month" },
-  
+
   // Power Curve
   "powerCurveQuery": { zh: "功率曲线查询", en: "Power Curve Query" },
   "chargePower": { zh: "充电功率", en: "Charge Power" },
@@ -51,26 +51,26 @@ export const translations: Translations = {
   "today": { zh: "今日", en: "Today" },
   "yesterday": { zh: "昨日", en: "Yesterday" },
   "selectDate": { zh: "选择日期", en: "Select Date" },
-  
+
   // Efficiency
   "chargeDischargeEfficiency": { zh: "充放电效率", en: "Charge/Discharge Efficiency" },
   "efficiency": { zh: "效率", en: "Efficiency" },
   "avgEfficiency": { zh: "平均效率", en: "Avg Efficiency" },
-  
+
   // Voltage Analysis
   "voltageDiffAnalysis": { zh: "压差分析", en: "Voltage Difference Analysis" },
   "voltageRange": { zh: "压差区间", en: "Voltage Range" },
   "clusterCount": { zh: "簇数", en: "Cluster Count" },
-  
+
   // Temperature Analysis
   "tempDiffAnalysis": { zh: "温差分析", en: "Temperature Difference Analysis" },
   "tempRange": { zh: "温差区间", en: "Temp Range" },
-  
+
   // Cell Voltage
   "cellVoltageAnalysis": { zh: "单体电芯电压分析", en: "Cell Voltage Analysis" },
   "voltageDistribution": { zh: "电压分布", en: "Voltage Distribution" },
   "cellCount": { zh: "单体数量", en: "Cell Count" },
-  
+
   // BCU Status
   "bcuStatusQuery": { zh: "BCU 状态查询", en: "BCU Status Query" },
   "cluster": { zh: "簇", en: "Cluster" },
@@ -86,7 +86,7 @@ export const translations: Translations = {
   "normal": { zh: "正常", en: "Normal" },
   "warning": { zh: "预警", en: "Warning" },
   "fault": { zh: "故障", en: "Fault" },
-  
+  "cellNumber": { zh: "电芯编号", en: "cellNumber" },
   // Charge/Discharge Table
   "chargeDischargeRecord": { zh: "充放电记录", en: "Charge/Discharge Record" },
   "date": { zh: "日期", en: "Date" },
@@ -97,7 +97,7 @@ export const translations: Translations = {
   "charge": { zh: "充电", en: "Charge" },
   "discharge": { zh: "放电", en: "Discharge" },
   "energy": { zh: "电量", en: "Energy" },
-  
+
   // Day names
   "day": { zh: "日", en: "" },
   "month1": { zh: "1月", en: "Jan" },
@@ -122,7 +122,7 @@ type LanguageContextType = {
 
 const LanguageContext = createContext<LanguageContextType>({
   language: "zh",
-  setLanguage: () => {},
+  setLanguage: () => { },
   t: (key: string) => key,
 })
 
