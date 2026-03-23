@@ -11,7 +11,7 @@ const generateCellVoltageData = (days: number) => {
   for (let i = 1; i <= days; i++) {
     const base = 3.2 + Math.random() * 0.4
     data.push({
-      day: `${i}t('Day')`,
+      day: `${i}日`,
       maxVoltage: (base + 0.15 + Math.random() * 0.1).toFixed(3),
       minVoltage: (base - 0.05 - Math.random() * 0.1).toFixed(3),
       avgVoltage: base.toFixed(3),
@@ -23,7 +23,7 @@ const generateCellVoltageData = (days: number) => {
 // Static initial data for SSR
 const getInitialData = () => {
   return Array.from({ length: 15 }, (_, i) => ({
-    day: `${i + 1}t('Day')`,
+    day: `${i + 1}日`,
     maxVoltage: "3.450",
     minVoltage: "3.200",
     avgVoltage: "3.320",
@@ -34,13 +34,13 @@ const getInitialData = () => {
 const getYesterdayRange = () => {
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
-
+  
   const startDate = new Date(yesterday)
   startDate.setHours(0, 0, 0, 0)
-
+  
   const endDate = new Date(yesterday)
   endDate.setHours(23, 59, 59, 0)
-
+  
   const formatDateTime = (date: Date) => {
     const year = date.getFullYear()
     const month = (date.getMonth() + 1).toString().padStart(2, "0")
@@ -50,7 +50,7 @@ const getYesterdayRange = () => {
     const seconds = date.getSeconds().toString().padStart(2, "0")
     return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
   }
-
+  
   return { start: formatDateTime(startDate), end: formatDateTime(endDate) }
 }
 
@@ -85,15 +85,17 @@ export function CellVoltageAnalysis() {
         <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1">
           <button
             onClick={() => setViewMode("chart")}
-            className={`p-1.5 rounded-md transition-all ${viewMode === "chart" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
-              }`}
+            className={`p-1.5 rounded-md transition-all ${
+              viewMode === "chart" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
+            }`}
           >
             <LineChartIcon className="w-4 h-4" />
           </button>
           <button
             onClick={() => setViewMode("table")}
-            className={`p-1.5 rounded-md transition-all ${viewMode === "table" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
-              }`}
+            className={`p-1.5 rounded-md transition-all ${
+              viewMode === "table" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
+            }`}
           >
             <Table className="w-4 h-4" />
           </button>
@@ -150,13 +152,13 @@ export function CellVoltageAnalysis() {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-              <XAxis
-                dataKey="day"
+              <XAxis 
+                dataKey="day" 
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: "#7b8ab8", fontSize: 10 }}
               />
-              <YAxis
+              <YAxis 
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: "#7b8ab8", fontSize: 10 }}
@@ -172,7 +174,7 @@ export function CellVoltageAnalysis() {
                 labelStyle={{ color: "#7b8ab8" }}
                 formatter={(value: string) => [`${value}V`]}
               />
-              <Legend
+              <Legend 
                 wrapperStyle={{ paddingTop: "5px" }}
                 formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>}
               />
