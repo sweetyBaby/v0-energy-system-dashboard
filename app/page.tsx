@@ -1,6 +1,7 @@
 "use client"
 
 import { DashboardHeader, ProjectProvider } from "@/components/dashboard/dashboard-header"
+import { LanguageProvider } from "@/lib/language-context"
 import { ProjectInfo } from "@/components/dashboard/project-info"
 import { ChargeDischargeTable } from "@/components/dashboard/charge-discharge-table"
 import { EfficiencyChart } from "@/components/dashboard/efficiency-chart"
@@ -13,9 +14,10 @@ import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 
 export default function EnergyStorageDashboard() {
   return (
-    <ProjectProvider>
-      <div className="min-h-screen bg-[#0a0e27] text-[#e8f4fc]">
-        <DashboardHeader />
+    <LanguageProvider>
+      <ProjectProvider>
+        <div className="min-h-screen bg-[#0a0e27] text-[#e8f4fc]">
+          <DashboardHeader />
 
         <main className="p-4 space-y-4">
           {/* Row 1: Project Info + Charge/Discharge Table + Efficiency */}
