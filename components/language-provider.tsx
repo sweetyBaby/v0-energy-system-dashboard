@@ -65,7 +65,7 @@ export const translations: Translations = {
   // Temperature Analysis
   "tempDiffAnalysis": { zh: "温差分析", en: "Temperature Difference Analysis" },
   "tempRange": { zh: "温差区间", en: "Temp Range" },
-
+  "Day": { zh: "日", en: "Day" },
   // Cell Voltage
   "cellVoltageAnalysis": { zh: "单体电芯电压分析", en: "Cell Voltage Analysis" },
   "voltageDistribution": { zh: "电压分布", en: "Voltage Distribution" },

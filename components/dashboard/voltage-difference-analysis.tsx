@@ -10,7 +10,7 @@ const generateVoltageData = (days: number) => {
   const data = []
   for (let i = 1; i <= days; i++) {
     data.push({
-      day: `${i}日`,
+      day: `${i}t('Day')`,
       maxDiff: (20 + Math.random() * 30).toFixed(1),
       avgDiff: (10 + Math.random() * 15).toFixed(1),
       minDiff: (5 + Math.random() * 8).toFixed(1),
@@ -22,7 +22,7 @@ const generateVoltageData = (days: number) => {
 // Static initial data for SSR
 const getInitialData = () => {
   return Array.from({ length: 15 }, (_, i) => ({
-    day: `${i + 1}日`,
+    day: `${i + 1}t('Day')`,
     maxDiff: "35.0",
     avgDiff: "18.0",
     minDiff: "8.0",

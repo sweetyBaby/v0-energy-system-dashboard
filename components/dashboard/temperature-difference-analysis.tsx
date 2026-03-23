@@ -10,7 +10,7 @@ const generateTempData = (days: number) => {
   const data = []
   for (let i = 1; i <= days; i++) {
     data.push({
-      day: `${i}日`,
+      day: `${i}t('Day')`,
       maxTemp: (35 + Math.random() * 10).toFixed(1),
       minTemp: (20 + Math.random() * 8).toFixed(1),
       tempDiff: (8 + Math.random() * 7).toFixed(1),
@@ -22,7 +22,7 @@ const generateTempData = (days: number) => {
 // Static initial data for SSR
 const getInitialData = () => {
   return Array.from({ length: 15 }, (_, i) => ({
-    day: `${i + 1}日`,
+    day: `${i + 1}t('Day')`,
     maxTemp: "40.0",
     minTemp: "24.0",
     tempDiff: "12.0",
