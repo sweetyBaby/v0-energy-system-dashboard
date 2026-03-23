@@ -16,8 +16,8 @@ export const projects = [
   },
   {
     id: "ordos",
-    name: "鄂尔多斯",
-    nameEn: "Ordos",
+    name: "鄂尔多斯储能中心",
+    nameEn: "Ordos Energy Storage Center",
     ratedPower: "5.0 MW",
     ratedCapacity: "10.0 MWh",
     commissioningDate: "2025-11-20",
