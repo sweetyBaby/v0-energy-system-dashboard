@@ -1,7 +1,8 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect } from "react"
-import { Zap, Bell, Settings, ChevronDown } from "lucide-react"
+import { Zap, Bell, Settings, ChevronDown, Globe } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
 
 export const projects = [
   {
@@ -49,6 +50,7 @@ export function DashboardHeader() {
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const { selectedProject, setSelectedProject } = useProject()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const { language, setLanguage, t } = useLanguage()
 
   useEffect(() => {
     setCurrentTime(new Date())
@@ -109,7 +111,7 @@ export function DashboardHeader() {
         {/* Center: Title */}
         <div className="absolute left-1/2 -translate-x-1/2 text-center">
           <h1 className="text-2xl font-bold tracking-wider bg-gradient-to-r from-[#00d4aa] via-[#22d3ee] to-[#00d4aa] bg-clip-text text-transparent">
-            储能数据监测
+            {t("energyMonitoring")}
           </h1>
         </div>
 
@@ -118,6 +120,18 @@ export function DashboardHeader() {
           <span className="text-sm text-[#7b8ab8] font-mono">
             {currentTime ? formatDate(currentTime) : "----/--/-- --:--:--"}
           </span>
+          
+          {/* Language Toggle */}
+          <button
+            onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a2654] hover:bg-[#1a2654]/80 border border-[#3b82f6]/30 transition-colors"
+          >
+            <Globe className="w-4 h-4 text-[#00d4aa]" />
+            <span className="text-sm text-[#e8f4fc] font-medium">
+              {language === "zh" ? "EN" : "中文"}
+            </span>
+          </button>
+          
           <button className="p-2 rounded-lg hover:bg-[#1a2654] transition-colors">
             <Bell className="w-5 h-5 text-[#7b8ab8]" />
           </button>

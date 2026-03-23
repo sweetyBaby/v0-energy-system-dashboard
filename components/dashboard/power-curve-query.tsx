@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { Calendar, Search } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
 
 // Generate minute-level mock data
 const generateMinuteData = (hours: number) => {
@@ -75,6 +76,7 @@ export function PowerCurveQuery() {
   const [endDateTime, setEndDateTime] = useState("")
   const [data, setData] = useState(getInitialData)
   const [mounted, setMounted] = useState(false)
+  const { t, language } = useLanguage()
   
   useEffect(() => {
     setMounted(true)
@@ -86,9 +88,9 @@ export function PowerCurveQuery() {
   }, [])
 
   const queryTypes = [
-    { key: "yesterday", label: "昨天" },
-    { key: "week", label: "本周" },
-    { key: "custom", label: "自定义" },
+    { key: "yesterday", label: t("yesterday") },
+    { key: "week", label: t("thisWeek") },
+    { key: "custom", label: t("custom") },
   ]
 
   return (
@@ -96,7 +98,7 @@ export function PowerCurveQuery() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">充放电功率曲线</h3>
+          <h3 className="text-base font-semibold text-[#00d4aa]">{t("powerCurveQuery")}</h3>
         </div>
       </div>
 
@@ -130,7 +132,7 @@ export function PowerCurveQuery() {
                 className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
               />
             </div>
-            <span className="text-[#7b8ab8] text-sm">至</span>
+            <span className="text-[#7b8ab8] text-sm">{t("to")}</span>
             <div className="relative">
               <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
               <input
@@ -143,7 +145,7 @@ export function PowerCurveQuery() {
             </div>
             <button className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors">
               <Search className="w-4 h-4" />
-              查询
+              {t("search")}
             </button>
           </div>
         )}
@@ -182,7 +184,7 @@ export function PowerCurveQuery() {
             <Line
               type="monotone"
               dataKey="chargePower"
-              name="充电功率(kW)"
+              name={language === "zh" ? "充电功率(kW)" : "Charge Power (kW)"}
               stroke="#3b82f6"
               strokeWidth={2}
               dot={false}
@@ -190,7 +192,7 @@ export function PowerCurveQuery() {
             <Line
               type="monotone"
               dataKey="dischargePower"
-              name="放电功率(kW)"
+              name={language === "zh" ? "放电功率(kW)" : "Discharge Power (kW)"}
               stroke="#f97316"
               strokeWidth={2}
               dot={false}

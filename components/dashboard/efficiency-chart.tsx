@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, Cell, LabelList, CartesianGrid, Tooltip } from "recharts"
+import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from "recharts"
 import { Calendar, Search } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
 
 // Generate mock efficiency data based on query type
 const generateEfficiencyData = (type: string) => {
@@ -74,6 +75,7 @@ export function EfficiencyChart() {
   const [endDateTime, setEndDateTime] = useState("")
   const [data, setData] = useState(getInitialData)
   const [mounted, setMounted] = useState(false)
+  const { t, language } = useLanguage()
 
   // Generate random data only on client side
   useEffect(() => {
@@ -111,10 +113,10 @@ export function EfficiencyChart() {
 
   // Summary data for circular indicators (static values)
   const summaryData = [
-    { name: "昨日", value: 95.26, color: "#3b82f6" },
-    { name: "本周", value: 94.56, color: "#22d3ee" },
-    { name: "本月", value: 94.82, color: "#00d4aa" },
-    { name: "本年", value: 95.18, color: "#f97316" },
+    { name: language === "zh" ? "昨日" : "Yesterday", value: 95.26, color: "#3b82f6" },
+    { name: language === "zh" ? "本周" : "Week", value: 94.56, color: "#22d3ee" },
+    { name: language === "zh" ? "本月" : "Month", value: 94.82, color: "#00d4aa" },
+    { name: language === "zh" ? "本年" : "Year", value: 95.18, color: "#f97316" },
   ]
 
   // Show loading state during SSR/hydration
@@ -123,11 +125,11 @@ export function EfficiencyChart() {
       <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 h-full flex flex-col">
         <div className="flex items-center gap-2 mb-3">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">充放电效率</h3>
+          <h3 className="text-base font-semibold text-[#00d4aa]">{t("chargeDischargeEfficiency")}</h3>
           <span className="text-xs text-[#7b8ab8] ml-2">(%)</span>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <span className="text-[#7b8ab8] text-sm">加载中...</span>
+          <span className="text-[#7b8ab8] text-sm">{t("loading")}</span>
         </div>
       </div>
     )
@@ -137,7 +139,7 @@ export function EfficiencyChart() {
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 h-full flex flex-col">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-        <h3 className="text-base font-semibold text-[#00d4aa]">充放电效率</h3>
+        <h3 className="text-base font-semibold text-[#00d4aa]">{t("chargeDischargeEfficiency")}</h3>
         <span className="text-xs text-[#7b8ab8] ml-2">(%)</span>
       </div>
 
@@ -145,11 +147,11 @@ export function EfficiencyChart() {
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1">
           {[
-            { key: "yesterday", label: "昨日" },
-            { key: "week", label: "本周" },
-            { key: "month", label: "本月" },
-            { key: "year", label: "本年" },
-            { key: "custom", label: "自定义" },
+            { key: "yesterday", label: t("yesterday") },
+            { key: "week", label: t("thisWeek") },
+            { key: "month", label: t("thisMonth") },
+            { key: "year", label: t("thisYear") },
+            { key: "custom", label: t("custom") },
           ].map((item) => (
             <button
               key={item.key}
@@ -178,7 +180,7 @@ export function EfficiencyChart() {
               className="pl-7 pr-1 py-1 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-[10px] focus:outline-none focus:border-[#00d4aa]"
             />
           </div>
-          <span className="text-[#7b8ab8] text-xs">至</span>
+          <span className="text-[#7b8ab8] text-xs">{t("to")}</span>
           <div className="relative">
             <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b8ab8]" />
             <input
@@ -194,15 +196,15 @@ export function EfficiencyChart() {
             className="flex items-center gap-1 px-2 py-1 bg-[#3b82f6] text-white rounded-md text-xs hover:bg-[#3b82f6]/80 transition-colors"
           >
             <Search className="w-3 h-3" />
-            查询
+            {t("search")}
           </button>
-          <span className="text-[10px] text-[#f97316]">*最多一周</span>
+          <span className="text-[10px] text-[#f97316]">{language === "zh" ? "*最多一周" : "*Max 1 week"}</span>
         </div>
       )}
 
       {/* Average Display */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-[#7b8ab8]">平均效率</span>
+        <span className="text-xs text-[#7b8ab8]">{t("avgEfficiency")}</span>
         <span className="text-lg font-bold text-[#00d4aa] font-mono">{avgEfficiency.toFixed(2)}%</span>
       </div>
 
@@ -232,7 +234,7 @@ export function EfficiencyChart() {
                 fontSize: "12px",
               }}
               labelStyle={{ color: "#7b8ab8" }}
-              formatter={(value: number) => [`${value.toFixed(2)}%`, "效率"]}
+              formatter={(value: number) => [`${value.toFixed(2)}%`, language === "zh" ? "效率" : "Efficiency"]}
             />
             <Bar 
               dataKey="efficiency" 

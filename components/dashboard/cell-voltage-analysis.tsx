@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts"
 import { Calendar, Search, Table, LineChartIcon } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
 
 // Generate cell voltage data
 const generateCellVoltageData = (days: number) => {
@@ -59,6 +60,7 @@ export function CellVoltageAnalysis() {
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
   const [data, setData] = useState(getInitialData)
   const [mounted, setMounted] = useState(false)
+  const { t, language } = useLanguage()
 
   useEffect(() => {
     setData(generateCellVoltageData(15))
@@ -78,7 +80,7 @@ export function CellVoltageAnalysis() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">电芯最大/最小电压</h3>
+          <h3 className="text-base font-semibold text-[#00d4aa]">{t("cellVoltageAnalysis")}</h3>
         </div>
         <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1">
           <button
@@ -112,7 +114,7 @@ export function CellVoltageAnalysis() {
             className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
           />
         </div>
-        <span className="text-[#7b8ab8] text-sm">至</span>
+        <span className="text-[#7b8ab8] text-sm">{t("to")}</span>
         <div className="relative">
           <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
           <input
@@ -125,22 +127,22 @@ export function CellVoltageAnalysis() {
         </div>
         <button className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors">
           <Search className="w-4 h-4" />
-          查询
+          {t("search")}
         </button>
       </div>
 
       {/* Statistics Summary */}
       <div className="grid grid-cols-3 gap-2 mb-3">
         <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
-          <div className="text-xs text-[#7b8ab8]">最大电压</div>
+          <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最大电压" : "Max Voltage"}</div>
           <div className="text-sm font-bold text-[#ef4444] font-mono">{maxV.toFixed(3)}V</div>
         </div>
         <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
-          <div className="text-xs text-[#7b8ab8]">平均电压</div>
+          <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "平均电压" : "Avg Voltage"}</div>
           <div className="text-sm font-bold text-[#00d4aa] font-mono">{avgV}V</div>
         </div>
         <div className="bg-[#1a2654]/30 rounded-lg p-2 text-center">
-          <div className="text-xs text-[#7b8ab8]">最小电压</div>
+          <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最小电压" : "Min Voltage"}</div>
           <div className="text-sm font-bold text-[#22d3ee] font-mono">{minV.toFixed(3)}V</div>
         </div>
       </div>
@@ -176,10 +178,10 @@ export function CellVoltageAnalysis() {
                 wrapperStyle={{ paddingTop: "5px" }}
                 formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>}
               />
-              <ReferenceLine y={3.65} stroke="#ef4444" strokeDasharray="5 5" label={{ value: "上限", fill: "#ef4444", fontSize: 10 }} />
-              <ReferenceLine y={2.5} stroke="#22d3ee" strokeDasharray="5 5" label={{ value: "下限", fill: "#22d3ee", fontSize: 10 }} />
-              <Line type="monotone" dataKey="maxVoltage" name="最大电压" stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} />
-              <Line type="monotone" dataKey="minVoltage" name="最小电压" stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} />
+              <ReferenceLine y={3.65} stroke="#ef4444" strokeDasharray="5 5" label={{ value: language === "zh" ? "上限" : "Max", fill: "#ef4444", fontSize: 10 }} />
+              <ReferenceLine y={2.5} stroke="#22d3ee" strokeDasharray="5 5" label={{ value: language === "zh" ? "下限" : "Min", fill: "#22d3ee", fontSize: 10 }} />
+              <Line type="monotone" dataKey="maxVoltage" name={language === "zh" ? "最大电压" : "Max Voltage"} stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} />
+              <Line type="monotone" dataKey="minVoltage" name={language === "zh" ? "最小电压" : "Min Voltage"} stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -188,10 +190,10 @@ export function CellVoltageAnalysis() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-[#0d1233]">
               <tr className="text-[#7b8ab8] border-b border-[#1a2654]">
-                <th className="py-2 px-2 text-left">日期</th>
-                <th className="py-2 px-2 text-right">最大电压(V)</th>
-                <th className="py-2 px-2 text-right">平均电压(V)</th>
-                <th className="py-2 px-2 text-right">最小电压(V)</th>
+                <th className="py-2 px-2 text-left">{t("date")}</th>
+                <th className="py-2 px-2 text-right">{language === "zh" ? "最大电压(V)" : "Max (V)"}</th>
+                <th className="py-2 px-2 text-right">{language === "zh" ? "平均电压(V)" : "Avg (V)"}</th>
+                <th className="py-2 px-2 text-right">{language === "zh" ? "最小电压(V)" : "Min (V)"}</th>
               </tr>
             </thead>
             <tbody>

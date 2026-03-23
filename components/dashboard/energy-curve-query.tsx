@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect } from "react"
 import {
   ComposedChart,
   Bar,
@@ -13,6 +13,7 @@ import {
   Legend,
 } from "recharts"
 import { Calendar, Search } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
 
 type TimeRange = "week" | "month" | "year" | "custom"
 
@@ -127,6 +128,7 @@ export function EnergyCurveQuery() {
   const [unitType, setUnitType] = useState<"kWh" | "MWh">("kWh")
   const [mounted, setMounted] = useState(false)
   const [data, setData] = useState<DataPoint[]>([])
+  const { t, language } = useLanguage()
   
   // Custom date range state
   const [customStart, setCustomStart] = useState("")
@@ -178,7 +180,7 @@ export function EnergyCurveQuery() {
   // Validate custom date range
   const validateCustomRange = useCallback(() => {
     if (!customStart || !customEnd) {
-      setCustomError("请选择完整的日期范围")
+      setCustomError(t("selectCompleteDateRange"))
       return false
     }
     
@@ -186,19 +188,19 @@ export function EnergyCurveQuery() {
     const end = new Date(customEnd)
     
     if (start >= end) {
-      setCustomError("结束时间必须大于开始时间")
+      setCustomError(t("endTimeMustBeLater"))
       return false
     }
     
     const daysDiff = getDaysDiff(start, end)
     if (daysDiff > 31) {
-      setCustomError("自定义日期范围最多为一个月")
+      setCustomError(t("maxOneMonth"))
       return false
     }
     
     setCustomError(null)
     return true
-  }, [customStart, customEnd])
+  }, [customStart, customEnd, t])
 
   // Handle search button click
   const handleSearch = useCallback(() => {
@@ -208,37 +210,16 @@ export function EnergyCurveQuery() {
     }
   }, [customStart, customEnd, validateCustomRange])
 
-  // Calculate totals
-  const totals = useMemo(() => {
-    const totalCharge = data.reduce((sum, item) => sum + item.charge, 0)
-    const totalDischarge = data.reduce((sum, item) => sum + item.discharge, 0)
-    const efficiency = totalCharge > 0 ? (totalDischarge / totalCharge) * 100 : 0
-    
-    return {
-      charge: unitType === "MWh" ? totalCharge / 1000 : totalCharge,
-      discharge: unitType === "MWh" ? totalDischarge / 1000 : totalDischarge,
-      efficiency,
-    }
-  }, [data, unitType])
-
-  // Format value for display
-  const formatValue = (value: number) => {
-    if (unitType === "MWh") {
-      return `${value.toFixed(2)} MWh`
-    }
-    return `${value.toLocaleString()} kWh`
-  }
-
   // Show loading state during SSR
   if (!mounted) {
     return (
       <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">充放电电量统计</h3>
+          <h3 className="text-base font-semibold text-[#00d4aa]">{t("chargeDischargeStats")}</h3>
         </div>
         <div className="h-72 flex items-center justify-center">
-          <span className="text-[#7b8ab8] text-sm">加载中...</span>
+          <span className="text-[#7b8ab8] text-sm">{t("loading")}</span>
         </div>
       </div>
     )
@@ -249,7 +230,7 @@ export function EnergyCurveQuery() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">充放电电量统计</h3>
+          <h3 className="text-base font-semibold text-[#00d4aa]">{t("chargeDischargeStats")}</h3>
         </div>
       </div>
 
@@ -265,7 +246,7 @@ export function EnergyCurveQuery() {
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
           >
-            本周
+            {t("thisWeek")}
           </button>
           <button
             onClick={() => setTimeRange("month")}
@@ -275,7 +256,7 @@ export function EnergyCurveQuery() {
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
           >
-            本月
+            {t("thisMonth")}
           </button>
           <button
             onClick={() => setTimeRange("year")}
@@ -285,7 +266,7 @@ export function EnergyCurveQuery() {
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
           >
-            本年
+            {t("thisYear")}
           </button>
           <button
             onClick={() => setTimeRange("custom")}
@@ -295,7 +276,7 @@ export function EnergyCurveQuery() {
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
           >
-            自定义
+            {t("custom")}
           </button>
         </div>
 
@@ -338,7 +319,7 @@ export function EnergyCurveQuery() {
                 className="pl-8 pr-3 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-sm focus:outline-none focus:border-[#00d4aa] min-w-[200px]"
               />
             </div>
-            <span className="text-[#7b8ab8]">至</span>
+            <span className="text-[#7b8ab8]">{t("to")}</span>
             <div className="relative">
               <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
               <input
@@ -354,39 +335,17 @@ export function EnergyCurveQuery() {
               className="flex items-center gap-1 px-4 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors"
             >
               <Search className="w-4 h-4" />
-              查询
+              {t("search")}
             </button>
           </div>
           {customError && (
             <p className="text-red-400 text-xs mt-2">{customError}</p>
           )}
           <p className="text-[#7b8ab8] text-xs mt-2">
-            提示：自定义日期范围最多一个月；日期范围超过一日按日统计，否则按小时统计
+            {t("customDateHint")}
           </p>
         </div>
       )}
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="bg-[#1a2654]/30 rounded-lg p-3 text-center">
-          <div className="text-xs text-[#7b8ab8]">总充电量</div>
-          <div className="text-lg font-bold text-[#3b82f6] font-mono">
-            {formatValue(totals.charge)}
-          </div>
-        </div>
-        <div className="bg-[#1a2654]/30 rounded-lg p-3 text-center">
-          <div className="text-xs text-[#7b8ab8]">总放电量</div>
-          <div className="text-lg font-bold text-[#f97316] font-mono">
-            {formatValue(totals.discharge)}
-          </div>
-        </div>
-        <div className="bg-[#1a2654]/30 rounded-lg p-3 text-center">
-          <div className="text-xs text-[#7b8ab8]">转换效率</div>
-          <div className="text-lg font-bold text-[#00d4aa] font-mono">
-            {totals.efficiency.toFixed(1)}%
-          </div>
-        </div>
-      </div>
 
       {/* Combined Chart */}
       <div className="h-72 flex-1">
@@ -436,7 +395,7 @@ export function EnergyCurveQuery() {
               {/* Bar Chart */}
               <Bar
                 dataKey="charge"
-                name="充电量(柱状)"
+                name={language === "zh" ? "充电量(柱状)" : "Charge (Bar)"}
                 fill="#3b82f6"
                 fillOpacity={0.7}
                 radius={[4, 4, 0, 0]}
@@ -444,7 +403,7 @@ export function EnergyCurveQuery() {
               />
               <Bar
                 dataKey="discharge"
-                name="放电量(柱状)"
+                name={language === "zh" ? "放电量(柱状)" : "Discharge (Bar)"}
                 fill="#f97316"
                 fillOpacity={0.7}
                 radius={[4, 4, 0, 0]}
@@ -454,7 +413,7 @@ export function EnergyCurveQuery() {
               <Line
                 type="monotone"
                 dataKey="charge"
-                name="充电量(曲线)"
+                name={language === "zh" ? "充电量(曲线)" : "Charge (Line)"}
                 stroke="#60a5fa"
                 strokeWidth={2}
                 dot={{ r: 2, fill: "#60a5fa" }}
@@ -463,7 +422,7 @@ export function EnergyCurveQuery() {
               <Line
                 type="monotone"
                 dataKey="discharge"
-                name="放电量(曲线)"
+                name={language === "zh" ? "放电量(曲线)" : "Discharge (Line)"}
                 stroke="#fb923c"
                 strokeWidth={2}
                 dot={{ r: 2, fill: "#fb923c" }}
@@ -473,7 +432,7 @@ export function EnergyCurveQuery() {
           </ResponsiveContainer>
         ) : (
           <div className="h-full flex items-center justify-center text-[#7b8ab8]">
-            请选择日期范围并点击查询按钮
+            {t("selectDateRange")}
           </div>
         )}
       </div>

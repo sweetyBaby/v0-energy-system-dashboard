@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { Calendar, Search, Table, LineChartIcon } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
 
 // Generate temperature difference data
 const generateTempData = (days: number) => {
@@ -57,6 +58,7 @@ export function TemperatureDifferenceAnalysis() {
   const [endDateTime, setEndDateTime] = useState("")
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
   const [data, setData] = useState(getInitialData)
+  const { t, language } = useLanguage()
 
   useEffect(() => {
     setData(generateTempData(15))
@@ -70,7 +72,7 @@ export function TemperatureDifferenceAnalysis() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">电芯温差一致性分析</h3>
+          <h3 className="text-base font-semibold text-[#00d4aa]">{t("tempDiffAnalysis")}</h3>
 
         </div>
         <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1">
@@ -103,7 +105,7 @@ export function TemperatureDifferenceAnalysis() {
             className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
           />
         </div>
-        <span className="text-[#7b8ab8] text-sm">至</span>
+        <span className="text-[#7b8ab8] text-sm">{t("to")}</span>
         <div className="relative">
           <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
           <input
@@ -116,7 +118,7 @@ export function TemperatureDifferenceAnalysis() {
         </div>
         <button className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors">
           <Search className="w-4 h-4" />
-          查询
+          {t("search")}
         </button>
       </div>
 
@@ -150,9 +152,9 @@ export function TemperatureDifferenceAnalysis() {
                 wrapperStyle={{ paddingTop: "10px" }}
                 formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
               />
-              <Line type="monotone" dataKey="maxTemp" name="最高温度" stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} />
-              <Line type="monotone" dataKey="minTemp" name="最低温度" stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} />
-              <Line type="monotone" dataKey="tempDiff" name="温差" stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} />
+              <Line type="monotone" dataKey="maxTemp" name={language === "zh" ? "最高温度" : "Max Temp"} stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} />
+              <Line type="monotone" dataKey="minTemp" name={language === "zh" ? "最低温度" : "Min Temp"} stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} />
+              <Line type="monotone" dataKey="tempDiff" name={language === "zh" ? "温差" : "Temp Diff"} stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -161,10 +163,10 @@ export function TemperatureDifferenceAnalysis() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-[#0d1233]">
               <tr className="text-[#7b8ab8] border-b border-[#1a2654]">
-                <th className="py-2 px-2 text-left">日期</th>
-                <th className="py-2 px-2 text-right">最高温度(°C)</th>
-                <th className="py-2 px-2 text-right">最低温度(°C)</th>
-                <th className="py-2 px-2 text-right">温差(°C)</th>
+                <th className="py-2 px-2 text-left">{t("date")}</th>
+                <th className="py-2 px-2 text-right">{language === "zh" ? "最高温度(°C)" : "Max Temp (°C)"}</th>
+                <th className="py-2 px-2 text-right">{language === "zh" ? "最低温度(°C)" : "Min Temp (°C)"}</th>
+                <th className="py-2 px-2 text-right">{language === "zh" ? "温差(°C)" : "Temp Diff (°C)"}</th>
               </tr>
             </thead>
             <tbody>
