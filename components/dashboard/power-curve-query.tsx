@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
-import { Calendar, Search } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 // Generate minute-level mock data
@@ -34,6 +33,30 @@ const generateMinuteData = (hours: number) => {
   return data
 }
 
+// Generate daily data for current month (1st to today)
+const generateMonthDailyData = () => {
+  const today = new Date()
+  return Array.from({ length: today.getDate() }, (_, i) => ({
+    time: `${i + 1}`,
+    chargePower: Math.round(800 + Math.random() * 600),
+    dischargePower: -Math.round(700 + Math.random() * 500),
+  }))
+}
+
+// Generate daily data for last 7 days
+const generateWeekDailyData = () => {
+  const today = new Date()
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - 6 + i)
+    return {
+      time: `${d.getMonth() + 1}/${d.getDate()}`,
+      chargePower: Math.round(800 + Math.random() * 600),
+      dischargePower: -Math.round(700 + Math.random() * 500),
+    }
+  })
+}
+
 // Static initial data for SSR
 const getInitialData = () => {
   return Array.from({ length: 24 }, (_, i) => ({
@@ -43,55 +66,34 @@ const getInitialData = () => {
   }))
 }
 
-// Get yesterday's datetime range
-const getYesterdayRange = () => {
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  
-  const startDate = new Date(yesterday)
-  startDate.setHours(0, 0, 0, 0)
-  
-  const endDate = new Date(yesterday)
-  endDate.setHours(23, 59, 59, 0)
-  
-  const formatDateTime = (date: Date) => {
-    const year = date.getFullYear()
-    const month = (date.getMonth() + 1).toString().padStart(2, "0")
-    const day = date.getDate().toString().padStart(2, "0")
-    const hours = date.getHours().toString().padStart(2, "0")
-    const minutes = date.getMinutes().toString().padStart(2, "0")
-    const seconds = date.getSeconds().toString().padStart(2, "0")
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
-  }
-  
-  return {
-    start: formatDateTime(startDate),
-    end: formatDateTime(endDate)
-  }
-}
 
 export function PowerCurveQuery() {
-  const [queryType, setQueryType] = useState<"yesterday" | "week" | "custom">("yesterday")
-  const [startDateTime, setStartDateTime] = useState("")
-  const [endDateTime, setEndDateTime] = useState("")
+  const [queryType, setQueryType] = useState<"yesterday" | "week" | "month">("yesterday")
   const [data, setData] = useState(getInitialData)
   const [mounted, setMounted] = useState(false)
   const { t, language } = useLanguage()
-  
+
   useEffect(() => {
     setMounted(true)
     setData(generateMinuteData(24))
-    // Set default to yesterday
-    const { start, end } = getYesterdayRange()
-    setStartDateTime(start)
-    setEndDateTime(end)
   }, [])
 
   const queryTypes = [
     { key: "yesterday", label: t("yesterday") },
     { key: "week", label: t("thisWeek") },
-    { key: "custom", label: t("custom") },
+    { key: "month", label: t("thisMonth") },
   ]
+
+  const handleQueryTypeChange = (type: "yesterday" | "week" | "month") => {
+    setQueryType(type)
+    if (type === "week") {
+      setData(generateWeekDailyData())
+    } else if (type === "month") {
+      setData(generateMonthDailyData())
+    } else {
+      setData(generateMinuteData(24))
+    }
+  }
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full h-full">
@@ -108,7 +110,7 @@ export function PowerCurveQuery() {
           {queryTypes.map((type) => (
             <button
               key={type.key}
-              onClick={() => setQueryType(type.key as typeof queryType)}
+              onClick={() => handleQueryTypeChange(type.key as typeof queryType)}
               className={`px-3 py-1.5 text-sm rounded-md transition-all ${
                 queryType === type.key
                   ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
@@ -120,35 +122,6 @@ export function PowerCurveQuery() {
           ))}
         </div>
 
-        {queryType === "custom" && (
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
-              <input
-                type="datetime-local"
-                step="1"
-                value={startDateTime}
-                onChange={(e) => setStartDateTime(e.target.value)}
-                className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
-              />
-            </div>
-            <span className="text-[#7b8ab8] text-sm">{t("to")}</span>
-            <div className="relative">
-              <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
-              <input
-                type="datetime-local"
-                step="1"
-                value={endDateTime}
-                onChange={(e) => setEndDateTime(e.target.value)}
-                className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
-              />
-            </div>
-            <button className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors">
-              <Search className="w-4 h-4" />
-              {t("search")}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Chart */}
@@ -156,12 +129,12 @@ export function PowerCurveQuery() {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-            <XAxis 
-              dataKey="time" 
+            <XAxis
+              dataKey="time"
               axisLine={false}
               tickLine={false}
               tick={{ fill: "#7b8ab8", fontSize: 10 }}
-              interval={23}
+              interval={queryType === "yesterday" ? 23 : 0}
             />
             <YAxis 
               axisLine={false}

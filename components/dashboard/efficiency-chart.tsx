@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Tooltip } from "recharts"
-import { Calendar, Search } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 // Generate mock efficiency data based on query type
@@ -14,21 +13,33 @@ const generateEfficiencyData = (type: string) => {
         time: `${i}:00`,
         efficiency: baseEfficiency + Math.random() * 3 - 1.5,
       }))
-    case "week":
-      return ["周一", "周二", "周三", "周四", "周五", "周六", "周日"].map(day => ({
-        time: day,
-        efficiency: baseEfficiency + Math.random() * 3 - 1.5,
-      }))
-    case "month":
-      return Array.from({ length: 30 }, (_, i) => ({
+    case "week": {
+      const today = new Date()
+      return Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(today)
+        d.setDate(today.getDate() - 6 + i)
+        return {
+          time: `${d.getMonth() + 1}/${d.getDate()}`,
+          efficiency: baseEfficiency + Math.random() * 3 - 1.5,
+        }
+      })
+    }
+    case "month": {
+      const todayDate = new Date().getDate()
+      return Array.from({ length: todayDate }, (_, i) => ({
         time: `${i + 1}日`,
         efficiency: baseEfficiency + Math.random() * 3 - 1.5,
       }))
-    case "year":
-      return ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"].map(month => ({
-        time: month,
-        efficiency: baseEfficiency + Math.random() * 3 - 1.5,
-      }))
+    }
+    case "year": {
+      const currentMonth = new Date().getMonth() // 0-indexed
+      return ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
+        .slice(0, currentMonth + 1)
+        .map(month => ({
+          time: month,
+          efficiency: baseEfficiency + Math.random() * 3 - 1.5,
+        }))
+    }
     default:
       return Array.from({ length: 7 }, (_, i) => ({
         time: `第${i + 1}天`,
@@ -45,34 +56,9 @@ const getInitialData = () => {
   }))
 }
 
-// Get yesterday's datetime range
-const getYesterdayRange = () => {
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  
-  const startDate = new Date(yesterday)
-  startDate.setHours(0, 0, 0, 0)
-  
-  const endDate = new Date(yesterday)
-  endDate.setHours(23, 59, 59, 0)
-  
-  const formatDateTime = (date: Date) => {
-    const year = date.getFullYear()
-    const month = (date.getMonth() + 1).toString().padStart(2, "0")
-    const day = date.getDate().toString().padStart(2, "0")
-    const hours = date.getHours().toString().padStart(2, "0")
-    const minutes = date.getMinutes().toString().padStart(2, "0")
-    const seconds = date.getSeconds().toString().padStart(2, "0")
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
-  }
-  
-  return { start: formatDateTime(startDate), end: formatDateTime(endDate) }
-}
 
 export function EfficiencyChart() {
-  const [queryType, setQueryType] = useState<"yesterday" | "week" | "month" | "year" | "custom">("yesterday")
-  const [startDateTime, setStartDateTime] = useState("")
-  const [endDateTime, setEndDateTime] = useState("")
+  const [queryType, setQueryType] = useState<"yesterday" | "week" | "month" | "year">("yesterday")
   const [data, setData] = useState(getInitialData)
   const [mounted, setMounted] = useState(false)
   const { t, language } = useLanguage()
@@ -81,29 +67,11 @@ export function EfficiencyChart() {
   useEffect(() => {
     setMounted(true)
     setData(generateEfficiencyData("yesterday"))
-    const { start, end } = getYesterdayRange()
-    setStartDateTime(start)
-    setEndDateTime(end)
   }, [])
 
-  const handleQueryTypeChange = (type: "yesterday" | "week" | "month" | "year" | "custom") => {
+  const handleQueryTypeChange = (type: "yesterday" | "week" | "month" | "year") => {
     setQueryType(type)
-    if (type !== "custom") {
-      setData(generateEfficiencyData(type))
-    }
-  }
-
-  const handleCustomQuery = () => {
-    if (startDateTime && endDateTime) {
-      const start = new Date(startDateTime)
-      const end = new Date(endDateTime)
-      const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-      if (diffDays > 7) {
-        alert("自定义查询最多一周范围")
-        return
-      }
-      setData(generateEfficiencyData("custom"))
-    }
+    setData(generateEfficiencyData(type))
   }
 
   // Calculate average efficiency
@@ -114,7 +82,7 @@ export function EfficiencyChart() {
   // Summary data for circular indicators (static values)
   const summaryData = [
     { name: language === "zh" ? "昨日" : "Yesterday", value: 95.26, color: "#3b82f6" },
-    { name: language === "zh" ? "本周" : "Week", value: 94.56, color: "#22d3ee" },
+    { name: language === "zh" ? "近7天" : "7 Days", value: 94.56, color: "#22d3ee" },
     { name: language === "zh" ? "本月" : "Month", value: 94.82, color: "#00d4aa" },
     { name: language === "zh" ? "本年" : "Year", value: 95.18, color: "#f97316" },
   ]
@@ -151,7 +119,6 @@ export function EfficiencyChart() {
             { key: "week", label: t("thisWeek") },
             { key: "month", label: t("thisMonth") },
             { key: "year", label: t("thisYear") },
-            { key: "custom", label: t("custom") },
           ].map((item) => (
             <button
               key={item.key}
@@ -168,39 +135,6 @@ export function EfficiencyChart() {
         </div>
       </div>
 
-      {queryType === "custom" && (
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <div className="relative">
-            <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b8ab8]" />
-            <input
-              type="datetime-local"
-              step="1"
-              value={startDateTime}
-              onChange={(e) => setStartDateTime(e.target.value)}
-              className="pl-7 pr-1 py-1 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-[10px] focus:outline-none focus:border-[#00d4aa]"
-            />
-          </div>
-          <span className="text-[#7b8ab8] text-xs">{t("to")}</span>
-          <div className="relative">
-            <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b8ab8]" />
-            <input
-              type="datetime-local"
-              step="1"
-              value={endDateTime}
-              onChange={(e) => setEndDateTime(e.target.value)}
-              className="pl-7 pr-1 py-1 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-[10px] focus:outline-none focus:border-[#00d4aa]"
-            />
-          </div>
-          <button 
-            onClick={handleCustomQuery}
-            className="flex items-center gap-1 px-2 py-1 bg-[#3b82f6] text-white rounded-md text-xs hover:bg-[#3b82f6]/80 transition-colors"
-          >
-            <Search className="w-3 h-3" />
-            {t("search")}
-          </button>
-          <span className="text-[10px] text-[#f97316]">{language === "zh" ? "*最多一周" : "*Max 1 week"}</span>
-        </div>
-      )}
 
       {/* Average Display */}
       <div className="flex items-center justify-between mb-2">
