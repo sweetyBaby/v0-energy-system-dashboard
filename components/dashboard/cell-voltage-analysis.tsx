@@ -6,12 +6,12 @@ import { Calendar, Search, Table, LineChartIcon } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 // Generate cell voltage data
-const generateCellVoltageData = (days: number) => {
+const generateCellVoltageData = (days: number, language: string) => {
   const data = []
   for (let i = 1; i <= days; i++) {
     const base = 3.2 + Math.random() * 0.4
     data.push({
-      day: `${i}日`,
+      day: language === "zh" ? `${i}日` : `Day ${i}`,
       maxVoltage: (base + 0.15 + Math.random() * 0.1).toFixed(3),
       minVoltage: (base - 0.05 - Math.random() * 0.1).toFixed(3),
       avgVoltage: base.toFixed(3),
@@ -21,9 +21,9 @@ const generateCellVoltageData = (days: number) => {
 }
 
 // Static initial data for SSR
-const getInitialData = () => {
+const getInitialData = (language: string) => {
   return Array.from({ length: 15 }, (_, i) => ({
-    day: `${i + 1}日`,
+    day: language === "zh" ? `${i + 1}日` : `Day ${i + 1}`,
     maxVoltage: "3.450",
     minVoltage: "3.200",
     avgVoltage: "3.320",
@@ -58,17 +58,17 @@ export function CellVoltageAnalysis() {
   const [startDateTime, setStartDateTime] = useState("")
   const [endDateTime, setEndDateTime] = useState("")
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
-  const [data, setData] = useState(getInitialData)
+  const [data, setData] = useState(() => getInitialData("zh"))
   const [mounted, setMounted] = useState(false)
   const { t, language } = useLanguage()
 
   useEffect(() => {
-    setData(generateCellVoltageData(15))
+    setData(generateCellVoltageData(15, language))
     setMounted(true)
     const { start, end } = getYesterdayRange()
     setStartDateTime(start)
     setEndDateTime(end)
-  }, [])
+  }, [language])
 
   // Calculate statistics - use safe defaults if data is empty
   const maxV = data.length > 0 ? Math.max(...data.map(d => parseFloat(d.maxVoltage))) : 3.45
