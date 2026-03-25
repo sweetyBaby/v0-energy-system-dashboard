@@ -12,7 +12,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { LineChartIcon, Table } from "lucide-react"
+import {
+  Activity,
+  Battery,
+  BatteryCharging,
+  Gauge,
+  LineChartIcon,
+  Table,
+  TrendingUp,
+  Zap,
+} from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 type RangeKey = "week" | "month" | "year"
@@ -39,8 +48,14 @@ type SummaryMetrics = {
   avgEnergyEfficiency: number
 }
 
+type SummaryColumn = {
+  key: SummaryRangeKey
+  label: string
+  tag: string
+}
+
 const yearMonthLabels = {
-  zh: ["1\u6708", "2\u6708", "3\u6708", "4\u6708", "5\u6708", "6\u6708", "7\u6708", "8\u6708", "9\u6708", "10\u6708", "11\u6708", "12\u6708"],
+  zh: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
   en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
 } as const
 
@@ -135,19 +150,34 @@ const aggregateMetrics = (points: EfficiencyPoint[]): SummaryMetrics => {
 
 const clampEfficiencyDomain = (points: EfficiencyPoint[]) => {
   if (points.length === 0) {
-    return [70, 100] as const
+    return [70, 100] as [number, number]
   }
 
   const values = points.flatMap((point) => [point.capacityEfficiency, point.energyEfficiency])
   const min = Math.floor(Math.min(...values) - 2)
   const max = Math.ceil(Math.max(...values) + 2)
 
-  return [Math.max(70, min), Math.min(100, max)] as const
+  return [Math.max(70, min), Math.min(100, max)] as [number, number]
+}
+
+const efficiencyCellAlpha = (value: number) => {
+  const ratio = Math.max(0, Math.min(1, (value - 84) / 14))
+  return 0.08 + ratio * 0.47
+}
+
+const efficiencySignalWidth = (value: number) => {
+  const ratio = Math.max(0, Math.min(1, (value - 84) / 14))
+  return 28 + ratio * 72
+}
+
+const metricShare = (value: number, max: number) => {
+  if (max <= 0) return 0
+  return (value / max) * 100
 }
 
 export function ComprehensiveEfficiencyPanel() {
   const { language } = useLanguage()
-  const [range, setRange] = useState<RangeKey>("month")
+  const [range, setRange] = useState<RangeKey>("week")
   const [viewMode, setViewMode] = useState<ViewMode>("chart")
   const [mounted, setMounted] = useState(false)
 
@@ -188,128 +218,275 @@ export function ComprehensiveEfficiencyPanel() {
   const efficiencyDomain = useMemo(() => clampEfficiencyDomain(activeData), [activeData])
 
   const rangeOptions = [
-    { key: "week" as const, label: language === "zh" ? "\u8fd17\u65e5" : "7 Days" },
-    { key: "month" as const, label: language === "zh" ? "\u672c\u6708" : "This Month" },
-    { key: "year" as const, label: language === "zh" ? "\u672c\u5e74" : "This Year" },
+    { key: "week" as const, label: language === "zh" ? "近7日" : "7 Days" },
+    { key: "month" as const, label: language === "zh" ? "本月" : "This Month" },
+    { key: "year" as const, label: language === "zh" ? "本年" : "This Year" },
   ]
 
-  const summaryColumns = [
-    { key: "yesterday" as const, label: language === "zh" ? "\u6628\u65e5" : "Yesterday" },
-    { key: "week" as const, label: language === "zh" ? "\u8fd17\u65e5" : "Last 7 Days" },
-    { key: "month" as const, label: language === "zh" ? "\u672c\u6708" : "This Month" },
-    { key: "year" as const, label: language === "zh" ? "\u672c\u5e74" : "This Year" },
+  const summaryColumns: SummaryColumn[] = [
+    { key: "yesterday", label: language === "zh" ? "昨日" : "Yesterday", tag: "24H" },
+    { key: "week", label: language === "zh" ? "近7日" : "Last 7D", tag: "7D" },
+    { key: "month", label: language === "zh" ? "本月" : "This Month", tag: "MTD" },
+    { key: "year", label: language === "zh" ? "本年" : "This Year", tag: "YTD" },
   ]
 
-  const efficiencySummaryRows = [
+  const matrixMetrics = [
     {
       key: "systemEfficiency",
-      label: language === "zh" ? "\u7cfb\u7edf\u6548\u7387" : "System Efficiency",
-      emphasis: true,
-      formatter: (metrics: SummaryMetrics) => `${metrics.systemEfficiency.toFixed(1)}%`,
+      label: language === "zh" ? "系统效率" : "System Eff.",
+      kind: "efficiency" as const,
+      accentFrom: "#00d4aa",
+      accentTo: "#7cf7df",
+      icon: Gauge,
+      getValue: (m: SummaryMetrics) => m.systemEfficiency,
+      format: (m: SummaryMetrics) => `${m.systemEfficiency.toFixed(1)}%`,
     },
     {
       key: "avgCapacityEfficiency",
-      label: language === "zh" ? "\u5e73\u5747\u5bb9\u91cf\u6548\u7387" : "Avg Capacity Efficiency",
-      emphasis: true,
-      formatter: (metrics: SummaryMetrics) => `${metrics.avgCapacityEfficiency.toFixed(1)}%`,
+      label: language === "zh" ? "平均容量效率" : "Avg Cap. Eff.",
+      kind: "efficiency" as const,
+      accentFrom: "#39d0ff",
+      accentTo: "#7dd3fc",
+      icon: BatteryCharging,
+      getValue: (m: SummaryMetrics) => m.avgCapacityEfficiency,
+      format: (m: SummaryMetrics) => `${m.avgCapacityEfficiency.toFixed(1)}%`,
     },
     {
       key: "avgEnergyEfficiency",
-      label: language === "zh" ? "\u5e73\u5747\u80fd\u91cf\u6548\u7387" : "Avg Energy Efficiency",
-      emphasis: true,
-      formatter: (metrics: SummaryMetrics) => `${metrics.avgEnergyEfficiency.toFixed(1)}%`,
+      label: language === "zh" ? "平均能量效率" : "Avg Enrg. Eff.",
+      kind: "efficiency" as const,
+      accentFrom: "#7dd3fc",
+      accentTo: "#22d3ee",
+      icon: TrendingUp,
+      getValue: (m: SummaryMetrics) => m.avgEnergyEfficiency,
+      format: (m: SummaryMetrics) => `${m.avgEnergyEfficiency.toFixed(1)}%`,
     },
-  ]
-
-  const aggregateSummaryRows = [
     {
       key: "chargeEnergy",
-      label: language === "zh" ? "\u7d2f\u8ba1\u5145\u7535\u91cf" : "Charge Energy",
-      formatter: (metrics: SummaryMetrics) => `${(metrics.chargeEnergy / 1000).toFixed(2)} MWh`,
+      label: language === "zh" ? "充电量" : "Chg. Energy",
+      kind: "quantity" as const,
+      accentFrom: "#39d0ff",
+      accentTo: "#22d3ee",
+      icon: Zap,
+      getValue: (m: SummaryMetrics) => m.chargeEnergy,
+      format: (m: SummaryMetrics) =>
+        m.chargeEnergy >= 1000 ? `${(m.chargeEnergy / 1000).toFixed(2)} MWh` : `${m.chargeEnergy.toFixed(1)} kWh`,
     },
     {
       key: "dischargeEnergy",
-      label: language === "zh" ? "\u7d2f\u8ba1\u653e\u7535\u91cf" : "Discharge Energy",
-      formatter: (metrics: SummaryMetrics) => `${(metrics.dischargeEnergy / 1000).toFixed(2)} MWh`,
+      label: language === "zh" ? "放电量" : "Dis. Energy",
+      kind: "quantity" as const,
+      accentFrom: "#4f8cff",
+      accentTo: "#7ea8ff",
+      icon: Activity,
+      getValue: (m: SummaryMetrics) => m.dischargeEnergy,
+      format: (m: SummaryMetrics) =>
+        m.dischargeEnergy >= 1000
+          ? `${(m.dischargeEnergy / 1000).toFixed(2)} MWh`
+          : `${m.dischargeEnergy.toFixed(1)} kWh`,
     },
     {
       key: "chargeCapacity",
-      label: language === "zh" ? "\u7d2f\u8ba1\u5145\u7535\u5bb9\u91cf" : "Charge Capacity",
-      formatter: (metrics: SummaryMetrics) => `${metrics.chargeCapacity.toFixed(metrics.chargeCapacity >= 1000 ? 0 : 1)} Ah`,
+      label: language === "zh" ? "充电容量" : "Chg. Cap.",
+      kind: "quantity" as const,
+      accentFrom: "#00d4aa",
+      accentTo: "#34d399",
+      icon: BatteryCharging,
+      getValue: (m: SummaryMetrics) => m.chargeCapacity,
+      format: (m: SummaryMetrics) =>
+        `${m.chargeCapacity.toFixed(m.chargeCapacity >= 1000 ? 0 : 1)} Ah`,
     },
     {
       key: "dischargeCapacity",
-      label: language === "zh" ? "\u7d2f\u8ba1\u653e\u7535\u5bb9\u91cf" : "Discharge Capacity",
-      formatter: (metrics: SummaryMetrics) => `${metrics.dischargeCapacity.toFixed(metrics.dischargeCapacity >= 1000 ? 0 : 1)} Ah`,
+      label: language === "zh" ? "放电容量" : "Dis. Cap.",
+      kind: "quantity" as const,
+      accentFrom: "#7dd3fc",
+      accentTo: "#38bdf8",
+      icon: Battery,
+      getValue: (m: SummaryMetrics) => m.dischargeCapacity,
+      format: (m: SummaryMetrics) =>
+        `${m.dischargeCapacity.toFixed(m.dischargeCapacity >= 1000 ? 0 : 1)} Ah`,
     },
   ]
 
-  const summaryRowGroups = [
-    { key: "efficiency", rows: efficiencySummaryRows },
-    { key: "aggregate", rows: aggregateSummaryRows },
-  ]
+  const matrixMetricStats = matrixMetrics.map((metric) => {
+    const values = summaryColumns.map((col) => metric.getValue(summaryData[col.key]))
+    return {
+      ...metric,
+      values,
+      maxValue: Math.max(...values),
+    }
+  })
 
   const legendText = {
-    chargeCapacity: language === "zh" ? "\u5145\u7535\u5bb9\u91cf (Ah)" : "Charge Capacity (Ah)",
-    dischargeCapacity: language === "zh" ? "\u653e\u7535\u5bb9\u91cf (Ah)" : "Discharge Capacity (Ah)",
-    chargeEnergy: language === "zh" ? "\u5145\u7535\u7535\u91cf (kWh)" : "Charge Energy (kWh)",
-    dischargeEnergy: language === "zh" ? "\u653e\u7535\u7535\u91cf (kWh)" : "Discharge Energy (kWh)",
-    capacityEfficiency: language === "zh" ? "\u5bb9\u91cf\u6548\u7387 (%)" : "Capacity Efficiency (%)",
-    energyEfficiency: language === "zh" ? "\u80fd\u91cf\u6548\u7387 (%)" : "Energy Efficiency (%)",
+    chargeCapacity: language === "zh" ? "充电容量 (Ah)" : "Charge Capacity (Ah)",
+    dischargeCapacity: language === "zh" ? "放电容量 (Ah)" : "Discharge Capacity (Ah)",
+    chargeEnergy: language === "zh" ? "充电电量 (kWh)" : "Charge Energy (kWh)",
+    dischargeEnergy: language === "zh" ? "放电电量 (kWh)" : "Discharge Energy (kWh)",
+    capacityEfficiency: language === "zh" ? "容量效率 (%)" : "Capacity Efficiency (%)",
+    energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
   }
 
   if (!mounted) {
     return (
       <div className="flex h-full min-h-0 flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
         <div className="flex h-full items-center justify-center text-sm text-[#7b8ab8]">
-          {language === "zh" ? "\u52a0\u8f7d\u7efc\u5408\u80fd\u6548\u6570\u636e..." : "Loading efficiency data..."}
+          {language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
-      <div className="mb-4 rounded-xl border border-[#1a2654] bg-[linear-gradient(180deg,rgba(16,24,64,0.9),rgba(10,18,48,0.94))] p-3">
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          {summaryRowGroups.map((group) => (
-            <div
-              key={group.key}
-              className="overflow-hidden rounded-lg border border-[#1a2654]/80 bg-[#0d1433]/90"
-            >
-              <table className="w-full table-fixed text-[12px]">
-                <thead className="bg-[#121a40]">
-                  <tr className="border-b border-[#1a2654] text-[#7b8ab8]">
-                    <th className="px-3 py-2.5 text-left font-medium">
-                      {language === "zh" ? "\u6307\u6807" : "Metric"}
-                    </th>
-                    {summaryColumns.map((column) => (
-                      <th key={column.key} className="px-2 py-2.5 text-right font-medium">
-                        {column.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {group.rows.map((row) => (
-                    <tr key={row.key} className="border-b border-[#1a2654]/60 last:border-b-0 hover:bg-[#1a2654]/20">
-                      <td className="px-3 py-2.5">
-                        <span className={`font-medium ${row.emphasis ? "text-[#bfeadf]" : "text-[#cdd9f7]"}`}>{row.label}</span>
-                      </td>
-                      {summaryColumns.map((column) => (
-                        <td
-                          key={`${row.key}-${column.key}`}
-                          className={`px-2 py-2.5 text-right font-mono ${row.emphasis ? "text-[#00d4aa]" : "text-[#eef4ff]"}`}
-                        >
-                          {row.formatter(summaryData[column.key])}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
+      <div className="relative mb-3 shrink-0 overflow-hidden rounded-2xl border border-[#21406b] bg-[linear-gradient(180deg,rgba(13,20,52,0.98),rgba(8,14,36,0.98))] p-3 shadow-[0_0_0_1px_rgba(34,211,238,0.03)_inset]">
+        <div className="absolute -left-10 top-8 h-28 w-28 rounded-full bg-[#22d3ee]/10 blur-3xl" />
+        <div className="absolute right-[-20px] top-[-10px] h-24 w-24 rounded-full bg-[#00d4aa]/10 blur-3xl" />
+        <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/70 to-transparent" />
+
+        <div className="relative mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <div className="h-6 w-1 rounded-full bg-[#00d4aa]" />
+            <div>
+              <div className="mt-1 text-sm font-semibold text-[#e8f4fc]">
+                {language === "zh" ? "综合能效多时域对比" : "Multi-window Efficiency Overview"}
+              </div>
             </div>
-          ))}
+          </div>
+         
+        </div>
+
+        <div className="relative max-h-[340px] overflow-auto">
+          <div className="min-w-[1120px]">
+            <div className="grid grid-cols-[140px_repeat(7,minmax(128px,1fr))] gap-2">
+              <div className="flex items-center rounded-xl border border-[#26456e] bg-[linear-gradient(180deg,rgba(16,30,66,0.96),rgba(10,19,45,0.96))] px-3 py-2 text-[10px] uppercase tracking-[0.28em] text-[#5f79ad] shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]">
+                {language === "zh" ? "时间窗" : "Window"}
+              </div>
+              {matrixMetricStats.map((metric) => {
+                const Icon = metric.icon
+
+                return (
+                  <div
+                    key={metric.key}
+                    className="rounded-xl border border-[#26456e] bg-[linear-gradient(180deg,rgba(15,28,60,0.96),rgba(9,18,42,0.96))] px-3 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/5 bg-[#0e1b40]/90"
+                        style={{ boxShadow: `0 0 14px ${metric.accentFrom}22` }}
+                      >
+                        <Icon className="h-3.5 w-3.5" style={{ color: metric.accentFrom }} />
+                      </div>
+                      <div className="min-w-0 truncate text-[12px] font-medium text-[#e8f4fc]">{metric.label}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="mt-2 space-y-2">
+              {summaryColumns.map((col, rowIndex) => (
+                <div key={col.key} className="grid grid-cols-[140px_repeat(7,minmax(128px,1fr))] gap-2">
+                  <div className="rounded-xl border border-[#26456e] bg-[linear-gradient(180deg,rgba(16,30,66,0.96),rgba(10,19,45,0.96))] px-3 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]">
+                    <div className="text-[10px] uppercase tracking-[0.28em] text-[#5f79ad]">{col.tag}</div>
+                    <div className="mt-1 text-[13px] font-semibold text-[#e8f4fc]">{col.label}</div>
+                  </div>
+
+                  {matrixMetricStats.map((metric) => {
+                    const rawValue = metric.values[rowIndex]
+                    const currentMetrics = summaryData[col.key]
+                    const isMax = rawValue === metric.maxValue
+
+                    if (metric.kind === "efficiency") {
+                      const alpha = efficiencyCellAlpha(rawValue)
+                      const textColor = rawValue >= 91 ? "#00d4aa" : rawValue >= 88 ? "#34d399" : "#6ee7b7"
+                      const signalWidth = efficiencySignalWidth(rawValue)
+
+                      return (
+                        <div
+                          key={`${col.key}-${metric.key}`}
+                          className="relative overflow-hidden rounded-xl border border-[#214066] bg-[linear-gradient(180deg,rgba(14,30,57,0.97),rgba(9,20,44,0.96))] px-3 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]"
+                          style={
+                            isMax
+                              ? { boxShadow: "0 0 18px rgba(0,212,170,0.12), inset 0 0 0 1px rgba(255,255,255,0.02)" }
+                              : undefined
+                          }
+                        >
+                          <div
+                            className="absolute inset-0"
+                            style={{ background: `radial-gradient(circle at top right, rgba(0,212,170,${alpha * 0.34}), transparent 62%)` }}
+                          />
+                          <div
+                            className="absolute left-0 top-0 h-[2px]"
+                            style={{ width: `${signalWidth}%`, background: `linear-gradient(90deg, ${textColor}, transparent)` }}
+                          />
+                          <div className="relative flex items-center justify-between gap-2">
+                            <span className="font-mono text-[15px] font-semibold" style={{ color: textColor }}>
+                              {metric.format(currentMetrics)}
+                            </span>
+                            {isMax ? (
+                              <span className="rounded-full border border-[#00d4aa]/30 bg-[#07172d]/80 px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.16em] text-[#4de9cf]">
+                                {language === "zh" ? "高值" : "Top"}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] uppercase tracking-[0.24em] text-[#6f89bf]">{col.tag}</span>
+                            )}
+                          </div>
+                          <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-[#172653]">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${Math.max(14, signalWidth)}%`,
+                                background: `linear-gradient(90deg, ${textColor}, ${metric.accentTo})`,
+                                boxShadow: `0 0 16px ${textColor}33`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    const share = metricShare(rawValue, metric.maxValue)
+
+                    return (
+                      <div
+                        key={`${col.key}-${metric.key}`}
+                        className="relative overflow-hidden rounded-xl border border-[#214066] bg-[linear-gradient(180deg,rgba(14,27,56,0.97),rgba(9,18,42,0.96))] px-3 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]"
+                        style={
+                          isMax
+                            ? { boxShadow: `0 0 18px ${metric.accentFrom}22, inset 0 0 0 1px rgba(255,255,255,0.02)` }
+                            : undefined
+                        }
+                      >
+                        <div
+                          className="absolute inset-0"
+                          style={{ background: `radial-gradient(circle at bottom left, ${metric.accentFrom}18, transparent 62%)` }}
+                        />
+                        <div className="relative flex items-center justify-between gap-2">
+                          <span className="font-mono text-[14px] font-semibold text-[#eef4ff]">
+                            {metric.format(currentMetrics)}
+                          </span>
+                          <span className="text-[10px]" style={{ color: isMax ? metric.accentTo : "#8db7ff" }}>
+                            {`${Math.round(share)}%`}
+                          </span>
+                        </div>
+                        <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-[#16244d]">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${share > 0 ? Math.max(12, share) : 0}%`,
+                              background: `linear-gradient(90deg, ${metric.accentFrom}, ${metric.accentTo})`,
+                              boxShadow: `0 0 16px ${metric.accentFrom}33`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -340,8 +517,8 @@ export function ComprehensiveEfficiencyPanel() {
                     ? "bg-[#3b82f6] text-white"
                     : "text-[#7b8ab8] hover:text-[#e8f4fc]"
                 }`}
-                aria-label={language === "zh" ? "\u56fe\u8868" : "Chart"}
-                title={language === "zh" ? "\u56fe\u8868" : "Chart"}
+                aria-label={language === "zh" ? "图表" : "Chart"}
+                title={language === "zh" ? "图表" : "Chart"}
               >
                 <LineChartIcon className="h-4 w-4" />
               </button>
@@ -352,8 +529,8 @@ export function ComprehensiveEfficiencyPanel() {
                     ? "bg-[#3b82f6] text-white"
                     : "text-[#7b8ab8] hover:text-[#e8f4fc]"
                 }`}
-                aria-label={language === "zh" ? "\u8868\u683c" : "Table"}
-                title={language === "zh" ? "\u8868\u683c" : "Table"}
+                aria-label={language === "zh" ? "表格" : "Table"}
+                title={language === "zh" ? "表格" : "Table"}
               >
                 <Table className="h-4 w-4" />
               </button>
@@ -364,7 +541,7 @@ export function ComprehensiveEfficiencyPanel() {
         {viewMode === "chart" ? (
           <div className="min-h-0 flex-1">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={activeData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              <ComposedChart data={activeData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="#1a2654" strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="label"
@@ -400,13 +577,13 @@ export function ComprehensiveEfficiencyPanel() {
                       return [`${value.toFixed(1)}%`, name]
                     }
 
-                    const unit = name.includes("Capacity") || name.includes("\u5bb9\u91cf") ? "Ah" : "kWh"
+                    const unit = name.includes("Capacity") || name.includes("容量") ? "Ah" : "kWh"
                     return [`${value.toFixed(1)} ${unit}`, name]
                   }}
                 />
                 <Legend
-                  wrapperStyle={{ paddingTop: "12px" }}
-                  formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
+                  wrapperStyle={{ paddingTop: "8px" }}
+                  formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>}
                 />
                 <Bar
                   yAxisId="quantity"
@@ -464,12 +641,12 @@ export function ComprehensiveEfficiencyPanel() {
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="h-[330px] overflow-auto rounded-lg border border-[#1a2654]/80 bg-[#0d1433]/90">
+          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-[#1a2654]/80 bg-[#0d1433]/90">
             <table className="w-full min-w-[920px] text-sm">
               <thead className="sticky top-0 z-10 bg-[#121a40]">
                 <tr className="border-b border-[#1a2654] text-[#7b8ab8]">
                   <th className="px-3 py-3 text-left font-medium">
-                    {language === "zh" ? "\u65f6\u95f4" : "Period"}
+                    {language === "zh" ? "时间" : "Period"}
                   </th>
                   <th className="px-3 py-3 text-right font-medium">{legendText.chargeCapacity}</th>
                   <th className="px-3 py-3 text-right font-medium">{legendText.dischargeCapacity}</th>

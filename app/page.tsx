@@ -5,6 +5,7 @@ import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysis"
 import { ChargeDischargeTable } from "@/components/dashboard/charge-discharge-table"
+import { CellMatrixPanel } from "@/components/dashboard/cell-matrix-panel"
 import { ComprehensiveEfficiencyPanel } from "@/components/dashboard/comprehensive-efficiency-panel"
 import { DashboardHeader, ProjectProvider } from "@/components/dashboard/dashboard-header"
 import { EnergyCurveQuery } from "@/components/dashboard/energy-curve-query"
@@ -16,11 +17,12 @@ import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperatur
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { LanguageProvider } from "@/components/language-provider"
 
-type DashboardTab = "realtime" | "efficiency" | "analysis" | "history" | "reports"
+type DashboardTab = "realtime" | "efficiency" | "bms" | "analysis" | "history" | "reports"
 
 const TAB_META: Record<DashboardTab, { label: string }> = {
-  realtime: { label: "实时数据" },
+  realtime: { label: "总览" },
   efficiency: { label: "综合能效" },
+  bms: { label: "电芯矩阵" },
   analysis: { label: "数据分析" },
   history: { label: "历史查询" },
   reports: { label: "报表信息" },
@@ -76,6 +78,12 @@ function DashboardTabs() {
         {activeTab === "efficiency" && (
           <div className="h-full min-h-0 overflow-hidden">
             <ComprehensiveEfficiencyPanel />
+          </div>
+        )}
+
+        {activeTab === "bms" && (
+          <div className="h-full min-h-0 overflow-hidden">
+            <CellMatrixPanel />
           </div>
         )}
 
