@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { useLanguage } from "@/components/language-provider"
 
+type QueryType = "today" | "yesterday" | "week" | "month"
+
 // Generate minute-level mock data
 const generateMinuteData = (hours: number) => {
   const data = []
@@ -36,11 +38,15 @@ const generateMinuteData = (hours: number) => {
 // Generate daily data for current month (1st to today)
 const generateMonthDailyData = () => {
   const today = new Date()
-  return Array.from({ length: today.getDate() }, (_, i) => ({
-    time: `${i + 1}`,
-    chargePower: Math.round(800 + Math.random() * 600),
-    dischargePower: -Math.round(700 + Math.random() * 500),
-  }))
+  return Array.from({ length: today.getDate() }, (_, i) => {
+    const date = new Date(today.getFullYear(), today.getMonth(), i + 1)
+
+    return {
+      time: `${date.getMonth() + 1}/${date.getDate()}`,
+      chargePower: Math.round(800 + Math.random() * 600),
+      dischargePower: -Math.round(700 + Math.random() * 500),
+    }
+  })
 }
 
 // Generate daily data for last 7 days
@@ -68,7 +74,7 @@ const getInitialData = () => {
 
 
 export function PowerCurveQuery() {
-  const [queryType, setQueryType] = useState<"yesterday" | "week" | "month">("yesterday")
+  const [queryType, setQueryType] = useState<QueryType>("today")
   const [data, setData] = useState(getInitialData)
   const [mounted, setMounted] = useState(false)
   const { t, language } = useLanguage()
@@ -79,12 +85,13 @@ export function PowerCurveQuery() {
   }, [])
 
   const queryTypes = [
+    { key: "today", label: t("today") },
     { key: "yesterday", label: t("yesterday") },
     { key: "week", label: t("thisWeek") },
     { key: "month", label: t("thisMonth") },
   ]
 
-  const handleQueryTypeChange = (type: "yesterday" | "week" | "month") => {
+  const handleQueryTypeChange = (type: QueryType) => {
     setQueryType(type)
     if (type === "week") {
       setData(generateWeekDailyData())
@@ -110,7 +117,7 @@ export function PowerCurveQuery() {
           {queryTypes.map((type) => (
             <button
               key={type.key}
-              onClick={() => handleQueryTypeChange(type.key as typeof queryType)}
+              onClick={() => handleQueryTypeChange(type.key as QueryType)}
               className={`px-3 py-1.5 text-sm rounded-md transition-all ${
                 queryType === type.key
                   ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
@@ -134,7 +141,7 @@ export function PowerCurveQuery() {
               axisLine={false}
               tickLine={false}
               tick={{ fill: "#7b8ab8", fontSize: 10 }}
-              interval={queryType === "yesterday" ? 23 : 0}
+              interval={queryType === "today" || queryType === "yesterday" ? 23 : 0}
             />
             <YAxis 
               axisLine={false}

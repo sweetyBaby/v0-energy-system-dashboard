@@ -97,7 +97,7 @@ export function BCUStatusQuery() {
   const minTemp = Math.min(...temperatureData.map(d => d.temp))
 
   return (
-    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full">
+    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full h-full min-h-0 overflow-hidden">
       <div className="flex items-center gap-2 mb-4">
         <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
         <h3 className="text-base font-semibold text-[#00d4aa]">{t("bcuStatusQuery")}</h3>
@@ -158,7 +158,7 @@ export function BCUStatusQuery() {
       </div>
 
       {hasQueried && (
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 min-h-0 overflow-hidden">
           {activeTab === "overview" && (
             <>
               {/* Overview Trend Chart - Voltage, Current, SOC */}

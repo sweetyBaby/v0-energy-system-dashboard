@@ -21,11 +21,11 @@ export const translations: Translations = {
   "projectInfo": { zh: "项目信息", en: "Project Info" },
   "ratedPower": { zh: "额定功率", en: "Rated Power" },
   "ratedCapacity": { zh: "额定容量", en: "Rated Capacity" },
-  "commissioningDate": { zh: "并网时间", en: "Commissioning Date" },
+  "commissioningDate": { zh: "投运日期", en: "Commissioning Date" },
   "site": { zh: "站点", en: "Site" },
 
   // Charge/Discharge
-  "chargeDischargeStats": { zh: "充放电电量统计", en: "Charge/Discharge Statistics" },
+  "chargeDischargeStats": { zh: "充放电量统计", en: "Charge/Discharge Statistics" },
   "chargeAmount": { zh: "充电量", en: "Charge" },
   "dischargeAmount": { zh: "放电量", en: "Discharge" },
   "chargeBar": { zh: "充电量(柱状)", en: "Charge (Bar)" },
@@ -46,7 +46,7 @@ export const translations: Translations = {
   "maxOneMonth": { zh: "自定义日期范围最多为一个月", en: "Custom date range cannot exceed one month" },
 
   // Power Curve
-  "powerCurveQuery": { zh: "功率曲线查询", en: "Power Curve Query" },
+  "powerCurveQuery": { zh: "功率曲线", en: "Power Curve Query" },
   "chargePower": { zh: "充电功率", en: "Charge Power" },
   "dischargePower": { zh: "放电功率", en: "Discharge Power" },
   "today": { zh: "今日", en: "Today" },
@@ -130,7 +130,7 @@ const LanguageContext = createContext<LanguageContextType>({
 export const useLanguage = () => useContext(LanguageContext)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>("en")
+  const [language, setLanguage] = useState<Language>("zh")
 
   const t = (key: string): string => {
     if (translations[key]) {

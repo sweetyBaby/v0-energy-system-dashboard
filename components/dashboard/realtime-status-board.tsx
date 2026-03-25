@@ -1,0 +1,164 @@
+"use client"
+
+import { useEffect, useMemo, useState } from "react"
+import { Zap } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
+
+type PackStatus = "offline" | "precharge" | "standby" | "charge" | "discharge" | "fault"
+
+type LiveSnapshot = {
+  soc: number
+  packVoltage: number
+  busVoltage: number
+  cellTotalVoltage: number
+  powerKw: number
+  stringCurrent: number
+  hallCurrent: number
+  availableCapacity: number
+  soh: number
+  packStatus: PackStatus
+}
+
+const packStatusCycle: PackStatus[] = ["standby", "charge", "charge", "discharge", "precharge", "charge"]
+
+const packStatusLabels: Record<PackStatus, { zh: string; en: string }> = {
+  offline: { zh: "\u65ad\u5f00", en: "Offline" },
+  precharge: { zh: "\u9884\u5145", en: "Precharge" },
+  standby: { zh: "\u5f85\u673a", en: "Standby" },
+  charge: { zh: "\u5145\u7535", en: "Charge" },
+  discharge: { zh: "\u653e\u7535", en: "Discharge" },
+  fault: { zh: "\u9519\u8bef", en: "Fault" },
+}
+
+const createSnapshot = (phase: number): LiveSnapshot => {
+  const packStatus = packStatusCycle[phase % packStatusCycle.length]
+
+  return {
+    soc: 93 + (phase % 4) * 2,
+    packVoltage: 5682.4 + (phase % 4) * 6.2,
+    busVoltage: 1320.5 + (phase % 4) * 4.1,
+    cellTotalVoltage: 1313.5 + (phase % 4) * 2.3,
+    powerKw: packStatus === "discharge" ? -628.8 : 655.4 + (phase % 3) * 18.6,
+    stringCurrent: packStatus === "discharge" ? -154.8 : 161.3 + (phase % 4) * 2.8,
+    hallCurrent: 0.22 + (phase % 3) * 0.04,
+    availableCapacity: 832.76 + (phase % 4) * 9.5,
+    soh: 99.6 + (phase % 3) * 0.1,
+    packStatus,
+  }
+}
+
+const statusStyles: Record<PackStatus, string> = {
+  offline: "text-[#475569]",
+  precharge: "text-[#1d4ed8]",
+  standby: "text-[#a16207]",
+  charge: "text-[#00f38d]",
+  discharge: "text-[#d97706]",
+  fault: "text-[#dc2626]",
+}
+
+export function RealtimeStatusBoard() {
+  const { language } = useLanguage()
+  const [snapshot, setSnapshot] = useState<LiveSnapshot>(() => createSnapshot(0))
+
+  useEffect(() => {
+    let phase = 0
+
+    const timer = window.setInterval(() => {
+      phase += 1
+      setSnapshot(createSnapshot(phase))
+    }, 4000)
+
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const packStatusLabel = useMemo(() => {
+    return language === "zh"
+      ? packStatusLabels[snapshot.packStatus].zh
+      : packStatusLabels[snapshot.packStatus].en
+  }, [language, snapshot.packStatus])
+
+  const metricRows = [
+    {
+      labelZh: "PACK\u7535\u538b",
+      labelEn: "PACK Voltage",
+      value: `${snapshot.packVoltage.toFixed(1)} V`,
+    },
+    {
+      labelZh: "BUS\u7535\u538b",
+      labelEn: "BUS Voltage",
+      value: `${snapshot.busVoltage.toFixed(1)} V`,
+    },
+    {
+      labelZh: "\u7535\u82af\u7d2f\u8ba1\u7535\u538b",
+      labelEn: "Cell Sum Voltage",
+      value: `${snapshot.cellTotalVoltage.toFixed(1)} V`,
+    },
+    {
+      labelZh: "\u5f53\u524d\u529f\u7387",
+      labelEn: "Power",
+      value: `${snapshot.powerKw.toFixed(1)} kW`,
+    },
+    {
+      labelZh: "\u7ec4\u4e32\u7535\u6d41",
+      labelEn: "String Current",
+      value: `${snapshot.stringCurrent.toFixed(1)} A`,
+    },
+    {
+      labelZh: "\u970d\u5c14\u7535\u6d41",
+      labelEn: "Hall Current",
+      value: `${snapshot.hallCurrent.toFixed(2)} A`,
+    },
+    {
+      labelZh: "\u5f53\u524d\u53ef\u7528\u5bb9\u91cf",
+      labelEn: "Available Capacity",
+      value: `${snapshot.availableCapacity.toFixed(2)} Ah`,
+    },
+    {
+      labelZh: "SOH",
+      labelEn: "SOH",
+      value: `${snapshot.soh.toFixed(1)}%`,
+    },
+  ]
+
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[linear-gradient(180deg,#141f46,#101a3a)] p-3.5 shadow-[0_0_0_1px_rgba(34,211,238,0.03)_inset]">
+      <div className="mb-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
+          <h3 className="text-base font-semibold text-[#00d4aa]">
+            {language === "zh" ? "\u7cfb\u7edf\u72b6\u6001" : "System Status"}
+          </h3>
+        </div>
+
+        <div className="flex items-center gap-2 rounded-full border border-[#1a2654] bg-[#0b1434]/85 px-3 py-1 text-[11px]">
+          <span className="text-[#7b8ab8]">{language === "zh" ? "\u5f53\u524d Pack" : "Current Pack"}</span>
+          <span className={`font-medium ${statusStyles[snapshot.packStatus]}`}>{packStatusLabel}</span>
+        </div>
+      </div>
+
+      <div className="flex min-h-0 flex-1 gap-4 overflow-hidden rounded-[20px] border border-[#2a4d74] bg-[#15213f] p-3">
+        <div className="flex w-[118px] flex-shrink-0 items-center justify-center">
+          <div className="relative flex h-[150px] w-[104px] flex-col items-center justify-between rounded-[24px] border border-[#0e8d52] bg-[linear-gradient(180deg,#08c95d,#07b94f)] px-3 py-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05),0_0_24px_rgba(0,212,122,0.18)]">
+            <div className="absolute -top-4 h-4 w-12 rounded-t-xl bg-[#0f9f4e]" />
+            <div className="text-3xl font-semibold text-white">{Math.round(snapshot.soc)}%</div>
+            <div className="rounded-full bg-white/10 p-2.5">
+              <Zap className="h-10 w-10 text-white" fill="currentColor" />
+            </div>
+            <div className="text-sm font-medium text-white">{packStatusLabel}</div>
+          </div>
+        </div>
+
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-x-6 gap-y-2">
+          {metricRows.map((item) => (
+            <div key={item.labelEn} className="flex items-end justify-between border-b border-[#244468]/50 pb-1">
+              <span className="text-[11px] text-[#dce7ff]">
+                {language === "zh" ? item.labelZh : item.labelEn}
+              </span>
+              <span className="text-[1.02rem] font-medium text-[#63e8ff]">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}

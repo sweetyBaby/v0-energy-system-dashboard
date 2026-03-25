@@ -1,7 +1,7 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect } from "react"
-import { Zap, Bell, Settings, ChevronDown, Globe } from "lucide-react"
+import { createContext, useContext, useEffect, useState } from "react"
+import { ChevronDown, Globe, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 export const projects = [
@@ -12,7 +12,7 @@ export const projects = [
     ratedPower: "2.0 MW",
     ratedCapacity: "4.0 MWh",
     commissioningDate: "2025-11-15",
-    image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=200&fit=crop"
+    image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=200&fit=crop",
   },
   {
     id: "ordos",
@@ -21,19 +21,18 @@ export const projects = [
     ratedPower: "5.0 MW",
     ratedCapacity: "10.0 MWh",
     commissioningDate: "2025-11-20",
-    image: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=200&fit=crop"
+    image: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=200&fit=crop",
   },
 ]
 
 export type Project = typeof projects[number]
 
-// Create context for project selection
 const ProjectContext = createContext<{
   selectedProject: Project
   setSelectedProject: (project: Project) => void
 }>({
   selectedProject: projects[0],
-  setSelectedProject: () => { },
+  setSelectedProject: () => {},
 })
 
 export const useProject = () => useContext(ProjectContext)
@@ -52,7 +51,7 @@ export function DashboardHeader() {
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const { selectedProject, setSelectedProject } = useProject()
   const [dropdownOpen, setDropdownOpen] = useState(false)
-  const { language, setLanguage, t } = useLanguage()
+  const { language, setLanguage } = useLanguage()
 
   useEffect(() => {
     setCurrentTime(new Date())
@@ -71,27 +70,29 @@ export function DashboardHeader() {
   }
 
   return (
-    <header className="relative px-6 py-4 border-b border-[#1a2654]">
-      {/* Background gradient line */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[2px] bg-gradient-to-r from-transparent via-[#00d4aa] to-transparent" />
+    <header className="relative overflow-hidden border-b border-[#17325d] bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.1),transparent_26%),linear-gradient(180deg,rgba(10,18,48,0.98),rgba(7,12,31,0.98))] px-4 py-2.5">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/45 to-transparent" />
+      <div className="absolute left-0 top-0 h-14 w-24 border-l border-t border-[#3b82f6]/25" />
+      <div className="absolute right-0 top-0 h-14 w-24 border-r border-t border-[#3b82f6]/25" />
+      <div className="absolute left-1/2 top-0 h-10 w-56 -translate-x-1/2 bg-[radial-gradient(circle_at_top,rgba(0,212,170,0.18),transparent_72%)]" />
 
-      <div className="flex items-center justify-between">
-        {/* Left: Logo and Project Selector */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#00d4aa] to-[#3b82f6] flex items-center justify-center">
-            <Zap className="w-6 h-6 text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#22d3ee]/30 bg-[linear-gradient(135deg,rgba(0,212,170,0.2),rgba(59,130,246,0.22))] shadow-[0_0_16px_rgba(34,211,238,0.14)]">
+            <Zap className="h-4.5 w-4.5 text-[#e8f4fc]" />
           </div>
-          {/* Project Dropdown */}
+
           <div className="relative">
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-2 px-3 py-2 bg-[#1a2654] border border-[#3b82f6]/30 rounded-lg text-sm hover:border-[#00d4aa] transition-colors"
+              className="flex min-w-[208px] items-center justify-between gap-2 rounded-lg border border-[#28507c] bg-[#0b1434]/92 px-3 py-1.5 text-sm text-[#e8f4fc] shadow-[0_0_0_1px_rgba(34,211,238,0.02)_inset] transition-colors hover:border-[#00d4aa]"
             >
-              <span className="text-[#e8f4fc]">{language === "zh" ? selectedProject.name : selectedProject.nameEn}</span>
-              <ChevronDown className={`w-4 h-4 text-[#7b8ab8] transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+              <span className="truncate">{language === "zh" ? selectedProject.name : selectedProject.nameEn}</span>
+              <ChevronDown className={`h-4 w-4 text-[#7b8ab8] transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
             </button>
             {dropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 w-full bg-[#0d1233] border border-[#1a2654] rounded-lg overflow-hidden z-50 shadow-lg">
+              <div className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] shadow-lg">
                 {projects.map((project) => (
                   <button
                     key={project.id}
@@ -99,8 +100,9 @@ export function DashboardHeader() {
                       setSelectedProject(project)
                       setDropdownOpen(false)
                     }}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-[#1a2654] transition-colors ${selectedProject.id === project.id ? 'text-[#00d4aa] bg-[#1a2654]/50' : 'text-[#e8f4fc]'
-                      }`}
+                    className={`w-full px-3 py-2 text-left text-sm transition-colors hover:bg-[#1a2654] ${
+                      selectedProject.id === project.id ? "bg-[#1a2654]/50 text-[#00d4aa]" : "text-[#e8f4fc]"
+                    }`}
                   >
                     {language === "zh" ? project.name : project.nameEn}
                   </button>
@@ -110,35 +112,34 @@ export function DashboardHeader() {
           </div>
         </div>
 
-        {/* Center: Title */}
-        <div className="absolute left-1/2 -translate-x-1/2 text-center">
-          <h1 className="text-2xl font-bold tracking-wider bg-gradient-to-r from-[#00d4aa] via-[#22d3ee] to-[#00d4aa] bg-clip-text text-transparent">
-            {t("energyMonitoring")}
-          </h1>
+        <div className="relative flex min-w-[500px] items-center justify-center px-10">
+          <div className="absolute left-0 top-1/2 h-px w-24 -translate-y-1/2 bg-gradient-to-r from-transparent to-[#22d3ee]" />
+          <div className="absolute right-0 top-1/2 h-px w-24 -translate-y-1/2 bg-gradient-to-l from-transparent to-[#22d3ee]" />
+          <div className="relative overflow-hidden rounded-[14px] border border-[#28507c] bg-[linear-gradient(180deg,rgba(8,17,46,0.95),rgba(10,18,48,0.9))] px-10 py-2 shadow-[0_0_0_1px_rgba(34,211,238,0.03)_inset]">
+            <div className="absolute left-2 top-2 h-2 w-2 rounded-full bg-[#00d4aa] shadow-[0_0_10px_rgba(0,212,170,0.85)]" />
+            <div className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#22d3ee] shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+            <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent" />
+            <div className="absolute inset-x-10 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/45 to-transparent" />
+            <div className="text-center">
+              <div className="text-[10px] uppercase tracking-[0.38em] text-[#7b8ab8]">ENERGY DATA SCREEN</div>
+              <h1 className="mt-1 text-xl font-semibold tracking-[0.26em] text-[#e8f4fc]">
+                {language === "zh" ? "BMS 数据监测云平台" : "BMS Data Monitoring Cloud"}
+              </h1>
+            </div>
+          </div>
         </div>
 
-        {/* Right: Time and controls */}
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-[#7b8ab8] font-mono">
+        <div className="flex items-center justify-end gap-2">
+          <span className="rounded-md border border-[#22456d] bg-[#08112e]/82 px-3 py-1.5 text-xs font-mono text-[#7dd3fc]">
             {currentTime ? formatDate(currentTime) : "----/--/-- --:--:--"}
           </span>
-          
-          {/* Language Toggle */}
+
           <button
             onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a2654] hover:bg-[#1a2654]/80 border border-[#3b82f6]/30 transition-colors"
+            className="flex items-center gap-1.5 rounded-md border border-[#28507c] bg-[#0b1434]/92 px-3 py-1.5 text-xs text-[#e8f4fc] transition-colors hover:border-[#00d4aa]"
           >
-            <Globe className="w-4 h-4 text-[#00d4aa]" />
-            <span className="text-sm text-[#e8f4fc] font-medium">
-              {language === "zh" ? "中文" : "EN"}
-            </span>
-          </button>
-          
-          <button className="p-2 rounded-lg hover:bg-[#1a2654] transition-colors">
-            <Bell className="w-5 h-5 text-[#7b8ab8]" />
-          </button>
-          <button className="p-2 rounded-lg hover:bg-[#1a2654] transition-colors">
-            <Settings className="w-5 h-5 text-[#7b8ab8]" />
+            <Globe className="h-4 w-4 text-[#00d4aa]" />
+            <span>{language === "zh" ? "中文" : "EN"}</span>
           </button>
         </div>
       </div>
