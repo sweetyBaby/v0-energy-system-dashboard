@@ -491,16 +491,23 @@ export function ComprehensiveEfficiencyPanel() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-[#1a2654] bg-[linear-gradient(180deg,rgba(16,24,64,0.9),rgba(10,18,48,0.94))] p-3">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
+            <h3 className="text-base font-semibold text-[#00d4aa]">
+              {language === "zh" ? "综合能效统计" : "Efficiency Analytics"}
+            </h3>
+          </div>
+
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1 rounded-lg bg-[#1a2654]/50 p-1">
+            <div className="flex gap-1 rounded-xl bg-[#16204b]/90 p-1">
               {rangeOptions.map((item) => (
                 <button
                   key={item.key}
                   onClick={() => setRange(item.key)}
-                  className={`rounded-md px-3 py-1.5 text-sm transition-all ${
+                  className={`rounded-lg px-3 py-1.5 text-[13px] transition-all ${
                     range === item.key
-                      ? "bg-[#00d4aa] font-medium text-[#0a0e27]"
+                      ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
                       : "text-[#7b8ab8] hover:text-[#e8f4fc]"
                   }`}
                 >
@@ -509,7 +516,7 @@ export function ComprehensiveEfficiencyPanel() {
               ))}
             </div>
 
-            <div className="flex gap-1 rounded-lg bg-[#1a2654]/50 p-1">
+            <div className="flex gap-1 rounded-xl bg-[#1a2654]/50 p-1">
               <button
                 onClick={() => setViewMode("chart")}
                 className={`rounded-md p-1.5 transition-all ${
@@ -520,7 +527,7 @@ export function ComprehensiveEfficiencyPanel() {
                 aria-label={language === "zh" ? "图表" : "Chart"}
                 title={language === "zh" ? "图表" : "Chart"}
               >
-                <LineChartIcon className="h-4 w-4" />
+                <LineChartIcon className="h-[18px] w-[18px]" />
               </button>
               <button
                 onClick={() => setViewMode("table")}
@@ -532,7 +539,7 @@ export function ComprehensiveEfficiencyPanel() {
                 aria-label={language === "zh" ? "表格" : "Table"}
                 title={language === "zh" ? "表格" : "Table"}
               >
-                <Table className="h-4 w-4" />
+                <Table className="h-[18px] w-[18px]" />
               </button>
             </div>
           </div>

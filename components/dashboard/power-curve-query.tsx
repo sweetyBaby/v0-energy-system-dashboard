@@ -104,23 +104,20 @@ export function PowerCurveQuery() {
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full h-full">
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
           <h3 className="text-base font-semibold text-[#00d4aa]">{t("powerCurveQuery")}</h3>
         </div>
-      </div>
 
-      {/* Query Controls */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1">
+        <div className="flex gap-1 rounded-xl bg-[#16204b]/90 p-1">
           {queryTypes.map((type) => (
             <button
               key={type.key}
               onClick={() => handleQueryTypeChange(type.key as QueryType)}
-              className={`px-3 py-1.5 text-sm rounded-md transition-all ${
+              className={`rounded-lg px-3 py-1.5 text-[13px] transition-all ${
                 queryType === type.key
-                  ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
+                  ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
                   : "text-[#7b8ab8] hover:text-[#e8f4fc]"
               }`}
             >
@@ -128,7 +125,6 @@ export function PowerCurveQuery() {
             </button>
           ))}
         </div>
-
       </div>
 
       {/* Chart */}

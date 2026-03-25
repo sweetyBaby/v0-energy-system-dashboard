@@ -18,6 +18,12 @@ import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-differ
 import { LanguageProvider } from "@/components/language-provider"
 
 type DashboardTab = "realtime" | "efficiency" | "bms" | "analysis" | "history" | "reports"
+type AnalysisRange = 7 | 15 | 30
+const ANALYSIS_RANGES: { key: AnalysisRange; label: string }[] = [
+  { key: 7,  label: "近7日"  },
+  { key: 15, label: "近15日" },
+  { key: 30, label: "近30日" },
+]
 
 const TAB_META: Record<DashboardTab, { label: string }> = {
   realtime: { label: "总览" },
@@ -30,6 +36,7 @@ const TAB_META: Record<DashboardTab, { label: string }> = {
 
 function DashboardTabs() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("realtime")
+  const [analysisRange, setAnalysisRange] = useState<AnalysisRange>(15)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
@@ -88,15 +95,30 @@ function DashboardTabs() {
         )}
 
         {activeTab === "analysis" && (
-          <div className="grid h-full min-h-0 grid-cols-12 gap-4">
-            <div className="col-span-12 min-h-0 xl:col-span-4">
-              <VoltageDifferenceAnalysis />
+          <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+            {/* Shared filter bar */}
+            <div className="flex shrink-0 items-center gap-3 rounded-lg border border-[#1a2654] bg-[#0d1233] px-4 py-2">
+              <span className="text-xs text-[#7b8ab8]">时间范围</span>
+              <div className="flex gap-1 rounded-lg bg-[#1a2654]/50 p-1">
+                {ANALYSIS_RANGES.map(r => (
+                  <button key={r.key} onClick={() => setAnalysisRange(r.key)}
+                    className={`rounded-md px-3 py-1 text-xs transition-all ${analysisRange === r.key ? "bg-[#00d4aa] font-semibold text-[#0a0e27]" : "text-[#7b8ab8] hover:text-[#e8f4fc]"}`}>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="col-span-12 min-h-0 xl:col-span-4">
-              <TemperatureDifferenceAnalysis />
-            </div>
-            <div className="col-span-12 min-h-0 xl:col-span-4">
-              <CellVoltageAnalysis />
+            {/* Panels */}
+            <div className="grid min-h-0 flex-1 grid-cols-12 gap-4">
+              <div className="col-span-12 min-h-0 xl:col-span-4">
+                <VoltageDifferenceAnalysis range={analysisRange} />
+              </div>
+              <div className="col-span-12 min-h-0 xl:col-span-4">
+                <TemperatureDifferenceAnalysis range={analysisRange} />
+              </div>
+              <div className="col-span-12 min-h-0 xl:col-span-4">
+                <CellVoltageAnalysis range={analysisRange} />
+              </div>
             </div>
           </div>
         )}

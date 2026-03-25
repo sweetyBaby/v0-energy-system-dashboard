@@ -1,139 +1,257 @@
 "use client"
 
-import { FileText, ShieldCheck, TimerReset } from "lucide-react"
+import { useMemo, useState } from "react"
+import { CalendarDays, ChevronDown, Download } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-const reportRows = [
-  {
-    nameZh: "日报",
-    nameEn: "Daily Report",
-    cycleZh: "每日 00:05",
-    cycleEn: "Daily 00:05",
-    latest: "2026-03-24",
-    statusZh: "已生成",
-    statusEn: "Ready",
-  },
-  {
-    nameZh: "月报",
-    nameEn: "Monthly Report",
-    cycleZh: "每月 1 日",
-    cycleEn: "1st day monthly",
-    latest: "2026-03",
-    statusZh: "已生成",
-    statusEn: "Ready",
-  },
-  {
-    nameZh: "告警专题报表",
-    nameEn: "Alarm Report",
-    cycleZh: "每周一",
-    cycleEn: "Every Monday",
-    latest: "2026-W12",
-    statusZh: "待更新",
-    statusEn: "Pending",
-  },
+type CalendarCell = {
+  date: Date
+  inMonth: boolean
+}
+
+const weekdayLabels = {
+  zh: ["周日", "周一", "周二", "周三", "周四", "周五", "周六"],
+  en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+} as const
+
+const monthNamesEn = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ]
 
-const reportFields = [
-  "功率曲线",
-  "SOC/SOH 趋势",
-  "充放电量统计",
-  "系统效率",
-  "压差分析",
-  "温差分析",
-  "BCU 运行状态",
-  "告警闭环",
+const monthNamesZh = [
+  `1\u6708`,
+  `2\u6708`,
+  `3\u6708`,
+  `4\u6708`,
+  `5\u6708`,
+  `6\u6708`,
+  `7\u6708`,
+  `8\u6708`,
+  `9\u6708`,
+  `10\u6708`,
+  `11\u6708`,
+  `12\u6708`,
 ]
+
+const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1)
+
+const endOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0)
+
+const isSameDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+
+const isSameMonth = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
+
+const isFutureDay = (date: Date, today: Date) => {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
+  return d > t
+}
+
+const formatMonthTitle = (date: Date, language: "zh" | "en") =>
+  language === "zh"
+    ? `${date.getFullYear()}\u5e74${date.getMonth() + 1}\u6708`
+    : `${monthNamesEn[date.getMonth()]} ${date.getFullYear()}`
+
+const buildCalendarCells = (viewDate: Date): CalendarCell[] => {
+  const firstDay = startOfMonth(viewDate)
+  const lastDay = endOfMonth(viewDate)
+  const leading = firstDay.getDay()
+  const totalDays = lastDay.getDate()
+  const totalSlots = Math.ceil((leading + totalDays) / 7) * 7
+  const firstGridDate = new Date(firstDay)
+  firstGridDate.setDate(firstDay.getDate() - leading)
+
+  return Array.from({ length: totalSlots }, (_, index) => {
+    const date = new Date(firstGridDate)
+    date.setDate(firstGridDate.getDate() + index)
+
+    return {
+      date,
+      inMonth: isSameMonth(date, viewDate),
+    }
+  })
+}
 
 export function ReportCenterPanel() {
   const { language } = useLanguage()
+  const today = useMemo(() => new Date(), [])
+  const [viewDate, setViewDate] = useState(() => startOfMonth(today))
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  const labels = language === "zh" ? weekdayLabels.zh : weekdayLabels.en
+  const monthTitle = formatMonthTitle(viewDate, language)
+  const calendarCells = useMemo(() => buildCalendarCells(viewDate), [viewDate])
+  const weekCount = calendarCells.length / 7
+  const yearOptions = useMemo(
+    () => Array.from({ length: today.getFullYear() + 3 - 2024 }, (_, index) => 2024 + index),
+    [today],
+  )
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#22d3ee]" />
           <h3 className="text-base font-semibold text-[#22d3ee]">
-            {language === "zh" ? "报表中心" : "Report Center"}
+            {language === "zh" ? "\u62a5\u8868\u4fe1\u606f" : "Report Center"}
           </h3>
         </div>
-        <span className="text-xs text-[#7b8ab8]">
-          {language === "zh" ? "支持日报 / 月报 / 年报 / 专题报表" : "Daily / Monthly / Topic Reports"}
-        </span>
-      </div>
 
-      <div className="mb-4 grid grid-cols-1 gap-3 xl:grid-cols-3">
-        <div className="rounded-lg border border-[#1a2654] bg-[#101840]/70 p-3">
-          <div className="mb-2 flex items-center gap-2 text-xs text-[#7b8ab8]">
-            <FileText className="h-4 w-4 text-[#22d3ee]" />
-            {language === "zh" ? "自动生成" : "Auto Generation"}
-          </div>
-          <div className="text-lg font-semibold text-[#22d3ee]">03</div>
-          <div className="mt-1 text-xs text-[#7b8ab8]">
-            {language === "zh" ? "已配置 3 类标准报表" : "3 report templates configured"}
-          </div>
-        </div>
-        <div className="rounded-lg border border-[#1a2654] bg-[#101840]/70 p-3">
-          <div className="mb-2 flex items-center gap-2 text-xs text-[#7b8ab8]">
-            <ShieldCheck className="h-4 w-4 text-[#00d4aa]" />
-            {language === "zh" ? "字段覆盖" : "Field Coverage"}
-          </div>
-          <div className="text-lg font-semibold text-[#00d4aa]">92%</div>
-          <div className="mt-1 text-xs text-[#7b8ab8]">
-            {language === "zh" ? "已覆盖运行、能效、分析、告警等主题" : "Operations, efficiency, analysis, and alarms covered"}
-          </div>
-        </div>
-        <div className="rounded-lg border border-[#1a2654] bg-[#101840]/70 p-3">
-          <div className="mb-2 flex items-center gap-2 text-xs text-[#7b8ab8]">
-            <TimerReset className="h-4 w-4 text-[#f97316]" />
-            {language === "zh" ? "最近生成" : "Latest Export"}
-          </div>
-          <div className="text-lg font-semibold text-[#f97316]">2026-03-24 00:05</div>
-          <div className="mt-1 text-xs text-[#7b8ab8]">
-            {language === "zh" ? "日报已归档，可供导出和审计追溯" : "Daily report archived for export and audit"}
-          </div>
-        </div>
-      </div>
+        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+          <PopoverTrigger asChild>
+            <button className="flex items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3 py-2 text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60">
+              <CalendarDays className="h-4 w-4 text-[#8db7ff]" />
+              <span className="text-sm font-medium">{monthTitle}</span>
+              <ChevronDown className="h-4 w-4 text-[#7b8ab8]" />
+            </button>
+          </PopoverTrigger>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
-        <div className="overflow-hidden rounded-lg border border-[#1a2654]">
-          <div className="grid grid-cols-[1fr_120px_120px_100px] gap-3 bg-[#101840] px-3 py-3 text-xs text-[#7b8ab8]">
-            <span>{language === "zh" ? "报表类型" : "Report"}</span>
-            <span>{language === "zh" ? "生成周期" : "Schedule"}</span>
-            <span>{language === "zh" ? "最新周期" : "Latest"}</span>
-            <span>{language === "zh" ? "状态" : "Status"}</span>
-          </div>
-          <div className="divide-y divide-[#1a2654]">
-            {reportRows.map((row) => (
-              <div key={row.latest + row.nameZh} className="grid grid-cols-[1fr_120px_120px_100px] gap-3 px-3 py-3 text-sm">
-                <span className="text-[#e8f4fc]">{language === "zh" ? row.nameZh : row.nameEn}</span>
-                <span className="text-[#7b8ab8]">{language === "zh" ? row.cycleZh : row.cycleEn}</span>
-                <span className="font-mono text-[#22d3ee]">{row.latest}</span>
-                <span className={row.statusZh === "待更新" ? "text-[#f97316]" : "text-[#00d4aa]"}>
-                  {language === "zh" ? row.statusZh : row.statusEn}
-                </span>
+          <PopoverContent
+            align="end"
+            className="z-50 w-[320px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]"
+          >
+            <div className="border-b border-[#1a2654] p-3">
+              <div className="grid grid-cols-2 gap-2">
+                <Select
+                  value={String(viewDate.getFullYear())}
+                  onValueChange={(value) => {
+                    setViewDate(new Date(Number(value), viewDate.getMonth(), 1))
+                  }}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]">
+                    {yearOptions.map((year) => (
+                      <SelectItem key={year} value={String(year)} className="text-[#e8f4fc]">
+                        {language === "zh" ? `${year}\u5e74` : String(year)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={String(viewDate.getMonth())}
+                  onValueChange={(value) => {
+                    setViewDate(new Date(viewDate.getFullYear(), Number(value), 1))
+                  }}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]">
+                    {(language === "zh" ? monthNamesZh : monthNamesEn).map((month, index) => (
+                      <SelectItem key={month} value={String(index)} className="text-[#e8f4fc]">
+                        {month}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            ))}
-          </div>
+            </div>
+
+            <Calendar
+              mode="single"
+              selected={viewDate}
+              month={viewDate}
+              onMonthChange={(month) => setViewDate(startOfMonth(month))}
+              onSelect={(date) => {
+                if (!date) return
+                setViewDate(startOfMonth(date))
+                setPickerOpen(false)
+              }}
+              hideNavigation
+              showOutsideDays={false}
+              className="bg-[#0d1233] p-3"
+              classNames={{
+                month_caption: "hidden",
+                weekday: "flex-1 rounded-md text-xs text-[#7b8ab8]",
+                day: "relative aspect-square w-full p-0 text-center",
+                today: "rounded-md bg-[#1c315f] text-[#e8f4fc]",
+                outside: "text-[#42557f]",
+                disabled: "text-[#42557f] opacity-40",
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#1a2654] bg-[linear-gradient(180deg,rgba(16,24,64,0.9),rgba(10,18,48,0.94))]">
+        <div className="grid grid-cols-7 border-b border-[#1a2654] bg-[#101840]/92">
+          {labels.map((label) => (
+            <div key={label} className="border-r border-[#1a2654] px-2 py-2 text-sm font-semibold text-[#eef4ff] last:border-r-0">
+              {label}
+            </div>
+          ))}
         </div>
 
-        <div className="rounded-lg border border-[#1a2654] bg-[#101840]/70 p-4">
-          <div className="mb-3 text-sm font-medium text-[#e8f4fc]">
-            {language === "zh" ? "建议纳入报表字段" : "Recommended Fields"}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {reportFields.map((field) => (
-              <span
-                key={field}
-                className="rounded-full border border-[#3b82f6]/30 bg-[#1a2654]/60 px-3 py-1 text-xs text-[#7dd3fc]"
-              >
-                {field}
-              </span>
-            ))}
-          </div>
-          <div className="mt-4 rounded-lg bg-[#1a2654]/45 p-3 text-sm text-[#7b8ab8]">
-            {language === "zh"
-              ? "建议下一步把“告警闭环率、设备可用率、等效循环、收益测算”也纳入月报和经营分析专题。"
-              : "Next step: include alarm closure rate, availability, equivalent cycles, and revenue analytics in monthly reports."}
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <div
+            className="grid h-full grid-cols-7"
+            style={{ gridTemplateRows: `repeat(${weekCount}, minmax(0, 1fr))` }}
+          >
+            {calendarCells.map((cell) => {
+              const isToday = isSameDay(cell.date, today)
+              const downloadable = cell.inMonth && !isFutureDay(cell.date, today)
+
+              return (
+                <div
+                  key={cell.date.toISOString()}
+                  className={`flex min-h-0 flex-col border-r border-b border-[#1a2654] p-2.5 ${
+                    cell.inMonth
+                      ? downloadable
+                        ? "bg-[linear-gradient(180deg,rgba(25,56,104,0.2),rgba(13,20,51,0.96))]"
+                        : "bg-[linear-gradient(180deg,rgba(14,22,54,0.92),rgba(10,17,42,0.96))]"
+                      : "bg-[#0c1434]/18"
+                  }`}
+                >
+                  {cell.inMonth ? (
+                    <>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className={`text-xl font-medium ${isToday ? "text-[#22d3ee]" : "text-[#eef4ff]"}`}>
+                          {cell.date.getDate()}
+                        </span>
+                        {isToday && (
+                          <span className="rounded-full border border-[#1d5b54] bg-[#10252d] px-2 py-0.5 text-[10px] text-[#66e6cb]">
+                            {language === "zh" ? "\u4eca\u5929" : "Today"}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-auto">
+                        {downloadable ? (
+                          <button className="flex h-9 w-full items-center justify-between rounded-lg border border-[#2e7be6]/35 bg-[#162c63]/75 px-2.5 text-left transition-all hover:border-[#4b95ff]/55 hover:bg-[#1d3775]">
+                            <span className="truncate text-xs font-medium text-[#eef4ff]">
+                              {language === "zh" ? "\u4e0b\u8f7d\u65e5\u62a5" : "Daily Report"}
+                            </span>
+                            <Download className="h-3.5 w-3.5 shrink-0 text-[#e8f4fc]" />
+                          </button>
+                        ) : (
+                          <div className="rounded-lg border border-dashed border-[#29416f] px-2.5 py-2 text-xs text-[#5f79ad]">
+                            {language === "zh" ? "\u5f85\u751f\u6210" : "Pending"}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>

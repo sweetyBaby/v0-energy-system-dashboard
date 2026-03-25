@@ -131,12 +131,12 @@ export function EnergyCurveQuery() {
           <h3 className="text-base font-semibold text-[#00d4aa]">{t("chargeDischargeStats")}</h3>
         </div>
 
-        <div className="flex gap-1 rounded-lg bg-[#1a2654]/50 p-1">
+        <div className="flex gap-1 rounded-xl bg-[#16204b]/90 p-1">
           <button
             onClick={() => setTimeRange("week")}
-            className={`rounded-md px-3 py-1.5 text-sm transition-all ${
+            className={`rounded-lg px-3 py-1.5 text-[13px] transition-all ${
               timeRange === "week"
-                ? "bg-[#00d4aa] font-medium text-[#0a0e27]"
+                ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
           >
@@ -144,9 +144,9 @@ export function EnergyCurveQuery() {
           </button>
           <button
             onClick={() => setTimeRange("month")}
-            className={`rounded-md px-3 py-1.5 text-sm transition-all ${
+            className={`rounded-lg px-3 py-1.5 text-[13px] transition-all ${
               timeRange === "month"
-                ? "bg-[#00d4aa] font-medium text-[#0a0e27]"
+                ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
           >
@@ -154,9 +154,9 @@ export function EnergyCurveQuery() {
           </button>
           <button
             onClick={() => setTimeRange("year")}
-            className={`rounded-md px-3 py-1.5 text-sm transition-all ${
+            className={`rounded-lg px-3 py-1.5 text-[13px] transition-all ${
               timeRange === "year"
-                ? "bg-[#00d4aa] font-medium text-[#0a0e27]"
+                ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
                 : "text-[#7b8ab8] hover:text-[#e8f4fc]"
             }`}
           >

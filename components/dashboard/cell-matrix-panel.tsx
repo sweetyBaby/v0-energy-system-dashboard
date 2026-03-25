@@ -148,23 +148,23 @@ export function CellMatrixPanel(){
 
         {/* 1. Voltage heatmap */}
         <div className="flex shrink-0 flex-col">
-          <div className="mb-1 flex items-center gap-1.5">
-            <div className="h-2.5 w-0.5 rounded-full bg-[#7dd3fc]"/>
-            <span className="text-[10px] font-semibold text-[#7dd3fc]">{zh?"电压热力图":"Voltage Heatmap"}</span>
-            <span className="text-[9px] text-[#4a5f8a]">· {zh?"点击电芯查看历史":"Click cell for history"}</span>
+          <div className="mb-2 flex items-center gap-2">
+            <div className="h-4 w-1 rounded-full bg-[#7dd3fc]"/>
+            <span className="text-sm font-semibold text-[#7dd3fc]">{zh?"电压热力图":"Voltage Heatmap"}</span>
+            <span className="text-xs text-[#4a5f8a]">· {zh?"点击电芯查看历史":"Click cell for history"}</span>
           </div>
           <HeatGrid mode="voltage" cellMap={cmap} vs={vs} sel={sel} onClk={id=>setSel(p=>p===id?null:id)}/>
           {/* Voltage stats below heatmap */}
-          <div className="mt-2 flex flex-col gap-1.5">
+          <div className="mt-5 flex flex-col gap-2">
             {[
               {label:zh?"电压极差":"Volt Range", value:`${cStats.vRange} V`,  sub:`avg ${cStats.vAvg} V`, color:"#7dd3fc"},
               {label:zh?"电压标准差":"Volt Std",  value:`${cStats.vStd} V`,   sub:"σ",                    color:"#39d0ff"},
             ].map(c=>(
-              <div key={c.label} className="flex items-center justify-between rounded-lg border border-[#1a2654] bg-[#0d1433]/90 px-2.5 py-1.5">
-                <div className="text-[9px] text-[#7b8ab8]">{c.label}</div>
+              <div key={c.label} className="flex items-center justify-between rounded-xl border border-[#1a2654] bg-[#0d1433]/90 px-4 py-3">
+                <div className="text-[15px] text-[#7b8ab8]">{c.label}</div>
                 <div className="flex flex-col items-end">
-                  <div className="font-mono text-[11px] font-bold" style={{color:c.color}}>{c.value}</div>
-                  <div className="text-[8px] text-[#5f79ad]">{c.sub}</div>
+                  <div className="font-mono text-[17px] font-bold" style={{color:c.color}}>{c.value}</div>
+                  <div className="mt-1 text-[13px] text-[#5f79ad]">{c.sub}</div>
                 </div>
               </div>
             ))}
@@ -173,9 +173,9 @@ export function CellMatrixPanel(){
 
         {/* 2. Voltage scatter+line */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-1 flex items-center gap-1">
-            <div className="h-2.5 w-0.5 rounded-full bg-[#7dd3fc]"/>
-            <span className="text-[10px] font-semibold text-[#7dd3fc]">{zh?"电压分布":"Voltage Distribution"}</span>
+          <div className="mb-2 flex items-center gap-2">
+            <div className="h-4 w-1 rounded-full bg-[#7dd3fc]"/>
+            <span className="text-sm font-semibold text-[#7dd3fc]">{zh?"电压分布":"Voltage Distribution"}</span>
           </div>
           <div className="min-h-0 flex-1 rounded-lg border border-[#1a2654] bg-[#0d1433]/90 p-2">
             <ResponsiveContainer width="100%" height="100%">
@@ -200,23 +200,23 @@ export function CellMatrixPanel(){
 
         {/* 3. Temperature heatmap */}
         <div className="flex shrink-0 flex-col">
-          <div className="mb-1 flex items-center gap-1.5">
-            <div className="h-2.5 w-0.5 rounded-full bg-[#fb923c]"/>
-            <span className="text-[10px] font-semibold text-[#fb923c]">{zh?"温度热力图":"Temperature Heatmap"}</span>
-            <span className="text-[9px] text-[#4a5f8a]">· {zh?"点击电芯查看历史":"Click cell for history"}</span>
+          <div className="mb-2 flex items-center gap-2">
+            <div className="h-4 w-1 rounded-full bg-[#fb923c]"/>
+            <span className="text-sm font-semibold text-[#fb923c]">{zh?"温度热力图":"Temperature Heatmap"}</span>
+            <span className="text-xs text-[#4a5f8a]">· {zh?"点击电芯查看历史":"Click cell for history"}</span>
           </div>
           <HeatGrid mode="temperature" cellMap={cmap} vs={vs} sel={sel} onClk={id=>setSel(p=>p===id?null:id)}/>
           {/* Temperature stats below heatmap */}
-          <div className="mt-2 flex flex-col gap-1.5">
+          <div className="mt-5 flex flex-col gap-2">
             {[
               {label:zh?"温度极差":"Temp Range", value:`${cStats.tRange} °C`, sub:`avg ${cStats.tAvg} °C`, color:"#fb923c"},
               {label:zh?"温度标准差":"Temp Std",  value:`${cStats.tStd} °C`,  sub:"σ",                     color:"#fbbf24"},
             ].map(c=>(
-              <div key={c.label} className="flex items-center justify-between rounded-lg border border-[#1a2654] bg-[#0d1433]/90 px-2.5 py-1.5">
-                <div className="text-[9px] text-[#7b8ab8]">{c.label}</div>
+              <div key={c.label} className="flex items-center justify-between rounded-xl border border-[#1a2654] bg-[#0d1433]/90 px-4 py-3">
+                <div className="text-[15px] text-[#7b8ab8]">{c.label}</div>
                 <div className="flex flex-col items-end">
-                  <div className="font-mono text-[11px] font-bold" style={{color:c.color}}>{c.value}</div>
-                  <div className="text-[8px] text-[#5f79ad]">{c.sub}</div>
+                  <div className="font-mono text-[17px] font-bold" style={{color:c.color}}>{c.value}</div>
+                  <div className="mt-1 text-[13px] text-[#5f79ad]">{c.sub}</div>
                 </div>
               </div>
             ))}
@@ -225,9 +225,9 @@ export function CellMatrixPanel(){
 
         {/* 4. Temperature scatter (T1/T2/T3) */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-1 flex items-center gap-1">
-            <div className="h-2.5 w-0.5 rounded-full bg-[#fb923c]"/>
-            <span className="text-[10px] font-semibold text-[#fb923c]">{zh?"三温分布 (T1/T2/T3)":"Temp Distribution (T1/T2/T3)"}</span>
+          <div className="mb-2 flex items-center gap-2">
+            <div className="h-4 w-1 rounded-full bg-[#fb923c]"/>
+            <span className="text-sm font-semibold text-[#fb923c]">{zh?"三温分布 (T1/T2/T3)":"Temp Distribution (T1/T2/T3)"}</span>
           </div>
           <div className="min-h-0 flex-1 rounded-lg border border-[#1a2654] bg-[#0d1433]/90 p-2">
             <ResponsiveContainer width="100%" height="100%">
