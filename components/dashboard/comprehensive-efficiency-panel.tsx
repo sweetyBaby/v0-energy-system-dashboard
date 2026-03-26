@@ -338,13 +338,13 @@ export function ComprehensiveEfficiencyPanel() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
-      <div className="relative mb-3 shrink-0 overflow-hidden rounded-2xl border border-[#21406b] bg-[linear-gradient(180deg,rgba(13,20,52,0.98),rgba(8,14,36,0.98))] p-3 shadow-[0_0_0_1px_rgba(34,211,238,0.03)_inset]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-3">
+      <div className="relative mb-2 shrink-0 overflow-hidden rounded-2xl border border-[#21406b] bg-[linear-gradient(180deg,rgba(13,20,52,0.98),rgba(8,14,36,0.98))] p-2.5 shadow-[0_0_0_1px_rgba(34,211,238,0.03)_inset]">
         <div className="absolute -left-10 top-8 h-28 w-28 rounded-full bg-[#22d3ee]/10 blur-3xl" />
         <div className="absolute right-[-20px] top-[-10px] h-24 w-24 rounded-full bg-[#00d4aa]/10 blur-3xl" />
         <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/70 to-transparent" />
 
-        <div className="relative mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="relative mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="h-6 w-1 rounded-full bg-[#00d4aa]" />
             <div>
@@ -356,10 +356,10 @@ export function ComprehensiveEfficiencyPanel() {
          
         </div>
 
-        <div className="relative max-h-[340px] overflow-auto">
-          <div className="min-w-[1120px]">
-            <div className="grid grid-cols-[140px_repeat(7,minmax(128px,1fr))] gap-2">
-              <div className="flex items-center rounded-xl border border-[#26456e] bg-[linear-gradient(180deg,rgba(16,30,66,0.96),rgba(10,19,45,0.96))] px-3 py-2 text-[10px] uppercase tracking-[0.28em] text-[#5f79ad] shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]">
+        <div className="relative">
+          <div>
+            <div className="grid grid-cols-[80px_repeat(7,minmax(0,1fr))] gap-1.5">
+              <div className="flex items-center rounded-xl border border-[#26456e] bg-[linear-gradient(180deg,rgba(16,30,66,0.96),rgba(10,19,45,0.96))] px-2 py-1.5 text-[10px] uppercase tracking-[0.28em] text-[#5f79ad] shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]">
                 {language === "zh" ? "时间窗" : "Window"}
               </div>
               {matrixMetricStats.map((metric) => {
@@ -368,28 +368,28 @@ export function ComprehensiveEfficiencyPanel() {
                 return (
                   <div
                     key={metric.key}
-                    className="rounded-xl border border-[#26456e] bg-[linear-gradient(180deg,rgba(15,28,60,0.96),rgba(9,18,42,0.96))] px-3 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]"
+                    className="rounded-xl border border-[#26456e] bg-[linear-gradient(180deg,rgba(15,28,60,0.96),rgba(9,18,42,0.96))] px-2 py-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <div
-                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/5 bg-[#0e1b40]/90"
-                        style={{ boxShadow: `0 0 14px ${metric.accentFrom}22` }}
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-white/5 bg-[#0e1b40]/90"
+                        style={{ boxShadow: `0 0 10px ${metric.accentFrom}22` }}
                       >
-                        <Icon className="h-3.5 w-3.5" style={{ color: metric.accentFrom }} />
+                        <Icon className="h-3 w-3" style={{ color: metric.accentFrom }} />
                       </div>
-                      <div className="min-w-0 truncate text-[12px] font-medium text-[#e8f4fc]">{metric.label}</div>
+                      <div className="min-w-0 truncate text-[11px] font-medium text-[#e8f4fc]">{metric.label}</div>
                     </div>
                   </div>
                 )
               })}
             </div>
 
-            <div className="mt-2 space-y-2">
+            <div className="mt-1.5 space-y-1.5">
               {summaryColumns.map((col, rowIndex) => (
-                <div key={col.key} className="grid grid-cols-[140px_repeat(7,minmax(128px,1fr))] gap-2">
-                  <div className="rounded-xl border border-[#26456e] bg-[linear-gradient(180deg,rgba(16,30,66,0.96),rgba(10,19,45,0.96))] px-3 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]">
-                    <div className="text-[10px] uppercase tracking-[0.28em] text-[#5f79ad]">{col.tag}</div>
-                    <div className="mt-1 text-[13px] font-semibold text-[#e8f4fc]">{col.label}</div>
+                <div key={col.key} className="grid grid-cols-[80px_repeat(7,minmax(0,1fr))] gap-1.5">
+                  <div className="rounded-xl border border-[#26456e] bg-[linear-gradient(180deg,rgba(16,30,66,0.96),rgba(10,19,45,0.96))] px-2 py-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]">
+                    <div className="text-[9px] uppercase tracking-[0.2em] text-[#5f79ad]">{col.tag}</div>
+                    <div className="mt-0.5 text-[11px] font-semibold text-[#e8f4fc]">{col.label}</div>
                   </div>
 
                   {matrixMetricStats.map((metric) => {
@@ -405,7 +405,7 @@ export function ComprehensiveEfficiencyPanel() {
                       return (
                         <div
                           key={`${col.key}-${metric.key}`}
-                          className="relative overflow-hidden rounded-xl border border-[#214066] bg-[linear-gradient(180deg,rgba(14,30,57,0.97),rgba(9,20,44,0.96))] px-3 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]"
+                          className="relative overflow-hidden rounded-xl border border-[#214066] bg-[linear-gradient(180deg,rgba(14,30,57,0.97),rgba(9,20,44,0.96))] px-2 py-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]"
                           style={
                             isMax
                               ? { boxShadow: "0 0 18px rgba(0,212,170,0.12), inset 0 0 0 1px rgba(255,255,255,0.02)" }
@@ -421,7 +421,7 @@ export function ComprehensiveEfficiencyPanel() {
                             style={{ width: `${signalWidth}%`, background: `linear-gradient(90deg, ${textColor}, transparent)` }}
                           />
                           <div className="relative flex items-center justify-between gap-2">
-                            <span className="font-mono text-[15px] font-semibold" style={{ color: textColor }}>
+                            <span className="font-mono text-[13px] font-semibold" style={{ color: textColor }}>
                               {metric.format(currentMetrics)}
                             </span>
                             {isMax ? (
@@ -432,7 +432,7 @@ export function ComprehensiveEfficiencyPanel() {
                               <span className="text-[10px] uppercase tracking-[0.24em] text-[#6f89bf]">{col.tag}</span>
                             )}
                           </div>
-                          <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-[#172653]">
+                          <div className="relative mt-1 h-1 overflow-hidden rounded-full bg-[#172653]">
                             <div
                               className="h-full rounded-full"
                               style={{
@@ -451,7 +451,7 @@ export function ComprehensiveEfficiencyPanel() {
                     return (
                       <div
                         key={`${col.key}-${metric.key}`}
-                        className="relative overflow-hidden rounded-xl border border-[#214066] bg-[linear-gradient(180deg,rgba(14,27,56,0.97),rgba(9,18,42,0.96))] px-3 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]"
+                        className="relative overflow-hidden rounded-xl border border-[#214066] bg-[linear-gradient(180deg,rgba(14,27,56,0.97),rgba(9,18,42,0.96))] px-2 py-1.5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset]"
                         style={
                           isMax
                             ? { boxShadow: `0 0 18px ${metric.accentFrom}22, inset 0 0 0 1px rgba(255,255,255,0.02)` }
@@ -463,14 +463,14 @@ export function ComprehensiveEfficiencyPanel() {
                           style={{ background: `radial-gradient(circle at bottom left, ${metric.accentFrom}18, transparent 62%)` }}
                         />
                         <div className="relative flex items-center justify-between gap-2">
-                          <span className="font-mono text-[14px] font-semibold text-[#eef4ff]">
+                          <span className="font-mono text-[12px] font-semibold text-[#eef4ff]">
                             {metric.format(currentMetrics)}
                           </span>
                           <span className="text-[10px]" style={{ color: isMax ? metric.accentTo : "#8db7ff" }}>
                             {`${Math.round(share)}%`}
                           </span>
                         </div>
-                        <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-[#16244d]">
+                        <div className="relative mt-1 h-1 overflow-hidden rounded-full bg-[#16244d]">
                           <div
                             className="h-full rounded-full"
                             style={{
@@ -491,7 +491,7 @@ export function ComprehensiveEfficiencyPanel() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-[#1a2654] bg-[linear-gradient(180deg,rgba(16,24,64,0.9),rgba(10,18,48,0.94))] p-3">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
             <h3 className="text-base font-semibold text-[#00d4aa]">
@@ -589,7 +589,7 @@ export function ComprehensiveEfficiencyPanel() {
                   }}
                 />
                 <Legend
-                  wrapperStyle={{ paddingTop: "8px" }}
+                  wrapperStyle={{ paddingTop: "4px" }}
                   formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>}
                 />
                 <Bar

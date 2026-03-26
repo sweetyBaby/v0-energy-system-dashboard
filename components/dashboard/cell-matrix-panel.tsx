@@ -231,7 +231,7 @@ export function CellMatrixPanel(){
           </div>
           <div className="min-h-0 flex-1 rounded-lg border border-[#1a2654] bg-[#0d1433]/90 p-2">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={tempTrend} margin={{top:8,right:12,left:-12,bottom:20}}>
+              <LineChart data={tempTrend} margin={{top:4,right:12,left:-12,bottom:20}}>
                 <CartesianGrid stroke="#1a2654" strokeDasharray="3 3" vertical={false}/>
                 <XAxis dataKey="id" type="number" domain={[1,50]} tick={{fill:"#7b8ab8",fontSize:9}} axisLine={false} tickLine={false}
                   label={{value:zh?"电芯编号":"Cell ID",position:"insideBottom",offset:-12,fill:"#5f79ad",fontSize:9}}/>
@@ -241,7 +241,7 @@ export function CellMatrixPanel(){
                 <Tooltip contentStyle={TS} labelStyle={{color:"#7b8ab8"}}
                   formatter={(v:number,n:string)=>[`${v.toFixed(1)} °C`,n]}
                   labelFormatter={v=>`Cell #${v}`}/>
-                <Legend wrapperStyle={{paddingTop:"4px",fontSize:"10px"}} formatter={v=><span style={{color:"#7b8ab8",fontSize:"10px"}}>{v}</span>}/>
+                <Legend verticalAlign="top" wrapperStyle={{paddingBottom:"4px",fontSize:"10px"}} formatter={v=><span style={{color:"#7b8ab8",fontSize:"10px"}}>{v}</span>}/>
                 <Line type="monotone" dataKey="T1" stroke="#fbbf24" strokeWidth={1.5} dot={{r:1.5}} activeDot={{r:3}}/>
                 <Line type="monotone" dataKey="T2" stroke="#fb923c" strokeWidth={1.5} dot={{r:1.5}} activeDot={{r:3}}/>
                 <Line type="monotone" dataKey="T3" stroke="#f87171" strokeWidth={1.5} dot={{r:1.5}} activeDot={{r:3}}/>
