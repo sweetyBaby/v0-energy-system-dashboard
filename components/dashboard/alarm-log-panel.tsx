@@ -1,55 +1,183 @@
 "use client"
 
 import { useState } from "react"
-import { BellRing, ChevronDown, ChevronUp, Filter } from "lucide-react"
+import { Filter } from "lucide-react"
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { useLanguage } from "@/components/language-provider"
 
-// ── Mock data ──────────────────────────────────────────────────────────────
-const ALL_ALARMS = [
-  { time: "2026-03-25 14:26:18", level: "critical", source: "BCU-03", msgZh: "3#簇温差预警",        msgEn: "Cluster 3 temperature delta warning",        statusZh: "未恢复",  statusEn: "Active"       },
-  { time: "2026-03-25 13:08:44", level: "major",    source: "BCU-07", msgZh: "单体压差越限",        msgEn: "Cell voltage delta exceeded threshold",       statusZh: "已确认",  statusEn: "Acknowledged" },
-  { time: "2026-03-25 10:42:06", level: "minor",    source: "PCS-01", msgZh: "PCS 通讯抖动",        msgEn: "PCS communication jitter",                   statusZh: "已恢复",  statusEn: "Recovered"    },
-  { time: "2026-03-25 08:17:31", level: "major",    source: "BCU-02", msgZh: "过温告警 T3 > 45°C",  msgEn: "Overtemp: T3 > 45°C",                        statusZh: "已恢复",  statusEn: "Recovered"    },
-  { time: "2026-03-25 07:55:12", level: "minor",    source: "EMS",    msgZh: "调度指令超时",        msgEn: "Dispatch command timeout",                   statusZh: "已恢复",  statusEn: "Recovered"    },
-  { time: "2026-03-25 03:44:02", level: "critical", source: "BCU-05", msgZh: "SOC 过低保护触发",    msgEn: "Low SOC protection triggered",               statusZh: "已确认",  statusEn: "Acknowledged" },
-  { time: "2026-03-25 02:09:58", level: "minor",    source: "BCU-01", msgZh: "均衡超时",            msgEn: "Balancing timeout",                          statusZh: "已恢复",  statusEn: "Recovered"    },
-  { time: "2026-03-24 22:17:31", level: "major",    source: "EMS",    msgZh: "调度功率指令偏差",    msgEn: "Dispatch power deviation",                   statusZh: "已确认",  statusEn: "Acknowledged" },
-  { time: "2026-03-24 18:33:05", level: "minor",    source: "BCU-06", msgZh: "电池内阻偏高",        msgEn: "Cell resistance high",                       statusZh: "已恢复",  statusEn: "Recovered"    },
-  { time: "2026-03-24 15:02:44", level: "major",    source: "BCU-04", msgZh: "压差超过 40 mV",      msgEn: "Voltage delta > 40 mV",                      statusZh: "已恢复",  statusEn: "Recovered"    },
+// ── 等级定义 ──────────────────────────────────────────────────────────────────
+const LV_COLOR: Record<number, string> = {
+  1: "#85B7EB", 2: "#378ADD", 3: "#EF9F27", 4: "#E24B4A", 5: "#A32D2D",
+}
+const LV_LABEL: Record<number, string> = {
+  1: "Lv1 提示", 2: "Lv2 轻警", 3: "Lv3 预警", 4: "Lv4 严重", 5: "Lv5 紧急",
+}
+const GRP_LABEL: Record<string, string> = {
+  pack: "组端", cell: "单体", current: "充放电", temp: "温度", soc: "SOC", comms: "通讯", other: "其他",
+}
+const ACTION_MAP: Record<number, { text: string; color: string }> = {
+  5: { text: "断开+闭死",  color: "#E24B4A" },
+  4: { text: "断接触器",  color: "#E24B4A" },
+  3: { text: "降额运行",  color: "#BA7517" },
+  2: { text: "记录上报",  color: "#378ADD" },
+  1: { text: "记录日志",  color: "#6b7280" },
+}
+
+type AlarmEntry = {
+  time: string
+  lv: number
+  group: string
+  nameZh: string
+  nameEn: string
+  source: string
+  triggerZh: string
+  triggerEn: string
+  ref: string
+  rref: string
+  unit: string
+  statusZh: "未恢复" | "已确认" | "已恢复"
+  statusEn: "Active" | "Acknowledged" | "Recovered"
+}
+
+const ALL_ALARMS: AlarmEntry[] = [
+  { time:"2026-03-25 14:26:18", lv:5, group:"temp",    nameZh:"单体过温",         nameEn:"Cell Overtemp",         source:"BCU-03", triggerZh:"T3 温度过高",       triggerEn:"T3 temp too high",      ref:"54.0°C",  rref:"52.0°C",  unit:"°C",   statusZh:"未恢复",  statusEn:"Active"        },
+  { time:"2026-03-25 13:08:44", lv:4, group:"cell",    nameZh:"压差越限",         nameEn:"Voltage Delta High",    source:"BCU-07", triggerZh:"压差超过阈值",      triggerEn:"Delta exceeded",        ref:"1100mV", rref:"1000mV", unit:"mV",   statusZh:"已确认",  statusEn:"Acknowledged"  },
+  { time:"2026-03-25 10:42:06", lv:2, group:"comms",   nameZh:"PCS 通讯抖动",     nameEn:"PCS Comm Jitter",       source:"PCS-01", triggerZh:"通讯延迟超限",      triggerEn:"Comm delay exceeded",   ref:"200ms",  rref:"180ms",  unit:"ms",   statusZh:"已恢复",  statusEn:"Recovered"     },
+  { time:"2026-03-25 08:17:31", lv:3, group:"temp",    nameZh:"温差不均衡",       nameEn:"Temp Imbalance",        source:"BCU-02", triggerZh:"T3 > 45°C",        triggerEn:"T3 > 45°C",             ref:"100℃",  rref:"95℃",   unit:"℃",   statusZh:"已恢复",  statusEn:"Recovered"     },
+  { time:"2026-03-25 07:55:12", lv:2, group:"other",   nameZh:"调度指令超时",     nameEn:"Dispatch Timeout",      source:"EMS",    triggerZh:"指令超时未响应",    triggerEn:"Command no response",   ref:"5000ms", rref:"4500ms", unit:"ms",   statusZh:"已恢复",  statusEn:"Recovered"     },
+  { time:"2026-03-25 03:44:02", lv:4, group:"soc",     nameZh:"SOC 过低保护",     nameEn:"Low SOC Protection",    source:"BCU-05", triggerZh:"SOC 低于保护值",   triggerEn:"SOC below protection",  ref:"10%",    rref:"15%",    unit:"%",    statusZh:"已确认",  statusEn:"Acknowledged"  },
+  { time:"2026-03-25 02:09:58", lv:1, group:"cell",    nameZh:"均衡超时",         nameEn:"Balancing Timeout",     source:"BCU-01", triggerZh:"均衡未完成",        triggerEn:"Balancing incomplete",  ref:"120min", rref:"—",      unit:"min",  statusZh:"已恢复",  statusEn:"Recovered"     },
+  { time:"2026-03-24 22:17:31", lv:3, group:"current", nameZh:"调度功率偏差",     nameEn:"Power Deviation",       source:"EMS",    triggerZh:"功率偏差超标",      triggerEn:"Power deviation high",  ref:"50kW",   rref:"40kW",   unit:"kW",   statusZh:"已确认",  statusEn:"Acknowledged"  },
+  { time:"2026-03-24 18:33:05", lv:1, group:"cell",    nameZh:"电芯内阻偏高",     nameEn:"Cell Resistance High",  source:"BCU-06", triggerZh:"内阻超过基准值",    triggerEn:"Resistance exceeded",   ref:"3.5mΩ",  rref:"3.2mΩ",  unit:"mΩ",   statusZh:"已恢复",  statusEn:"Recovered"     },
+  { time:"2026-03-24 15:02:44", lv:3, group:"cell",    nameZh:"单体压差 >40mV",   nameEn:"Cell Delta >40mV",      source:"BCU-04", triggerZh:"单体压差超限",      triggerEn:"Cell delta exceeded",   ref:"40mV",   rref:"35mV",   unit:"mV",   statusZh:"已恢复",  statusEn:"Recovered"     },
 ]
 
-// Mock hourly distribution for history mode
 const HOURLY_DIST = Array.from({ length: 24 }, (_, h) => ({
   hour: String(h).padStart(2, "0"),
-  critical: h === 3 || h === 14 ? 1 : 0,
-  major:    h === 13 || h === 8 ? 1 : 0,
-  minor:    h === 10 || h === 7 || h === 2 ? 1 : 0,
+  lv45: [3, 14].includes(h) ? 1 : 0,
+  lv3:  [8, 13, 22, 15].includes(h) ? 1 : 0,
+  lv12: [10, 7, 2, 18].includes(h) ? 1 : 0,
 }))
 
-// Mini ±5 min detail curve for expanded row
-const genDetailCurve = () =>
-  Array.from({ length: 11 }, (_, i) => ({
-    t: `${i - 5}m`,
-    voltage: +(3.31 + Math.random() * 0.04).toFixed(3),
-    temp:    +(28 + Math.random() * 6).toFixed(1),
-  }))
+const TS = { backgroundColor: "#0d1233", border: "1px solid #1a2654", borderRadius: "8px" }
 
-// ── Styles ─────────────────────────────────────────────────────────────────
-const LEVEL_STYLE: Record<string, string> = {
-  critical: "bg-[#ef4444]/15 text-[#ef4444] border border-[#ef4444]/30",
-  major:    "bg-[#f97316]/15 text-[#f97316] border border-[#f97316]/30",
-  minor:    "bg-[#3b82f6]/15 text-[#3b82f6] border border-[#3b82f6]/30",
-}
 const STATUS_COLOR: Record<string, string> = {
   "未恢复": "#ef4444", "已确认": "#f97316", "已恢复": "#00d4aa",
   "Active": "#ef4444", "Acknowledged": "#f97316", "Recovered": "#00d4aa",
 }
-const TS = { backgroundColor: "#0d1233", border: "1px solid #1a2654", borderRadius: "8px" }
 
-type LevelFilter = "all" | "critical" | "major" | "minor"
+type LevelFilter = "all" | "lv45" | "lv3" | "lv12"
 
-// ── Component ──────────────────────────────────────────────────────────────
+// ── 5 段严重度条 ──────────────────────────────────────────────────────────────
+function SeverityBar({ lv }: { lv: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map(i => (
+        <div
+          key={i}
+          className="h-1.5 w-2.5 rounded-sm"
+          style={{ backgroundColor: i <= lv ? LV_COLOR[lv] : "#1a2654" }}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ── 行 hover tooltip ───────────────────────────────────────────────────────────
+function AlarmRow({ alarm, zh }: { alarm: AlarmEntry; zh: boolean }) {
+  const [hovered, setHovered] = useState(false)
+  const isActive = alarm.statusZh === "未恢复"
+  const color = LV_COLOR[alarm.lv]
+  const action = ACTION_MAP[alarm.lv]
+
+  return (
+    <tr
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className={`relative border-b border-[#1a2654]/50 transition-colors last:border-0 ${
+        alarm.lv >= 5 ? "bg-[#3a0e0e]/30" : "hover:bg-[#1a2654]/20"
+      }`}
+    >
+      {/* 等级 */}
+      <td className="py-2.5 pl-3 pr-2">
+        <div className="flex items-center gap-1.5">
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{
+              backgroundColor: color,
+              boxShadow: alarm.lv >= 5 ? `0 0 0 2px ${color}44` : undefined,
+            }}
+          />
+          <span className="whitespace-nowrap text-[11px] font-medium" style={{ color }}>
+            {LV_LABEL[alarm.lv]}
+          </span>
+        </div>
+      </td>
+
+      {/* 告警名称 + tooltip */}
+      <td className="relative max-w-0 py-2.5 pr-2">
+        <span className="block truncate text-xs text-[#dbe8ff]">
+          {isActive && (
+            <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#ef4444] align-middle" />
+          )}
+          {zh ? alarm.nameZh : alarm.nameEn}
+        </span>
+        {/* Tooltip */}
+        {hovered && (
+          <div className="absolute left-0 top-full z-50 mt-1 min-w-[200px] rounded-lg border border-[#1a2654] bg-[#0d1233] p-3 shadow-xl">
+            <div className="mb-2 border-b border-[#1a2654] pb-2 text-xs font-semibold text-[#dbe8ff]">
+              {zh ? alarm.nameZh : alarm.nameEn}
+            </div>
+            {[
+              [zh ? "当前等级" : "Level",    <span style={{ color }}>{LV_LABEL[alarm.lv]}</span>],
+              [zh ? "来源"     : "Source",   alarm.source],
+              [zh ? "触发条件" : "Trigger",  zh ? alarm.triggerZh : alarm.triggerEn],
+              [zh ? "触发阈值" : "Threshold",alarm.ref],
+              [zh ? "恢复阈值" : "Recovery", alarm.rref],
+              [zh ? "时间"     : "Time",     alarm.time],
+            ].map(([label, val], i) => (
+              <div key={i} className="flex justify-between gap-4 py-0.5 text-[11px]">
+                <span className="text-[#7b8ab8]">{label as string}</span>
+                <span className="font-medium text-[#dbe8ff]">{val as React.ReactNode}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </td>
+
+      {/* 分类 */}
+      <td className="py-2.5 pr-2 text-[11px] text-[#7b8ab8]">
+        {GRP_LABEL[alarm.group] ?? alarm.group}
+      </td>
+
+      {/* 严重度条 */}
+      <td className="py-2.5 pr-2">
+        <SeverityBar lv={alarm.lv} />
+      </td>
+
+      {/* 触发 / 恢复 */}
+      <td className="py-2.5 pr-2 text-[11px] text-[#7b8ab8]">
+        <span className="text-[#dbe8ff]">{alarm.ref}</span>
+        {" / "}
+        {alarm.rref}
+      </td>
+
+      {/* 状态 */}
+      <td className="py-2.5 pr-2">
+        <span className="text-[11px] font-medium" style={{ color: STATUS_COLOR[zh ? alarm.statusZh : alarm.statusEn] }}>
+          {zh ? alarm.statusZh : alarm.statusEn}
+        </span>
+      </td>
+
+      {/* 处置 */}
+      <td className="py-2.5 pr-3 text-[11px] font-medium" style={{ color: action.color }}>
+        {action.text}
+      </td>
+    </tr>
+  )
+}
+
+// ── 主组件 ────────────────────────────────────────────────────────────────────
 export function AlarmLogPanel({
   mode = "realtime",
   date,
@@ -59,201 +187,153 @@ export function AlarmLogPanel({
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
-
   const [levelFilter, setLevelFilter] = useState<LevelFilter>("all")
   const [sourceFilter, setSourceFilter] = useState("all")
-  const [expandedRow, setExpandedRow] = useState<string | null>(null)
-  const [detailCurves] = useState<Record<string, ReturnType<typeof genDetailCurve>>>({})
 
-  // Today: 2026-03-25; history date passed from parent
   const filterDate = mode === "history" ? (date ?? "2026-03-25") : "2026-03-25"
-
   const dateFiltered = ALL_ALARMS.filter(a => a.time.startsWith(filterDate))
 
-  // Realtime: unrecovered first, then by time desc
-  const sorted = mode === "realtime"
-    ? [...dateFiltered].sort((a, b) => {
-        const unrecA = a.statusZh === "未恢复" ? 0 : 1
-        const unrecB = b.statusZh === "未恢复" ? 0 : 1
-        return unrecA - unrecB || b.time.localeCompare(a.time)
-      })
-    : dateFiltered
+  const sorted = [...dateFiltered].sort((a, b) => {
+    if (a.statusZh === "未恢复" && b.statusZh !== "未恢复") return -1
+    if (b.statusZh === "未恢复" && a.statusZh !== "未恢复") return 1
+    return b.lv - a.lv || b.time.localeCompare(a.time)
+  })
 
-  // History: level + source filter
-  const displayed = mode === "history"
-    ? sorted.filter(a =>
-        (levelFilter === "all" || a.level === levelFilter) &&
-        (sourceFilter === "all" || a.source === sourceFilter)
-      )
-    : sorted
+  const displayed = sorted.filter(a => {
+    const lvOk = levelFilter === "all"
+      || (levelFilter === "lv45" && a.lv >= 4)
+      || (levelFilter === "lv3"  && a.lv === 3)
+      || (levelFilter === "lv12" && a.lv <= 2)
+    const srcOk = sourceFilter === "all" || a.source === sourceFilter
+    return lvOk && srcOk
+  })
 
-  const activeCount   = dateFiltered.filter(a => a.statusZh === "未恢复").length
-  const ackCount      = dateFiltered.filter(a => a.statusZh === "已确认").length
-  const recoveredCount= dateFiltered.filter(a => a.statusZh === "已恢复").length
-  const recoveryRate  = dateFiltered.length > 0
-    ? Math.round(((ackCount + recoveredCount) / dateFiltered.length) * 100)
-    : 0
+  const cnt = {
+    total: dateFiltered.length,
+    lv45:  dateFiltered.filter(a => a.lv >= 4).length,
+    lv3:   dateFiltered.filter(a => a.lv === 3).length,
+    lv12:  dateFiltered.filter(a => a.lv <= 2).length,
+    active: dateFiltered.filter(a => a.statusZh === "未恢复").length,
+  }
 
   const sources = ["all", ...Array.from(new Set(dateFiltered.map(a => a.source)))]
-
-  const getDetailCurve = (key: string) => {
-    if (!detailCurves[key]) detailCurves[key] = genDetailCurve()
-    return detailCurves[key]
-  }
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-3">
 
-      {/* ── Header ── */}
-      <div className="mb-2 flex shrink-0 items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-1 rounded-full bg-[#f97316]" />
-          <h3 className="text-sm font-semibold text-[#f97316]">{zh ? "告警日志" : "Alarm Log"}</h3>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs text-[#7b8ab8]">
-          <BellRing className="h-3.5 w-3.5 text-[#f97316]" />
-          <span>{zh ? `${dateFiltered.length} 条` : `${dateFiltered.length} records`}</span>
+      {/* ── Header + pills ── */}
+      <div className="mb-2 flex shrink-0 items-center gap-2">
+        <div className="h-4 w-1 shrink-0 rounded-full bg-[#f97316]" />
+        <span className="text-sm font-semibold text-[#f97316]">{zh ? "告警日志" : "Alarm Log"}</span>
+        <span className="text-[11px] text-[#5f79ad]">{zh ? `最新 ${cnt.total} 条` : `Latest ${cnt.total}`}</span>
+        <div className="ml-auto flex items-center gap-1.5">
+          {cnt.active > 0 && (
+            <span className="rounded-full bg-[#3a0e0e] px-2 py-0.5 text-[10px] font-medium text-[#ef4444]">
+              {zh ? `活动 ${cnt.active}` : `Active ${cnt.active}`}
+            </span>
+          )}
+          {cnt.lv45 > 0 && (
+            <span className="rounded-full bg-[#3a0e0e]/60 px-2 py-0.5 text-[10px] font-medium text-[#E24B4A]">
+              {zh ? `严重 ${cnt.lv45}` : `Crit ${cnt.lv45}`}
+            </span>
+          )}
+          {cnt.lv3 > 0 && (
+            <span className="rounded-full bg-[#2a1a00]/80 px-2 py-0.5 text-[10px] font-medium text-[#EF9F27]">
+              {zh ? `预警 ${cnt.lv3}` : `Warn ${cnt.lv3}`}
+            </span>
+          )}
+          {cnt.lv12 > 0 && (
+            <span className="rounded-full bg-[#0c1e35]/80 px-2 py-0.5 text-[10px] font-medium text-[#378ADD]">
+              {zh ? `提示 ${cnt.lv12}` : `Info ${cnt.lv12}`}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* ── Stats cards ── */}
-      <div className="mb-2 grid shrink-0 grid-cols-3 gap-2">
-        <div className="rounded-lg bg-[#1a2654]/40 p-2 text-center">
-          <div className="text-[10px] text-[#7b8ab8]">{zh ? "活动告警" : "Active"}</div>
-          <div className="mt-0.5 text-lg font-semibold text-[#ef4444]">{activeCount}</div>
-        </div>
-        <div className="rounded-lg bg-[#1a2654]/40 p-2 text-center">
-          <div className="text-[10px] text-[#7b8ab8]">{zh ? "已确认" : "Acknowledged"}</div>
-          <div className="mt-0.5 text-lg font-semibold text-[#f97316]">{ackCount}</div>
-        </div>
-        <div className="rounded-lg bg-[#1a2654]/40 p-2 text-center">
-          <div className="text-[10px] text-[#7b8ab8]">{zh ? "恢复率" : "Recovery"}</div>
-          <div className="mt-0.5 text-lg font-semibold text-[#00d4aa]">{recoveryRate}%</div>
-        </div>
-      </div>
-
-      {/* ── History: hourly distribution bar ── */}
+      {/* ── History: hourly bar + filter ── */}
       {mode === "history" && (
-        <div className="mb-2 shrink-0">
-          <div className="mb-1 flex items-center gap-1">
-            <span className="text-[10px] text-[#5f79ad]">{zh ? "按小时分布" : "Hourly distribution"}</span>
-          </div>
-          <div className="h-16">
+        <>
+          <div className="mb-2 h-14 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={HOURLY_DIST} margin={{ top: 0, right: 0, left: -28, bottom: 0 }} barSize={6}>
+              <BarChart data={HOURLY_DIST} margin={{ top: 0, right: 0, left: -28, bottom: 0 }} barSize={5}>
                 <XAxis dataKey="hour" tick={{ fill: "#5f79ad", fontSize: 8 }} axisLine={false} tickLine={false} interval={3} />
                 <YAxis tick={false} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={TS} labelStyle={{ color: "#7b8ab8" }} labelFormatter={v => `${v}:00`}
                   formatter={(v: number, n: string) => [v, n]} />
-                <Bar dataKey="critical" stackId="a" fill="#ef4444" name="Critical" />
-                <Bar dataKey="major"    stackId="a" fill="#f97316" name="Major"    />
-                <Bar dataKey="minor"    stackId="a" fill="#3b82f6" name="Minor"    radius={[2, 2, 0, 0]} />
+                <Bar dataKey="lv45" stackId="a" fill="#E24B4A" name="Lv4/5" />
+                <Bar dataKey="lv3"  stackId="a" fill="#EF9F27" name="Lv3"   />
+                <Bar dataKey="lv12" stackId="a" fill="#378ADD" name="Lv1/2" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      )}
-
-      {/* ── History: filter bar ── */}
-      {mode === "history" && (
-        <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-          <Filter className="h-3.5 w-3.5 text-[#5f79ad]" />
-          <div className="flex gap-1">
-            {(["all", "critical", "major", "minor"] as LevelFilter[]).map(l => (
-              <button key={l} onClick={() => setLevelFilter(l)}
-                className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition-all ${
-                  levelFilter === l ? "bg-[#00d4aa] text-[#07162b]" : "bg-[#1a2654]/60 text-[#7b8ab8] hover:text-[#e8f4fc]"
-                }`}>
-                {l === "all" ? (zh ? "全部" : "All") : l.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
-            className="rounded-md border border-[#1a2654] bg-[#101840] px-2 py-0.5 text-[10px] text-[#7b8ab8] focus:outline-none focus:border-[#00d4aa]">
-            {sources.map(s => (
-              <option key={s} value={s}>{s === "all" ? (zh ? "全部来源" : "All sources") : s}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* ── Alarm list ── */}
-      <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-[#1a2654]">
-        {/* Header */}
-        <div className="sticky top-0 z-10 grid grid-cols-[140px_72px_72px_1fr_72px] gap-2 bg-[#101840] px-3 py-2 text-[10px] text-[#7b8ab8]">
-          <span>{zh ? "时间" : "Time"}</span>
-          <span>{zh ? "等级" : "Level"}</span>
-          <span>{zh ? "来源" : "Source"}</span>
-          <span>{zh ? "告警内容" : "Message"}</span>
-          <span>{zh ? "状态" : "Status"}</span>
-        </div>
-
-        <div className="divide-y divide-[#1a2654]/60">
-          {displayed.length === 0 ? (
-            <div className="px-3 py-8 text-center text-sm text-[#5f79ad]">
-              {zh ? "该日期无告警记录" : "No alarm records for this date"}
+          <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
+            <Filter className="h-3.5 w-3.5 text-[#5f79ad]" />
+            <div className="flex gap-1">
+              {(["all", "lv45", "lv3", "lv12"] as LevelFilter[]).map(l => (
+                <button key={l} onClick={() => setLevelFilter(l)}
+                  className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition-all ${
+                    levelFilter === l ? "bg-[#00d4aa] text-[#07162b]" : "bg-[#1a2654]/60 text-[#7b8ab8] hover:text-[#e8f4fc]"
+                  }`}>
+                  {l === "all" ? (zh ? "全部" : "All") : l === "lv45" ? "严重" : l === "lv3" ? "预警" : "提示"}
+                </button>
+              ))}
             </div>
-          ) : displayed.map((log) => {
-            const key = `${log.time}-${log.source}`
-            const isExpanded = expandedRow === key
-            const isUnrecovered = log.statusZh === "未恢复"
-            const detailData = isExpanded ? getDetailCurve(key) : []
+            <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
+              style={{ colorScheme: "dark" }}
+              className="rounded-md border border-[#1a2654] bg-[#101840] px-2 py-0.5 text-[10px] text-[#7b8ab8] focus:border-[#00d4aa] focus:outline-none">
+              {sources.map(s => (
+                <option key={s} value={s}>{s === "all" ? (zh ? "全部来源" : "All sources") : s}</option>
+              ))}
+            </select>
+          </div>
+        </>
+      )}
 
-            return (
-              <div key={key}>
-                <div
-                  onClick={() => mode === "history" ? setExpandedRow(isExpanded ? null : key) : undefined}
-                  className={`grid grid-cols-[140px_72px_72px_1fr_72px] gap-2 px-3 py-2 text-sm text-[#e8f4fc] transition-colors ${
-                    mode === "history" ? "cursor-pointer hover:bg-[#1a2654]/30" : ""
-                  } ${isUnrecovered ? "bg-[#ef4444]/5" : ""}`}
-                >
-                  <span className="flex items-center gap-1.5 font-mono text-[10px] text-[#7b8ab8]">
-                    {isUnrecovered && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[#ef4444]" />}
-                    {log.time.slice(11)}
-                  </span>
-                  <span>
-                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${LEVEL_STYLE[log.level]}`}>
-                      {log.level.toUpperCase()}
-                    </span>
-                  </span>
-                  <span className="text-xs text-[#22d3ee]">{log.source}</span>
-                  <span className="text-xs">{zh ? log.msgZh : log.msgEn}</span>
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px]" style={{ color: STATUS_COLOR[zh ? log.statusZh : log.statusEn] }}>
-                      {zh ? log.statusZh : log.statusEn}
-                    </span>
-                    {mode === "history" && (
-                      isExpanded
-                        ? <ChevronUp className="h-3 w-3 text-[#5f79ad]" />
-                        : <ChevronDown className="h-3 w-3 text-[#5f79ad]" />
-                    )}
-                  </div>
-                </div>
-
-                {/* Expanded: ±5 min detail curves */}
-                {isExpanded && (
-                  <div className="border-t border-[#1a2654]/40 bg-[#0d1433]/60 px-3 py-2">
-                    <div className="mb-1 text-[10px] text-[#5f79ad]">
-                      {zh ? `${log.time} 前后 5 分钟 — 电压 & 温度` : `${log.time} ±5 min — Voltage & Temperature`}
-                    </div>
-                    <div className="h-24">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={detailData} margin={{ top: 0, right: 8, left: -28, bottom: 0 }}>
-                          <XAxis dataKey="t" tick={{ fill: "#5f79ad", fontSize: 8 }} axisLine={false} tickLine={false} />
-                          <YAxis yAxisId="v" domain={[3.28, 3.38]} tick={{ fill: "#22d3ee", fontSize: 8 }} axisLine={false} tickLine={false} tickFormatter={v => (v as number).toFixed(2)} />
-                          <YAxis yAxisId="t" orientation="right" domain={[24, 40]} tick={{ fill: "#fbbf24", fontSize: 8 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}°`} />
-                          <Tooltip contentStyle={TS} labelStyle={{ color: "#7b8ab8" }} />
-                          <Bar yAxisId="v" dataKey="voltage" name={zh ? "单体电压" : "Cell V"} fill="#22d3ee" opacity={0.7} radius={[2, 2, 0, 0]} />
-                          <Bar yAxisId="t" dataKey="temp"    name={zh ? "温度"     : "Temp"}   fill="#fbbf24" opacity={0.7} radius={[2, 2, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+      {/* ── Table ── */}
+      <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-[#1a2654]/60">
+        <table className="w-full border-collapse text-left" style={{ tableLayout: "fixed" }}>
+          <colgroup>
+            <col style={{ width: "108px" }} />
+            <col />
+            <col style={{ width: "56px" }} />
+            <col style={{ width: "72px" }} />
+            <col style={{ width: "110px" }} />
+            <col style={{ width: "60px" }} />
+            <col style={{ width: "70px" }} />
+          </colgroup>
+          <thead>
+            <tr className="sticky top-0 z-10 bg-[#101840]">
+              {[
+                zh ? "等级"     : "Level",
+                zh ? "告警名称" : "Alarm",
+                zh ? "分类"     : "Type",
+                zh ? "严重度"   : "Severity",
+                zh ? "触发 / 恢复" : "Trig / Recv",
+                zh ? "状态"     : "Status",
+                zh ? "处置"     : "Action",
+              ].map(h => (
+                <th key={h} className="border-b border-[#1a2654] px-2 py-2 text-left text-[10px] font-medium text-[#7b8ab8] first:pl-3 last:pr-3">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {displayed.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="py-10 text-center text-sm text-[#5f79ad]">
+                  {zh ? "该日期无告警记录" : "No alarm records"}
+                </td>
+              </tr>
+            ) : displayed.map(alarm => (
+              <AlarmRow
+                key={`${alarm.time}-${alarm.source}`}
+                alarm={alarm}
+                zh={zh}
+              />
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
