@@ -71,11 +71,11 @@ type LevelFilter = "all" | "lv45" | "lv3" | "lv12"
 // ── 5 段严重度条 ──────────────────────────────────────────────────────────────
 function SeverityBar({ lv }: { lv: number }) {
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map(i => (
         <div
           key={i}
-          className="h-1.5 w-2.5 rounded-sm"
+          className="h-2 w-2 rounded-full"
           style={{ backgroundColor: i <= lv ? LV_COLOR[lv] : "#1a2654" }}
         />
       ))}
@@ -250,44 +250,44 @@ export function AlarmLogPanel({
         </div>
       </div>
 
-      {/* ── History: hourly bar + filter ── */}
+      {/* ── History only: hourly bar ── */}
       {mode === "history" && (
-        <>
-          <div className="mb-2 h-14 shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={HOURLY_DIST} margin={{ top: 0, right: 0, left: -28, bottom: 0 }} barSize={5}>
-                <XAxis dataKey="hour" tick={{ fill: "#5f79ad", fontSize: 8 }} axisLine={false} tickLine={false} interval={3} />
-                <YAxis tick={false} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TS} labelStyle={{ color: "#7b8ab8" }} labelFormatter={v => `${v}:00`}
-                  formatter={(v: number, n: string) => [v, n]} />
-                <Bar dataKey="lv45" stackId="a" fill="#E24B4A" name="Lv4/5" />
-                <Bar dataKey="lv3"  stackId="a" fill="#EF9F27" name="Lv3"   />
-                <Bar dataKey="lv12" stackId="a" fill="#378ADD" name="Lv1/2" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-            <Filter className="h-3.5 w-3.5 text-[#5f79ad]" />
-            <div className="flex gap-1">
-              {(["all", "lv45", "lv3", "lv12"] as LevelFilter[]).map(l => (
-                <button key={l} onClick={() => setLevelFilter(l)}
-                  className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition-all ${
-                    levelFilter === l ? "bg-[#00d4aa] text-[#07162b]" : "bg-[#1a2654]/60 text-[#7b8ab8] hover:text-[#e8f4fc]"
-                  }`}>
-                  {l === "all" ? (zh ? "全部" : "All") : l === "lv45" ? "严重" : l === "lv3" ? "预警" : "提示"}
-                </button>
-              ))}
-            </div>
-            <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
-              style={{ colorScheme: "dark" }}
-              className="rounded-md border border-[#1a2654] bg-[#101840] px-2 py-0.5 text-[10px] text-[#7b8ab8] focus:border-[#00d4aa] focus:outline-none">
-              {sources.map(s => (
-                <option key={s} value={s}>{s === "all" ? (zh ? "全部来源" : "All sources") : s}</option>
-              ))}
-            </select>
-          </div>
-        </>
+        <div className="mb-2 h-14 shrink-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={HOURLY_DIST} margin={{ top: 0, right: 0, left: -28, bottom: 0 }} barSize={5}>
+              <XAxis dataKey="hour" tick={{ fill: "#5f79ad", fontSize: 8 }} axisLine={false} tickLine={false} interval={3} />
+              <YAxis tick={false} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={TS} labelStyle={{ color: "#7b8ab8" }} labelFormatter={v => `${v}:00`}
+                formatter={(v: number, n: string) => [v, n]} />
+              <Bar dataKey="lv45" stackId="a" fill="#E24B4A" name="Lv4/5" />
+              <Bar dataKey="lv3"  stackId="a" fill="#EF9F27" name="Lv3"   />
+              <Bar dataKey="lv12" stackId="a" fill="#378ADD" name="Lv1/2" radius={[2, 2, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       )}
+
+      {/* ── Filter bar（实时 + 历史 均显示） ── */}
+      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
+        <Filter className="h-3.5 w-3.5 text-[#5f79ad]" />
+        <div className="flex gap-1">
+          {(["all", "lv45", "lv3", "lv12"] as LevelFilter[]).map(l => (
+            <button key={l} onClick={() => setLevelFilter(l)}
+              className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition-all ${
+                levelFilter === l ? "bg-[#00d4aa] text-[#07162b]" : "bg-[#1a2654]/60 text-[#7b8ab8] hover:text-[#e8f4fc]"
+              }`}>
+              {l === "all" ? (zh ? "全部" : "All") : l === "lv45" ? "严重" : l === "lv3" ? "预警" : "提示"}
+            </button>
+          ))}
+        </div>
+        <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
+          style={{ colorScheme: "dark" }}
+          className="rounded-md border border-[#1a2654] bg-[#101840] px-2 py-0.5 text-[10px] text-[#7b8ab8] focus:border-[#00d4aa] focus:outline-none">
+          {sources.map(s => (
+            <option key={s} value={s}>{s === "all" ? (zh ? "全部来源" : "All sources") : s}</option>
+          ))}
+        </select>
+      </div>
 
       {/* ── Table ── */}
       <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-[#1a2654]/60">
