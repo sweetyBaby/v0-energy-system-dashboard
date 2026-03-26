@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysis"
@@ -40,15 +39,10 @@ function DashboardTabs() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("realtime")
   const [analysisRange, setAnalysisRange] = useState<AnalysisRange>(15)
   const [bcuMode, setBcuMode] = useState<BcuMode>("realtime")
-  const [historyDate, setHistoryDate] = useState("2026-03-25")
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0]
+  const [historyDate, setHistoryDate] = useState(yesterday)
 
-  const shiftDate = (delta: number) => {
-    const d = new Date(historyDate)
-    d.setDate(d.getDate() + delta)
-    setHistoryDate(d.toISOString().split("T")[0])
-  }
-
-  return (
+return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
       <div className="relative overflow-hidden rounded-xl border border-[#18305a] bg-[linear-gradient(180deg,rgba(13,18,51,0.95),rgba(9,14,36,0.98))] px-3 py-2 shadow-[0_0_0_1px_rgba(34,211,238,0.03)_inset]">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent" />
@@ -157,27 +151,16 @@ function DashboardTabs() {
                 ))}
               </div>
 
-              {/* 日期导航（仅历史模式） */}
+              {/* 日期选择（仅历史模式） */}
               {bcuMode === "history" && (
-                <div className="flex items-center gap-1.5">
-                  <button onClick={() => shiftDate(-1)}
-                    className="rounded-md border border-[#1a2654] bg-[#101840] p-1 text-[#7b8ab8] transition-colors hover:border-[#00d4aa]/40 hover:text-[#e8f4fc]">
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </button>
-                  <div className="relative flex items-center">
-                    <Calendar className="absolute left-2 h-3.5 w-3.5 text-[#5f79ad]" />
-                    <input
-                      type="date"
-                      value={historyDate}
-                      onChange={(e) => setHistoryDate(e.target.value)}
-                      className="rounded-md border border-[#1a2654] bg-[#101840] py-1 pl-7 pr-3 text-xs text-[#e8f4fc] focus:border-[#00d4aa] focus:outline-none"
-                    />
-                  </div>
-                  <button onClick={() => shiftDate(1)}
-                    className="rounded-md border border-[#1a2654] bg-[#101840] p-1 text-[#7b8ab8] transition-colors hover:border-[#00d4aa]/40 hover:text-[#e8f4fc]">
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                <input
+                  type="date"
+                  value={historyDate}
+                  max={yesterday}
+                  onChange={(e) => { if (e.target.value) setHistoryDate(e.target.value) }}
+                  style={{ colorScheme: "dark" }}
+                  className="cursor-pointer rounded-md border border-[#1a2654] bg-[#101840] px-3 py-1 text-xs text-[#e8f4fc] focus:border-[#00d4aa] focus:outline-none"
+                />
               )}
             </div>
 
