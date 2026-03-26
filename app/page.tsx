@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysis"
@@ -18,6 +19,7 @@ import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-differ
 import { LanguageProvider } from "@/components/language-provider"
 
 type DashboardTab = "realtime" | "efficiency" | "bms" | "analysis" | "history" | "reports"
+type BcuMode = "realtime" | "history"
 type AnalysisRange = 7 | 15 | 30
 const ANALYSIS_RANGES: { key: AnalysisRange; label: string }[] = [
   { key: 7,  label: "近7日"  },
@@ -30,13 +32,21 @@ const TAB_META: Record<DashboardTab, { label: string }> = {
   efficiency: { label: "综合能效" },
   bms: { label: "电芯矩阵" },
   analysis: { label: "数据分析" },
-  history: { label: "历史查询" },
+  history: { label: "BCU状态" },
   reports: { label: "报表信息" },
 }
 
 function DashboardTabs() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("realtime")
   const [analysisRange, setAnalysisRange] = useState<AnalysisRange>(15)
+  const [bcuMode, setBcuMode] = useState<BcuMode>("realtime")
+  const [historyDate, setHistoryDate] = useState("2026-03-25")
+
+  const shiftDate = (delta: number) => {
+    const d = new Date(historyDate)
+    d.setDate(d.getDate() + delta)
+    setHistoryDate(d.toISOString().split("T")[0])
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
@@ -124,12 +134,61 @@ function DashboardTabs() {
         )}
 
         {activeTab === "history" && (
-          <div className="grid h-full min-h-0 grid-cols-12 gap-4">
-            <div className="col-span-12 min-h-0 xl:col-span-7">
-              <BCUStatusQuery />
+          <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+            {/* 工具栏：模式切换 + 历史日期导航 */}
+            <div className="flex shrink-0 items-center gap-3 rounded-lg border border-[#1a2654] bg-[#0d1233] px-3 py-2">
+              {/* 实时 / 历史查询 切换 */}
+              <div className="flex gap-1 rounded-lg bg-[#1a2654]/60 p-0.5">
+                {(["realtime", "history"] as BcuMode[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setBcuMode(m)}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                      bcuMode === m
+                        ? "bg-[#00d4aa] text-[#041123] shadow-[0_0_12px_rgba(0,212,170,0.2)]"
+                        : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+                    }`}
+                  >
+                    {bcuMode === m && m === "realtime" && (
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#041123]" />
+                    )}
+                    {m === "realtime" ? "实时监控" : "历史查询"}
+                  </button>
+                ))}
+              </div>
+
+              {/* 日期导航（仅历史模式） */}
+              {bcuMode === "history" && (
+                <div className="flex items-center gap-1.5">
+                  <button onClick={() => shiftDate(-1)}
+                    className="rounded-md border border-[#1a2654] bg-[#101840] p-1 text-[#7b8ab8] transition-colors hover:border-[#00d4aa]/40 hover:text-[#e8f4fc]">
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <div className="relative flex items-center">
+                    <Calendar className="absolute left-2 h-3.5 w-3.5 text-[#5f79ad]" />
+                    <input
+                      type="date"
+                      value={historyDate}
+                      onChange={(e) => setHistoryDate(e.target.value)}
+                      className="rounded-md border border-[#1a2654] bg-[#101840] py-1 pl-7 pr-3 text-xs text-[#e8f4fc] focus:border-[#00d4aa] focus:outline-none"
+                    />
+                  </div>
+                  <button onClick={() => shiftDate(1)}
+                    className="rounded-md border border-[#1a2654] bg-[#101840] p-1 text-[#7b8ab8] transition-colors hover:border-[#00d4aa]/40 hover:text-[#e8f4fc]">
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
-            <div className="col-span-12 min-h-0 xl:col-span-5">
-              <AlarmLogPanel />
+
+            {/* 主内容 */}
+            <div className="grid min-h-0 flex-1 grid-cols-12 gap-4">
+              <div className="col-span-12 min-h-0 xl:col-span-7">
+                <BCUStatusQuery mode={bcuMode} date={bcuMode === "history" ? historyDate : undefined} />
+              </div>
+              <div className="col-span-12 min-h-0 xl:col-span-5">
+                <AlarmLogPanel mode={bcuMode} date={bcuMode === "history" ? historyDate : undefined} />
+              </div>
             </div>
           </div>
         )}
