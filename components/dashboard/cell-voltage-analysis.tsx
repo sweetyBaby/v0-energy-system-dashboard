@@ -65,8 +65,8 @@ export function CellVoltageAnalysis({ range }: { range: number }) {
           { label: zh?"极差":"Range",     value:`${stats.range} V`,           color:"#fbbf24" },
         ].map(s => (
           <div key={s.label} className="rounded-lg border border-[#1a2654]/60 bg-[#101840]/80 px-2 py-2 text-center">
-            <div className="text-[10px] text-[#7b8ab8]">{s.label}</div>
-            <div className="mt-0.5 font-mono text-xs font-bold" style={{color:s.color}}>{s.value}</div>
+            <div className="text-xs font-medium text-[#7b8ab8]">{s.label}</div>
+            <div className="mt-0.5 font-mono text-[0.95rem] font-bold" style={{color:s.color}}>{s.value}</div>
           </div>
         ))}
       </div>
@@ -82,13 +82,13 @@ export function CellVoltageAnalysis({ range }: { range: number }) {
               <YAxis axisLine={false} tickLine={false} tick={{fill:"#7b8ab8",fontSize:10}}
                 domain={[2.4, 3.7]} tickFormatter={v=>v.toFixed(2)} unit="V"/>
               <Tooltip contentStyle={TS} labelStyle={{color:"#7b8ab8"}}
-                formatter={(v:number) => [`${v.toFixed(3)} V`]}/>
+                formatter={(v:number, name:string) => [`${v.toFixed(3)} V`, name]}/>
               <Legend wrapperStyle={{paddingTop:"6px"}} layout="horizontal" verticalAlign="bottom"
                 formatter={v => <span style={{color:"#7b8ab8",fontSize:"11px"}}>{v}</span>}/>
               <ReferenceLine y={3.65} stroke="#ef4444" strokeDasharray="4 4" strokeOpacity={0.8}
-                label={{value:zh?"上限 3.65V":"Max 3.65V", fill:"#ef4444", fontSize:9, position:"insideTopLeft"}}/>
+                label={{value:zh?"上限 3.65V":"Max 3.65V", fill:"#ef4444", fontSize:11, fontWeight:600, position:"insideTopLeft"}}/>
               <ReferenceLine y={2.5} stroke="#22d3ee" strokeDasharray="4 4" strokeOpacity={0.8}
-                label={{value:zh?"下限 2.50V":"Min 2.50V", fill:"#22d3ee", fontSize:9, position:"insideBottomLeft"}}/>
+                label={{value:zh?"下限 2.50V":"Min 2.50V", fill:"#22d3ee", fontSize:11, fontWeight:600, position:"insideBottomRight"}}/>
               <Line type="monotone" dataKey="maxVoltage" name={zh?"最大电压":"Max Voltage"} stroke="#ef4444" strokeWidth={2} dot={{r:2}} activeDot={{r:4}}/>
               <Line type="monotone" dataKey="avgVoltage" name={zh?"平均电压":"Avg Voltage"} stroke="#00d4aa" strokeWidth={2} dot={{r:2}} activeDot={{r:4}} strokeDasharray="5 3"/>
               <Line type="monotone" dataKey="minVoltage" name={zh?"最小电压":"Min Voltage"} stroke="#22d3ee" strokeWidth={2} dot={{r:2}} activeDot={{r:4}}/>

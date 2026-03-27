@@ -64,8 +64,8 @@ export function TemperatureDifferenceAnalysis({ range }: { range: number }) {
           { label: zh?"平均温差":"Avg Diff", value:`${stats.avgDiff} °C`,            color:"#fbbf24" },
         ].map(s => (
           <div key={s.label} className="rounded-lg border border-[#1a2654]/60 bg-[#101840]/80 px-2 py-2 text-center">
-            <div className="text-[10px] text-[#7b8ab8]">{s.label}</div>
-            <div className="mt-0.5 font-mono text-xs font-bold" style={{color:s.color}}>{s.value}</div>
+            <div className="text-xs font-medium text-[#7b8ab8]">{s.label}</div>
+            <div className="mt-0.5 font-mono text-[0.95rem] font-bold" style={{color:s.color}}>{s.value}</div>
           </div>
         ))}
       </div>
@@ -80,11 +80,11 @@ export function TemperatureDifferenceAnalysis({ range }: { range: number }) {
                 interval={range > 15 ? 4 : range > 7 ? 1 : 0}/>
               <YAxis axisLine={false} tickLine={false} tick={{fill:"#7b8ab8",fontSize:10}} unit="°C"/>
               <Tooltip contentStyle={TS} labelStyle={{color:"#7b8ab8"}}
-                formatter={(v:number) => [`${v.toFixed(1)} °C`]}/>
+                formatter={(v:number, name:string) => [`${v.toFixed(1)} °C`, name]}/>
               <Legend wrapperStyle={{paddingTop:"6px"}}
                 formatter={v => <span style={{color:"#7b8ab8",fontSize:"11px"}}>{v}</span>}/>
               <ReferenceLine y={45} stroke="#ef4444" strokeDasharray="4 4" strokeOpacity={0.7}
-                label={{value:zh?"⚠ 高温 45°C":"⚠ High 45°C", fill:"#ef4444", fontSize:9, position:"insideTopLeft"}}/>
+                label={{value:zh?"⚠ 高温 45°C":"⚠ High 45°C", fill:"#ef4444", fontSize:11, fontWeight:600, position:"insideTopRight"}}/>
               <Line type="monotone" dataKey="maxTemp" name={zh?"最高温度":"Max Temp"} stroke="#ef4444" strokeWidth={2} dot={{r:2}} activeDot={{r:4}}/>
               <Line type="monotone" dataKey="minTemp" name={zh?"最低温度":"Min Temp"} stroke="#22d3ee" strokeWidth={2} dot={{r:2}} activeDot={{r:4}}/>
               <Line type="monotone" dataKey="tempDiff" name={zh?"温差":"Temp Diff"} stroke="#f97316" strokeWidth={2} dot={{r:2}} activeDot={{r:4}} strokeDasharray="5 3"/>

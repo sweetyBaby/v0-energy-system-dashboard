@@ -1,23 +1,27 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { useLanguage } from "@/components/language-provider"
 
 type QueryType = "today" | "yesterday" | "week" | "month"
 
-// Generate minute-level mock data
-const generateMinuteData = (hours: number) => {
-  const data = []
-  for (let i = 0; i < hours * 60; i += 5) {
+type DataPoint = {
+  time: string
+  chargePower: number
+  dischargePower: number
+}
+
+// Generate minute-level data up to a specific hour:minute
+const generateMinuteDataUntil = (untilHour: number, untilMinute: number): DataPoint[] => {
+  const data: DataPoint[] = []
+  const limit = untilHour * 60 + untilMinute
+  for (let i = 0; i <= limit; i += 5) {
     const hour = Math.floor(i / 60)
     const minute = i % 60
     const time = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
-    
-    // Simulate charge during low price hours (0-6, 12-14), discharge during peak hours
     let chargePower = 0
     let dischargePower = 0
-    
     if (hour >= 0 && hour < 6) {
       chargePower = 1500 + Math.random() * 400
     } else if (hour >= 12 && hour < 14) {
@@ -25,32 +29,26 @@ const generateMinuteData = (hours: number) => {
     } else if ((hour >= 8 && hour < 12) || (hour >= 18 && hour < 22)) {
       dischargePower = 1600 + Math.random() * 400
     }
-    
     data.push({
       time,
       chargePower: Math.round(chargePower),
-      dischargePower: -Math.round(dischargePower), // Negative for discharge
+      dischargePower: -Math.round(dischargePower),
     })
   }
   return data
 }
 
-// Generate daily data for current month (1st to today)
-const generateMonthDailyData = () => {
-  const today = new Date()
-  return Array.from({ length: today.getDate() }, (_, i) => {
-    const date = new Date(today.getFullYear(), today.getMonth(), i + 1)
-
-    return {
-      time: `${date.getMonth() + 1}/${date.getDate()}`,
-      chargePower: Math.round(800 + Math.random() * 600),
-      dischargePower: -Math.round(700 + Math.random() * 500),
-    }
-  })
+// Today: generate data up to current time, then incrementally append new points
+const generateTodayData = (): DataPoint[] => {
+  const now = new Date()
+  return generateMinuteDataUntil(now.getHours(), now.getMinutes())
 }
 
-// Generate daily data for last 7 days
-const generateWeekDailyData = () => {
+// Yesterday: full 24h
+const generateYesterdayData = (): DataPoint[] => generateMinuteDataUntil(23, 55)
+
+// Daily data for last 7 days
+const generateWeekDailyData = (): DataPoint[] => {
   const today = new Date()
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today)
@@ -63,44 +61,108 @@ const generateWeekDailyData = () => {
   })
 }
 
-// Static initial data for SSR
-const getInitialData = () => {
-  return Array.from({ length: 24 }, (_, i) => ({
+// Daily data for current month
+const generateMonthDailyData = (): DataPoint[] => {
+  const today = new Date()
+  return Array.from({ length: today.getDate() }, (_, i) => {
+    const date = new Date(today.getFullYear(), today.getMonth(), i + 1)
+    return {
+      time: `${date.getMonth() + 1}/${date.getDate()}`,
+      chargePower: Math.round(800 + Math.random() * 600),
+      dischargePower: -Math.round(700 + Math.random() * 500),
+    }
+  })
+}
+
+const getInitialData = (): DataPoint[] =>
+  Array.from({ length: 24 }, (_, i) => ({
     time: `${String(i).padStart(2, "0")}:00`,
     chargePower: 0,
     dischargePower: 0,
   }))
-}
-
 
 export function PowerCurveQuery() {
   const [queryType, setQueryType] = useState<QueryType>("today")
-  const [data, setData] = useState(getInitialData)
+  const [data, setData] = useState<DataPoint[]>(getInitialData)
   const [mounted, setMounted] = useState(false)
+  const [nowLabel, setNowLabel] = useState("")
   const { t, language } = useLanguage()
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Initial mount
   useEffect(() => {
     setMounted(true)
-    setData(generateMinuteData(24))
+    setData(generateTodayData())
+    const now = new Date()
+    setNowLabel(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`)
   }, [])
 
-  const queryTypes = [
-    { key: "today", label: t("today") },
-    { key: "yesterday", label: t("yesterday") },
-    { key: "week", label: t("thisWeek") },
-    { key: "month", label: t("thisMonth") },
-  ]
+  // Real-time refresh for "today" — tick every minute to append new point
+  useEffect(() => {
+    if (!mounted) return
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    if (queryType !== "today") return
+
+    intervalRef.current = setInterval(() => {
+      const now = new Date()
+      const h = now.getHours()
+      const m = Math.floor(now.getMinutes() / 5) * 5 // snap to 5-min bucket
+      const time = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+      let chargePower = 0
+      let dischargePower = 0
+      if (h >= 0 && h < 6) {
+        chargePower = 1500 + Math.random() * 400
+      } else if (h >= 12 && h < 14) {
+        chargePower = 1200 + Math.random() * 300
+      } else if ((h >= 8 && h < 12) || (h >= 18 && h < 22)) {
+        dischargePower = 1600 + Math.random() * 400
+      }
+      const newPoint: DataPoint = {
+        time,
+        chargePower: Math.round(chargePower),
+        dischargePower: -Math.round(dischargePower),
+      }
+      setData(prev => {
+        // Replace last point if same time bucket, otherwise append
+        if (prev.length > 0 && prev[prev.length - 1].time === time) {
+          return [...prev.slice(0, -1), newPoint]
+        }
+        return [...prev, newPoint]
+      })
+      setNowLabel(time)
+    }, 60_000)
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [mounted, queryType])
 
   const handleQueryTypeChange = (type: QueryType) => {
     setQueryType(type)
-    if (type === "week") {
+    if (type === "today") {
+      setData(generateTodayData())
+      const now = new Date()
+      setNowLabel(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`)
+    } else if (type === "yesterday") {
+      setData(generateYesterdayData())
+    } else if (type === "week") {
       setData(generateWeekDailyData())
-    } else if (type === "month") {
-      setData(generateMonthDailyData())
     } else {
-      setData(generateMinuteData(24))
+      setData(generateMonthDailyData())
     }
   }
+
+  const queryTypes = [
+    { key: "today",     label: t("today") },
+    { key: "yesterday", label: t("yesterday") },
+    { key: "week",      label: t("thisWeek") },
+    { key: "month",     label: t("thisMonth") },
+  ]
+
+  // X-axis tick interval: for minute-level data show ~8 labels
+  const xInterval = (queryType === "today" || queryType === "yesterday")
+    ? Math.max(1, Math.floor(data.length / 8))
+    : 0
 
   return (
     <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full h-full">
@@ -108,6 +170,12 @@ export function PowerCurveQuery() {
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
           <h3 className="text-base font-semibold text-[#00d4aa]">{t("powerCurveQuery")}</h3>
+          {queryType === "today" && mounted && (
+            <span className="flex items-center gap-1 rounded-md border border-[#1a3a6e] bg-[#0a1940] px-2 py-0.5 text-[11px] text-[#7ab0f0]">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00d4aa]" />
+              实时 {nowLabel}
+            </span>
+          )}
         </div>
 
         <div className="flex gap-1 rounded-xl bg-[#16204b]/90 p-1">
@@ -127,7 +195,6 @@ export function PowerCurveQuery() {
         </div>
       </div>
 
-      {/* Chart */}
       <div className="h-72 flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -137,13 +204,12 @@ export function PowerCurveQuery() {
               axisLine={false}
               tickLine={false}
               tick={{ fill: "#7b8ab8", fontSize: 10 }}
-              interval={queryType === "today" || queryType === "yesterday" ? 23 : 0}
+              interval={xInterval}
             />
-            <YAxis 
+            <YAxis
               axisLine={false}
               tickLine={false}
               tick={{ fill: "#7b8ab8", fontSize: 10 }}
-              tickFormatter={(value) => `${value}`}
             />
             <Tooltip
               contentStyle={{
@@ -153,7 +219,7 @@ export function PowerCurveQuery() {
               }}
               labelStyle={{ color: "#7b8ab8" }}
             />
-            <Legend 
+            <Legend
               wrapperStyle={{ paddingTop: "10px" }}
               formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
             />
@@ -164,6 +230,7 @@ export function PowerCurveQuery() {
               stroke="#3b82f6"
               strokeWidth={2}
               dot={false}
+              isAnimationActive={false}
             />
             <Line
               type="monotone"
@@ -172,6 +239,7 @@ export function PowerCurveQuery() {
               stroke="#f97316"
               strokeWidth={2}
               dot={false}
+              isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>
