@@ -31,7 +31,7 @@ const TAB_META: Record<DashboardTab, { label: string }> = {
   efficiency: { label: "综合能效" },
   bms: { label: "电芯矩阵" },
   analysis: { label: "数据分析" },
-  history: { label: "BCU状态" },
+  history: { label: "运行状态" },
   reports: { label: "报表信息" },
 }
 

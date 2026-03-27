@@ -125,7 +125,7 @@ function deriveTimelineEvents(alarms: AlarmEntry[]): TimelineEvent[] {
   })
 }
 
-const LEFT_W  = 68
+const LEFT_W  = 64
 const DAY_MIN = 24 * 60
 
 // ── 甘特时间轴（拖动平移 + 滚轮缩放，始终铺满容器，无横向滚动条） ─────────────
@@ -185,51 +185,56 @@ function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
   }
 
   return (
-    <div className="select-none rounded-lg border border-[#1a2654]/60 bg-[#080e28]/60 p-2">
+    <div className="select-none flex h-full flex-col rounded-lg border border-[#1a3060] bg-[#080e28]/70 px-3 py-2">
       {/* 图例 + 视窗范围提示 */}
-      <div className="mb-2 flex items-center gap-3 px-1">
+      <div className="mb-2 flex shrink-0 items-center gap-3 px-1">
         {([
-          { label: "严重(红)", c: "#E24B4A" },
-          { label: "预警(橙)", c: "#EF9F27" },
-          { label: "提示(蓝)", c: "#378ADD" },
+          { label: "严重", c: "#E24B4A" },
+          { label: "预警", c: "#EF9F27" },
+          { label: "提示", c: "#378ADD" },
         ]).map(g => (
-          <div key={g.label} className="flex items-center gap-1">
-            <div className="h-2.5 w-5 rounded-sm" style={{ background: g.c }} />
-            <span className="text-[10px] text-[#7b8ab8]">{g.label}</span>
+          <div key={g.label} className="flex items-center gap-1.5">
+            <div className="h-2.5 w-5 rounded-sm" style={{ background: g.c, boxShadow: `0 0 5px ${g.c}66` }} />
+            <span className="text-[11px] font-medium text-[#c8deff]">{g.label}</span>
           </div>
         ))}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
           {zoomed && (
-            <span className="text-[10px] text-[#5f79ad]">{fmt(viewStart)} – {fmt(viewEnd)}</span>
+            <span className="text-[11px] font-semibold text-[#7dd3fc]">{fmt(viewStart)} – {fmt(viewEnd)}</span>
           )}
-          <span className="text-[10px] text-[#3a5080]">滚轮缩放 · 拖动平移</span>
+          <span className="rounded-md border border-[#2a4a80]/60 bg-[#0d1a3a]/80 px-2.5 py-0.5 text-[11px] font-medium text-[#60a0ff]"
+            style={{ textShadow: "0 0 8px rgba(96,160,255,0.5)" }}>
+            ⇕ 滚轮缩放 &nbsp;⇔ 拖动平移
+          </span>
         </div>
       </div>
 
-      {/* 固定标签列 + 时间轴 */}
-      <div className="flex overflow-hidden">
-        <div className="shrink-0" style={{ width: LEFT_W }}>
-          <div style={{ height: 18 }} />
+      {/* 标签列 + 时间轴（flex-1 自动撑满剩余高度） */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* 左侧类型标签 */}
+        <div className="flex shrink-0 flex-col" style={{ width: LEFT_W }}>
+          <div className="shrink-0" style={{ height: 18 }} />
           {types.map(type => (
             <div key={type}
-              className="flex items-center justify-end pr-2 text-right text-[10px] text-[#7b8ab8]"
-              style={{ height: 24 }}>
+              className="flex min-h-[20px] flex-1 items-center justify-end pr-2 text-right text-[11px] font-medium text-[#a8c4f0]"
+              style={{ textShadow: "0 0 6px rgba(100,160,255,0.35)" }}>
               {type}
             </div>
           ))}
         </div>
 
+        {/* 右侧时间轴区域 */}
         <div
           ref={containerRef}
-          className={`min-w-0 flex-1 overflow-hidden ${zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
+          className={`flex min-w-0 flex-1 flex-col overflow-hidden ${zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
           onWheel={handleWheel}
           onMouseDown={startDrag}
         >
-          {/* 时间刻度 */}
-          <div className="relative" style={{ height: 18 }}>
+          {/* 时间刻度行 */}
+          <div className="relative shrink-0" style={{ height: 18 }}>
             {ticks.map(m => (
               <span key={m}
-                className="absolute -translate-x-1/2 whitespace-nowrap text-[9px] text-[#5f79ad]"
+                className="absolute -translate-x-1/2 whitespace-nowrap text-[10px] font-medium text-[#7ab0f0]"
                 style={{ left: pct(m) }}>
                 {fmt(m)}
               </span>
@@ -238,10 +243,13 @@ function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
 
           {/* 事件行 */}
           {types.map(type => (
-            <div key={type} className="relative" style={{ height: 24 }}>
+            <div key={type} className="relative min-h-[20px] flex-1">
+              {/* 网格竖线 */}
               {ticks.map(m => (
-                <div key={m} className="absolute inset-y-0 w-px bg-[#1a2654]/40" style={{ left: pct(m) }} />
+                <div key={m} className="absolute inset-y-0 w-px bg-[#1a2e5a]/50" style={{ left: pct(m) }} />
               ))}
+              {/* 行底部分隔线 */}
+              <div className="absolute inset-x-0 bottom-0 h-px bg-[#1a2654]/30" />
               {events
                 .filter(ev => ev.type === type && ev.end > viewStart && ev.start < viewEnd)
                 .map((ev, i) => {
@@ -249,13 +257,14 @@ function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
                   const ce = Math.min(ev.end,   viewEnd)
                   return (
                     <div key={i}
-                      className="absolute top-1/2 -translate-y-1/2 cursor-pointer rounded-sm opacity-85 transition-opacity hover:opacity-100"
+                      className="absolute top-1/2 -translate-y-1/2 cursor-pointer rounded opacity-80 transition-opacity hover:opacity-100"
                       style={{
-                        left:            pct(cs),
-                        width:           `${((ce - cs) / span) * 100}%`,
-                        minWidth:        4,
-                        height:          14,
+                        left:   pct(cs),
+                        width:  `${((ce - cs) / span) * 100}%`,
+                        minWidth: 4,
+                        height: 13,
                         backgroundColor: LV_COLOR[ev.lv],
+                        boxShadow: `0 0 6px ${LV_COLOR[ev.lv]}70`,
                       }}
                       onMouseMove={e => { e.stopPropagation(); setTooltip({ ev, mx: e.clientX, my: e.clientY }) }}
                       onMouseLeave={() => setTooltip(null)}
@@ -269,15 +278,15 @@ function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
 
       {tooltip && (
         <div
-          className="pointer-events-none fixed z-[200] rounded-lg border border-[#1a2654] bg-[#0d1233] px-3 py-2 text-[11px] shadow-xl"
-          style={{ left: tooltip.mx + 14, top: tooltip.my - 8 }}
+          className="pointer-events-none fixed z-[200] rounded-lg border border-[#1e3a70] bg-[#0a1535] px-3 py-2.5 text-[12px] shadow-2xl"
+          style={{ left: tooltip.mx + 14, top: tooltip.my - 8, boxShadow: "0 8px 32px rgba(0,0,0,0.6)" }}
         >
-          <div className="mb-1 font-semibold" style={{ color: LV_COLOR[tooltip.ev.lv] }}>
+          <div className="mb-1.5 font-bold" style={{ color: LV_COLOR[tooltip.ev.lv], textShadow: `0 0 8px ${LV_COLOR[tooltip.ev.lv]}80` }}>
             {tooltip.ev.type} · {LV_LABEL[tooltip.ev.lv]}
           </div>
-          <div className="space-y-0.5 text-[#7b8ab8]">
-            <div>{fmt(tooltip.ev.start)} — {fmt(tooltip.ev.end)}</div>
-            <div>持续 <span className="text-[#dbe8ff]">{tooltip.ev.end - tooltip.ev.start} 分钟</span></div>
+          <div className="space-y-1 text-[#8a9ec8]">
+            <div className="text-[11px]">{fmt(tooltip.ev.start)} — {fmt(tooltip.ev.end)}</div>
+            <div className="text-[11px]">持续 <span className="font-semibold text-[#c8deff]">{tooltip.ev.end - tooltip.ev.start} 分钟</span></div>
           </div>
         </div>
       )}
@@ -291,7 +300,7 @@ const LEVELS = [1, 2, 3, 4, 5] as const
 function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
   const total = alarms.length
   if (total === 0) return null
-
+  const fmtPct = (count: number) => `${((count / total) * 100).toFixed(2)}%`
   // 收集所有出现的类型，按总数降序
   const typeOrder: string[] = []
   const typeTotals = new Map<string, number>()
@@ -315,73 +324,36 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
   // 每列最大值（用于热力着色基准）
   const lvMax = LEVELS.map(lv => Math.max(...typeOrder.map(t => matrix.get(t)!.get(lv) ?? 0), 1))
 
-  // 等级分布（用于顶部堆叠条）
-  const lvPcts = LEVELS.map((lv, i) => ({ lv, count: lvTotals[i], pct: (lvTotals[i] / total) * 100 }))
-
   return (
-    <div className="shrink-0 rounded-lg border border-[#1a2654]/60 bg-[#080e28]/70 px-3 py-2.5">
+    <div className="shrink-0 rounded-lg border border-[#1a3060] bg-[#070d20]/80 px-3 py-2">
 
       {/* ── 标题行 ── */}
       <div className="mb-2 flex items-center gap-2">
-        <div className="h-3 w-0.5 rounded-full bg-[#00d4aa]" />
-        <span className="text-[11px] font-semibold tracking-wide text-[#7b8ab8]">告警分布矩阵</span>
-        <span className="ml-auto text-[10px] text-[#3a5080]">共 {total} 件</span>
-      </div>
-
-      {/* ── 等级堆叠条 ── */}
-      <div className="mb-2.5">
-        <div className="mb-1 flex items-center justify-between">
-          <span className="text-[9px] text-[#3a5080] tracking-wide">等级占比</span>
-          <div className="flex items-center gap-2">
-            {lvPcts.filter(d => d.count > 0).map(d => (
-              <div key={d.lv} className="flex items-center gap-0.5">
-                <span className="h-1.5 w-1.5 rounded-sm inline-block" style={{ backgroundColor: LV_COLOR[d.lv] }} />
-                <span className="text-[9px] tabular-nums" style={{ color: LV_COLOR[d.lv] }}>
-                  Lv{d.lv} {d.pct.toFixed(0)}%
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="flex h-3 w-full overflow-hidden rounded-sm">
-          {lvPcts.filter(d => d.count > 0).reverse().map(d => (
-            <div
-              key={d.lv}
-              className="relative h-full transition-all"
-              style={{
-                width: `${d.pct}%`,
-                background: `linear-gradient(90deg, ${LV_COLOR[d.lv]}90, ${LV_COLOR[d.lv]}dd)`,
-                borderRight: "1px solid #080e28",
-              }}
-              title={`Lv${d.lv}: ${d.count} 件`}
-            >
-              {d.pct >= 8 && (
-                <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-white/80 tabular-nums">
-                  {d.count}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
+        <div className="h-3.5 w-[3px] rounded-full bg-[#00d4aa]" style={{ boxShadow: "0 0 6px #00d4aa80" }} />
+        <span className="text-[12px] font-bold tracking-wide text-[#a8c8f8]">告警分布矩阵</span>
+        
       </div>
 
       {/* ── 类型 × 等级 矩阵 ── */}
       <div className="w-full">
         {/* 表头 */}
         <div className="mb-0.5 flex items-center">
-          <div className="w-[58px] shrink-0" />
+          <div className="w-[66px] shrink-0" />
           {LEVELS.map((lv, i) => (
             <div key={lv} className="flex-1 text-center">
               <span
-                className="text-[9px] font-semibold tabular-nums"
-                style={{ color: lvTotals[i] > 0 ? LV_COLOR[lv] : "#2a3a5a" }}
+                className="text-[11px] font-bold tabular-nums"
+                style={{
+                  color: lvTotals[i] > 0 ? LV_COLOR[lv] : "#2a3a5a",
+                  textShadow: lvTotals[i] > 0 ? `0 0 6px ${LV_COLOR[lv]}60` : "none",
+                }}
               >
                 Lv{lv}
               </span>
             </div>
           ))}
-          <div className="w-[38px] shrink-0 text-right">
-            <span className="text-[9px] text-[#4a6080]">合计</span>
+          <div className="w-[52px] shrink-0 pr-1 text-right">
+            <span className="text-[11px] font-semibold text-[#5a82c8]">合计</span>
           </div>
         </div>
 
@@ -389,91 +361,109 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
         {typeOrder.map(typeName => {
           const row = matrix.get(typeName)!
           const rowTotal = typeTotals.get(typeName) ?? 0
+          const rowPct = fmtPct(rowTotal)
           const rowMaxLv = Math.max(...Array.from(row.keys()))
           return (
-            <div key={typeName} className="mb-[3px] flex items-center gap-0">
+            <div key={typeName} className="mb-[3px] flex items-center">
               {/* 类型名 */}
-              <div className="w-[58px] shrink-0 flex items-center gap-1 pr-1">
+              <div className="w-[66px] shrink-0 flex items-center gap-1.5 pr-1.5">
                 <span
-                  className="h-1 w-1 shrink-0 rounded-full"
-                  style={{ backgroundColor: LV_COLOR[rowMaxLv], boxShadow: `0 0 3px ${LV_COLOR[rowMaxLv]}` }}
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: LV_COLOR[rowMaxLv], boxShadow: `0 0 5px ${LV_COLOR[rowMaxLv]}` }}
                 />
-                <span className="truncate text-[9px] text-[#7a8ab0]">{typeName}</span>
+                <span className="truncate text-[11px] font-medium text-[#90b4e0]">{typeName}</span>
               </div>
 
               {/* 各等级单元格 */}
               {LEVELS.map((lv, i) => {
                 const cnt = row.get(lv) ?? 0
+                const cellPct = fmtPct(cnt)
                 const intensity = cnt > 0 ? 0.15 + (cnt / lvMax[i]) * 0.7 : 0
                 return (
-                  <div
-                    key={lv}
-                    className="flex-1 flex items-center justify-center"
-                    style={{ height: 20 }}
-                  >
+                  <div key={lv} className="flex-1 flex items-center justify-center" style={{ height: 26 }}>
                     <div
-                      className="flex h-[18px] w-full mx-[1px] items-center justify-center rounded-[2px]"
+                      className="mx-[1px] flex h-[24px] w-full flex-col items-center justify-center rounded-sm"
                       style={{
-                        background: cnt > 0
-                          ? `rgba(${hexToRgb(LV_COLOR[lv])}, ${intensity})`
-                          : "transparent",
-                        border: cnt > 0
-                          ? `1px solid ${LV_COLOR[lv]}40`
-                          : "1px solid #1a2654/30",
+                        background: cnt > 0 ? `rgba(${hexToRgb(LV_COLOR[lv])}, ${intensity})` : "rgba(10,18,40,0.4)",
+                        border: cnt > 0 ? `1px solid ${LV_COLOR[lv]}55` : "1px solid #1a2850/30",
                       }}
                     >
                       {cnt > 0 ? (
-                        <span
-                          className="text-[9px] font-bold tabular-nums leading-none"
-                          style={{ color: `${LV_COLOR[lv]}` , opacity: 0.6 + intensity * 0.5 }}
-                        >
-                          {cnt}
-                        </span>
+                        <>
+                          <span
+                            className="text-[11px] font-bold tabular-nums leading-none"
+                            style={{ color: LV_COLOR[lv], opacity: 0.7 + intensity * 0.35 }}
+                          >
+                            {cnt}
+                          </span>
+                          <span
+                            className="mt-[1px] text-[9px] tabular-nums leading-none"
+                            style={{ color: LV_COLOR[lv], opacity: 0.5 + intensity * 0.3 }}
+                          >
+                            {cellPct}
+                          </span>
+                        </>
                       ) : (
-                        <span className="text-[8px] text-[#1e2e50]">·</span>
+                        <span className="text-[11px] text-[#1e2e50]">·</span>
                       )}
                     </div>
                   </div>
                 )
               })}
 
-              {/* 行合计 + 迷你条 */}
-              <div className="w-[38px] shrink-0 flex items-center gap-1 pl-1">
-                <div
-                  className="h-[4px] rounded-sm"
-                  style={{
-                    width: `${Math.round((rowTotal / total) * 22)}px`,
-                    minWidth: 2,
-                    background: `linear-gradient(90deg, ${LV_COLOR[rowMaxLv]}80, ${LV_COLOR[rowMaxLv]}cc)`,
-                    boxShadow: `0 0 3px ${LV_COLOR[rowMaxLv]}60`,
-                  }}
-                />
-                <span className="text-[9px] font-bold tabular-nums" style={{ color: LV_COLOR[rowMaxLv] }}>
+              {/* 行合计 */}
+              <div className="w-[52px] shrink-0 flex flex-col items-end pl-2">
+                <span
+                  className="text-[12px] font-bold tabular-nums leading-none"
+                  style={{ color: LV_COLOR[rowMaxLv], textShadow: `0 0 6px ${LV_COLOR[rowMaxLv]}55` }}
+                >
                   {rowTotal}
+                </span>
+                <span className="mt-[2px] text-[9px] tabular-nums leading-none text-[#4a6890]">
+                  {rowPct}
                 </span>
               </div>
             </div>
           )
         })}
 
-        {/* 列合计行 */}
-        <div className="mt-1.5 flex items-center border-t border-[#1a2654]/50 pt-1">
-          <div className="w-[58px] shrink-0 text-right pr-1">
-            <span className="text-[9px] text-[#3a5080]">小计</span>
+        {/* 列小计行 */}
+        <div className="mt-1 flex items-start border-t border-[#1e3870]/60 pt-1">
+          <div className="w-[66px] shrink-0 flex items-center">
+            <span className="text-[11px] font-bold text-[#4a7aaa]">小计</span>
           </div>
           {LEVELS.map((lv, i) => (
-            <div key={lv} className="flex-1 text-center">
+            <div key={lv} className="flex-1 flex flex-col items-center gap-[4px]">
               {lvTotals[i] > 0 ? (
-                <span className="text-[9px] font-semibold tabular-nums" style={{ color: LV_COLOR[lv] }}>
-                  {lvTotals[i]}
-                </span>
+                <>
+                  <span
+                    className="text-[12px] font-bold tabular-nums leading-none"
+                    style={{ color: LV_COLOR[lv], textShadow: `0 0 6px ${LV_COLOR[lv]}60` }}
+                  >
+                    {lvTotals[i]}
+                  </span>
+                  <span
+                    className="text-[10px] font-semibold tabular-nums leading-none"
+                    style={{ color: LV_COLOR[lv], opacity: 0.6 }}
+                  >
+                    {fmtPct(lvTotals[i])}
+                  </span>
+                </>
               ) : (
-                <span className="text-[8px] text-[#1e2e50]">-</span>
+                <span className="text-[11px] text-[#1e2e50]">—</span>
               )}
             </div>
           ))}
-          <div className="w-[38px] shrink-0 pl-1 text-right">
-            <span className="text-[10px] font-bold tabular-nums text-[#00d4aa]">{total}</span>
+          <div className="w-[52px] shrink-0 flex flex-col items-end pl-2">
+            <span
+              className="text-[14px] font-bold tabular-nums leading-none text-[#00d4aa]"
+              style={{ textShadow: "0 0 10px rgba(0,212,170,0.55)" }}
+            >
+              {total}
+            </span>
+            <span className="mt-[3px] text-[10px] font-bold tabular-nums leading-none text-[#00d4aa]/60">
+              100.00%
+            </span>
           </div>
         </div>
       </div>
@@ -603,7 +593,7 @@ export function AlarmLogPanel({
       <div className="mb-2 flex shrink-0 items-center gap-2">
         <div className="h-4 w-1 shrink-0 rounded-full bg-[#f97316]" />
         <span className="text-sm font-semibold text-[#f97316]">{zh ? "告警日志" : "Alarm Log"}</span>
-        <span className="text-[11px] text-[#5f79ad]">
+        <span className="text-[12px] font-medium text-[#5f79ad]">
           {mode === "history"
             ? (zh ? `共 ${cnt.total} 条` : `Total ${cnt.total}`)
             : (zh ? `最新 ${Math.min(cnt.total, REALTIME_LIMIT)} 条` : `Latest ${Math.min(cnt.total, REALTIME_LIMIT)}`)}
@@ -611,40 +601,44 @@ export function AlarmLogPanel({
 
         <div className="ml-auto flex items-center gap-1.5">
           {cnt.active > 0 && (
-            <span className="rounded-full bg-[#3a0e0e] px-2 py-0.5 text-[10px] font-medium text-[#ef4444]">
+            <span className="rounded-full border border-[#ef4444]/30 bg-[#3a0e0e] px-2.5 py-0.5 text-[11px] font-semibold text-[#ef4444]">
               {zh ? `活动 ${cnt.active}` : `Active ${cnt.active}`}
             </span>
           )}
           {cnt.lv45 > 0 && (
-            <span className="rounded-full bg-[#3a0e0e]/60 px-2 py-0.5 text-[10px] font-medium text-[#E24B4A]">
+            <span className="rounded-full border border-[#E24B4A]/25 bg-[#2a0a0a]/80 px-2.5 py-0.5 text-[11px] font-semibold text-[#E24B4A]">
               {zh ? `严重 ${cnt.lv45}` : `Crit ${cnt.lv45}`}
             </span>
           )}
           {cnt.lv3 > 0 && (
-            <span className="rounded-full bg-[#2a1a00]/80 px-2 py-0.5 text-[10px] font-medium text-[#EF9F27]">
+            <span className="rounded-full border border-[#EF9F27]/25 bg-[#2a1a00]/80 px-2.5 py-0.5 text-[11px] font-semibold text-[#EF9F27]">
               {zh ? `预警 ${cnt.lv3}` : `Warn ${cnt.lv3}`}
             </span>
           )}
           {cnt.lv12 > 0 && (
-            <span className="rounded-full bg-[#0c1e35]/80 px-2 py-0.5 text-[10px] font-medium text-[#378ADD]">
+            <span className="rounded-full border border-[#378ADD]/25 bg-[#0a1a30]/80 px-2.5 py-0.5 text-[11px] font-semibold text-[#378ADD]">
               {zh ? `提示 ${cnt.lv12}` : `Info ${cnt.lv12}`}
             </span>
           )}
 
           {/* 历史模式：甘特 / 列表 切换 */}
           {mode === "history" && (
-            <div className="ml-1 flex overflow-hidden rounded-md border border-[#1a2654]">
+            <div className="ml-1 flex overflow-hidden rounded-lg border border-[#1e3a70]">
               <button onClick={() => setViewMode("gantt")} title={zh ? "甘特图" : "Gantt"}
-                className={`flex h-6 w-7 items-center justify-center transition-colors ${
-                  viewMode === "gantt" ? "bg-[#1a3060] text-[#00d4aa]" : "bg-transparent text-[#5f79ad] hover:text-[#e8f4fc]"
+                className={`flex h-7 w-8 items-center justify-center transition-all ${
+                  viewMode === "gantt"
+                    ? "bg-[#0f2a60] text-[#00d4aa] shadow-inner"
+                    : "bg-[#070e28] text-[#4a6aaa] hover:bg-[#0d1e48] hover:text-[#7ab4f8]"
                 }`}>
-                <BarChart2 className="h-3.5 w-3.5" />
+                <BarChart2 className="h-4 w-4" />
               </button>
               <button onClick={() => setViewMode("table")} title={zh ? "列表" : "List"}
-                className={`flex h-6 w-7 items-center justify-center border-l border-[#1a2654] transition-colors ${
-                  viewMode === "table" ? "bg-[#1a3060] text-[#00d4aa]" : "bg-transparent text-[#5f79ad] hover:text-[#e8f4fc]"
+                className={`flex h-7 w-8 items-center justify-center border-l border-[#1e3a70] transition-all ${
+                  viewMode === "table"
+                    ? "bg-[#0f2a60] text-[#00d4aa] shadow-inner"
+                    : "bg-[#070e28] text-[#4a6aaa] hover:bg-[#0d1e48] hover:text-[#7ab4f8]"
                 }`}>
-                <List className="h-3.5 w-3.5" />
+                <List className="h-4 w-4" />
               </button>
             </div>
           )}
@@ -654,7 +648,7 @@ export function AlarmLogPanel({
       {/* ── 历史甘特视图 + 类型统计 ── */}
       {mode === "history" && viewMode === "gantt" && (
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-          <div className="shrink-0">
+          <div className="min-h-[140px] flex-1 overflow-hidden">
             <AlarmTimeline events={timelineEvents} />
           </div>
           <AlarmTypeStats alarms={dateFiltered} />
@@ -669,8 +663,8 @@ export function AlarmLogPanel({
             <div className="flex gap-1">
               {(["all", "lv45", "lv3", "lv12"] as LevelFilter[]).map(l => (
                 <button key={l} onClick={() => setLevelFilter(l)}
-                  className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition-all ${
-                    levelFilter === l ? "bg-[#00d4aa] text-[#07162b]" : "bg-[#1a2654]/60 text-[#7b8ab8] hover:text-[#e8f4fc]"
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${
+                    levelFilter === l ? "bg-[#00d4aa] text-[#07162b]" : "bg-[#0e1e3a] text-[#5a7aaa] hover:bg-[#142040] hover:text-[#90b8f0]"
                   }`}>
                   {l === "all" ? (zh ? "全部" : "All") : l === "lv45" ? "严重" : l === "lv3" ? "预警" : "提示"}
                 </button>
@@ -715,7 +709,7 @@ export function AlarmLogPanel({
                     zh ? "状态"        : "Status",
                     zh ? "处置"        : "Action",
                   ].map(h => (
-                    <th key={h} className="border-b border-[#1a2654] px-2 py-2 text-left text-[10px] font-medium text-[#7b8ab8] first:pl-3 last:pr-3">
+                    <th key={h} className="border-b border-[#1a2654] px-2 py-2 text-left text-[11px] font-semibold text-[#6a8abf] first:pl-3 last:pr-3">
                       {h}
                     </th>
                   ))}
