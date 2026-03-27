@@ -169,7 +169,7 @@ export function EnergyCurveQuery() {
           <div className="flex gap-0.5 rounded-lg border border-[#1a2654] bg-[#0a1225] p-0.5">
             <button
               onClick={() => setViewMode("chart")}
-              title="图表视图"
+              title={language === "zh" ? "图表视图" : "Chart View"}
               className={`flex items-center justify-center rounded-md p-1.5 transition-all ${
                 viewMode === "chart"
                   ? "bg-[#11d8bf] shadow-[0_0_10px_rgba(17,216,191,0.25)]"
@@ -180,7 +180,7 @@ export function EnergyCurveQuery() {
             </button>
             <button
               onClick={() => setViewMode("table")}
-              title="表格视图"
+              title={language === "zh" ? "表格视图" : "Table View"}
               className={`flex items-center justify-center rounded-md p-1.5 transition-all ${
                 viewMode === "table"
                   ? "bg-[#11d8bf] shadow-[0_0_10px_rgba(17,216,191,0.25)]"
@@ -236,10 +236,10 @@ export function EnergyCurveQuery() {
             <table className="w-full border-collapse text-[12px]">
               <thead className="sticky top-0 z-10 bg-[#0d1233]">
                 <tr className="border-b border-[#1a2654]">
-                  <th className="py-2 pl-3 pr-2 text-left font-medium text-[#5a7aaa]">日期</th>
-                  <th className="py-2 px-2 text-right font-medium text-[#3b82f6]">充电量(kWh)</th>
-                  <th className="py-2 px-2 text-right font-medium text-[#f97316]">放电量(kWh)</th>
-                  <th className="py-2 pl-2 pr-3 text-right font-medium text-[#00d4aa]">效率</th>
+                  <th className="py-2 pl-3 pr-2 text-left font-medium text-[#5a7aaa]">{language === "zh" ? "日期" : "Date"}</th>
+                  <th className="py-2 px-2 text-right font-medium text-[#3b82f6]">{language === "zh" ? "充电量(kWh)" : "Charge(kWh)"}</th>
+                  <th className="py-2 px-2 text-right font-medium text-[#f97316]">{language === "zh" ? "放电量(kWh)" : "Discharge(kWh)"}</th>
+                  <th className="py-2 pl-2 pr-3 text-right font-medium text-[#00d4aa]">{language === "zh" ? "效率" : "Eff."}</th>
                 </tr>
               </thead>
               <tbody>
@@ -260,7 +260,7 @@ export function EnergyCurveQuery() {
               </tbody>
               <tfoot className="sticky bottom-0 bg-[#0d1233]">
                 <tr className="border-t border-[#1a2654]">
-                  <td className="py-1.5 pl-3 pr-2 font-semibold text-[#5a7aaa]">合计</td>
+                  <td className="py-1.5 pl-3 pr-2 font-semibold text-[#5a7aaa]">{language === "zh" ? "合计" : "Total"}</td>
                   <td className="py-1.5 px-2 text-right font-semibold tabular-nums text-[#3b82f6]">
                     {data.reduce((s, r) => s + r.charge, 0).toLocaleString()}
                   </td>

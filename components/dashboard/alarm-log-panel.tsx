@@ -12,18 +12,28 @@ const LV_COLOR: Record<number, string> = {
 const LV_BRIGHT: Record<number, string> = {
   1: "#60a8f0", 2: "#3a9cff", 3: "#ffb020", 4: "#ff6040", 5: "#ff3838",
 }
-const LV_LABEL: Record<number, string> = {
-  1: "Lv1 提示", 2: "Lv2 轻警", 3: "Lv3 预警", 4: "Lv4 严重", 5: "Lv5 紧急",
+const LV_LABEL: Record<number, { zh: string; en: string }> = {
+  1: { zh: "Lv1 提示", en: "Lv1 Info"  },
+  2: { zh: "Lv2 轻警", en: "Lv2 Minor" },
+  3: { zh: "Lv3 预警", en: "Lv3 Warn"  },
+  4: { zh: "Lv4 严重", en: "Lv4 Crit"  },
+  5: { zh: "Lv5 紧急", en: "Lv5 Emerg" },
 }
-const GRP_LABEL: Record<string, string> = {
-  pack: "组端", cell: "单体", current: "充放电", temp: "温度", soc: "SOC", comms: "通讯", other: "其他",
+const GRP_LABEL: Record<string, { zh: string; en: string }> = {
+  pack:    { zh: "组端",  en: "Pack"  },
+  cell:    { zh: "单体",  en: "Cell"  },
+  current: { zh: "充放电", en: "C/D"  },
+  temp:    { zh: "温度",  en: "Temp"  },
+  soc:     { zh: "SOC",   en: "SOC"  },
+  comms:   { zh: "通讯",  en: "Comms" },
+  other:   { zh: "其他",  en: "Other" },
 }
-const ACTION_MAP: Record<number, { text: string; color: string }> = {
-  5: { text: "断开+闭死", color: "#E24B4A" },
-  4: { text: "断接触器",  color: "#E24B4A" },
-  3: { text: "降额运行",  color: "#BA7517" },
-  2: { text: "记录上报",  color: "#378ADD" },
-  1: { text: "记录日志",  color: "#6b7280" },
+const ACTION_MAP: Record<number, { zh: string; en: string; color: string }> = {
+  5: { zh: "断开+闭死", en: "Trip+Lock",  color: "#E24B4A" },
+  4: { zh: "断接触器",  en: "Trip",       color: "#E24B4A" },
+  3: { zh: "降额运行",  en: "Derate",     color: "#BA7517" },
+  2: { zh: "记录上报",  en: "Log+Report", color: "#378ADD" },
+  1: { zh: "记录日志",  en: "Log",        color: "#6b7280" },
 }
 
 // duration：告警持续分钟数，同时驱动甘特图条宽
@@ -145,14 +155,14 @@ const STATUS_COLOR: Record<string, string> = {
 type LevelFilter = "all" | "lv45" | "lv3" | "lv12"
 
 // ── 从 AlarmEntry[] 派生甘特事件（统一数据源）────────────────────────────────
-type TimelineEvent = { type: string; start: number; end: number; lv: number }
+type TimelineEvent = { nameZh: string; nameEn: string; start: number; end: number; lv: number }
 
 function deriveTimelineEvents(alarms: AlarmEntry[]): TimelineEvent[] {
   return alarms.map(a => {
     const [, timePart] = a.time.split(" ")
     const [h, m] = timePart.split(":").map(Number)
     const start = h * 60 + m
-    return { type: a.nameZh, start, end: start + a.duration, lv: a.lv }
+    return { nameZh: a.nameZh, nameEn: a.nameEn, start, end: start + a.duration, lv: a.lv }
   })
 }
 
@@ -160,7 +170,7 @@ const LEFT_W  = 64
 const DAY_MIN = 24 * 60
 
 // ── 甘特时间轴（拖动平移 + 滚轮缩放，始终铺满容器，无横向滚动条） ─────────────
-function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
+function AlarmTimeline({ events, zh }: { events: TimelineEvent[]; zh: boolean }) {
   const [viewStart, setViewStart] = useState(0)
   const [viewEnd,   setViewEnd]   = useState(DAY_MIN)
   const [tooltip, setTooltip]     = useState<{ ev: TimelineEvent; mx: number; my: number } | null>(null)
@@ -168,7 +178,9 @@ function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
 
   const span   = viewEnd - viewStart
   const zoomed = span < DAY_MIN
-  const types  = Array.from(new Set(events.map(e => e.type)))
+  // Use nameZh as stable grouping key; build display map for current language
+  const types   = Array.from(new Set(events.map(e => e.nameZh)))
+  const nameMap = new Map(events.map(e => [e.nameZh, zh ? e.nameZh : e.nameEn]))
 
   const fmt = (min: number) => {
     const h = Math.floor(min / 60) % 24, m = min % 60
@@ -220,13 +232,13 @@ function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
       {/* 图例 + 视窗范围提示 */}
       <div className="mb-2 flex shrink-0 items-center gap-3 px-1">
         {([
-          { label: "严重", c: "#E24B4A" },
-          { label: "预警", c: "#EF9F27" },
-          { label: "提示", c: "#378ADD" },
+          { zh: "严重", en: "Crit",  c: "#E24B4A" },
+          { zh: "预警", en: "Warn",  c: "#EF9F27" },
+          { zh: "提示", en: "Info",  c: "#378ADD" },
         ]).map(g => (
-          <div key={g.label} className="flex items-center gap-1.5">
+          <div key={g.en} className="flex items-center gap-1.5">
             <div className="h-2.5 w-5 rounded-sm" style={{ background: g.c, boxShadow: `0 0 5px ${g.c}66` }} />
-            <span className="text-[11px] font-medium text-[#c8deff]">{g.label}</span>
+            <span className="text-[11px] font-medium text-[#c8deff]">{zh ? g.zh : g.en}</span>
           </div>
         ))}
         <div className="ml-auto flex items-center gap-3">
@@ -235,7 +247,7 @@ function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
           )}
           <span className="rounded-md border border-[#2a4a80]/60 bg-[#0d1a3a]/80 px-2.5 py-0.5 text-[11px] font-medium text-[#60a0ff]"
             style={{ textShadow: "0 0 8px rgba(96,160,255,0.5)" }}>
-            ⇕ 滚轮缩放 &nbsp;⇔ 拖动平移
+            {zh ? "⇕ 滚轮缩放 \u00a0⇔ 拖动平移" : "⇕ Scroll zoom \u00a0⇔ Drag pan"}
           </span>
         </div>
       </div>
@@ -249,7 +261,7 @@ function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
             <div key={type}
               className="flex min-h-[20px] flex-1 items-center justify-end pr-2 text-right text-[11px] font-medium text-[#a8c4f0]"
               style={{ textShadow: "0 0 6px rgba(100,160,255,0.35)" }}>
-              {type}
+              {nameMap.get(type) ?? type}
             </div>
           ))}
         </div>
@@ -282,7 +294,7 @@ function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
               {/* 行底部分隔线 */}
               <div className="absolute inset-x-0 bottom-0 h-px bg-[#1a2654]/30" />
               {events
-                .filter(ev => ev.type === type && ev.end > viewStart && ev.start < viewEnd)
+                .filter(ev => ev.nameZh === type && ev.end > viewStart && ev.start < viewEnd)
                 .map((ev, i) => {
                   const cs = Math.max(ev.start, viewStart)
                   const ce = Math.min(ev.end,   viewEnd)
@@ -313,11 +325,14 @@ function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
           style={{ left: tooltip.mx + 14, top: tooltip.my - 8, boxShadow: "0 8px 32px rgba(0,0,0,0.6)" }}
         >
           <div className="mb-1.5 font-bold" style={{ color: LV_COLOR[tooltip.ev.lv], textShadow: `0 0 8px ${LV_COLOR[tooltip.ev.lv]}80` }}>
-            {tooltip.ev.type} · {LV_LABEL[tooltip.ev.lv]}
+            {zh ? tooltip.ev.nameZh : tooltip.ev.nameEn} · {zh ? LV_LABEL[tooltip.ev.lv].zh : LV_LABEL[tooltip.ev.lv].en}
           </div>
           <div className="space-y-1 text-[#8a9ec8]">
             <div className="text-[11px]">{fmt(tooltip.ev.start)} — {fmt(tooltip.ev.end)}</div>
-            <div className="text-[11px]">持续 <span className="font-semibold text-[#c8deff]">{tooltip.ev.end - tooltip.ev.start} 分钟</span></div>
+            <div className="text-[11px]">
+              {zh ? "持续" : "Duration"}{" "}
+              <span className="font-semibold text-[#c8deff]">{tooltip.ev.end - tooltip.ev.start} {zh ? "分钟" : "min"}</span>
+            </div>
           </div>
         </div>
       )}
@@ -328,16 +343,18 @@ function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
 // ── 告警类型 × 等级 二维统计 ─────────────────────────────────────────────────
 const LEVELS = [1, 2, 3, 4, 5] as const
 
-function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
+function AlarmTypeStats({ alarms, zh }: { alarms: AlarmEntry[]; zh: boolean }) {
   const total = alarms.length
   if (total === 0) return null
   const fmtPct = (count: number) => `${((count / total) * 100).toFixed(2)}%`
-  // 收集所有出现的类型，按总数降序
+  // Use nameZh as stable key; build display map for current language
   const typeOrder: string[] = []
   const typeTotals = new Map<string, number>()
+  const nameDisplayMap = new Map<string, string>()
   alarms.forEach(a => {
     typeTotals.set(a.nameZh, (typeTotals.get(a.nameZh) ?? 0) + 1)
     if (!typeOrder.includes(a.nameZh)) typeOrder.push(a.nameZh)
+    nameDisplayMap.set(a.nameZh, zh ? a.nameZh : a.nameEn)
   })
   typeOrder.sort((a, b) => (typeTotals.get(b) ?? 0) - (typeTotals.get(a) ?? 0))
 
@@ -361,7 +378,7 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
       {/* ── 标题行 ── */}
       <div className="mb-2 flex items-center gap-2">
         <div className="h-3.5 w-[3px] rounded-full bg-[#00d4aa]" style={{ boxShadow: "0 0 6px #00d4aa80" }} />
-        <span className="text-[12px] font-bold tracking-wide text-[#cfe3ff] [text-shadow:0_0_10px_rgba(124,170,255,0.15)]">告警分布矩阵</span>
+        <span className="text-[12px] font-bold tracking-wide text-[#cfe3ff] [text-shadow:0_0_10px_rgba(124,170,255,0.15)]">{zh ? "告警分布矩阵" : "Alarm Matrix"}</span>
         
       </div>
 
@@ -384,7 +401,7 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
             </div>
           ))}
           <div className="w-[52px] shrink-0 pr-1 text-right">
-            <span className="text-[11px] font-semibold text-[#a7c7ff] [text-shadow:0_0_10px_rgba(98,154,255,0.15)]">合计</span>
+            <span className="text-[11px] font-semibold text-[#a7c7ff] [text-shadow:0_0_10px_rgba(98,154,255,0.15)]">{zh ? "合计" : "Total"}</span>
           </div>
         </div>
 
@@ -402,7 +419,7 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
                   className="h-1.5 w-1.5 shrink-0 rounded-full"
                   style={{ backgroundColor: LV_COLOR[rowMaxLv], boxShadow: `0 0 5px ${LV_COLOR[rowMaxLv]}` }}
                 />
-                <span className="truncate text-[11px] font-medium text-[#d7e6ff]">{typeName}</span>
+                <span className="truncate text-[11px] font-medium text-[#d7e6ff]">{nameDisplayMap.get(typeName) ?? typeName}</span>
               </div>
 
               {/* 各等级单元格 */}
@@ -467,7 +484,7 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
         {/* 列小计行 */}
         <div className="mt-1 flex items-start border-t border-[#1e3870]/60 pt-1">
           <div className="w-[66px] shrink-0 flex items-center">
-            <span className="text-[11px] font-bold text-[#a7c7ff]">小计</span>
+            <span className="text-[11px] font-bold text-[#a7c7ff]">{zh ? "小计" : "Sub"}</span>
           </div>
           {LEVELS.map((lv, i) => (
             <div key={lv} className="flex-1 flex flex-col items-center gap-[4px]">
@@ -544,7 +561,7 @@ function AlarmRow({ alarm, zh }: { alarm: AlarmEntry; zh: boolean }) {
           <span className="h-2 w-2 shrink-0 rounded-full"
             style={{ backgroundColor: color, boxShadow: alarm.lv >= 5 ? `0 0 0 2px ${color}44` : undefined }} />
           <span className="whitespace-nowrap text-[11px] font-medium" style={{ color }}>
-            {LV_LABEL[alarm.lv]}
+            {zh ? LV_LABEL[alarm.lv].zh : LV_LABEL[alarm.lv].en}
           </span>
         </div>
       </td>
@@ -554,7 +571,7 @@ function AlarmRow({ alarm, zh }: { alarm: AlarmEntry; zh: boolean }) {
           {zh ? alarm.nameZh : alarm.nameEn}
         </span>
       </td>
-      <td className="py-2 pr-2 text-[11px] text-[#7b8ab8]">{GRP_LABEL[alarm.group] ?? alarm.group}</td>
+      <td className="py-2 pr-2 text-[11px] text-[#7b8ab8]">{(zh ? GRP_LABEL[alarm.group]?.zh : GRP_LABEL[alarm.group]?.en) ?? alarm.group}</td>
       <td className="py-2 pr-2"><SeverityBar lv={alarm.lv} /></td>
       <td className="py-2 pr-2 text-[11px] text-[#7b8ab8]">
         <span className="text-[#dbe8ff]">{alarm.ref}</span>{" / "}{alarm.rref}
@@ -566,7 +583,7 @@ function AlarmRow({ alarm, zh }: { alarm: AlarmEntry; zh: boolean }) {
         </span>
       </td>
       <td className="py-2 pr-3 text-[11px] font-medium" style={{ color: action.color }}>
-        {action.text}
+        {zh ? action.zh : action.en}
       </td>
     </tr>
   )
@@ -715,9 +732,9 @@ export function AlarmLogPanel({
       {mode === "history" && viewMode === "gantt" && (
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
           <div className="min-h-[140px] flex-1 overflow-hidden">
-            <AlarmTimeline events={timelineEvents} />
+            <AlarmTimeline events={timelineEvents} zh={zh} />
           </div>
-          <AlarmTypeStats alarms={dateFiltered} />
+          <AlarmTypeStats alarms={dateFiltered} zh={zh} />
         </div>
       )}
 
@@ -732,7 +749,7 @@ export function AlarmLogPanel({
                   className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${
                     levelFilter === l ? "bg-[#00d4aa] text-[#07162b]" : "bg-[#0e1e3a] text-[#5a7aaa] hover:bg-[#142040] hover:text-[#90b8f0]"
                   }`}>
-                  {l === "all" ? (zh ? "全部" : "All") : l === "lv45" ? "严重" : l === "lv3" ? "预警" : "提示"}
+                  {l === "all" ? (zh ? "全部" : "All") : l === "lv45" ? (zh ? "严重" : "Crit") : l === "lv3" ? (zh ? "预警" : "Warn") : (zh ? "提示" : "Info")}
                 </button>
               ))}
             </div>

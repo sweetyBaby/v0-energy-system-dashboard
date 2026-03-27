@@ -173,7 +173,7 @@ export function PowerCurveQuery() {
           {queryType === "today" && mounted && (
             <span className="flex items-center gap-1 rounded-md border border-[#1a3a6e] bg-[#0a1940] px-2 py-0.5 text-[11px] text-[#7ab0f0]">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00d4aa]" />
-              实时 {nowLabel}
+              {language === "zh" ? "实时" : "Live"} {nowLabel}
             </span>
           )}
         </div>

@@ -71,11 +71,11 @@ export function DashboardHeader() {
 
   return (
     <header className="relative overflow-hidden border-b border-[#17325d] bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.1),transparent_26%),linear-gradient(180deg,rgba(10,18,48,0.98),rgba(7,12,31,0.98))] px-4 py-2.5">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/45 to-transparent" />
-      <div className="absolute left-0 top-0 h-14 w-24 border-l border-t border-[#3b82f6]/25" />
-      <div className="absolute right-0 top-0 h-14 w-24 border-r border-t border-[#3b82f6]/25" />
-      <div className="absolute left-1/2 top-0 h-10 w-56 -translate-x-1/2 bg-[radial-gradient(circle_at_top,rgba(0,212,170,0.18),transparent_72%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/45 to-transparent" />
+      <div className="pointer-events-none absolute left-0 top-0 h-14 w-24 border-l border-t border-[#3b82f6]/25" />
+      <div className="pointer-events-none absolute right-0 top-0 h-14 w-24 border-r border-t border-[#3b82f6]/25" />
+      <div className="pointer-events-none absolute left-1/2 top-0 h-10 w-56 -translate-x-1/2 bg-[radial-gradient(circle_at_top,rgba(0,212,170,0.18),transparent_72%)]" />
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
         <div className="flex items-center gap-3">
@@ -121,7 +121,6 @@ export function DashboardHeader() {
             <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent" />
             <div className="absolute inset-x-10 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/45 to-transparent" />
             <div className="text-center">
-              <div className="text-[10px] uppercase tracking-[0.38em] text-[#7b8ab8]">ENERGY DATA SCREEN</div>
               <h1 className="mt-1 text-xl font-semibold tracking-[0.26em] text-[#e8f4fc]">
                 {language === "zh" ? "BMS 数据监测云平台" : "BMS Data Monitoring Cloud"}
               </h1>
@@ -134,13 +133,24 @@ export function DashboardHeader() {
             {currentTime ? formatDate(currentTime) : "----/--/-- --:--:--"}
           </span>
 
-          <button
-            onClick={() => setLanguage(language === "zh" ? "en" : "zh")}
-            className="flex items-center gap-1.5 rounded-md border border-[#28507c] bg-[#0b1434]/92 px-3 py-1.5 text-xs text-[#e8f4fc] transition-colors hover:border-[#00d4aa]"
-          >
-            <Globe className="h-4 w-4 text-[#00d4aa]" />
-            <span>{language === "zh" ? "中文" : "EN"}</span>
-          </button>
+          <div className="flex items-center gap-1.5 rounded-md border border-[#28507c] bg-[#0b1434]/92 px-1.5 py-1">
+            <Globe className="h-3.5 w-3.5 shrink-0 text-[#00d4aa]" />
+            <div className="flex rounded-sm overflow-hidden">
+              {(["zh", "en"] as const).map(lang => (
+                <button
+                  key={lang}
+                  onClick={() => setLanguage(lang)}
+                  className={`px-2 py-0.5 text-xs font-medium transition-all ${
+                    language === lang
+                      ? "bg-[#00d4aa] text-[#041123]"
+                      : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+                  }`}
+                >
+                  {lang === "zh" ? "中文" : "EN"}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </header>

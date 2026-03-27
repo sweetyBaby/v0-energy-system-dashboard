@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useLanguage } from "@/components/language-provider"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysis"
@@ -20,19 +21,20 @@ import { LanguageProvider } from "@/components/language-provider"
 type DashboardTab = "realtime" | "efficiency" | "bms" | "analysis" | "history" | "reports"
 type BcuMode = "realtime" | "history"
 type AnalysisRange = 7 | 15 | 30
-const ANALYSIS_RANGES: { key: AnalysisRange; label: string }[] = [
-  { key: 7,  label: "近7日"  },
-  { key: 15, label: "近15日" },
-  { key: 30, label: "近30日" },
+
+const ANALYSIS_RANGES: { key: AnalysisRange; zh: string; en: string }[] = [
+  { key: 7,  zh: "近7日",  en: "Last 7d"  },
+  { key: 15, zh: "近15日", en: "Last 15d" },
+  { key: 30, zh: "近30日", en: "Last 30d" },
 ]
 
-const TAB_META: Record<DashboardTab, { label: string }> = {
-  realtime: { label: "总览" },
-  efficiency: { label: "综合能效" },
-  bms: { label: "电芯矩阵" },
-  analysis: { label: "数据分析" },
-  history: { label: "运行状态" },
-  reports: { label: "报表信息" },
+const TAB_META: Record<DashboardTab, { zh: string; en: string }> = {
+  realtime:  { zh: "总览",   en: "Overview"    },
+  efficiency:{ zh: "综合能效", en: "Efficiency"  },
+  bms:       { zh: "电芯矩阵", en: "Cell Matrix" },
+  analysis:  { zh: "数据分析", en: "Analysis"    },
+  history:   { zh: "运行状态", en: "Operations"  },
+  reports:   { zh: "报表信息", en: "Reports"     },
 }
 
 function DashboardTabs() {
@@ -41,6 +43,8 @@ function DashboardTabs() {
   const [bcuMode, setBcuMode] = useState<BcuMode>("realtime")
   const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0]
   const [historyDate, setHistoryDate] = useState(yesterday)
+  const { language } = useLanguage()
+  const zh = language === "zh"
 
 return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
@@ -59,7 +63,7 @@ return (
                   : "border border-[#3b82f6]/20 bg-[#101840]/72 text-[#7b8ab8] hover:border-[#00d4aa]/35 hover:text-[#e8f4fc]"
               }`}
             >
-              {TAB_META[tab].label}
+              {zh ? TAB_META[tab].zh : TAB_META[tab].en}
             </button>
           ))}
         </div>
@@ -102,12 +106,12 @@ return (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
             {/* Shared filter bar */}
             <div className="flex shrink-0 items-center gap-3 rounded-lg border border-[#1a2654] bg-[#0d1233] px-4 py-2">
-              <span className="text-xs text-[#7b8ab8]">时间范围</span>
+              <span className="text-xs text-[#7b8ab8]">{zh ? "时间范围" : "Time Range"}</span>
               <div className="flex gap-1 rounded-lg bg-[#1a2654]/50 p-1">
                 {ANALYSIS_RANGES.map(r => (
                   <button key={r.key} onClick={() => setAnalysisRange(r.key)}
                     className={`rounded-md px-3 py-1 text-xs transition-all ${analysisRange === r.key ? "bg-[#00d4aa] font-semibold text-[#0a0e27]" : "text-[#7b8ab8] hover:text-[#e8f4fc]"}`}>
-                    {r.label}
+                    {zh ? r.zh : r.en}
                   </button>
                 ))}
               </div>
@@ -146,7 +150,7 @@ return (
                     {bcuMode === m && m === "realtime" && (
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#041123]" />
                     )}
-                    {m === "realtime" ? "实时监控" : "历史查询"}
+                    {m === "realtime" ? (zh ? "实时监控" : "Live") : (zh ? "历史查询" : "History")}
                   </button>
                 ))}
               </div>
