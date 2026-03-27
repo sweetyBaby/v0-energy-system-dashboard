@@ -17,6 +17,7 @@ import { ReportCenterPanel } from "@/components/dashboard/report-center-panel"
 import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { LanguageProvider } from "@/components/language-provider"
+import { HistoryDatePicker } from "@/components/dashboard/history-date-picker"
 
 type DashboardTab = "realtime" | "efficiency" | "bms" | "analysis" | "history" | "reports"
 type BcuMode = "realtime" | "history"
@@ -157,13 +158,10 @@ return (
 
               {/* 日期选择（仅历史模式） */}
               {bcuMode === "history" && (
-                <input
-                  type="date"
+                <HistoryDatePicker
                   value={historyDate}
+                  onChange={setHistoryDate}
                   max={yesterday}
-                  onChange={(e) => { if (e.target.value) setHistoryDate(e.target.value) }}
-                  style={{ colorScheme: "dark" }}
-                  className="cursor-pointer rounded-md border border-[#1a2654] bg-[#101840] px-3 py-1 text-xs text-[#e8f4fc] focus:border-[#00d4aa] focus:outline-none"
                 />
               )}
             </div>
