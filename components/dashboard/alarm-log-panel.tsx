@@ -8,9 +8,9 @@ import { useLanguage } from "@/components/language-provider"
 const LV_COLOR: Record<number, string> = {
   1: "#85B7EB", 2: "#378ADD", 3: "#EF9F27", 4: "#E24B4A", 5: "#A32D2D",
 }
-// 高亮色：比基础色更亮，用于矩阵中数字（保持色相，提升亮度）
+// 高亮色：饱和度高、色相鲜明，用于矩阵数字（绝不趋近于白色）
 const LV_BRIGHT: Record<number, string> = {
-  1: "#c4e0ff", 2: "#7dc4ff", 3: "#ffd060", 4: "#ff8c7a", 5: "#ff6a6a",
+  1: "#60a8f0", 2: "#3a9cff", 3: "#ffb020", 4: "#ff6040", 5: "#ff3838",
 }
 const LV_LABEL: Record<number, string> = {
   1: "Lv1 提示", 2: "Lv2 轻警", 3: "Lv3 预警", 4: "Lv4 严重", 5: "Lv5 紧急",
@@ -334,7 +334,7 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
       {/* ── 标题行 ── */}
       <div className="mb-2 flex items-center gap-2">
         <div className="h-3.5 w-[3px] rounded-full bg-[#00d4aa]" style={{ boxShadow: "0 0 6px #00d4aa80" }} />
-        <span className="text-[12px] font-bold tracking-wide text-[#a8c8f8]">告警分布矩阵</span>
+        <span className="text-[12px] font-bold tracking-wide text-[#cfe3ff] [text-shadow:0_0_10px_rgba(124,170,255,0.15)]">告警分布矩阵</span>
         
       </div>
 
@@ -346,10 +346,10 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
           {LEVELS.map((lv, i) => (
             <div key={lv} className="flex-1 text-center">
               <span
-                className="text-[11px] font-bold tabular-nums"
+                className="text-[11px] font-bold tabular-nums tracking-[0.02em]"
                 style={{
-                  color: lvTotals[i] > 0 ? LV_COLOR[lv] : "#2a3a5a",
-                  textShadow: lvTotals[i] > 0 ? `0 0 6px ${LV_COLOR[lv]}60` : "none",
+                  color: lvTotals[i] > 0 ? LV_BRIGHT[lv] : "#2a3a5a",
+                  textShadow: lvTotals[i] > 0 ? `0 0 10px ${LV_COLOR[lv]}45` : "none",
                 }}
               >
                 Lv{lv}
@@ -357,7 +357,7 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
             </div>
           ))}
           <div className="w-[52px] shrink-0 pr-1 text-right">
-            <span className="text-[11px] font-semibold text-[#5a82c8]">合计</span>
+            <span className="text-[11px] font-semibold text-[#a7c7ff] [text-shadow:0_0_10px_rgba(98,154,255,0.15)]">合计</span>
           </div>
         </div>
 
@@ -375,40 +375,43 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
                   className="h-1.5 w-1.5 shrink-0 rounded-full"
                   style={{ backgroundColor: LV_COLOR[rowMaxLv], boxShadow: `0 0 5px ${LV_COLOR[rowMaxLv]}` }}
                 />
-                <span className="truncate text-[11px] font-medium text-[#90b4e0]">{typeName}</span>
+                <span className="truncate text-[11px] font-medium text-[#d7e6ff]">{typeName}</span>
               </div>
 
               {/* 各等级单元格 */}
               {LEVELS.map((lv, i) => {
                 const cnt = row.get(lv) ?? 0
                 const cellPct = fmtPct(cnt)
-                const intensity = cnt > 0 ? 0.15 + (cnt / lvMax[i]) * 0.7 : 0
+                const intensity = cnt > 0 ? 0.2 + (cnt / lvMax[i]) * 0.42 : 0
                 return (
                   <div key={lv} className="flex-1 flex items-center justify-center" style={{ height: 26 }}>
                     <div
                       className="mx-[1px] flex h-[24px] w-full flex-col items-center justify-center rounded-sm"
                       style={{
-                        background: cnt > 0 ? `rgba(${hexToRgb(LV_COLOR[lv])}, ${intensity})` : "rgba(10,18,40,0.4)",
-                        border: cnt > 0 ? `1px solid ${LV_COLOR[lv]}55` : "1px solid #1a2850/30",
+                        background: cnt > 0
+                          ? `linear-gradient(135deg, rgba(${hexToRgb(LV_COLOR[lv])}, ${0.22 + intensity * 0.45}), rgba(${hexToRgb(LV_COLOR[lv])}, ${0.12 + intensity * 0.2}))`
+                          : "linear-gradient(180deg, rgba(10,18,40,0.4), rgba(10,18,40,0.24))",
+                        border: cnt > 0 ? `1px solid ${LV_COLOR[lv]}88` : "1px solid #1a2850/30",
+                        boxShadow: cnt > 0 ? `inset 0 0 14px rgba(255,255,255,0.03), 0 0 12px ${LV_COLOR[lv]}18` : "none",
                       }}
                     >
                       {cnt > 0 ? (
                         <>
                           <span
                             className="text-[12px] font-bold tabular-nums leading-none"
-                            style={{ color: LV_BRIGHT[lv], textShadow: `0 0 8px ${LV_COLOR[lv]}cc` }}
+                            style={{ color: LV_BRIGHT[lv], textShadow: `0 0 10px ${LV_COLOR[lv]}aa` }}
                           >
                             {cnt}
                           </span>
                           <span
-                            className="mt-[2px] text-[10px] font-medium tabular-nums leading-none"
-                            style={{ color: LV_COLOR[lv] }}
+                            className="mt-[2px] text-[10px] font-semibold tabular-nums leading-none"
+                            style={{ color: LV_BRIGHT[lv], textShadow: `0 0 8px ${LV_COLOR[lv]}35` }}
                           >
-                            {cellPct}%
+                            +{cellPct}
                           </span>
                         </>
                       ) : (
-                        <span className="text-[11px] text-[#1e2e50]">·</span>
+                        <span className="text-[11px] text-[#32456f]">·</span>
                       )}
                     </div>
                   </div>
@@ -419,7 +422,7 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
               <div className="w-[52px] shrink-0 flex flex-col items-end pl-2">
                 <span
                   className="text-[13px] font-bold tabular-nums leading-none"
-                  style={{ color: LV_BRIGHT[rowMaxLv], textShadow: `0 0 8px ${LV_COLOR[rowMaxLv]}cc` }}
+                  style={{ color: LV_BRIGHT[rowMaxLv], textShadow: `0 0 10px ${LV_COLOR[rowMaxLv]}aa` }}
                 >
                   {rowTotal}
                 </span>
@@ -437,7 +440,7 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
         {/* 列小计行 */}
         <div className="mt-1 flex items-start border-t border-[#1e3870]/60 pt-1">
           <div className="w-[66px] shrink-0 flex items-center">
-            <span className="text-[11px] font-bold text-[#4a7aaa]">小计</span>
+            <span className="text-[11px] font-bold text-[#a7c7ff]">小计</span>
           </div>
           {LEVELS.map((lv, i) => (
             <div key={lv} className="flex-1 flex flex-col items-center gap-[4px]">
@@ -445,7 +448,7 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
                 <>
                   <span
                     className="text-[13px] font-bold tabular-nums leading-none"
-                    style={{ color: LV_BRIGHT[lv], textShadow: `0 0 8px ${LV_COLOR[lv]}cc` }}
+                    style={{ color: LV_BRIGHT[lv], textShadow: `0 0 10px ${LV_COLOR[lv]}aa` }}
                   >
                     {lvTotals[i]}
                   </span>
@@ -453,23 +456,23 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
                     className="text-[10px] font-semibold tabular-nums leading-none"
                     style={{ color: LV_COLOR[lv] }}
                   >
-                    {(lvTotals[i] / total * 100).toFixed(0)}%
+                    +{(lvTotals[i] / total * 100).toFixed(0)}%
                   </span>
                 </>
               ) : (
-                <span className="text-[11px] text-[#1e2e50]">—</span>
+                <span className="text-[11px] text-[#32456f]">·</span>
               )}
             </div>
           ))}
           <div className="w-[52px] shrink-0 flex flex-col items-end pl-2">
             <span
-              className="text-[15px] font-bold tabular-nums leading-none text-[#60ffda]"
-              style={{ textShadow: "0 0 10px rgba(0,212,170,0.8)" }}
+              className="text-[15px] font-bold tabular-nums leading-none text-[#45f5ff]"
+              style={{ textShadow: "0 0 12px rgba(69,245,255,0.35)" }}
             >
               {total}
             </span>
-            <span className="mt-[2px] text-[11px] font-bold tabular-nums leading-none text-[#00d4aa]">
-              100%
+            <span className="mt-[2px] text-[11px] font-bold tabular-nums leading-none text-[#5effdf]">
+              100.00%
             </span>
           </div>
         </div>
