@@ -22,12 +22,12 @@ type LiveSnapshot = {
 const packStatusCycle: PackStatus[] = ["standby", "charge", "charge", "discharge", "precharge", "charge"]
 
 const packStatusLabels: Record<PackStatus, { zh: string; en: string }> = {
-  offline: { zh: "\u65ad\u5f00", en: "Offline" },
-  precharge: { zh: "\u9884\u5145", en: "Precharge" },
-  standby: { zh: "\u5f85\u673a", en: "Standby" },
-  charge: { zh: "\u5145\u7535", en: "Charge" },
-  discharge: { zh: "\u653e\u7535", en: "Discharge" },
-  fault: { zh: "\u9519\u8bef", en: "Fault" },
+  offline: { zh: "断开", en: "Offline" },
+  precharge: { zh: "预充", en: "Precharge" },
+  standby: { zh: "待机", en: "Standby" },
+  charge: { zh: "充电", en: "Charge" },
+  discharge: { zh: "放电", en: "Discharge" },
+  fault: { zh: "错误", en: "Fault" },
 }
 
 const createSnapshot = (phase: number): LiveSnapshot => {
@@ -79,37 +79,37 @@ export function RealtimeStatusBoard() {
 
   const metricRows = [
     {
-      labelZh: "PACK\u7535\u538b",
+      labelZh: "PACK电压",
       labelEn: "PACK Voltage",
       value: `${snapshot.packVoltage.toFixed(1)} V`,
     },
     {
-      labelZh: "BUS\u7535\u538b",
+      labelZh: "BUS电压",
       labelEn: "BUS Voltage",
       value: `${snapshot.busVoltage.toFixed(1)} V`,
     },
     {
-      labelZh: "\u7535\u82af\u7d2f\u8ba1\u7535\u538b",
+      labelZh: "电芯累计电压",
       labelEn: "Cell Sum Voltage",
       value: `${snapshot.cellTotalVoltage.toFixed(1)} V`,
     },
     {
-      labelZh: "\u5f53\u524d\u529f\u7387",
+      labelZh: "当前功率",
       labelEn: "Power",
       value: `${snapshot.powerKw.toFixed(1)} kW`,
     },
     {
-      labelZh: "\u7ec4\u4e32\u7535\u6d41",
+      labelZh: "组串电流",
       labelEn: "String Current",
       value: `${snapshot.stringCurrent.toFixed(1)} A`,
     },
     {
-      labelZh: "\u970d\u5c14\u7535\u6d41",
+      labelZh: "霍尔电流",
       labelEn: "Hall Current",
       value: `${snapshot.hallCurrent.toFixed(2)} A`,
     },
     {
-      labelZh: "\u5f53\u524d\u53ef\u7528\u5bb9\u91cf",
+      labelZh: "当前可用容量",
       labelEn: "Available Capacity",
       value: `${snapshot.availableCapacity.toFixed(2)} Ah`,
     },
@@ -125,15 +125,15 @@ export function RealtimeStatusBoard() {
       <div className="mb-2.5 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">
-            {language === "zh" ? "\u7cfb\u7edf\u72b6\u6001" : "System Status"}
+          <h3 className="text-[1.05rem] font-semibold tracking-[0.02em] text-[#00d4aa]">
+            {language === "zh" ? "系统状态" : "System Status"}
           </h3>
         </div>
 
-        <div className="flex items-center gap-2 rounded-full border border-[#1a2654] bg-[#0b1434]/85 px-3 py-1 text-[11px]">
-          <span className="text-[#7b8ab8]">{language === "zh" ? "\u5f53\u524d Pack" : "Current Pack"}</span>
-          <span className={`font-medium ${statusStyles[snapshot.packStatus]}`}>{packStatusLabel}</span>
-        </div>
+          <div className="flex items-center gap-2 rounded-full border border-[#1a2654] bg-[#0b1434]/85 px-3 py-1 text-[11px]">
+          <span className="font-medium tracking-[0.01em] text-[#a8b6db]">{language === "zh" ? "当前 Pack" : "Current Pack"}</span>
+          <span className={`font-semibold tracking-[0.01em] ${statusStyles[snapshot.packStatus]}`}>{packStatusLabel}</span>
+          </div>
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4 overflow-hidden rounded-[20px] border border-[#2a4d74] bg-[#15213f] p-3">
@@ -151,10 +151,10 @@ export function RealtimeStatusBoard() {
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-x-6 gap-y-2">
           {metricRows.map((item) => (
             <div key={item.labelEn} className="flex items-end justify-between border-b border-[#244468]/50 pb-1">
-              <span className="text-[11px] text-[#dce7ff]">
+              <span className="text-[11px] font-medium tracking-[0.01em] text-[#a8b6db]">
                 {language === "zh" ? item.labelZh : item.labelEn}
               </span>
-              <span className="text-[1.02rem] font-medium text-[#63e8ff]">{item.value}</span>
+              <span className="text-[0.98rem] font-semibold tabular-nums tracking-[0.01em] text-[#63e8ff]">{item.value}</span>
             </div>
           ))}
         </div>

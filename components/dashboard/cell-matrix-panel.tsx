@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   CartesianGrid,
   Legend,
@@ -67,8 +67,10 @@ const buildHist=(cid:number):Hist[]=>{
   const now=new Date()
   return Array.from({length:7},(_,i)=>{
     const d=new Date(now);d.setDate(now.getDate()-6+i)
-    const bv=3.28+Math.sin(cid*.71+i*.52)*.05,bt=27.5+Math.sin(cid*.43+i*.38)*2.6
-    const t1=+(bt+(i%3)*.45).toFixed(1),t2=+(bt+.6+(i%2)*.35).toFixed(1),t3=+(bt-.3+(i%4)*.25).toFixed(1)
+    const bv=3.30+Math.sin(cid*.71+i*.4)*.018,bt=28.5+Math.sin(cid*.43+i*.3)*.9
+    const t1=+(bt+Math.sin(i*.5+cid)*.25).toFixed(1)
+    const t2=+(bt+.6+Math.sin(i*.6+cid*.9)*.2).toFixed(1)
+    const t3=+(bt-.3+Math.sin(i*.4+cid*1.1)*.25).toFixed(1)
     return{label:`${d.getMonth()+1}/${d.getDate()}`,voltage:+bv.toFixed(3),temp1:t1,temp2:t2,temp3:t3}
   })
 }
@@ -122,7 +124,19 @@ export function CellMatrixPanel(){
   const[sel,setSel]=useState<number|null>(null)
   const zh=language==="zh"
 
-  const cells=useMemo(()=>buildCells(),[])
+  const baseCells=useMemo(()=>buildCells(),[])
+  const[tick,setTick]=useState(0)
+  useEffect(()=>{const t=setInterval(()=>setTick(n=>n+1),2000);return()=>clearInterval(t)},[])
+
+  const cells=useMemo(()=>baseCells.map(c=>{
+    const vOff=Math.sin(tick*.7+c.id*.31)*.003+Math.sin(tick*.4+c.id*.17)*.001
+    const tOff=Math.sin(tick*.5+c.id*.29)*.15
+    const temp1=+(c.temp1+tOff+Math.sin(tick*.9+c.id)*.08).toFixed(1)
+    const temp2=+(c.temp2+tOff+Math.sin(tick*.8+c.id*1.1)*.08).toFixed(1)
+    const temp3=+(c.temp3+tOff+Math.sin(tick*1.1+c.id*.9)*.08).toFixed(1)
+    return{...c,voltage:+(c.voltage+vOff).toFixed(3),temp1,temp2,temp3,avgTemp:+((temp1+temp2+temp3)/3).toFixed(1)}
+  }),[baseCells,tick])
+
   const cmap=useMemo(()=>{const m:Record<number,Cell>={};cells.forEach(c=>{m[c.id]=c});return m},[cells])
   const vs=useMemo(()=>{const v=cells.map(c=>c.voltage);return{min:Math.min(...v),max:Math.max(...v),avg:v.reduce((a,b)=>a+b)/v.length}},[cells])
   const hist=useMemo(()=>sel!==null?buildHist(sel):[]  ,[sel])

@@ -46,7 +46,7 @@ const generateMonthData = (language: "zh" | "en"): DataPoint[] => {
   const data: DataPoint[] = []
   for (let date = new Date(firstDay); date <= today; date.setDate(date.getDate() + 1)) {
     data.push({
-      label: language === "zh" ? `${date.getDate()}\u65e5` : `${date.getDate()}`,
+      label: language === "zh" ? `${date.getDate()}日` : `${date.getDate()}`,
       charge: randomValue(1500, 2500),
       discharge: randomValue(1400, 2350),
     })
@@ -59,7 +59,7 @@ const generateYearData = (language: "zh" | "en"): DataPoint[] => {
   const data: DataPoint[] = []
   for (let month = 0; month <= today.getMonth(); month += 1) {
     data.push({
-      label: language === "zh" ? `${month + 1}\u6708` : monthNamesEn[month],
+      label: language === "zh" ? `${month + 1}月` : monthNamesEn[month],
       charge: randomValue(40000, 65000),
       discharge: randomValue(38000, 62000),
     })
@@ -75,7 +75,6 @@ const formatAxisValue = (value: number) => {
   return value.toString()
 }
 
-// Icon: bar chart (chart view)
 function IconChart({ active }: { active: boolean }) {
   const c = active ? "#07162b" : "#5a7aaa"
   return (
@@ -88,7 +87,6 @@ function IconChart({ active }: { active: boolean }) {
   )
 }
 
-// Icon: table / grid (table view)
 function IconTable({ active }: { active: boolean }) {
   const c = active ? "#07162b" : "#5a7aaa"
   return (
@@ -114,8 +112,14 @@ export function EnergyCurveQuery() {
 
   useEffect(() => {
     if (!mounted) return
-    if (timeRange === "week") { setData(generateWeekData()); return }
-    if (timeRange === "month") { setData(generateMonthData(language)); return }
+    if (timeRange === "week") {
+      setData(generateWeekData())
+      return
+    }
+    if (timeRange === "month") {
+      setData(generateMonthData(language))
+      return
+    }
     setData(generateYearData(language))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language, mounted, timeRange])
@@ -139,7 +143,6 @@ export function EnergyCurveQuery() {
 
   return (
     <div className="flex h-full w-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
-      {/* Header */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
@@ -147,7 +150,6 @@ export function EnergyCurveQuery() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Time range toggle */}
           <div className="flex gap-1 rounded-xl bg-[#16204b]/90 p-1">
             {(["week", "month", "year"] as TimeRange[]).map((r) => (
               <button
@@ -164,7 +166,6 @@ export function EnergyCurveQuery() {
             ))}
           </div>
 
-          {/* View mode toggle — separate from filter */}
           <div className="flex gap-0.5 rounded-lg border border-[#1a2654] bg-[#0a1225] p-0.5">
             <button
               onClick={() => setViewMode("chart")}
@@ -192,7 +193,6 @@ export function EnergyCurveQuery() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="min-h-0 flex-1">
         {viewMode === "chart" ? (
           <ResponsiveContainer width="100%" height="100%">
@@ -253,7 +253,7 @@ export function EnergyCurveQuery() {
                       <td className="py-1.5 pl-3 pr-2 tabular-nums text-[#7ab0f0]">{row.label}</td>
                       <td className="py-1.5 px-2 text-right tabular-nums text-[#60a5fa]">{row.charge.toLocaleString()}</td>
                       <td className="py-1.5 px-2 text-right tabular-nums text-[#fb923c]">{row.discharge.toLocaleString()}</td>
-                      <td className="py-1.5 pl-2 pr-3 text-right tabular-nums text-[#00d4aa]">{eff}%</td>
+                      <td className="py-1.5 pl-2 pr-3 text-right tabular-nums text-[#00d4aa]">{eff === "—" ? eff : `${eff}%`}</td>
                     </tr>
                   )
                 })}

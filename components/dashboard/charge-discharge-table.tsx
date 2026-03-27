@@ -12,7 +12,7 @@ import { useLanguage } from "@/components/language-provider"
 const headlineStats = [
   {
     key: "charge-energy",
-    labelZh: "\u5f53\u65e5\u5145\u7535\u91cf",
+    labelZh: "当日充电量",
     labelEn: "Today Charge Energy",
     value: "3,256.8",
     unit: "kWh",
@@ -24,7 +24,7 @@ const headlineStats = [
   },
   {
     key: "discharge-energy",
-    labelZh: "\u5f53\u65e5\u653e\u7535\u91cf",
+    labelZh: "当日放电量",
     labelEn: "Today Discharge Energy",
     value: "3,102.4",
     unit: "kWh",
@@ -36,7 +36,7 @@ const headlineStats = [
   },
   {
     key: "day-throughput",
-    labelZh: "\u5f53\u65e5\u541e\u5410\u91cf",
+    labelZh: "当日吞吐量",
     labelEn: "Today Throughput",
     value: "6,359.2",
     unit: "kWh",
@@ -51,7 +51,7 @@ const headlineStats = [
 const qualityStats = [
   {
     key: "dc-efficiency",
-    labelZh: "\u5f53\u65e5\u5145\u653e\u7535\u6548\u7387",
+    labelZh: "当日充放电效率",
     labelEn: "Round-trip Efficiency",
     value: "95.26",
     unit: "%",
@@ -63,7 +63,7 @@ const qualityStats = [
   },
   {
     key: "system-efficiency",
-    labelZh: "\u7cfb\u7edf\u6548\u7387",
+    labelZh: "系统效率",
     labelEn: "System Efficiency",
     value: "94.73",
     unit: "%",
@@ -75,10 +75,10 @@ const qualityStats = [
   },
   {
     key: "equivalent-cycles",
-    labelZh: "\u5f53\u65e5\u7b49\u6548\u5faa\u73af",
+    labelZh: "当日等效循环",
     labelEn: "Equivalent Cycles",
     value: "0.78",
-    unit: "\u6b21",
+    unit: "次",
     icon: RefreshCw,
     accent: "text-[#7ea8ff]",
     color: "#7ea8ff",
@@ -96,7 +96,7 @@ export function ChargeDischargeTable() {
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
           <h3 className="text-base font-semibold text-[#00d4aa]">
-            {language === "zh" ? "\u5145\u653e\u7535\u7edf\u8ba1" : "Charge / Discharge Stats"}
+            {language === "zh" ? "充放电统计" : "Charge / Discharge Stats"}
           </h3>
         </div>
       </div>

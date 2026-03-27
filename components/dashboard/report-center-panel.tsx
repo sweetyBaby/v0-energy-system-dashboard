@@ -33,18 +33,18 @@ const monthNamesEn = [
 ]
 
 const monthNamesZh = [
-  `1\u6708`,
-  `2\u6708`,
-  `3\u6708`,
-  `4\u6708`,
-  `5\u6708`,
-  `6\u6708`,
-  `7\u6708`,
-  `8\u6708`,
-  `9\u6708`,
-  `10\u6708`,
-  `11\u6708`,
-  `12\u6708`,
+  "1月",
+  "2月",
+  "3月",
+  "4月",
+  "5月",
+  "6月",
+  "7月",
+  "8月",
+  "9月",
+  "10月",
+  "11月",
+  "12月",
 ]
 
 const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1)
@@ -64,7 +64,7 @@ const isFutureDay = (date: Date, today: Date) => {
 
 const formatMonthTitle = (date: Date, language: "zh" | "en") =>
   language === "zh"
-    ? `${date.getFullYear()}\u5e74${date.getMonth() + 1}\u6708`
+    ? `${date.getFullYear()}年${date.getMonth() + 1}月`
     : `${monthNamesEn[date.getMonth()]} ${date.getFullYear()}`
 
 const buildCalendarCells = (viewDate: Date): CalendarCell[] => {
@@ -108,7 +108,7 @@ export function ReportCenterPanel() {
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#22d3ee]" />
           <h3 className="text-base font-semibold text-[#22d3ee]">
-            {language === "zh" ? "\u62a5\u8868\u4fe1\u606f" : "Report Center"}
+            {language === "zh" ? "报表信息" : "Report Center"}
           </h3>
         </div>
 
@@ -139,7 +139,7 @@ export function ReportCenterPanel() {
                   <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]">
                     {yearOptions.map((year) => (
                       <SelectItem key={year} value={String(year)} className="text-[#e8f4fc]">
-                        {language === "zh" ? `${year}\u5e74` : String(year)}
+                        {language === "zh" ? `${year}年` : String(year)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -228,7 +228,7 @@ export function ReportCenterPanel() {
                         </span>
                         {isToday && (
                           <span className="rounded-full border border-[#1d5b54] bg-[#10252d] px-2 py-0.5 text-[10px] text-[#66e6cb]">
-                            {language === "zh" ? "\u4eca\u5929" : "Today"}
+                            {language === "zh" ? "今天" : "Today"}
                           </span>
                         )}
                       </div>
@@ -237,13 +237,13 @@ export function ReportCenterPanel() {
                         {downloadable ? (
                           <button className="flex h-9 w-full items-center justify-between rounded-lg border border-[#2e7be6]/35 bg-[#162c63]/75 px-2.5 text-left transition-all hover:border-[#4b95ff]/55 hover:bg-[#1d3775]">
                             <span className="truncate text-xs font-medium text-[#eef4ff]">
-                              {language === "zh" ? "\u4e0b\u8f7d\u65e5\u62a5" : "Daily Report"}
+                              {language === "zh" ? "下载日报" : "Daily Report"}
                             </span>
                             <Download className="h-3.5 w-3.5 shrink-0 text-[#e8f4fc]" />
                           </button>
                         ) : (
                           <div className="rounded-lg border border-dashed border-[#29416f] px-2.5 py-2 text-xs text-[#5f79ad]">
-                            {language === "zh" ? "\u5f85\u751f\u6210" : "Pending"}
+                            {language === "zh" ? "待生成" : "Pending"}
                           </div>
                         )}
                       </div>
