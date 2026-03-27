@@ -166,10 +166,10 @@ return (
 
             {/* 主内容 */}
             <div className="grid min-h-0 flex-1 grid-cols-12 gap-4">
-              <div className="col-span-12 min-h-0 xl:col-span-7">
+              <div className="col-span-12 min-h-0 xl:col-span-6">
                 <BCUStatusQuery mode={bcuMode} date={bcuMode === "history" ? historyDate : undefined} />
               </div>
-              <div className="col-span-12 min-h-0 xl:col-span-5">
+              <div className="col-span-12 min-h-0 xl:col-span-6">
                 <AlarmLogPanel mode={bcuMode} date={bcuMode === "history" ? historyDate : undefined} />
               </div>
             </div>
