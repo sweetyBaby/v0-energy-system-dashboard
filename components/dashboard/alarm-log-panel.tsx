@@ -285,6 +285,208 @@ function AlarmTimeline({ events }: { events: TimelineEvent[] }) {
   )
 }
 
+// ── 告警类型 × 等级 二维统计 ─────────────────────────────────────────────────
+const LEVELS = [1, 2, 3, 4, 5] as const
+
+function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
+  const total = alarms.length
+  if (total === 0) return null
+
+  // 收集所有出现的类型，按总数降序
+  const typeOrder: string[] = []
+  const typeTotals = new Map<string, number>()
+  alarms.forEach(a => {
+    typeTotals.set(a.nameZh, (typeTotals.get(a.nameZh) ?? 0) + 1)
+    if (!typeOrder.includes(a.nameZh)) typeOrder.push(a.nameZh)
+  })
+  typeOrder.sort((a, b) => (typeTotals.get(b) ?? 0) - (typeTotals.get(a) ?? 0))
+
+  // 矩阵：matrix[type][lv] = count
+  const matrix = new Map<string, Map<number, number>>()
+  typeOrder.forEach(t => matrix.set(t, new Map()))
+  alarms.forEach(a => {
+    const row = matrix.get(a.nameZh)!
+    row.set(a.lv, (row.get(a.lv) ?? 0) + 1)
+  })
+
+  // 列合计（每个等级的总数）
+  const lvTotals = LEVELS.map(lv => alarms.filter(a => a.lv === lv).length)
+
+  // 每列最大值（用于热力着色基准）
+  const lvMax = LEVELS.map(lv => Math.max(...typeOrder.map(t => matrix.get(t)!.get(lv) ?? 0), 1))
+
+  // 等级分布（用于顶部堆叠条）
+  const lvPcts = LEVELS.map((lv, i) => ({ lv, count: lvTotals[i], pct: (lvTotals[i] / total) * 100 }))
+
+  return (
+    <div className="shrink-0 rounded-lg border border-[#1a2654]/60 bg-[#080e28]/70 px-3 py-2.5">
+
+      {/* ── 标题行 ── */}
+      <div className="mb-2 flex items-center gap-2">
+        <div className="h-3 w-0.5 rounded-full bg-[#00d4aa]" />
+        <span className="text-[11px] font-semibold tracking-wide text-[#7b8ab8]">告警分布矩阵</span>
+        <span className="ml-auto text-[10px] text-[#3a5080]">共 {total} 件</span>
+      </div>
+
+      {/* ── 等级堆叠条 ── */}
+      <div className="mb-2.5">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-[9px] text-[#3a5080] tracking-wide">等级占比</span>
+          <div className="flex items-center gap-2">
+            {lvPcts.filter(d => d.count > 0).map(d => (
+              <div key={d.lv} className="flex items-center gap-0.5">
+                <span className="h-1.5 w-1.5 rounded-sm inline-block" style={{ backgroundColor: LV_COLOR[d.lv] }} />
+                <span className="text-[9px] tabular-nums" style={{ color: LV_COLOR[d.lv] }}>
+                  Lv{d.lv} {d.pct.toFixed(0)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex h-3 w-full overflow-hidden rounded-sm">
+          {lvPcts.filter(d => d.count > 0).reverse().map(d => (
+            <div
+              key={d.lv}
+              className="relative h-full transition-all"
+              style={{
+                width: `${d.pct}%`,
+                background: `linear-gradient(90deg, ${LV_COLOR[d.lv]}90, ${LV_COLOR[d.lv]}dd)`,
+                borderRight: "1px solid #080e28",
+              }}
+              title={`Lv${d.lv}: ${d.count} 件`}
+            >
+              {d.pct >= 8 && (
+                <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-white/80 tabular-nums">
+                  {d.count}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 类型 × 等级 矩阵 ── */}
+      <div className="w-full">
+        {/* 表头 */}
+        <div className="mb-0.5 flex items-center">
+          <div className="w-[58px] shrink-0" />
+          {LEVELS.map((lv, i) => (
+            <div key={lv} className="flex-1 text-center">
+              <span
+                className="text-[9px] font-semibold tabular-nums"
+                style={{ color: lvTotals[i] > 0 ? LV_COLOR[lv] : "#2a3a5a" }}
+              >
+                Lv{lv}
+              </span>
+            </div>
+          ))}
+          <div className="w-[38px] shrink-0 text-right">
+            <span className="text-[9px] text-[#4a6080]">合计</span>
+          </div>
+        </div>
+
+        {/* 数据行 */}
+        {typeOrder.map(typeName => {
+          const row = matrix.get(typeName)!
+          const rowTotal = typeTotals.get(typeName) ?? 0
+          const rowMaxLv = Math.max(...Array.from(row.keys()))
+          return (
+            <div key={typeName} className="mb-[3px] flex items-center gap-0">
+              {/* 类型名 */}
+              <div className="w-[58px] shrink-0 flex items-center gap-1 pr-1">
+                <span
+                  className="h-1 w-1 shrink-0 rounded-full"
+                  style={{ backgroundColor: LV_COLOR[rowMaxLv], boxShadow: `0 0 3px ${LV_COLOR[rowMaxLv]}` }}
+                />
+                <span className="truncate text-[9px] text-[#7a8ab0]">{typeName}</span>
+              </div>
+
+              {/* 各等级单元格 */}
+              {LEVELS.map((lv, i) => {
+                const cnt = row.get(lv) ?? 0
+                const intensity = cnt > 0 ? 0.15 + (cnt / lvMax[i]) * 0.7 : 0
+                return (
+                  <div
+                    key={lv}
+                    className="flex-1 flex items-center justify-center"
+                    style={{ height: 20 }}
+                  >
+                    <div
+                      className="flex h-[18px] w-full mx-[1px] items-center justify-center rounded-[2px]"
+                      style={{
+                        background: cnt > 0
+                          ? `rgba(${hexToRgb(LV_COLOR[lv])}, ${intensity})`
+                          : "transparent",
+                        border: cnt > 0
+                          ? `1px solid ${LV_COLOR[lv]}40`
+                          : "1px solid #1a2654/30",
+                      }}
+                    >
+                      {cnt > 0 ? (
+                        <span
+                          className="text-[9px] font-bold tabular-nums leading-none"
+                          style={{ color: `${LV_COLOR[lv]}` , opacity: 0.6 + intensity * 0.5 }}
+                        >
+                          {cnt}
+                        </span>
+                      ) : (
+                        <span className="text-[8px] text-[#1e2e50]">·</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* 行合计 + 迷你条 */}
+              <div className="w-[38px] shrink-0 flex items-center gap-1 pl-1">
+                <div
+                  className="h-[4px] rounded-sm"
+                  style={{
+                    width: `${Math.round((rowTotal / total) * 22)}px`,
+                    minWidth: 2,
+                    background: `linear-gradient(90deg, ${LV_COLOR[rowMaxLv]}80, ${LV_COLOR[rowMaxLv]}cc)`,
+                    boxShadow: `0 0 3px ${LV_COLOR[rowMaxLv]}60`,
+                  }}
+                />
+                <span className="text-[9px] font-bold tabular-nums" style={{ color: LV_COLOR[rowMaxLv] }}>
+                  {rowTotal}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+
+        {/* 列合计行 */}
+        <div className="mt-1.5 flex items-center border-t border-[#1a2654]/50 pt-1">
+          <div className="w-[58px] shrink-0 text-right pr-1">
+            <span className="text-[9px] text-[#3a5080]">小计</span>
+          </div>
+          {LEVELS.map((lv, i) => (
+            <div key={lv} className="flex-1 text-center">
+              {lvTotals[i] > 0 ? (
+                <span className="text-[9px] font-semibold tabular-nums" style={{ color: LV_COLOR[lv] }}>
+                  {lvTotals[i]}
+                </span>
+              ) : (
+                <span className="text-[8px] text-[#1e2e50]">-</span>
+              )}
+            </div>
+          ))}
+          <div className="w-[38px] shrink-0 pl-1 text-right">
+            <span className="text-[10px] font-bold tabular-nums text-[#00d4aa]">{total}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 工具函数：hex → "r, g, b" 字符串（用于 rgba()）
+function hexToRgb(hex: string): string {
+  const n = parseInt(hex.replace("#", ""), 16)
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`
+}
+
 // ── 5 段严重度条 ──────────────────────────────────────────────────────────────
 function SeverityBar({ lv }: { lv: number }) {
   return (
@@ -449,10 +651,13 @@ export function AlarmLogPanel({
         </div>
       </div>
 
-      {/* ── 历史甘特视图 ── */}
+      {/* ── 历史甘特视图 + 类型统计 ── */}
       {mode === "history" && viewMode === "gantt" && (
-        <div className="min-h-0 flex-1">
-          <AlarmTimeline events={timelineEvents} />
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+          <div className="shrink-0">
+            <AlarmTimeline events={timelineEvents} />
+          </div>
+          <AlarmTypeStats alarms={dateFiltered} />
         </div>
       )}
 
