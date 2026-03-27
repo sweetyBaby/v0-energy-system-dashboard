@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { BarChart2, Filter, List } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
@@ -109,6 +109,33 @@ const ALL_ALARMS: AlarmEntry[] = [
   { time:"2026-03-24 18:33:00", duration:20, lv:1, group:"cell",    nameZh:"欠压告警", nameEn:"Undervolt Alarm",      source:"BCU-06", triggerZh:"内阻超过基准值",    triggerEn:"Resistance exceeded",    ref:"3.5mΩ",  rref:"3.2mΩ",  unit:"mΩ",  statusZh:"已恢复", statusEn:"Recovered"    },
   { time:"2026-03-24 15:02:00", duration:30, lv:3, group:"cell",    nameZh:"过压保护", nameEn:"Overvolt Protection",  source:"BCU-04", triggerZh:"单体压差超限",      triggerEn:"Cell delta exceeded",    ref:"40mV",   rref:"35mV",   unit:"mV",  statusZh:"已恢复", statusEn:"Recovered"    },
 ]
+
+// ── 实时告警模拟池 ────────────────────────────────────────────────────────────
+const RT_POOL: Omit<AlarmEntry, "time" | "duration" | "statusZh" | "statusEn">[] = [
+  { lv:1, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",    source:"BCU-02", triggerZh:"心跳包短暂丢失",    triggerEn:"Heartbeat briefly lost",   ref:"—",     rref:"—",     unit:"—"  },
+  { lv:2, group:"soc",     nameZh:"SOC过低",  nameEn:"SOC Low",             source:"BCU-05", triggerZh:"SOC 低于警戒值",    triggerEn:"SOC below warning",        ref:"14%",   rref:"15%",   unit:"%"  },
+  { lv:2, group:"temp",    nameZh:"风扇故障", nameEn:"Fan Fault",           source:"BCU-03", triggerZh:"风扇转速偏低",      triggerEn:"Fan speed low",            ref:"—",     rref:"—",     unit:"—"  },
+  { lv:3, group:"temp",    nameZh:"温度异常", nameEn:"Temp Anomaly",        source:"BCU-01", triggerZh:"温度梯度超限",      triggerEn:"Temp gradient high",       ref:"11°C",  rref:"8°C",   unit:"°C" },
+  { lv:3, group:"cell",    nameZh:"欠压告警", nameEn:"Undervolt Alarm",     source:"BCU-07", triggerZh:"单体电压低于预警值",triggerEn:"Cell below warn level",    ref:"3.08V", rref:"3.15V", unit:"V"  },
+  { lv:4, group:"cell",    nameZh:"过压保护", nameEn:"Overvolt Protection", source:"BCU-03", triggerZh:"单体电压超上限",    triggerEn:"Cell above max volt",      ref:"3.78V", rref:"3.65V", unit:"V"  },
+  { lv:4, group:"current", nameZh:"过流报警", nameEn:"Overcurrent Alarm",   source:"BCU-04", triggerZh:"放电电流超额定",    triggerEn:"Discharge over rated",     ref:"310A",  rref:"300A",  unit:"A"  },
+  { lv:5, group:"other",   nameZh:"绝缘故障", nameEn:"Insulation Fault",    source:"BCU-02", triggerZh:"绝缘阻抗骤降",      triggerEn:"Insulation sudden drop",   ref:"45kΩ",  rref:"100kΩ", unit:"kΩ" },
+]
+
+function makeRTAlarm(offsetSec = 0): AlarmEntry {
+  const t   = new Date(Date.now() - offsetSec * 1000)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const time = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`
+  const tpl  = RT_POOL[Math.floor(Math.random() * RT_POOL.length)]
+  const fresh = offsetSec < 60
+  return {
+    ...tpl,
+    time,
+    duration: Math.floor(Math.random() * 40) + 5,
+    statusZh: fresh ? "未恢复" : (Math.random() > 0.5 ? "已确认" : "已恢复"),
+    statusEn: fresh ? "Active" : (Math.random() > 0.5 ? "Acknowledged" : "Recovered"),
+  }
+}
 
 const STATUS_COLOR: Record<string, string> = {
   "未恢复": "#ef4444", "已确认": "#f97316", "已恢复": "#00d4aa",
@@ -505,11 +532,14 @@ function AlarmRow({ alarm, zh }: { alarm: AlarmEntry; zh: boolean }) {
   const color    = LV_COLOR[alarm.lv]
   const action   = ACTION_MAP[alarm.lv]
 
+  const timePart = alarm.time.split(" ")[1]?.slice(0, 5) ?? ""
+
   return (
     <tr className={`border-b border-[#1a2654]/50 transition-colors last:border-0 ${
       alarm.lv >= 5 ? "bg-[#3a0e0e]/30" : "hover:bg-[#1a2654]/20"
     }`}>
-      <td className="py-2.5 pl-3 pr-2">
+      <td className="py-2 pl-3 pr-2 text-[11px] tabular-nums text-[#7ab0f0]">{timePart}</td>
+      <td className="py-2 pr-2">
         <div className="flex items-center gap-1.5">
           <span className="h-2 w-2 shrink-0 rounded-full"
             style={{ backgroundColor: color, boxShadow: alarm.lv >= 5 ? `0 0 0 2px ${color}44` : undefined }} />
@@ -518,24 +548,24 @@ function AlarmRow({ alarm, zh }: { alarm: AlarmEntry; zh: boolean }) {
           </span>
         </div>
       </td>
-      <td className="relative max-w-0 py-2.5 pr-2">
+      <td className="relative max-w-0 py-2 pr-2">
         <span className="block truncate text-xs text-[#dbe8ff]">
           {isActive && <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#ef4444] align-middle" />}
           {zh ? alarm.nameZh : alarm.nameEn}
         </span>
       </td>
-      <td className="py-2.5 pr-2 text-[11px] text-[#7b8ab8]">{GRP_LABEL[alarm.group] ?? alarm.group}</td>
-      <td className="py-2.5 pr-2"><SeverityBar lv={alarm.lv} /></td>
-      <td className="py-2.5 pr-2 text-[11px] text-[#7b8ab8]">
+      <td className="py-2 pr-2 text-[11px] text-[#7b8ab8]">{GRP_LABEL[alarm.group] ?? alarm.group}</td>
+      <td className="py-2 pr-2"><SeverityBar lv={alarm.lv} /></td>
+      <td className="py-2 pr-2 text-[11px] text-[#7b8ab8]">
         <span className="text-[#dbe8ff]">{alarm.ref}</span>{" / "}{alarm.rref}
       </td>
-      <td className="py-2.5 pr-2">
+      <td className="py-2 pr-2">
         <span className="text-[11px] font-medium"
           style={{ color: STATUS_COLOR[zh ? alarm.statusZh : alarm.statusEn] }}>
           {zh ? alarm.statusZh : alarm.statusEn}
         </span>
       </td>
-      <td className="py-2.5 pr-3 text-[11px] font-medium" style={{ color: action.color }}>
+      <td className="py-2 pr-3 text-[11px] font-medium" style={{ color: action.color }}>
         {action.text}
       </td>
     </tr>
@@ -553,47 +583,73 @@ export function AlarmLogPanel({
   const { language } = useLanguage()
   const zh = language === "zh"
 
-  const [viewMode,     setViewMode]     = useState<"gantt" | "table">("gantt")
-  const [levelFilter,  setLevelFilter]  = useState<LevelFilter>("all")
-  const [sourceFilter, setSourceFilter] = useState("all")
+  const REALTIME_LIMIT = 15
 
-  const filterDate   = mode === "history" ? (date ?? "2026-03-26") : "2026-03-26"
+  const [viewMode,    setViewMode]    = useState<"gantt" | "table">("gantt")
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>("all")
+
+  // ── 实时告警状态（动态更新） ────────────────────────────────────────────────
+  const [liveAlarms, setLiveAlarms] = useState<AlarmEntry[]>(() =>
+    Array.from({ length: 8 }, (_, i) => makeRTAlarm(i * 55 + 15))
+      .sort((a, b) => b.time.localeCompare(a.time))
+  )
+
+  useEffect(() => {
+    if (mode !== "realtime") return
+    const id = setInterval(() => {
+      setLiveAlarms(prev => {
+        // 30% 概率将首条"未恢复"告警变为"已确认"
+        if (Math.random() < 0.3) {
+          const idx = prev.findIndex(a => a.statusZh === "未恢复")
+          if (idx >= 0) {
+            const next = [...prev]
+            next[idx] = { ...next[idx], statusZh: "已确认", statusEn: "Acknowledged" }
+            return next
+          }
+        }
+        // 否则推入一条新告警，保持最多 15 条
+        return [makeRTAlarm(0), ...prev].slice(0, REALTIME_LIMIT)
+      })
+    }, 3500)
+    return () => clearInterval(id)
+  }, [mode])
+
+  // ── 历史数据（静态过滤） ────────────────────────────────────────────────────
+  const filterDate   = date ?? "2026-03-26"
   const dateFiltered = ALL_ALARMS
     .filter(a => a.time.startsWith(filterDate))
-    .map(a => mode === "history" && a.statusZh === "未恢复"
+    .map(a => a.statusZh === "未恢复"
       ? { ...a, statusZh: "已确认" as const, statusEn: "Acknowledged" as const }
       : a)
 
-  // 甘特事件与告警表格共用同一份 dateFiltered，确保数据完全一致
   const timelineEvents = deriveTimelineEvents(dateFiltered)
 
-  const sorted = [...dateFiltered].sort((a, b) => {
+  // ── 当前模式数据源 ──────────────────────────────────────────────────────────
+  const baseData = mode === "realtime" ? liveAlarms : dateFiltered
+
+  const sorted = [...baseData].sort((a, b) => {
     if (mode === "realtime") {
       if (a.statusZh === "未恢复" && b.statusZh !== "未恢复") return -1
       if (b.statusZh === "未恢复" && a.statusZh !== "未恢复") return 1
     }
-    return b.lv - a.lv || b.time.localeCompare(a.time)
+    return b.time.localeCompare(a.time)
   })
 
-  const REALTIME_LIMIT   = 15
-  const sortedForDisplay = mode === "realtime" ? sorted.slice(0, REALTIME_LIMIT) : sorted
-  const displayed        = sortedForDisplay.filter(a => {
-    const lvOk = levelFilter === "all"
-      || (levelFilter === "lv45" && a.lv >= 4)
-      || (levelFilter === "lv3"  && a.lv === 3)
-      || (levelFilter === "lv12" && a.lv <= 2)
-    return lvOk && (sourceFilter === "all" || a.source === sourceFilter)
-  })
+  const displayed = sorted.filter(a =>
+    levelFilter === "all"
+    || (levelFilter === "lv45" && a.lv >= 4)
+    || (levelFilter === "lv3"  && a.lv === 3)
+    || (levelFilter === "lv12" && a.lv <= 2)
+  )
 
   const cnt = {
-    total:  dateFiltered.length,   // 与甘特事件数一致
-    lv45:   dateFiltered.filter(a => a.lv >= 4).length,
-    lv3:    dateFiltered.filter(a => a.lv === 3).length,
-    lv12:   dateFiltered.filter(a => a.lv <= 2).length,
-    active: mode === "realtime" ? dateFiltered.filter(a => a.statusZh === "未恢复").length : 0,
+    total:  baseData.length,
+    lv45:   baseData.filter(a => a.lv >= 4).length,
+    lv3:    baseData.filter(a => a.lv === 3).length,
+    lv12:   baseData.filter(a => a.lv <= 2).length,
+    active: mode === "realtime" ? baseData.filter(a => a.statusZh === "未恢复").length : 0,
   }
 
-  const sources   = ["all", ...Array.from(new Set(dateFiltered.map(a => a.source)))]
   const showTable = mode === "realtime" || viewMode === "table"
 
   return (
@@ -680,16 +736,9 @@ export function AlarmLogPanel({
                 </button>
               ))}
             </div>
-            <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
-              style={{ colorScheme: "dark" }}
-              className="rounded-md border border-[#1a2654] bg-[#101840] px-2 py-0.5 text-[10px] text-[#7b8ab8] focus:border-[#00d4aa] focus:outline-none">
-              {sources.map(s => (
-                <option key={s} value={s}>{s === "all" ? (zh ? "全部来源" : "All sources") : s}</option>
-              ))}
-            </select>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-[#1a2654]/60
+          <div className={`rounded-lg border border-[#1a2654]/60
             [&::-webkit-scrollbar]:w-[5px]
             [&::-webkit-scrollbar]:h-[5px]
             [&::-webkit-scrollbar-track]:rounded-full
@@ -697,20 +746,26 @@ export function AlarmLogPanel({
             [&::-webkit-scrollbar-thumb]:rounded-full
             [&::-webkit-scrollbar-thumb]:bg-[#1e3a6e]
             [&::-webkit-scrollbar-thumb:hover]:bg-[#2d5499]
-            [&::-webkit-scrollbar-corner]:bg-[#060c1f]">
+            [&::-webkit-scrollbar-corner]:bg-[#060c1f]
+            ${mode === "history"
+              ? "min-h-0 flex-1 overflow-auto"
+              : "overflow-x-auto overflow-y-hidden"
+            }`}>
             <table className="w-full border-collapse text-left" style={{ tableLayout: "fixed" }}>
               <colgroup>
-                <col style={{ width: "108px" }} />
-                <col />
+                <col style={{ width: "58px" }} />
+                <col style={{ width: "96px" }} />
+                <col style={{ width: "120px" }} />
+                <col style={{ width: "50px" }} />
+                <col style={{ width: "66px" }} />
+                <col style={{ width: "100px" }} />
                 <col style={{ width: "56px" }} />
-                <col style={{ width: "72px" }} />
-                <col style={{ width: "110px" }} />
-                <col style={{ width: "60px" }} />
-                <col style={{ width: "70px" }} />
+                <col style={{ width: "64px" }} />
               </colgroup>
               <thead>
                 <tr className="sticky top-0 z-10 bg-[#101840]">
                   {[
+                    zh ? "时间"        : "Time",
                     zh ? "等级"        : "Level",
                     zh ? "告警名称"    : "Alarm",
                     zh ? "分类"        : "Type",
@@ -728,7 +783,7 @@ export function AlarmLogPanel({
               <tbody>
                 {displayed.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-10 text-center text-sm text-[#5f79ad]">
+                    <td colSpan={8} className="py-10 text-center text-sm text-[#5f79ad]">
                       {zh ? "该日期无告警记录" : "No alarm records"}
                     </td>
                   </tr>
