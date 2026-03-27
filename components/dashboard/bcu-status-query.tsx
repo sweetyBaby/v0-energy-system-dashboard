@@ -1,405 +1,442 @@
-"use client"
+﻿"use client"
 
-import { useState, useEffect } from "react"
-import { Calendar, Search } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
-  ScatterChart, Scatter, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend, ZAxis
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts"
 import { useLanguage } from "@/components/language-provider"
 
-// Generate mock cell voltage data for 50 cells
-const generateCellVoltages = () => {
-  return Array.from({ length: 50 }, (_, i) => ({
-    cell: i + 1,
-    voltage: 3.2 + Math.random() * 0.15,
-    name: `#${i + 1}`,
-  }))
+type RtPoint = {
+  time: string
+  voltage: number
+  current: number
+  soc: number
+  power: number
+  maxTemp: number
+  avgTemp: number
+  minTemp: number
+  maxCell: number
+  avgCell: number
+  minCell: number
+}
+type MergedHistPoint = {
+  time: string
+  voltage: number   // pack voltage
+  current: number
+  soc: number
+  power: number
+  maxTemp: number
+  avgTemp: number
+  minTemp: number
+  maxCell: number
+  avgCell: number
+  minCell: number
 }
 
-// Generate mock temperature data for 50 cells x 3 temps each
-const generateCellTemperatures = () => {
-  const data: { cell: number; temp: number; sensor: number; name: string }[] = []
-  for (let cell = 1; cell <= 50; cell++) {
-    for (let sensor = 1; sensor <= 3; sensor++) {
-      data.push({
-        cell,
-        temp: 25 + Math.random() * 10,
-        sensor,
-        name: `#${cell}-T${sensor}`,
-      })
-    }
+// 绯荤粺瑙勬牸锛?00 涓茶仈鐢佃姱锛岄瀹?1320V锛岄噺绋?0-1500V
+const CELLS_IN_SERIES = 400
+const RT_WINDOW_SECONDS = 60
+const TS  = { backgroundColor: "#0d1233", border: "1px solid #1a2654", borderRadius: "8px", padding: "8px 12px" }
+const TWS = { zIndex: 100 }
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+const round = (value: number, digits = 1) => +value.toFixed(digits)
+const formatClock = (d: Date) =>
+  `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`
+const formatDateKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+const formatFiveMin = (slot: number) => {
+  const totalMin = slot * 5
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+}
+
+const hashSeed = (value?: string) => {
+  const input = value || "default"
+  let hash = 2166136261
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
   }
-  return data
+  return hash >>> 0
+}
+const seededSigned = (seed: number, index: number) => {
+  const x = Math.sin((seed + index * 101.17) * 12.9898) * 43758.5453
+  return (x - Math.floor(x)) * 2 - 1
 }
 
-// Generate time series data for voltage, current, SOC
-const generateTimeSeriesData = () => {
-  return Array.from({ length: 24 }, (_, i) => ({
-    time: `${i}:00`,
-    voltage: 750 + Math.random() * 50,
-    current: -50 + Math.random() * 200,
-    soc: 30 + (i / 24) * 50 + Math.random() * 5,
-  }))
-}
+// 鈹€鈹€ 瀹炴椂鏁版嵁鐢熸垚 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+const getRealtimeTargets = (at: Date) => {
+  const daySeed = hashSeed(formatDateKey(at))
+  const seconds = at.getHours() * 3600 + at.getMinutes() * 60 + at.getSeconds()
+  const hour = seconds / 3600
+  const secondInMinute = seconds % 60
+  const load = getDailyLoadFactor(hour)
+  const baseSoc = getDailySoc(hour)
+  const waveSlow = Math.sin(seconds / 48)
+  const waveFast = Math.sin(seconds / 13 + 1.2)
+  const waveMicro = Math.sin(seconds / 5.5 + 0.3)
+  const wavePulse = Math.sin(seconds / 2.8 + 1.1)
+  const seeded = seededSigned(daySeed, Math.floor(seconds / 15))
+  const rampUp = secondInMinute < 18 ? secondInMinute / 18 : secondInMinute < 34 ? (34 - secondInMinute) / 16 : 0
+  const rampDown = secondInMinute > 36 ? Math.max(0, 1 - (secondInMinute - 36) / 18) : 0
+  const microLoad = rampUp * 7.5 - rampDown * 6.2 + waveMicro * 3.2 + wavePulse * 1.4 + seeded * 0.9
+  const ripple = waveSlow * 0.55 + waveFast * 0.18 + microLoad * 0.22
 
-// Get yesterday's date in YYYY-MM-DD format
-const getYesterdayDate = () => {
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  return yesterday.toISOString().split('T')[0]
-}
-
-// Static initial data for SSR
-const getInitialVoltageData = () => Array.from({ length: 50 }, (_, i) => ({ cell: i + 1, voltage: 3.25, name: `#${i + 1}` }))
-const getInitialTempData = () => {
-  const data: { cell: number; temp: number; sensor: number; name: string }[] = []
-  for (let cell = 1; cell <= 50; cell++) {
-    for (let sensor = 1; sensor <= 3; sensor++) {
-      data.push({ cell, temp: 28, sensor, name: `#${cell}-T${sensor}` })
-    }
-  }
-  return data
-}
-const getInitialTimeSeriesData = () => Array.from({ length: 24 }, (_, i) => ({ time: `${i}:00`, voltage: 780, current: 50, soc: 50 }))
-
-export function BCUStatusQuery() {
-  const [queryDate, setQueryDate] = useState("")
-  const [hasQueried, setHasQueried] = useState(true)
-  const [activeTab, setActiveTab] = useState<"overview" | "voltage" | "temperature">("temperature")
-  const [mounted, setMounted] = useState(false)
-  const { t, language } = useLanguage()
-
-  const [voltageData, setVoltageData] = useState(getInitialVoltageData)
-  const [temperatureData, setTemperatureData] = useState(getInitialTempData)
-  const [timeSeriesData, setTimeSeriesData] = useState(getInitialTimeSeriesData)
-
-  // Initialize on client side - set default to yesterday
-  useEffect(() => {
-    setQueryDate(getYesterdayDate())
-    setVoltageData(generateCellVoltages())
-    setTemperatureData(generateCellTemperatures())
-    setTimeSeriesData(generateTimeSeriesData())
-    setMounted(true)
-  }, [])
-
-  const handleQuery = () => {
-    setHasQueried(true)
+  let current: number
+  if (hour < 5.5) {
+    current = -3 + Math.sin(hour * 1.4) * 2 + ripple * 1.8
+  } else if (hour < 8.5) {
+    current = 35 + ((hour - 5.5) / 3) * 40 + Math.sin(hour * 2.1) * 4 + ripple * 3.6
+  } else if (hour < 18.5) {
+    current = -(55 + load * 60 + Math.sin(((hour - 8.5) / 10) * Math.PI * 2) * 8 + ripple * 4.4)
+  } else if (hour < 21.5) {
+    current = -(20 + ((21.5 - hour) / 3) * 22 + ripple * 2.8)
+  } else {
+    current = -5 + Math.sin(hour * 1.2) * 2 + ripple * 1.6
   }
 
-  // Calculate stats
-  const avgVoltage = voltageData.reduce((sum, d) => sum + d.voltage, 0) / voltageData.length
-  const maxVoltage = Math.max(...voltageData.map(d => d.voltage))
-  const minVoltage = Math.min(...voltageData.map(d => d.voltage))
+  current = clamp(current, -148, 148)
 
-  const avgTemp = temperatureData.reduce((sum, d) => sum + d.temp, 0) / temperatureData.length
-  const maxTemp = Math.max(...temperatureData.map(d => d.temp))
-  const minTemp = Math.min(...temperatureData.map(d => d.temp))
+  const soc = clamp(baseSoc + waveSlow * 0.25 + waveMicro * 0.08 + seeded * 0.08, 0, 100)
+  const ambient = 24.5 + Math.sin(((hour - 6) / 24) * Math.PI * 2) * 3 + seeded * 0.12
+  const avgTemp = ambient + 2.2 + load * 5.2 + Math.sin((hour / 24) * Math.PI * 3) * 0.3 + waveFast * 0.12 + Math.abs(microLoad) * 0.06
+  const tempSpread = 1.8 + load * 2 + Math.abs(waveSlow) * 0.35 + Math.abs(wavePulse) * 0.15
+  const baseCell = 3.175 + soc * 0.0023
+  const chargeBoost = hour >= 6 && hour < 8.5 ? 0.008 : 0
+  const dischSag = hour >= 8.5 && hour < 18.5 ? load * 0.012 : load * 0.004
+  const avgCell = baseCell + chargeBoost - dischSag + seededSigned(daySeed, Math.floor(seconds / 30) + 160) * 0.001 + waveFast * 0.0003 - current * 0.000015
+  const cellSpread = 0.012 + load * 0.008 + Math.abs(waveFast) * 0.001 + Math.abs(wavePulse) * 0.0006
+  const voltage = avgCell * CELLS_IN_SERIES + (current >= 0 ? current * 0.12 : current * 0.18)
+
+  return {
+    current,
+    voltage,
+    soc,
+    avgTemp,
+    tempSpread,
+    avgCell,
+    cellSpread,
+  }
+}
+
+const nextRtPoint = (prev?: RtPoint, at = new Date()): RtPoint => {
+  const target = getRealtimeTargets(at)
+  // 降低平滑系数，让实时曲线在60s窗口内有明显波动
+  const current = prev ? clamp(prev.current * 0.45 + target.current * 0.55, -148, 148) : round(target.current, 1)
+  const soc = prev ? clamp(prev.soc * 0.97 + target.soc * 0.03, 0, 100) : target.soc
+  const avgCell = prev ? clamp(prev.avgCell * 0.5 + target.avgCell * 0.5, 2.9, 3.7) : clamp(target.avgCell, 2.9, 3.7)
+  const voltage = prev ? clamp(prev.voltage * 0.48 + target.voltage * 0.52, 1100, 1450) : round(target.voltage, 1)
+  const avgTemp = prev ? clamp(prev.avgTemp * 0.72 + target.avgTemp * 0.28, 24, 40) : round(target.avgTemp, 1)
+  const tempSpread = prev
+    ? clamp((prev.maxTemp - prev.avgTemp) * 0.68 + target.tempSpread * 0.32, 1.6, 4.5)
+    : target.tempSpread
+  const cellSpread = prev
+    ? clamp((prev.maxCell - prev.avgCell) * 2 * 0.55 + target.cellSpread * 0.45, 0.01, 0.03)
+    : target.cellSpread
+  return {
+    time: formatClock(at),
+    voltage: round(voltage, 1),
+    current: round(current, 1),
+    soc: round(soc, 1),
+    power: round(voltage * current / 1000, 1),
+    maxTemp: round(avgTemp + tempSpread, 1),
+    avgTemp: round(avgTemp, 1),
+    minTemp: round(avgTemp - (tempSpread - 0.7), 1),
+    maxCell: round(avgCell + cellSpread / 2, 3),
+    avgCell: round(avgCell, 3),
+    minCell: round(avgCell - cellSpread / 2, 3),
+  }
+}
+
+const initRtOverview = (): RtPoint[] => {
+  const pts: RtPoint[] = []
+  for (let i = RT_WINDOW_SECONDS - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 1000)
+    pts.push(nextRtPoint(pts[pts.length - 1], d))
+  }
+  return pts
+}
+
+// 鈹€鈹€ 鍘嗗彶鏁版嵁鐢熸垚锛?鍒嗛挓闂撮殧锛?88鐐?澶╋級 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+const getDailyLoadFactor = (hour: number) => {
+  if (hour < 5.5)  return 0.12 + hour * 0.018
+  if (hour < 8.5)  return 0.21 + ((hour - 5.5) / 3) * 0.42
+  if (hour < 17.5) return 0.65 + Math.sin(((hour - 8.5) / 9) * Math.PI) * 0.2
+  if (hour < 21.5) return 0.52 - ((hour - 17.5) / 4) * 0.24
+  return 0.2 - ((hour - 21.5) / 2.5) * 0.06
+}
+const getDailySoc = (hour: number) => {
+  if (hour < 6)    return 42 + hour * 0.5
+  if (hour < 8.5)  return 45 + ((hour - 6) / 2.5) * 25
+  if (hour < 18.5) return 70 - ((hour - 8.5) / 10) * 26
+  return 44 - ((hour - 18.5) / 5.5) * 3
+}
+
+const createHistorySeries = (date?: string): MergedHistPoint[] => {
+  const seed = hashSeed(date)
+  const merged: MergedHistPoint[] = []
+
+  for (let slot = 0; slot < 288; slot++) {
+    const hour = slot / 12
+    const load  = getDailyLoadFactor(hour)
+    const soc   = getDailySoc(hour)
+    const ns    = seededSigned(seed, slot)
+
+    // 娓╁害
+    const ambient  = 24.5 + Math.sin(((hour - 6) / 24) * Math.PI * 2) * 3 + ns * 0.15
+    const avgTemp  = ambient + 2.2 + load * 5.2 + Math.sin((hour / 24) * Math.PI * 3) * 0.3
+    const spread   = 1.8 + load * 2 + Math.abs(seededSigned(seed, slot + 80)) * 0.4
+
+    // 鍗曚綋鐢靛帇
+    const baseCell    = 3.175 + soc * 0.0023
+    const chargeBoost = (hour >= 6 && hour < 8.5) ? 0.008 : 0
+    const dischSag    = (hour >= 8.5 && hour < 18.5) ? load * 0.012 : load * 0.004
+    const avgCell     = baseCell + chargeBoost - dischSag + seededSigned(seed, slot + 160) * 0.001
+    const cellSpread  = 0.012 + load * 0.008
+
+    // 电流，正值为充电，负值为放电
+    let current: number
+    if (hour < 5.5)       current = -3  + Math.sin(hour * 1.4) * 2 + ns * 1.5
+    else if (hour < 8.5)  current =  35 + ((hour - 5.5) / 3) * 40 + Math.sin(hour * 2.1) * 4 + seededSigned(seed, slot + 320) * 3
+    else if (hour < 18.5) current = -(55 + load * 60 + Math.sin(((hour - 8.5) / 10) * Math.PI * 2) * 8 + seededSigned(seed, slot + 320) * 4)
+    else if (hour < 21.5) current = -(20 + ((21.5 - hour) / 3) * 22 + seededSigned(seed, slot + 320) * 2.5)
+    else                  current = -5  + Math.sin(hour * 1.2) * 2 + ns * 1.5
+
+    current = clamp(current, -148, 148)
+    const packV = avgCell * CELLS_IN_SERIES + (current >= 0 ? current * 0.12 : current * 0.18)
+
+    merged.push({
+      time:    formatFiveMin(slot),
+      voltage: round(packV, 1),
+      current: round(current, 1),
+      soc:     round(clamp(soc + ns * 0.15, 0, 100), 1),
+      power:   round(packV * current / 1000, 1),
+      maxTemp: round(avgTemp + spread, 1),
+      avgTemp: round(avgTemp, 1),
+      minTemp: round(avgTemp - (spread - 0.8), 1),
+      maxCell: round(avgCell + cellSpread / 2, 3),
+      avgCell: round(avgCell, 3),
+      minCell: round(avgCell - cellSpread / 2, 3),
+    })
+  }
+
+  return merged
+}
+
+// 鈹€鈹€ 鍘嗗彶鍏变韩鏃堕棿杞村爢鍙犲浘锛?琛岋級 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+const HIST_X_TICK = (props: { x: number; y: number; payload: { value: string } }) => {
+  const mn = parseInt((props.payload.value).split(":")[1] ?? "1")
+  if (mn !== 0) return <g />
+  return (
+    <g transform={`translate(${props.x},${props.y})`}>
+      <text x={0} y={0} dy={4} textAnchor="end"
+        fill="#7b8ab8" fontSize={9} transform="rotate(-45)">
+        {props.payload.value}
+      </text>
+    </g>
+  )
+}
+
+function TrendStackedChart({ data, zh, history }: { data: Array<RtPoint | MergedHistPoint>; zh: boolean; history: boolean }) {
+  const syncId = history ? "hist" : "rt"
+  const sections = [
+    {
+      kind: "single" as const,
+      dataKey: "current" as const,
+      label: zh ? "电流(A)" : "Current(A)",
+      tooltipLabel: zh ? "电流" : "Current",
+      color: "#f472b6",
+      domain: [-100, 100] as [number, number],
+      unit: "A",
+      tickFormatter: (v: number) => `${v}`,
+    },
+    {
+      kind: "single" as const,
+      dataKey: "power" as const,
+      label: zh ? "功率(kW)" : "Power(kW)",
+      tooltipLabel: zh ? "功率" : "Power",
+      color: "#4ade80",
+      domain: [-150, 150] as [number, number],
+      unit: "kW",
+      tickFormatter: (v: number) => `${v}`,
+    },
+    {
+      kind: "single" as const,
+      dataKey: "soc" as const,
+      label: "SOC(%)",
+      tooltipLabel: "SOC",
+      color: "#22d3ee",
+      domain: [0, 100] as [number, number],
+      unit: "%",
+      tickFormatter: (v: number) => `${v}`,
+    },
+    {
+      kind: "single" as const,
+      dataKey: "voltage" as const,
+      label: zh ? "Pack电压(V)" : "Pack(V)",
+      tooltipLabel: zh ? "Pack电压" : "Pack V",
+      color: "#fb923c",
+      domain: [0, 1500] as [number, number],
+      unit: "V",
+      tickFormatter: (v: number) => `${Math.round(v)}`,
+    },
+    {
+      kind: "triple" as const,
+      label: zh ? "单体温度(°C)" : "Cell Temp(°C)",
+      color: "#fbbf24",
+      domain: [20, 42] as [number, number],
+      unit: "°C",
+      tickFormatter: (v: number) => `${v}°`,
+      tooltipFormatter: (v: number) => `${v.toFixed(1)} °C`,
+      lines: [
+        { key: "maxTemp" as const, name: zh ? "最高温" : "Max", color: "#f87171" },
+        { key: "avgTemp" as const, name: zh ? "平均温" : "Avg", color: "#fbbf24" },
+        { key: "minTemp" as const, name: zh ? "最低温" : "Min", color: "#7dd3fc" },
+      ],
+    },
+    {
+      kind: "triple" as const,
+      label: zh ? "单体电压(V)" : "Cell Volt(V)",
+      color: "#22d3ee",
+      domain: [3.28, 3.38] as [number, number],
+      unit: "V",
+      tickFormatter: (v: number) => (v as number).toFixed(2),
+      tooltipFormatter: (v: number) => `${(v as number).toFixed(3)} V`,
+      lines: [
+        { key: "maxCell" as const, name: zh ? "最高单体" : "Max", color: "#f87171" },
+        { key: "avgCell" as const, name: zh ? "平均单体" : "Avg", color: "#22d3ee" },
+        { key: "minCell" as const, name: zh ? "最低单体" : "Min", color: "#7dd3fc" },
+      ],
+    },
+  ]
 
   return (
-    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-        <h3 className="text-base font-semibold text-[#00d4aa]">{t("bcuStatusQuery")}</h3>
-      </div>
+    <div className="flex h-full min-h-0 flex-col">
+      {sections.map((section, idx) => {
+        const isLast = idx === sections.length - 1
+        const chartTop = section.kind === "triple" ? 24 : 8
+        return (
+          <div key={section.label} className={`relative min-h-0 flex-1 ${!isLast ? "border-b border-[#1a2654]/40" : ""}`}>
+            {/* 三线图例：悬浮在右上角，不占 chart 高度 */}
+            {section.kind === "triple" && (
+              <div className="absolute right-2 top-1 z-10 flex items-center gap-3">
+                {"lines" in section && section.lines.map(line => (
+                  <div key={line.key} className="flex items-center gap-1">
+                    <svg width="18" height="10" style={{ display: "block" }}>
+                      <line x1="0" y1="5" x2="18" y2="5" stroke={line.color} strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                    <span style={{ color: "#9ca3af", fontSize: "11px", lineHeight: 1 }}>{line.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data as object[]} syncId={syncId} syncMethod="value" margin={{ top: chartTop, right: 10, left: 0, bottom: isLast ? 2 : 0 }}>
+                <CartesianGrid stroke="#1a2654" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="time"
+                  tick={!isLast ? false : history ? HIST_X_TICK : { fill: "#7b8ab8", fontSize: 9 }}
+                  axisLine={isLast ? { stroke: "#1a2654", strokeOpacity: 0.4 } : false}
+                  tickLine={false}
+                  height={isLast ? (history ? 38 : 18) : 0}
+                  interval={history ? 0 : 9}
+                  minTickGap={history ? 1 : undefined}
+                />
+                <YAxis
+                  domain={section.domain}
+                  width={44}
+                  tick={{ fill: section.color, fontSize: 8 }}
+                  axisLine={{ stroke: section.color, strokeOpacity: 0.25 }}
+                  tickLine={false}
+                  tickCount={3}
+                  tickMargin={3}
+                  tickFormatter={section.tickFormatter}
+                />
+                <Tooltip
+                  wrapperStyle={TWS}
+                  contentStyle={TS}
+                  cursor={{ stroke: "#93c5fd", strokeWidth: 1, strokeOpacity: 0.65 }}
+                  position={{ y: 4 }}
+                  labelStyle={{ color: "#7b8ab8", fontSize: 13 }}
+                  itemStyle={{ fontSize: 13, padding: "2px 0" }}
+                  formatter={section.kind === "single"
+                    ? (v) => [`${section.tickFormatter(v as number)} ${section.unit}`, section.tooltipLabel]
+                    : (v, n) => [section.tooltipFormatter(v as number), n as string]
+                  }
+                />
+                <text
+                  x={section.kind === "single" ? "100%" : 46}
+                  y={15}
+                  textAnchor={section.kind === "single" ? "end" : "start"}
+                  dx={section.kind === "single" ? -10 : 0}
+                  fill={section.color} fontSize={11} fontWeight={600}>
+                  {section.label}
+                </text>
+                {section.kind === "single" ? (
+                  <Line type="monotone" dataKey={section.dataKey} stroke={section.color} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                ) : (
+                  section.lines.map(line => (
+                    <Line key={line.key} type="monotone" dataKey={line.key} name={line.name} stroke={line.color} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                  ))
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
-      {/* Query Controls - Single date only, default to yesterday */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <span className="text-xs text-[#7b8ab8]">{language === "zh" ? "查询日期:" : "Query Date:"}</span>
-        <div className="relative">
-          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
-          <input
-            type="date"
-            value={queryDate}
-            onChange={(e) => setQueryDate(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-sm focus:outline-none focus:border-[#00d4aa]"
-          />
+export function BCUStatusQuery({
+  mode = "realtime",
+  date,
+}: {
+  mode?: "realtime" | "history"
+  date?: string
+}) {
+  const { language } = useLanguage()
+  const zh = language === "zh"
+
+  const [rtOverview, setRtOverview] = useState<RtPoint[]>(initRtOverview)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (mode !== "realtime") return
+    timerRef.current = setInterval(() => {
+      setRtOverview(prev => [...prev.slice(-(RT_WINDOW_SECONDS - 1)), nextRtPoint(prev[prev.length - 1])])
+    }, 1000)
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [mode])
+
+  const histData = useMemo(() => createHistorySeries(date), [date])
+
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-3">
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
+          <span className="text-sm font-semibold text-[#00d4aa]">
+            {zh ? "BCU 运行状态" : "BCU Status"}
+          </span>
+         
         </div>
-        <button
-          onClick={handleQuery}
-          className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors"
-        >
-          <Search className="w-4 h-4" />
-          {t("search")}
-        </button>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1 mb-4">
-        <button
-          onClick={() => setActiveTab("temperature")}
-          className={`px-3 py-1.5 text-sm rounded-md transition-all ${activeTab === "temperature"
-            ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
-            : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-            }`}
-        >
-          {language === "zh" ? "电芯温度" : "Cell Temp"}
-        </button>
-        <button
-          onClick={() => setActiveTab("voltage")}
-          className={`px-3 py-1.5 text-sm rounded-md transition-all ${activeTab === "voltage"
-            ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
-            : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-            }`}
-        >
-          {language === "zh" ? "电芯电压" : "Cell Voltage"}
-        </button>
-        <button
-          onClick={() => setActiveTab("overview")}
-          className={`px-3 py-1.5 text-sm rounded-md transition-all ${activeTab === "overview"
-            ? "bg-[#00d4aa] text-[#0a0e27] font-medium"
-            : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-            }`}
-        >
-          {language === "zh" ? "组电压/电流/SOC" : "Voltage/Current/SOC"}
-        </button>
-
-
+      <div className="min-h-0 flex-1">
+        {mode === "realtime" && <TrendStackedChart data={rtOverview} zh={zh} history={false} />}
+        {mode === "history" && <TrendStackedChart data={histData} zh={zh} history />}
       </div>
-
-      {hasQueried && (
-        <div className="space-y-4">
-          {activeTab === "overview" && (
-            <>
-              {/* Overview Trend Chart - Voltage, Current, SOC */}
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={timeSeriesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-                    <XAxis
-                      dataKey="time"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                    />
-                    <YAxis
-                      yAxisId="voltage"
-                      orientation="left"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: "#3b82f6", fontSize: 10 }}
-                      domain={[700, 850]}
-                      label={{ value: 'V', angle: -90, position: 'insideLeft', fill: "#3b82f6", fontSize: 10 }}
-                    />
-                    <YAxis
-                      yAxisId="current"
-                      orientation="right"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: "#f97316", fontSize: 10 }}
-                      domain={[-100, 200]}
-                      label={{ value: 'A', angle: 90, position: 'insideRight', fill: "#f97316", fontSize: 10 }}
-                    />
-                    <YAxis
-                      yAxisId="soc"
-                      orientation="right"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: "#00d4aa", fontSize: 10 }}
-                      domain={[0, 100]}
-                      hide
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#0d1233",
-                        border: "1px solid #1a2654",
-                        borderRadius: "8px",
-                      }}
-                      labelStyle={{ color: "#7b8ab8" }}
-                    />
-                    <Legend
-                      wrapperStyle={{ paddingTop: "10px" }}
-                      formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
-                    />
-                    <Line
-                      yAxisId="voltage"
-                      type="monotone"
-                      dataKey="voltage"
-                      name={language === "zh" ? "组电压(V)" : "Voltage (V)"}
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                    <Line
-                      yAxisId="current"
-                      type="monotone"
-                      dataKey="current"
-                      name={language === "zh" ? "电流(A)" : "Current (A)"}
-                      stroke="#f97316"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                    <Line
-                      yAxisId="soc"
-                      type="monotone"
-                      dataKey="soc"
-                      name="SOC(%)"
-                      stroke="#00d4aa"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </>
-          )}
-
-          {activeTab === "voltage" && (
-            <>
-              {/* Voltage Stats */}
-              <div className="grid grid-cols-4 gap-1 mb-2">
-                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
-                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "平均电压" : "Avg Voltage"}</div>
-                  <div className="text-sm font-bold text-[#22d3ee] font-mono">{avgVoltage.toFixed(3)}V</div>
-                </div>
-                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
-                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最大电压" : "Max Voltage"}</div>
-                  <div className="text-sm font-bold text-[#f97316] font-mono">{maxVoltage.toFixed(3)}V</div>
-                </div>
-                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
-                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最小电压" : "Min Voltage"}</div>
-                  <div className="text-sm font-bold text-[#3b82f6] font-mono">{minVoltage.toFixed(3)}V</div>
-                </div>
-                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
-                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "压差" : "Diff"}</div>
-                  <div className="text-sm font-bold text-[#00d4aa] font-mono">{((maxVoltage - minVoltage) * 1000).toFixed(1)}mV</div>
-                </div>
-              </div>
-
-              {/* Cell Voltage Scatter Chart */}
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-                    <XAxis
-                      type="number"
-                      dataKey="cell"
-                      name="电芯"
-                      domain={[0, 51]}
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                      label={{ value: t('cellNumber'), position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
-                    />
-                    <YAxis
-                      type="number"
-                      dataKey="voltage"
-                      name="电压"
-                      domain={[3.15, 3.4]}
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                      label={{ value: 'V', angle: -90, position: 'insideLeft', fill: "#7b8ab8", fontSize: 10 }}
-                    />
-                    <ZAxis range={[50, 50]} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#0d1233",
-                        border: "1px solid #1a2654",
-                        borderRadius: "8px",
-                      }}
-                      formatter={(value: number, name: string) => {
-                        if (name === "电压") return [`${value.toFixed(3)}V`, name]
-                        return [value, name]
-                      }}
-                    />
-                    <Scatter
-                      name="电芯电压"
-                      data={voltageData}
-                      fill="#22d3ee"
-                    />
-                  </ScatterChart>
-                </ResponsiveContainer>
-              </div>
-            </>
-          )}
-
-          {activeTab === "temperature" && (
-            <>
-              {/* Temperature Stats */}
-              <div className="grid grid-cols-4 gap-1 mb-2">
-                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
-                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "平均温度" : "Avg Temp"}</div>
-                  <div className="text-sm font-bold text-[#22d3ee] font-mono">{avgTemp.toFixed(1)}°C</div>
-                </div>
-                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
-                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最高温度" : "Max Temp"}</div>
-                  <div className="text-sm font-bold text-[#f97316] font-mono">{maxTemp.toFixed(1)}°C</div>
-                </div>
-                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
-                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最低温度" : "Min Temp"}</div>
-                  <div className="text-sm font-bold text-[#3b82f6] font-mono">{minTemp.toFixed(1)}°C</div>
-                </div>
-                <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
-                  <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "温差" : "Diff"}</div>
-                  <div className="text-sm font-bold text-[#00d4aa] font-mono">{(maxTemp - minTemp).toFixed(1)}°C</div>
-                </div>
-              </div>
-
-              {/* Cell Temperature Scatter Chart */}
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-                    <XAxis
-                      type="number"
-                      dataKey="cell"
-                      name="电芯"
-                      domain={[0, 51]}
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                      label={{ value: t('cellNumber'), position: 'bottom', fill: "#7b8ab8", fontSize: 10 }}
-                    />
-                    <YAxis
-                      type="number"
-                      dataKey="temp"
-                      name="温度"
-                      domain={[20, 40]}
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                      label={{ value: '°C', angle: -90, position: 'insideLeft', fill: "#7b8ab8", fontSize: 10 }}
-                    />
-                    <ZAxis range={[30, 30]} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#0d1233",
-                        border: "1px solid #1a2654",
-                        borderRadius: "8px",
-                      }}
-                      formatter={(value: number, name: string) => {
-                        if (name === "温度") return [`${value.toFixed(1)}°C`, name]
-                        return [value, name]
-                      }}
-                    />
-                    <Legend
-                      wrapperStyle={{ paddingTop: "25px" }}
-                      formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>}
-                    />
-                    <Scatter
-                      name="T1"
-                      data={temperatureData.filter(d => d.sensor === 1)}
-                      fill="#3b82f6"
-                    />
-                    <Scatter
-                      name="T2"
-                      data={temperatureData.filter(d => d.sensor === 2)}
-                      fill="#f97316"
-                    />
-                    <Scatter
-                      name="T3"
-                      data={temperatureData.filter(d => d.sensor === 3)}
-                      fill="#00d4aa"
-                    />
-                  </ScatterChart>
-                </ResponsiveContainer>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
     </div>
   )
 }

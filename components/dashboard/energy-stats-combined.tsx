@@ -108,7 +108,7 @@ export function EnergyStatsCombined() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">充放电电量统计</h3>
+          <h3 className="text-base font-semibold text-[#00d4aa]">充放电量统计</h3>
         </div>
       </div>
 

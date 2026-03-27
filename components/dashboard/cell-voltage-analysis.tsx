@@ -1,216 +1,124 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts"
-import { Calendar, Search, Table, LineChartIcon } from "lucide-react"
+import { Table, LineChart as LineChartIcon } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
-// Generate cell voltage data
-const generateCellVoltageData = (days: number, language: string) => {
-  const data = []
-  for (let i = 1; i <= days; i++) {
+function buildData(days: number) {
+  const today = new Date()
+  return Array.from({ length: days }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - (days - 1 - i))
     const base = 3.2 + Math.random() * 0.4
-    data.push({
-      day: language === "zh" ? `${i}日` : `Day ${i}`,
-      maxVoltage: (base + 0.15 + Math.random() * 0.1).toFixed(3),
-      minVoltage: (base - 0.05 - Math.random() * 0.1).toFixed(3),
-      avgVoltage: base.toFixed(3),
-    })
-  }
-  return data
+    return {
+      day: `${d.getMonth()+1}/${d.getDate()}`,
+      maxVoltage: +(base + 0.15 + Math.random() * 0.1).toFixed(3),
+      minVoltage: +(base - 0.05 - Math.random() * 0.1).toFixed(3),
+      avgVoltage: +base.toFixed(3),
+    }
+  })
 }
 
-// Static initial data for SSR
-const getInitialData = (language: string) => {
-  return Array.from({ length: 15 }, (_, i) => ({
-    day: language === "zh" ? `${i + 1}日` : `Day ${i + 1}`,
-    maxVoltage: "3.450",
-    minVoltage: "3.200",
-    avgVoltage: "3.320",
-  }))
-}
+const TS = { backgroundColor:"#0d1233", border:"1px solid #1a2654", borderRadius:"8px", fontSize:11 }
 
-// Get yesterday's datetime range
-const getYesterdayRange = () => {
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  
-  const startDate = new Date(yesterday)
-  startDate.setHours(0, 0, 0, 0)
-  
-  const endDate = new Date(yesterday)
-  endDate.setHours(23, 59, 59, 0)
-  
-  const formatDateTime = (date: Date) => {
-    const year = date.getFullYear()
-    const month = (date.getMonth() + 1).toString().padStart(2, "0")
-    const day = date.getDate().toString().padStart(2, "0")
-    const hours = date.getHours().toString().padStart(2, "0")
-    const minutes = date.getMinutes().toString().padStart(2, "0")
-    const seconds = date.getSeconds().toString().padStart(2, "0")
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
-  }
-  
-  return { start: formatDateTime(startDate), end: formatDateTime(endDate) }
-}
-
-export function CellVoltageAnalysis() {
-  const [startDateTime, setStartDateTime] = useState("")
-  const [endDateTime, setEndDateTime] = useState("")
-  const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
-  const [data, setData] = useState(() => getInitialData("zh"))
-  const [mounted, setMounted] = useState(false)
+export function CellVoltageAnalysis({ range }: { range: number }) {
+  const [viewMode, setViewMode] = useState<"chart"|"table">("chart")
   const { t, language } = useLanguage()
+  const zh = language === "zh"
 
-  useEffect(() => {
-    setData(generateCellVoltageData(15, language))
-    setMounted(true)
-    const { start, end } = getYesterdayRange()
-    setStartDateTime(start)
-    setEndDateTime(end)
-  }, [language])
+  const data = useMemo(() => buildData(range), [range])
 
-  // Calculate statistics - use safe defaults if data is empty
-  const maxV = data.length > 0 ? Math.max(...data.map(d => parseFloat(d.maxVoltage))) : 3.45
-  const minV = data.length > 0 ? Math.min(...data.map(d => parseFloat(d.minVoltage))) : 3.2
-  const avgV = data.length > 0 ? (data.reduce((sum, d) => sum + parseFloat(d.avgVoltage), 0) / data.length).toFixed(3) : "3.32"
+  const stats = useMemo(() => {
+    const maxV = Math.max(...data.map(d => d.maxVoltage))
+    const minV = Math.min(...data.map(d => d.minVoltage))
+    const avgV = (data.reduce((s,d) => s + d.avgVoltage, 0) / data.length).toFixed(3)
+    return { maxV, minV, avgV, range: (maxV - minV).toFixed(3) }
+  }, [data])
 
   return (
-    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4 flex flex-col w-full h-[540px]">
-      <div className="flex items-center justify-between mb-4">
+    <div className="flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
+      {/* Header */}
+      <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">{t("cellVoltageAnalysis")}</h3>
+          <div className="h-4 w-1 rounded-full bg-[#7dd3fc]" />
+          <h3 className="text-sm font-semibold text-[#7dd3fc]">{t("cellVoltageAnalysis")}</h3>
         </div>
-        <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1">
-          <button
-            onClick={() => setViewMode("chart")}
-            className={`p-1.5 rounded-md transition-all ${
-              viewMode === "chart" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
-            }`}
-          >
-            <LineChartIcon className="w-4 h-4" />
+        <div className="flex gap-1 rounded-lg bg-[#1a2654]/50 p-1">
+          <button onClick={() => setViewMode("chart")}
+            className={`rounded-md p-1.5 transition-all ${viewMode==="chart"?"bg-[#7dd3fc] text-[#0a0e27]":"text-[#7b8ab8]"}`}>
+            <LineChartIcon className="h-3.5 w-3.5" />
           </button>
-          <button
-            onClick={() => setViewMode("table")}
-            className={`p-1.5 rounded-md transition-all ${
-              viewMode === "table" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
-            }`}
-          >
-            <Table className="w-4 h-4" />
+          <button onClick={() => setViewMode("table")}
+            className={`rounded-md p-1.5 transition-all ${viewMode==="table"?"bg-[#7dd3fc] text-[#0a0e27]":"text-[#7b8ab8]"}`}>
+            <Table className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Date Range Query with datetime */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="relative">
-          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
-          <input
-            type="datetime-local"
-            step="1"
-            value={startDateTime}
-            onChange={(e) => setStartDateTime(e.target.value)}
-            className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
-          />
-        </div>
-        <span className="text-[#7b8ab8] text-sm">{t("to")}</span>
-        <div className="relative">
-          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
-          <input
-            type="datetime-local"
-            step="1"
-            value={endDateTime}
-            onChange={(e) => setEndDateTime(e.target.value)}
-            className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
-          />
-        </div>
-        <button className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors">
-          <Search className="w-4 h-4" />
-          {t("search")}
-        </button>
+      {/* Stats */}
+      <div className="mb-3 grid grid-cols-4 gap-2">
+        {[
+          { label: zh?"最大电压":"Max",   value:`${stats.maxV.toFixed(3)} V`, color:"#ef4444" },
+          { label: zh?"平均电压":"Avg",   value:`${stats.avgV} V`,            color:"#00d4aa" },
+          { label: zh?"最小电压":"Min",   value:`${stats.minV.toFixed(3)} V`, color:"#22d3ee" },
+          { label: zh?"极差":"Range",     value:`${stats.range} V`,           color:"#fbbf24" },
+        ].map(s => (
+          <div key={s.label} className="rounded-lg border border-[#1a2654]/60 bg-[#101840]/80 px-2 py-2 text-center">
+            <div className="text-xs font-medium text-[#7b8ab8]">{s.label}</div>
+            <div className="mt-0.5 font-mono text-[0.95rem] font-bold" style={{color:s.color}}>{s.value}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Statistics Summary */}
-      <div className="grid grid-cols-3 gap-2 mb-2">
-        <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
-          <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最大电压" : "Max Voltage"}</div>
-          <div className="text-xs font-bold text-[#ef4444] font-mono">{maxV.toFixed(3)}V</div>
-        </div>
-        <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
-          <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "平均电压" : "Avg Voltage"}</div>
-          <div className="text-xs font-bold text-[#00d4aa] font-mono">{avgV}V</div>
-        </div>
-        <div className="bg-[#1a2654]/30 rounded-lg p-1 text-center">
-          <div className="text-xs text-[#7b8ab8]">{language === "zh" ? "最小电压" : "Min Voltage"}</div>
-          <div className="text-xs font-bold text-[#22d3ee] font-mono">{minV.toFixed(3)}V</div>
-        </div>
-      </div>
-
-      {viewMode === "chart" ? (
-        <div className="flex-1 overflow-hidden">
+      {/* Chart / Table */}
+      <div className="min-h-0 flex-1">
+        {viewMode === "chart" ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-              <XAxis 
-                dataKey="day" 
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#7b8ab8", fontSize: 10 }}
-              />
-              <YAxis 
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                domain={['dataMin - 0.1', 'dataMax + 0.1']}
-                unit="V"
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#0d1233",
-                  border: "1px solid #1a2654",
-                  borderRadius: "8px",
-                }}
-                labelStyle={{ color: "#7b8ab8" }}
-                formatter={(value: string) => [`${value}V`]}
-              />
-              <Legend 
-                wrapperStyle={{ paddingBottom: "5px" }}
-                formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>}
-                layout="horizontal"
-                verticalAlign="top"
-              />
-              <ReferenceLine y={3.65} stroke="#ef4444" strokeDasharray="5 5" label={{ value: language === "zh" ? "上限" : "Max", fill: "#ef4444", fontSize: 10 }} />
-              <ReferenceLine y={2.5} stroke="#22d3ee" strokeDasharray="5 5" label={{ value: language === "zh" ? "下限" : "Min", fill: "#22d3ee", fontSize: 10 }} />
-              <Line type="monotone" dataKey="maxVoltage" name={language === "zh" ? "最大电压" : "Max Voltage"} stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} />
-              <Line type="monotone" dataKey="minVoltage" name={language === "zh" ? "最小电压" : "Min Voltage"} stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} />
+            <LineChart data={data} margin={{top:28,right:16,left:-8,bottom:0}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" vertical={false}/>
+              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill:"#7b8ab8",fontSize:10}}
+                interval={range > 15 ? 4 : range > 7 ? 1 : 0}/>
+              <YAxis axisLine={false} tickLine={false} tick={{fill:"#7b8ab8",fontSize:10}}
+                domain={[2.4, 3.7]} tickFormatter={v=>v.toFixed(2)} unit="V"/>
+              <Tooltip contentStyle={TS} labelStyle={{color:"#7b8ab8"}}
+                formatter={(v:number, name:string) => [`${v.toFixed(3)} V`, name]}/>
+              <Legend wrapperStyle={{paddingTop:"6px"}} layout="horizontal" verticalAlign="bottom"
+                formatter={v => <span style={{color:"#7b8ab8",fontSize:"11px"}}>{v}</span>}/>
+              <ReferenceLine y={3.65} stroke="#ef4444" strokeDasharray="4 4" strokeOpacity={0.8}
+                label={{value:zh?"上限 3.65V":"Max 3.65V", fill:"#ef4444", fontSize:11, fontWeight:600, position:"insideTopLeft"}}/>
+              <ReferenceLine y={2.5} stroke="#22d3ee" strokeDasharray="4 4" strokeOpacity={0.8}
+                label={{value:zh?"下限 2.50V":"Min 2.50V", fill:"#22d3ee", fontSize:11, fontWeight:600, position:"insideBottomRight"}}/>
+              <Line type="monotone" dataKey="maxVoltage" name={zh?"最大电压":"Max Voltage"} stroke="#ef4444" strokeWidth={2} dot={{r:2}} activeDot={{r:4}}/>
+              <Line type="monotone" dataKey="avgVoltage" name={zh?"平均电压":"Avg Voltage"} stroke="#00d4aa" strokeWidth={2} dot={{r:2}} activeDot={{r:4}} strokeDasharray="5 3"/>
+              <Line type="monotone" dataKey="minVoltage" name={zh?"最小电压":"Min Voltage"} stroke="#22d3ee" strokeWidth={2} dot={{r:2}} activeDot={{r:4}}/>
             </LineChart>
           </ResponsiveContainer>
-        </div>
-      ) : (
-        <div className="flex-1 overflow-auto custom-scrollbar">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-[#0d1233]">
-              <tr className="text-[#7b8ab8] border-b border-[#1a2654]">
-                <th className="py-2 px-2 text-left">{t("date")}</th>
-                <th className="py-2 px-2 text-right">{language === "zh" ? "最大电压(V)" : "Max (V)"}</th>
-                <th className="py-2 px-2 text-right">{language === "zh" ? "平均电压(V)" : "Avg (V)"}</th>
-                <th className="py-2 px-2 text-right">{language === "zh" ? "最小电压(V)" : "Min (V)"}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((item, index) => (
-                <tr key={index} className="border-b border-[#1a2654]/50 hover:bg-[#1a2654]/30">
-                  <td className="py-2 px-2">{item.day}</td>
-                  <td className="py-2 px-2 text-right text-[#ef4444] font-mono">{item.maxVoltage}</td>
-                  <td className="py-2 px-2 text-right text-[#00d4aa] font-mono">{item.avgVoltage}</td>
-                  <td className="py-2 px-2 text-right text-[#22d3ee] font-mono">{item.minVoltage}</td>
+        ) : (
+          <div className="h-full overflow-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-[#0d1233]">
+                <tr className="border-b border-[#1a2654] text-[#7b8ab8]">
+                  <th className="px-2 py-2 text-left">{t("date")}</th>
+                  <th className="px-2 py-2 text-right">{zh?"最大(V)":"Max (V)"}</th>
+                  <th className="px-2 py-2 text-right">{zh?"平均(V)":"Avg (V)"}</th>
+                  <th className="px-2 py-2 text-right">{zh?"最小(V)":"Min (V)"}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {data.map((item, i) => (
+                  <tr key={i} className="border-b border-[#1a2654]/50 hover:bg-[#1a2654]/30">
+                    <td className="px-2 py-1.5">{item.day}</td>
+                    <td className="px-2 py-1.5 text-right font-mono text-[#ef4444]">{item.maxVoltage.toFixed(3)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono text-[#00d4aa]">{item.avgVoltage.toFixed(3)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono text-[#22d3ee]">{item.minVoltage.toFixed(3)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

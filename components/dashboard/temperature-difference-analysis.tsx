@@ -1,187 +1,120 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
-import { Calendar, Search, Table, LineChartIcon } from "lucide-react"
+import { useState, useMemo } from "react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts"
+import { Table, LineChart as LineChartIcon } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
-// Generate temperature difference data
-const generateTempData = (days: number, language: string) => {
-  const data = []
-  for (let i = 1; i <= days; i++) {
-    data.push({
-      day: language === "zh" ? `${i}日` : `Day ${i}`,
-      maxTemp: (35 + Math.random() * 10).toFixed(1),
-      minTemp: (20 + Math.random() * 8).toFixed(1),
-      tempDiff: (8 + Math.random() * 7).toFixed(1),
-    })
-  }
-  return data
+function buildData(days: number) {
+  const today = new Date()
+  return Array.from({ length: days }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - (days - 1 - i))
+    return {
+      day: `${d.getMonth()+1}/${d.getDate()}`,
+      maxTemp: +(35 + Math.random() * 10).toFixed(1),
+      minTemp: +(20 + Math.random() * 8).toFixed(1),
+      tempDiff: +(8  + Math.random() * 7).toFixed(1),
+    }
+  })
 }
 
-// Static initial data for SSR
-const getInitialData = (language: string) => {
-  return Array.from({ length: 15 }, (_, i) => ({
-    day: language === "zh" ? `${i + 1}日` : `Day ${i + 1}`,
-    maxTemp: "40.0",
-    minTemp: "24.0",
-    tempDiff: "12.0",
-  }))
-}
+const TS = { backgroundColor:"#0d1233", border:"1px solid #1a2654", borderRadius:"8px", fontSize:11 }
 
-// Get yesterday's datetime range
-const getYesterdayRange = () => {
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-
-  const startDate = new Date(yesterday)
-  startDate.setHours(0, 0, 0, 0)
-
-  const endDate = new Date(yesterday)
-  endDate.setHours(23, 59, 59, 0)
-
-  const formatDateTime = (date: Date) => {
-    const year = date.getFullYear()
-    const month = (date.getMonth() + 1).toString().padStart(2, "0")
-    const day = date.getDate().toString().padStart(2, "0")
-    const hours = date.getHours().toString().padStart(2, "0")
-    const minutes = date.getMinutes().toString().padStart(2, "0")
-    const seconds = date.getSeconds().toString().padStart(2, "0")
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
-  }
-
-  return { start: formatDateTime(startDate), end: formatDateTime(endDate) }
-}
-
-export function TemperatureDifferenceAnalysis() {
-  const [startDateTime, setStartDateTime] = useState("")
-  const [endDateTime, setEndDateTime] = useState("")
-  const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
-  const [data, setData] = useState(() => getInitialData("zh"))
+export function TemperatureDifferenceAnalysis({ range }: { range: number }) {
+  const [viewMode, setViewMode] = useState<"chart"|"table">("chart")
   const { t, language } = useLanguage()
+  const zh = language === "zh"
 
-  useEffect(() => {
-    setData(generateTempData(15, language))
-    const { start, end } = getYesterdayRange()
-    setStartDateTime(start)
-    setEndDateTime(end)
-  }, [language])
+  const data = useMemo(() => buildData(range), [range])
+
+  const stats = useMemo(() => ({
+    maxTemp: Math.max(...data.map(d => d.maxTemp)),
+    minTemp: Math.min(...data.map(d => d.minTemp)),
+    maxDiff: Math.max(...data.map(d => d.tempDiff)),
+    avgDiff: (data.reduce((s,d) => s + d.tempDiff, 0) / data.length).toFixed(1),
+  }), [data])
 
   return (
-    <div className="bg-[#0d1233] rounded-lg border border-[#1a2654] p-4">
-      <div className="flex items-center justify-between mb-4">
+    <div className="flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
+      {/* Header */}
+      <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-1 h-4 bg-[#00d4aa] rounded-full" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">{t("tempDiffAnalysis")}</h3>
-
+          <div className="h-4 w-1 rounded-full bg-[#f97316]" />
+          <h3 className="text-sm font-semibold text-[#f97316]">{t("tempDiffAnalysis")}</h3>
         </div>
-        <div className="flex gap-1 bg-[#1a2654]/50 rounded-lg p-1">
-          <button
-            onClick={() => setViewMode("chart")}
-            className={`p-1.5 rounded-md transition-all ${viewMode === "chart" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
-              }`}
-          >
-            <LineChartIcon className="w-4 h-4" />
+        <div className="flex gap-1 rounded-lg bg-[#1a2654]/50 p-1">
+          <button onClick={() => setViewMode("chart")}
+            className={`rounded-md p-1.5 transition-all ${viewMode==="chart"?"bg-[#f97316] text-[#0a0e27]":"text-[#7b8ab8]"}`}>
+            <LineChartIcon className="h-3.5 w-3.5" />
           </button>
-          <button
-            onClick={() => setViewMode("table")}
-            className={`p-1.5 rounded-md transition-all ${viewMode === "table" ? "bg-[#00d4aa] text-[#0a0e27]" : "text-[#7b8ab8]"
-              }`}
-          >
-            <Table className="w-4 h-4" />
+          <button onClick={() => setViewMode("table")}
+            className={`rounded-md p-1.5 transition-all ${viewMode==="table"?"bg-[#f97316] text-[#0a0e27]":"text-[#7b8ab8]"}`}>
+            <Table className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Date Range Query with datetime */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="relative">
-          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
-          <input
-            type="datetime-local"
-            step="1"
-            value={startDateTime}
-            onChange={(e) => setStartDateTime(e.target.value)}
-            className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
-          />
-        </div>
-        <span className="text-[#7b8ab8] text-sm">{t("to")}</span>
-        <div className="relative">
-          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7b8ab8]" />
-          <input
-            type="datetime-local"
-            step="1"
-            value={endDateTime}
-            onChange={(e) => setEndDateTime(e.target.value)}
-            className="pl-8 pr-2 py-1.5 bg-[#1a2654] border border-[#3b82f6]/30 rounded-md text-xs focus:outline-none focus:border-[#00d4aa]"
-          />
-        </div>
-        <button className="flex items-center gap-1 px-3 py-1.5 bg-[#3b82f6] text-white rounded-md text-sm hover:bg-[#3b82f6]/80 transition-colors">
-          <Search className="w-4 h-4" />
-          {t("search")}
-        </button>
+      {/* Stats */}
+      <div className="mb-3 grid grid-cols-4 gap-2">
+        {[
+          { label: zh?"最高温度":"Max Temp", value:`${stats.maxTemp.toFixed(1)} °C`, color:"#ef4444" },
+          { label: zh?"最低温度":"Min Temp", value:`${stats.minTemp.toFixed(1)} °C`, color:"#22d3ee" },
+          { label: zh?"最大温差":"Max Diff", value:`${stats.maxDiff.toFixed(1)} °C`, color:"#f97316" },
+          { label: zh?"平均温差":"Avg Diff", value:`${stats.avgDiff} °C`,            color:"#fbbf24" },
+        ].map(s => (
+          <div key={s.label} className="rounded-lg border border-[#1a2654]/60 bg-[#101840]/80 px-2 py-2 text-center">
+            <div className="text-xs font-medium text-[#7b8ab8]">{s.label}</div>
+            <div className="mt-0.5 font-mono text-[0.95rem] font-bold" style={{color:s.color}}>{s.value}</div>
+          </div>
+        ))}
       </div>
 
-      {viewMode === "chart" ? (
-        <div className="h-56">
+      {/* Chart / Table */}
+      <div className="min-h-0 flex-1">
+        {viewMode === "chart" ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
-              <XAxis
-                dataKey="day"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#7b8ab8", fontSize: 10 }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                unit="°C"
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#0d1233",
-                  border: "1px solid #1a2654",
-                  borderRadius: "8px",
-                }}
-                labelStyle={{ color: "#7b8ab8" }}
-                formatter={(value: string) => [`${value}°C`]}
-              />
-              <Legend
-                wrapperStyle={{ paddingTop: "10px" }}
-                formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
-              />
-              <Line type="monotone" dataKey="maxTemp" name={language === "zh" ? "最高温度" : "Max Temp"} stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} />
-              <Line type="monotone" dataKey="minTemp" name={language === "zh" ? "最低温度" : "Min Temp"} stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} />
-              <Line type="monotone" dataKey="tempDiff" name={language === "zh" ? "温差" : "Temp Diff"} stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} />
+            <LineChart data={data} margin={{top:8,right:16,left:-8,bottom:0}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" vertical={false}/>
+              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill:"#7b8ab8",fontSize:10}}
+                interval={range > 15 ? 4 : range > 7 ? 1 : 0}/>
+              <YAxis axisLine={false} tickLine={false} tick={{fill:"#7b8ab8",fontSize:10}} unit="°C"/>
+              <Tooltip contentStyle={TS} labelStyle={{color:"#7b8ab8"}}
+                formatter={(v:number, name:string) => [`${v.toFixed(1)} °C`, name]}/>
+              <Legend wrapperStyle={{paddingTop:"6px"}}
+                formatter={v => <span style={{color:"#7b8ab8",fontSize:"11px"}}>{v}</span>}/>
+              <ReferenceLine y={45} stroke="#ef4444" strokeDasharray="4 4" strokeOpacity={0.7}
+                label={{value:zh?"⚠ 高温 45°C":"⚠ High 45°C", fill:"#ef4444", fontSize:11, fontWeight:600, position:"insideTopRight"}}/>
+              <Line type="monotone" dataKey="maxTemp" name={zh?"最高温度":"Max Temp"} stroke="#ef4444" strokeWidth={2} dot={{r:2}} activeDot={{r:4}}/>
+              <Line type="monotone" dataKey="minTemp" name={zh?"最低温度":"Min Temp"} stroke="#22d3ee" strokeWidth={2} dot={{r:2}} activeDot={{r:4}}/>
+              <Line type="monotone" dataKey="tempDiff" name={zh?"温差":"Temp Diff"} stroke="#f97316" strokeWidth={2} dot={{r:2}} activeDot={{r:4}} strokeDasharray="5 3"/>
             </LineChart>
           </ResponsiveContainer>
-        </div>
-      ) : (
-        <div className="h-56 overflow-auto custom-scrollbar">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-[#0d1233]">
-              <tr className="text-[#7b8ab8] border-b border-[#1a2654]">
-                <th className="py-2 px-2 text-left">{t("date")}</th>
-                <th className="py-2 px-2 text-right">{language === "zh" ? "最高温度(°C)" : "Max Temp (°C)"}</th>
-                <th className="py-2 px-2 text-right">{language === "zh" ? "最低温度(°C)" : "Min Temp (°C)"}</th>
-                <th className="py-2 px-2 text-right">{language === "zh" ? "温差(°C)" : "Temp Diff (°C)"}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((item, index) => (
-                <tr key={index} className="border-b border-[#1a2654]/50 hover:bg-[#1a2654]/30">
-                  <td className="py-2 px-2">{item.day}</td>
-                  <td className="py-2 px-2 text-right text-[#ef4444] font-mono">{item.maxTemp}</td>
-                  <td className="py-2 px-2 text-right text-[#22d3ee] font-mono">{item.minTemp}</td>
-                  <td className="py-2 px-2 text-right text-[#f97316] font-mono">{item.tempDiff}</td>
+        ) : (
+          <div className="h-full overflow-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-[#0d1233]">
+                <tr className="border-b border-[#1a2654] text-[#7b8ab8]">
+                  <th className="px-2 py-2 text-left">{t("date")}</th>
+                  <th className="px-2 py-2 text-right">{zh?"最高(°C)":"Max (°C)"}</th>
+                  <th className="px-2 py-2 text-right">{zh?"最低(°C)":"Min (°C)"}</th>
+                  <th className="px-2 py-2 text-right">{zh?"温差(°C)":"Diff (°C)"}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {data.map((item, i) => (
+                  <tr key={i} className="border-b border-[#1a2654]/50 hover:bg-[#1a2654]/30">
+                    <td className="px-2 py-1.5">{item.day}</td>
+                    <td className="px-2 py-1.5 text-right font-mono text-[#ef4444]">{item.maxTemp.toFixed(1)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono text-[#22d3ee]">{item.minTemp.toFixed(1)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono text-[#f97316]">{item.tempDiff.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
