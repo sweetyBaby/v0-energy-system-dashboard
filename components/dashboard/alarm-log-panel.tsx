@@ -8,6 +8,10 @@ import { useLanguage } from "@/components/language-provider"
 const LV_COLOR: Record<number, string> = {
   1: "#85B7EB", 2: "#378ADD", 3: "#EF9F27", 4: "#E24B4A", 5: "#A32D2D",
 }
+// 高亮色：比基础色更亮，用于矩阵中数字（保持色相，提升亮度）
+const LV_BRIGHT: Record<number, string> = {
+  1: "#c4e0ff", 2: "#7dc4ff", 3: "#ffd060", 4: "#ff8c7a", 5: "#ff6a6a",
+}
 const LV_LABEL: Record<number, string> = {
   1: "Lv1 提示", 2: "Lv2 轻警", 3: "Lv3 预警", 4: "Lv4 严重", 5: "Lv5 紧急",
 }
@@ -391,16 +395,16 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
                       {cnt > 0 ? (
                         <>
                           <span
-                            className="text-[11px] font-bold tabular-nums leading-none"
-                            style={{ color: LV_COLOR[lv], opacity: 0.7 + intensity * 0.35 }}
+                            className="text-[12px] font-bold tabular-nums leading-none"
+                            style={{ color: LV_BRIGHT[lv], textShadow: `0 0 8px ${LV_COLOR[lv]}cc` }}
                           >
                             {cnt}
                           </span>
                           <span
-                            className="mt-[1px] text-[9px] tabular-nums leading-none"
-                            style={{ color: LV_COLOR[lv], opacity: 0.5 + intensity * 0.3 }}
+                            className="mt-[2px] text-[10px] font-medium tabular-nums leading-none"
+                            style={{ color: LV_COLOR[lv] }}
                           >
-                            {cellPct}
+                            {cellPct}%
                           </span>
                         </>
                       ) : (
@@ -414,13 +418,16 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
               {/* 行合计 */}
               <div className="w-[52px] shrink-0 flex flex-col items-end pl-2">
                 <span
-                  className="text-[12px] font-bold tabular-nums leading-none"
-                  style={{ color: LV_COLOR[rowMaxLv], textShadow: `0 0 6px ${LV_COLOR[rowMaxLv]}55` }}
+                  className="text-[13px] font-bold tabular-nums leading-none"
+                  style={{ color: LV_BRIGHT[rowMaxLv], textShadow: `0 0 8px ${LV_COLOR[rowMaxLv]}cc` }}
                 >
                   {rowTotal}
                 </span>
-                <span className="mt-[2px] text-[9px] tabular-nums leading-none text-[#4a6890]">
-                  {rowPct}
+                <span
+                  className="mt-[2px] text-[10px] font-semibold tabular-nums leading-none"
+                  style={{ color: LV_COLOR[rowMaxLv] }}
+                >
+                  {rowPct}%
                 </span>
               </div>
             </div>
@@ -437,16 +444,16 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
               {lvTotals[i] > 0 ? (
                 <>
                   <span
-                    className="text-[12px] font-bold tabular-nums leading-none"
-                    style={{ color: LV_COLOR[lv], textShadow: `0 0 6px ${LV_COLOR[lv]}60` }}
+                    className="text-[13px] font-bold tabular-nums leading-none"
+                    style={{ color: LV_BRIGHT[lv], textShadow: `0 0 8px ${LV_COLOR[lv]}cc` }}
                   >
                     {lvTotals[i]}
                   </span>
                   <span
                     className="text-[10px] font-semibold tabular-nums leading-none"
-                    style={{ color: LV_COLOR[lv], opacity: 0.6 }}
+                    style={{ color: LV_COLOR[lv] }}
                   >
-                    {fmtPct(lvTotals[i])}
+                    {(lvTotals[i] / total * 100).toFixed(0)}%
                   </span>
                 </>
               ) : (
@@ -456,13 +463,13 @@ function AlarmTypeStats({ alarms }: { alarms: AlarmEntry[] }) {
           ))}
           <div className="w-[52px] shrink-0 flex flex-col items-end pl-2">
             <span
-              className="text-[14px] font-bold tabular-nums leading-none text-[#00d4aa]"
-              style={{ textShadow: "0 0 10px rgba(0,212,170,0.55)" }}
+              className="text-[15px] font-bold tabular-nums leading-none text-[#60ffda]"
+              style={{ textShadow: "0 0 10px rgba(0,212,170,0.8)" }}
             >
               {total}
             </span>
-            <span className="mt-[3px] text-[10px] font-bold tabular-nums leading-none text-[#00d4aa]/60">
-              100.00%
+            <span className="mt-[2px] text-[11px] font-bold tabular-nums leading-none text-[#00d4aa]">
+              100%
             </span>
           </div>
         </div>
