@@ -72,34 +72,50 @@ function DashboardTabs() {
     },
   ]
 
-  // ── Shared tab rail (always its own row) ──────────────────────────────────
+  // ── 发光导轨式 Tab ────────────────────────────────────────────────────────
   const tabRail = (
     <div className="relative shrink-0 overflow-hidden bg-[#020810]" style={{ height: "42px" }}>
-      {/* Scan-line texture */}
-      <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(34,211,238,0.012)_3px,rgba(34,211,238,0.012)_4px)]" />
-      {/* Centre radial spotlight behind tabs */}
-      <div className="pointer-events-none absolute left-1/2 top-0 h-full w-[600px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.10),transparent_70%)]" />
-      {/* Top hairline (connects to header bottom) */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/35 to-transparent" />
-      {/* Bottom glow border */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#22d3ee]/55 to-transparent" style={{ boxShadow: "0 0 6px rgba(34,211,238,0.25)" }} />
-      {/* Left/right tiny decorative marks */}
-      <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-[14px] w-px bg-[#22d3ee]/30" />
-      <div className="pointer-events-none absolute left-6 top-1/2 -translate-y-1/2 h-[8px] w-px bg-[#22d3ee]/20" />
-      <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 h-[14px] w-px bg-[#22d3ee]/30" />
-      <div className="pointer-events-none absolute right-6 top-1/2 -translate-y-1/2 h-[8px] w-px bg-[#22d3ee]/20" />
+      {/* 扫描线 */}
+      <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(34,211,238,0.010)_3px,rgba(34,211,238,0.010)_4px)]" />
+      {/* 中心向上晕光 */}
+      <div
+        className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 w-[560px]"
+        style={{ height: "42px", background: "radial-gradient(ellipse 55% 100% at 50% 100%, rgba(34,211,238,0.12), transparent)" }}
+      />
+      {/* 底部导轨线 */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/70 to-transparent"
+        style={{ boxShadow: "0 0 8px rgba(34,211,238,0.40)" }}
+      />
+      {/* 导轨节点：左右对称，贴在底部线上 */}
+      <div className="pointer-events-none absolute bottom-0 rounded-full bg-[#22d3ee]/80" style={{ left: "12%", width: 4, height: 4, transform: "translate(-50%,50%)", boxShadow: "0 0 6px rgba(34,211,238,0.7)" }} />
+      <div className="pointer-events-none absolute bottom-0 rounded-full bg-[#22d3ee]/80" style={{ left: "88%", width: 4, height: 4, transform: "translate(-50%,50%)", boxShadow: "0 0 6px rgba(34,211,238,0.7)" }} />
+      <div className="pointer-events-none absolute bottom-0 bg-[#22d3ee]/70" style={{ left: "28%", width: 5, height: 5, transform: "translate(-50%,50%) rotate(45deg)", boxShadow: "0 0 5px rgba(34,211,238,0.6)" }} />
+      <div className="pointer-events-none absolute bottom-0 bg-[#22d3ee]/70" style={{ left: "72%", width: 5, height: 5, transform: "translate(-50%,50%) rotate(45deg)", boxShadow: "0 0 5px rgba(34,211,238,0.6)" }} />
 
-      <div className="flex h-full items-center justify-center gap-0.5">
+      {/* Tab 列表 */}
+      <div className="flex h-full items-center justify-center gap-1.5 px-4">
         {(Object.keys(TAB_META) as DashboardTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`rounded-lg px-5 py-1 text-[13px] tracking-[0.04em] transition-all ${
+            className={`relative rounded-sm border px-4 py-[5px] text-[13px] tracking-[0.04em] transition-all ${
               activeTab === tab
-                ? "border border-[#00d4aa]/55 bg-[linear-gradient(180deg,rgba(0,212,170,0.95),rgba(0,200,165,0.88))] font-semibold text-[#021a12] shadow-[0_0_16px_rgba(0,212,170,0.35),inset_0_1px_0_rgba(255,255,255,0.18)]"
-                : "font-medium text-[#5a8aaa] hover:text-[#c0dff5]"
+                ? "border-[#00d4aa]/55 bg-[rgba(0,212,170,0.10)] font-semibold text-[#00e8cc]"
+                : "border-[#1a3650]/80 bg-[rgba(4,14,28,0.60)] font-medium text-[#3e6880] hover:border-[#22d3ee]/30 hover:bg-[rgba(34,211,238,0.04)] hover:text-[#7abcd8]"
             }`}
+            style={activeTab === tab ? {
+              boxShadow: "0 0 12px rgba(0,212,170,0.18), inset 0 0 8px rgba(0,212,170,0.06)",
+              textShadow: "0 0 10px rgba(0,232,204,0.55)",
+            } : undefined}
           >
+            {/* 激活状态：底部指示条连接导轨 */}
+            {activeTab === tab && (
+              <span
+                className="pointer-events-none absolute inset-x-2 -bottom-px h-[2px] rounded-full bg-[#00d4aa]"
+                style={{ boxShadow: "0 0 6px rgba(0,212,170,0.8)" }}
+              />
+            )}
             {zh ? TAB_META[tab].zh : TAB_META[tab].en}
           </button>
         ))}
