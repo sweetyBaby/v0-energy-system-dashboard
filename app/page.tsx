@@ -5,6 +5,7 @@ import { Battery, Calendar, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
+import { CellHistoryCellPicker, CellHistoryReplayPanel } from "@/components/dashboard/cell-history-replay-panel"
 import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysis"
 import { ChargeDischargeTable } from "@/components/dashboard/charge-discharge-table"
 import { CellMatrixPanel } from "@/components/dashboard/cell-matrix-panel"
@@ -18,7 +19,7 @@ import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperatur
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { LanguageProvider } from "@/components/language-provider"
 
-type DashboardTab = "realtime" | "bms" | "analysis" | "history" | "reports"
+type DashboardTab = "realtime" | "bms" | "cell-history" | "analysis" | "history" | "reports"
 type BcuMode = "realtime" | "history"
 type AnalysisRange = 7 | 15 | 30
 
@@ -39,6 +40,7 @@ const TAB_META: Record<DashboardTab, { zh: string; en: string }> = {
   realtime: { zh: "总览", en: "Overview" },
   history: { zh: "运行状态", en: "Operations" },
   bms: { zh: "电芯矩阵", en: "Cell Matrix" },
+  "cell-history": { zh: "电芯历史", en: "Cell History" },
   analysis: { zh: "数据分析", en: "Analysis" },
   reports: { zh: "报表信息", en: "Reports" },
 }
@@ -49,6 +51,8 @@ function DashboardTabs() {
   const [bcuMode, setBcuMode] = useState<BcuMode>("realtime")
   const today = formatDateInputValue(new Date())
   const [historyDate, setHistoryDate] = useState(today)
+  const [cellHistoryDate, setCellHistoryDate] = useState(today)
+  const [selectedHistoryCell, setSelectedHistoryCell] = useState<number | null>(null)
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const zh = language === "zh"
@@ -158,25 +162,25 @@ function DashboardTabs() {
                 <div className="col-span-6 flex min-h-0 items-end justify-center">
                   <div className="w-full max-w-[560px] px-5 pb-1 pt-3">
                     <div className="grid grid-cols-3">
-                      {projectStats.map((s, i) => (
-                        <div key={i} className="relative flex min-h-[122px] flex-col items-center justify-end gap-2 px-4 py-1">
-                          {i < projectStats.length - 1 && (
+                      {projectStats.map((stat, index) => (
+                        <div key={index} className="relative flex min-h-[122px] flex-col items-center justify-end gap-2 px-4 py-1">
+                          {index < projectStats.length - 1 && (
                             <div className="pointer-events-none absolute inset-y-3 right-0 w-px bg-gradient-to-b from-transparent via-[#b8d8f0]/35 to-transparent" />
                           )}
-                          <div className={`flex h-11 w-11 items-center justify-center rounded-full ${s.iconBg}`}>
-                            {s.icon}
+                          <div className={`flex h-11 w-11 items-center justify-center rounded-full ${stat.iconBg}`}>
+                            {stat.icon}
                           </div>
                           <span
                             className="text-[11.5px] font-medium text-[#b8d8f0]"
                             style={{ textShadow: "0 1px 6px rgba(0,0,0,0.95)" }}
                           >
-                            {zh ? s.labelZh : s.labelEn}
+                            {zh ? stat.labelZh : stat.labelEn}
                           </span>
                           <span
                             className="text-[1.05rem] font-bold tabular-nums tracking-[0.04em] text-[#e8f8ff]"
                             style={{ textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 14px rgba(34,211,238,0.45)" }}
                           >
-                            {s.value}
+                            {stat.value}
                           </span>
                         </div>
                       ))}
@@ -205,6 +209,22 @@ function DashboardTabs() {
           </div>
         )}
 
+        {activeTab === "cell-history" && (
+          <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+            <div
+              className="relative flex shrink-0 items-center gap-3 overflow-hidden border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
+              style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 100%, 0 100%)" }}
+            >
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
+              <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={today} />
+              <CellHistoryCellPicker value={selectedHistoryCell} onChange={setSelectedHistoryCell} />
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <CellHistoryReplayPanel date={cellHistoryDate} selectedCell={selectedHistoryCell} onSelectedCellChange={setSelectedHistoryCell} />
+            </div>
+          </div>
+        )}
+
         {activeTab === "analysis" && (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
             <div
@@ -217,17 +237,17 @@ function DashboardTabs() {
               </span>
               <div className="h-3 w-px bg-[#22d3ee]/25" />
               <div className="flex gap-1">
-                {ANALYSIS_RANGES.map((r) => (
+                {ANALYSIS_RANGES.map((range) => (
                   <button
-                    key={r.key}
-                    onClick={() => setAnalysisRange(r.key)}
+                    key={range.key}
+                    onClick={() => setAnalysisRange(range.key)}
                     className={`rounded px-3 py-1 text-[12px] tracking-[0.03em] transition-all ${
-                      analysisRange === r.key
+                      analysisRange === range.key
                         ? "border border-[#00d4aa]/55 bg-[linear-gradient(180deg,rgba(0,212,170,0.90),rgba(0,195,160,0.82))] font-semibold text-[#021a12] shadow-[0_0_12px_rgba(0,212,170,0.25)]"
                         : "text-[#5a8aaa] hover:text-[#c0dff5]"
                     }`}
                   >
-                    {zh ? r.zh : r.en}
+                    {zh ? range.zh : range.en}
                   </button>
                 ))}
               </div>
@@ -254,22 +274,22 @@ function DashboardTabs() {
             >
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
               <div className="flex gap-1">
-                {(["realtime", "history"] as BcuMode[]).map((m) => (
+                {(["realtime", "history"] as BcuMode[]).map((mode) => (
                   <button
-                    key={m}
-                    onClick={() => setBcuMode(m)}
-                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-[12px] tracking-[0.03em] font-medium transition-all ${
-                      bcuMode === m
+                    key={mode}
+                    onClick={() => setBcuMode(mode)}
+                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-[12px] font-medium tracking-[0.03em] transition-all ${
+                      bcuMode === mode
                         ? "border border-[#00d4aa]/55 bg-[linear-gradient(180deg,rgba(0,212,170,0.90),rgba(0,195,160,0.82))] font-semibold text-[#021a12] shadow-[0_0_12px_rgba(0,212,170,0.25)]"
                         : "text-[#5a8aaa] hover:text-[#c0dff5]"
                     }`}
                   >
-                    {bcuMode === m && m === "realtime" && (
+                    {bcuMode === mode && mode === "realtime" && (
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#021a12]" />
                     )}
-                    {m === "realtime" ? (zh ? "实时监控" : "Live") : (zh ? "历史查询" : "History")}
+                    {mode === "realtime" ? (zh ? "实时监控" : "Live") : (zh ? "历史查询" : "History")}
                   </button>
-              ))}
+                ))}
               </div>
               {bcuMode === "history" && (
                 <HistoryDatePicker value={historyDate} onChange={setHistoryDate} max={today} />
