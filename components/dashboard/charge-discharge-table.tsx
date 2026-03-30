@@ -6,7 +6,7 @@ import { useLanguage } from "@/components/language-provider"
 const energyStats = [
   {
     key: "charge",
-    labelZh: "当日充电量",
+    labelZh: "今日充电量",
     labelEn: "Today Charge",
     value: "3,256.8",
     unit: "kWh",
@@ -18,7 +18,7 @@ const energyStats = [
   },
   {
     key: "discharge",
-    labelZh: "当日放电量",
+    labelZh: "今日放电量",
     labelEn: "Today Discharge",
     value: "3,102.4",
     unit: "kWh",
