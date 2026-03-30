@@ -77,87 +77,55 @@ function DashboardTabs() {
     },
   ]
 
-  const tabRail = (
-    <div className="relative shrink-0 overflow-hidden bg-[#020810]" style={{ height: "42px" }}>
-      <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(34,211,238,0.010)_3px,rgba(34,211,238,0.010)_4px)]" />
-      <div
-        className="pointer-events-none absolute bottom-0 left-1/2 w-[560px] -translate-x-1/2"
-        style={{
-          height: "42px",
-          background: "radial-gradient(ellipse 55% 100% at 50% 100%, rgba(34,211,238,0.12), transparent)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/70 to-transparent"
-        style={{ boxShadow: "0 0 8px rgba(34,211,238,0.40)" }}
-      />
-      <div
-        className="pointer-events-none absolute bottom-0 rounded-full bg-[#22d3ee]/80"
-        style={{
-          left: "12%",
-          width: 4,
-          height: 4,
-          transform: "translate(-50%,50%)",
-          boxShadow: "0 0 6px rgba(34,211,238,0.7)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute bottom-0 rounded-full bg-[#22d3ee]/80"
-        style={{
-          left: "88%",
-          width: 4,
-          height: 4,
-          transform: "translate(-50%,50%)",
-          boxShadow: "0 0 6px rgba(34,211,238,0.7)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute bottom-0 bg-[#22d3ee]/70"
-        style={{
-          left: "28%",
-          width: 5,
-          height: 5,
-          transform: "translate(-50%,50%) rotate(45deg)",
-          boxShadow: "0 0 5px rgba(34,211,238,0.6)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute bottom-0 bg-[#22d3ee]/70"
-        style={{
-          left: "72%",
-          width: 5,
-          height: 5,
-          transform: "translate(-50%,50%) rotate(45deg)",
-          boxShadow: "0 0 5px rgba(34,211,238,0.6)",
-        }}
-      />
-
-      <div className="flex h-full items-center justify-center gap-1.5 px-4">
+  const renderTabRail = (floating = false) => (
+    <div
+      className={
+        floating
+          ? "pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center"
+          : "relative z-10 flex shrink-0 justify-center px-3 pb-2 pt-3"
+      }
+    >
+      <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2">
         {(Object.keys(TAB_META) as DashboardTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`relative rounded-sm border px-4 py-[5px] text-[13px] tracking-[0.04em] transition-all ${
+            className={`relative min-w-[98px] overflow-hidden rounded-[10px] border px-5 py-[7px] text-[13px] tracking-[0.12em] transition-all duration-200 ${
               activeTab === tab
-                ? "border-[#00d4aa]/55 bg-[rgba(0,212,170,0.10)] font-semibold text-[#00e8cc]"
-                : "border-[#1a3650]/80 bg-[rgba(4,14,28,0.60)] font-medium text-[#3e6880] hover:border-[#22d3ee]/30 hover:bg-[rgba(34,211,238,0.04)] hover:text-[#7abcd8]"
+                ? "border-[#39f5d8]/90 bg-[linear-gradient(180deg,rgba(16,119,112,0.34),rgba(3,43,55,0.90))] font-semibold text-[#e9fffb]"
+                : "border-[#315878]/90 bg-[linear-gradient(180deg,rgba(16,37,63,0.88),rgba(8,21,39,0.92))] font-medium text-[#9cc7e6] hover:border-[#56c8ff]/70 hover:text-[#d8f3ff]"
             }`}
             style={
               activeTab === tab
                 ? {
-                    boxShadow: "0 0 12px rgba(0,212,170,0.18), inset 0 0 8px rgba(0,212,170,0.06)",
-                    textShadow: "0 0 10px rgba(0,232,204,0.55)",
+                    boxShadow: "0 0 24px rgba(0,255,209,0.18), inset 0 0 18px rgba(45,255,220,0.10), inset 0 0 0 1px rgba(160,255,242,0.16)",
+                    textShadow: "0 0 10px rgba(120,255,235,0.42)",
                   }
-                : undefined
+                : {
+                    boxShadow: "inset 0 1px 0 rgba(146,206,255,0.08), 0 8px 16px rgba(0,0,0,0.14)",
+                    textShadow: "0 0 8px rgba(18,42,68,0.35)",
+                  }
             }
           >
+            <span
+              className={`pointer-events-none absolute inset-0 ${
+                activeTab === tab
+                  ? "bg-[linear-gradient(135deg,rgba(120,255,240,0.14),transparent_42%,rgba(0,255,187,0.10))]"
+                  : "bg-[linear-gradient(135deg,rgba(120,190,255,0.08),transparent_45%,rgba(0,0,0,0.05))]"
+              }`}
+            />
+            <span
+              className={`pointer-events-none absolute inset-x-3 top-0 h-px ${
+                activeTab === tab ? "bg-[#8fffee]/70" : "bg-[#7dc7ff]/24"
+              }`}
+            />
             {activeTab === tab && (
               <span
-                className="pointer-events-none absolute inset-x-2 -bottom-px h-[2px] rounded-full bg-[#00d4aa]"
-                style={{ boxShadow: "0 0 6px rgba(0,212,170,0.8)" }}
+                className="pointer-events-none absolute inset-x-3 bottom-0 h-[2px] rounded-full bg-[#52ffe0]"
+                style={{ boxShadow: "0 0 10px rgba(82,255,224,0.9)" }}
               />
             )}
-            {zh ? TAB_META[tab].zh : TAB_META[tab].en}
+            <span className="relative z-10">{zh ? TAB_META[tab].zh : TAB_META[tab].en}</span>
           </button>
         ))}
       </div>
@@ -166,38 +134,34 @@ function DashboardTabs() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {tabRail}
+      {activeTab !== "realtime" && renderTabRail()}
 
       <div className="min-h-0 flex-1 overflow-hidden p-3">
         {activeTab === "realtime" && (
           <div className="grid h-full grid-cols-12 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
             <div className="relative col-span-12 min-h-0 overflow-hidden rounded-xl border border-[#22d3ee]/30">
+              {renderTabRail(true)}
               <img
                 src={selectedProject.image}
                 alt=""
                 aria-hidden
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[1]"
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[1] brightness-[1.16] saturate-[1.08]"
               />
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(3,6,18,0.04)_0%,rgba(3,6,18,0.00)_35%,rgba(3,6,18,0.22)_72%,rgba(3,6,18,0.42)_100%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(8,20,40,0.02)_0%,rgba(8,20,40,0.00)_32%,rgba(5,12,28,0.12)_72%,rgba(3,8,20,0.24)_100%)]" />
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00d4aa]/50 to-transparent" />
 
-              <div className="relative grid h-full grid-cols-12 gap-3 p-3">
+              <div className="relative grid h-full grid-cols-12 gap-3 px-3 pb-3 pt-16">
                 <div className="col-span-3 min-h-0">
                   <RealtimeStatusBoard />
                 </div>
 
-                <div className="col-span-6 flex min-h-0 items-end justify-center pb-3">
-                  <div className="relative w-full max-w-[500px] overflow-hidden rounded-xl border border-[#22d3ee]/30 bg-transparent px-6 py-3.5 backdrop-blur-[3px] shadow-[0_0_0_1px_rgba(34,211,238,0.06)_inset,0_8px_32px_rgba(0,0,0,0.4)]">
-                    <div className="pointer-events-none absolute left-1 top-1 h-3 w-3 border-l-[2px] border-t-[2px] border-[#22d3ee]/70" />
-                    <div className="pointer-events-none absolute right-1 top-1 h-3 w-3 border-r-[2px] border-t-[2px] border-[#22d3ee]/70" />
-                    <div className="pointer-events-none absolute bottom-1 left-1 h-3 w-3 border-b-[2px] border-l-[2px] border-[#22d3ee]/35" />
-                    <div className="pointer-events-none absolute bottom-1 right-1 h-3 w-3 border-b-[2px] border-r-[2px] border-[#22d3ee]/35" />
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/60 to-transparent" />
+                <div className="col-span-6 flex min-h-0 items-end justify-center">
+                  <div className="w-full max-w-[560px] px-5 pb-1 pt-3">
                     <div className="grid grid-cols-3">
                       {projectStats.map((s, i) => (
-                        <div key={i} className="relative flex flex-col items-center gap-2 px-3 py-1">
+                        <div key={i} className="relative flex min-h-[122px] flex-col items-center justify-end gap-2 px-4 py-1">
                           {i < projectStats.length - 1 && (
-                            <div className="pointer-events-none absolute inset-y-2 right-0 w-px bg-gradient-to-b from-transparent via-[#22d3ee]/30 to-transparent" />
+                            <div className="pointer-events-none absolute inset-y-3 right-0 w-px bg-gradient-to-b from-transparent via-[#b8d8f0]/35 to-transparent" />
                           )}
                           <div className={`flex h-11 w-11 items-center justify-center rounded-full ${s.iconBg}`}>
                             {s.icon}

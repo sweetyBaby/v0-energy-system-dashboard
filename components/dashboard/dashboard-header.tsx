@@ -70,7 +70,7 @@ export function DashboardHeader() {
   }
 
   return (
-    <header className="relative h-[56px] shrink-0 overflow-hidden bg-[#020810]">
+    <header className="relative z-30 h-[56px] shrink-0 overflow-visible bg-[#020810]">
 
       {/* ── 背景层 ── */}
       {/* 扫描线纹理 */}
@@ -130,7 +130,7 @@ export function DashboardHeader() {
       <div className="grid h-full grid-cols-[1fr_auto_1fr] items-center px-4">
 
         {/* ── 左侧：图标 + 项目选择 ── */}
-        <div className="flex items-center gap-2.5">
+        <div className="relative z-40 flex items-center gap-2.5">
           {/* 切角图标框 */}
           <div
             className="relative flex h-[30px] w-[30px] shrink-0 items-center justify-center border border-[#00d4aa]/40 bg-[#00d4aa]/08"
