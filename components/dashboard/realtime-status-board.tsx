@@ -88,8 +88,8 @@ export function RealtimeStatusBoard() {
   ]
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#22d3ee]/25 bg-transparent p-3.5 backdrop-blur-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset]">
-      <div className="mb-2.5 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#22d3ee]/25 bg-transparent p-3 backdrop-blur-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset]">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
           <h3 className="text-[1.05rem] font-semibold tracking-[0.02em] text-[#00d4aa]" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.95)" }}>
@@ -97,36 +97,42 @@ export function RealtimeStatusBoard() {
           </h3>
         </div>
 
-        <div className="flex items-center gap-2 rounded-full border border-[#1a2654] bg-[#0b1434]/72 px-3 py-1 text-[11px]">
-          <span className="font-medium tracking-[0.01em] text-[#a8b6db]">{language === "zh" ? "当前 Pack" : "Current Pack"}</span>
-          <span className={`font-semibold tracking-[0.01em] ${statusStyles[snapshot.packStatus]}`}>{packStatusLabel}</span>
+        <div className="relative flex h-[42px] w-[168px] shrink-0 items-center justify-between rounded-[14px] border border-[#0e8d52]/80 bg-[linear-gradient(90deg,#0f8e45,#11c55d)] px-3 pr-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05),0_0_18px_rgba(0,212,122,0.14)]">
+          <div className="pointer-events-none absolute inset-[3px] rounded-[11px] border border-white/8" />
+          <div className="absolute -right-[7px] top-1/2 h-[18px] w-[7px] -translate-y-1/2 rounded-r-[3px] border border-[#0e8d52]/70 bg-[#16a34a] shadow-[0_0_8px_rgba(0,212,122,0.16)]" />
+          <div className="flex h-7 min-w-[58px] items-center justify-center rounded-[10px] bg-black/10 px-2 text-[1rem] font-semibold leading-none text-white">
+            {Math.round(snapshot.soc)}%
+          </div>
+          <div className="rounded-full bg-white/10 p-1.5">
+            <Zap className="h-4 w-4 text-white" fill="currentColor" />
+          </div>
+          <div className={`whitespace-nowrap text-[12px] font-semibold tracking-[0.01em] ${statusStyles[snapshot.packStatus]}`}>
+            {packStatusLabel}
+          </div>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
-        <div className="flex w-[108px] flex-shrink-0 items-center justify-center">
-          <div className="relative flex h-[158px] w-[104px] flex-col items-center justify-between rounded-[24px] border border-[#0e8d52] bg-[linear-gradient(180deg,#08c95d,#07b94f)] px-3 py-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05),0_0_24px_rgba(0,212,122,0.18)]">
-            <div className="absolute -top-4 h-4 w-12 rounded-t-xl bg-[#0f9f4e]" />
-            <div className="text-3xl font-semibold text-white">{Math.round(snapshot.soc)}%</div>
-            <div className="rounded-full bg-white/10 p-2.5">
-              <Zap className="h-10 w-10 text-white" fill="currentColor" />
-            </div>
-            <div className={`text-sm font-medium ${statusStyles[snapshot.packStatus]}`}>{packStatusLabel}</div>
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 overflow-hidden">
+        {metricRows.map((item) => (
+          <div
+            key={item.labelEn}
+            className="flex min-w-0 items-center justify-between border-b border-[#22d3ee]/14 px-1 pb-1"
+          >
+            <span
+              className="truncate pr-2 text-[11.5px] font-medium tracking-[0.01em] text-white"
+              style={{ textShadow: "0 1px 5px rgba(0,0,0,0.95)" }}
+              title={language === "zh" ? item.labelZh : item.labelEn}
+            >
+              {language === "zh" ? item.labelZh : item.labelEn}
+            </span>
+            <span
+              className="shrink-0 whitespace-nowrap text-[0.9rem] font-semibold tabular-nums leading-none tracking-[0.01em] text-[#63e8ff]"
+              style={{ textShadow: "0 1px 6px rgba(0,0,0,0.95)" }}
+            >
+              {item.value}
+            </span>
           </div>
-        </div>
-
-        <div className="grid min-h-0 flex-1 grid-cols-2 gap-x-4 gap-y-2">
-          {metricRows.map((item) => (
-            <div key={item.labelEn} className="flex items-end justify-between border-b border-[#22d3ee]/15 pb-1">
-              <span className="text-[11px] font-medium tracking-[0.01em] text-white" style={{ textShadow: "0 1px 5px rgba(0,0,0,0.95)" }}>
-                {language === "zh" ? item.labelZh : item.labelEn}
-              </span>
-              <span className="text-[0.95rem] font-semibold tabular-nums tracking-[0.01em] text-[#63e8ff]" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.95)" }}>
-                {item.value}
-              </span>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
     </div>
   )
