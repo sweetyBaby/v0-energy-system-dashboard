@@ -22,6 +22,13 @@ type DashboardTab = "realtime" | "bms" | "analysis" | "history" | "reports"
 type BcuMode = "realtime" | "history"
 type AnalysisRange = 7 | 15 | 30
 
+const formatDateInputValue = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
 const ANALYSIS_RANGES: { key: AnalysisRange; zh: string; en: string }[] = [
   { key: 7, zh: "近7天", en: "Last 7d" },
   { key: 15, zh: "近15天", en: "Last 15d" },
@@ -30,9 +37,9 @@ const ANALYSIS_RANGES: { key: AnalysisRange; zh: string; en: string }[] = [
 
 const TAB_META: Record<DashboardTab, { zh: string; en: string }> = {
   realtime: { zh: "总览", en: "Overview" },
+  history: { zh: "运行状态", en: "Operations" },
   bms: { zh: "电芯矩阵", en: "Cell Matrix" },
   analysis: { zh: "数据分析", en: "Analysis" },
-  history: { zh: "运行状态", en: "Operations" },
   reports: { zh: "报表信息", en: "Reports" },
 }
 
@@ -40,8 +47,8 @@ function DashboardTabs() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("realtime")
   const [analysisRange, setAnalysisRange] = useState<AnalysisRange>(15)
   const [bcuMode, setBcuMode] = useState<BcuMode>("realtime")
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0]
-  const [historyDate, setHistoryDate] = useState(yesterday)
+  const today = formatDateInputValue(new Date())
+  const [historyDate, setHistoryDate] = useState(today)
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const zh = language === "zh"
@@ -298,10 +305,10 @@ function DashboardTabs() {
                     )}
                     {m === "realtime" ? (zh ? "实时监控" : "Live") : (zh ? "历史查询" : "History")}
                   </button>
-                ))}
+              ))}
               </div>
               {bcuMode === "history" && (
-                <HistoryDatePicker value={historyDate} onChange={setHistoryDate} max={yesterday} />
+                <HistoryDatePicker value={historyDate} onChange={setHistoryDate} max={today} />
               )}
             </div>
             <div className="grid min-h-0 flex-1 grid-cols-12 gap-4">
