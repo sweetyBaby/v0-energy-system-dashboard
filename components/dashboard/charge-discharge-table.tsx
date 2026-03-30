@@ -1,207 +1,113 @@
 "use client"
 
-import {
-  Activity,
-  ArrowDown,
-  ArrowUp,
-  Gauge,
-  RefreshCw,
-} from "lucide-react"
+import { ArrowDown, ArrowUp, Gauge } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
-const headlineStats = [
+const energyStats = [
   {
-    key: "charge-energy",
+    key: "charge",
     labelZh: "当日充电量",
-    labelEn: "Today Charge Energy",
+    labelEn: "Today Charge",
     value: "3,256.8",
     unit: "kWh",
     icon: ArrowDown,
     accent: "text-[#39d0ff]",
-    border: "border-[#205d79]",
-    glow: "shadow-[0_0_18px_rgba(57,208,255,0.08)]",
-    iconBg: "bg-[#39d0ff]/14",
+    border: "border-[#1e4d6a]",
+    iconBg: "bg-[#39d0ff]/12",
+    bar: "w-[76%] bg-gradient-to-r from-[#39d0ff]/60 to-[#39d0ff]",
   },
   {
-    key: "discharge-energy",
+    key: "discharge",
     labelZh: "当日放电量",
-    labelEn: "Today Discharge Energy",
+    labelEn: "Today Discharge",
     value: "3,102.4",
     unit: "kWh",
     icon: ArrowUp,
     accent: "text-[#ff9a4c]",
-    border: "border-[#6a4527]",
-    glow: "shadow-[0_0_18px_rgba(255,154,76,0.08)]",
-    iconBg: "bg-[#ff9a4c]/14",
-  },
-  {
-    key: "day-throughput",
-    labelZh: "当日吞吐量",
-    labelEn: "Today Throughput",
-    value: "6,359.2",
-    unit: "kWh",
-    icon: Activity,
-    accent: "text-[#00d4aa]",
-    border: "border-[#1d5b54]",
-    glow: "shadow-[0_0_18px_rgba(0,212,170,0.08)]",
-    iconBg: "bg-[#00d4aa]/14",
+    border: "border-[#5a3a1a]",
+    iconBg: "bg-[#ff9a4c]/12",
+    bar: "w-[72%] bg-gradient-to-r from-[#ff9a4c]/60 to-[#ff9a4c]",
   },
 ] as const
 
-const qualityStats = [
+const gaugeStats = [
   {
-    key: "dc-efficiency",
-    labelZh: "当日充放电效率",
-    labelEn: "Round-trip Efficiency",
-    value: "95.26",
-    unit: "%",
-    icon: Gauge,
-    accent: "text-[#facc15]",
+    key: "charge-discharge-efficiency",
+    labelZh: "充放电效率",
+    labelEn: "Round-trip Eff.",
+    value: 95.26,
     color: "#facc15",
-    border: "border-[#6b5b18]",
-    iconBg: "bg-[#facc15]/14",
+    accent: "text-[#facc15]",
   },
   {
     key: "system-efficiency",
     labelZh: "系统效率",
-    labelEn: "System Efficiency",
-    value: "94.73",
-    unit: "%",
-    icon: Gauge,
-    accent: "text-[#29e6c2]",
+    labelEn: "System Eff.",
+    value: 94.73,
     color: "#29e6c2",
-    border: "border-[#215e56]",
-    iconBg: "bg-[#29e6c2]/14",
-  },
-  {
-    key: "equivalent-cycles",
-    labelZh: "当日等效循环",
-    labelEn: "Equivalent Cycles",
-    value: "0.78",
-    unit: "次",
-    icon: RefreshCw,
-    accent: "text-[#7ea8ff]",
-    color: "#7ea8ff",
-    border: "border-[#304d83]",
-    iconBg: "bg-[#7ea8ff]/14",
+    accent: "text-[#29e6c2]",
   },
 ] as const
 
 export function ChargeDischargeTable() {
   const { language } = useLanguage()
+  const zh = language === "zh"
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[linear-gradient(180deg,#10173d,#0c1230)] p-3 shadow-[0_0_0_1px_rgba(34,211,238,0.02)_inset]">
-      <div className="mb-3 flex items-center">
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">
-            {language === "zh" ? "充放电统计" : "Charge / Discharge Stats"}
-          </h3>
-        </div>
+    <div className="flex h-full min-h-0 flex-col gap-2.5 overflow-hidden rounded-[22px] border border-[#22d3ee]/25 bg-transparent p-3 backdrop-blur-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset]">
+      <div className="flex shrink-0 items-center gap-2">
+        <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
+        <h3 className="text-[1.05rem] font-semibold tracking-[0.02em] text-[#00d4aa]" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.95)" }}>
+          {zh ? "充放电统计" : "Charge / Discharge"}
+        </h3>
       </div>
 
-      <div className="grid grid-cols-3 gap-2.5">
-        {headlineStats.map((item) => {
+      <div className="grid shrink-0 grid-cols-2 gap-2">
+        {energyStats.map((item) => {
           const Icon = item.icon
-
           return (
-            <div
-              key={item.key}
-              className={`rounded-xl border bg-[linear-gradient(180deg,rgba(16,24,64,0.96),rgba(10,18,48,0.94))] px-3 py-3 ${item.border} ${item.glow}`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-[#7b8ab8]">
-                  {language === "zh" ? item.labelZh : item.labelEn}
-                </span>
-                <div className={`flex h-7 w-7 items-center justify-center rounded-md ${item.iconBg}`}>
-                  <Icon className={`h-4 w-4 ${item.accent}`} />
+            <div key={item.key} className="rounded-xl border border-[#22d3ee]/20 px-3 py-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-white" style={{ textShadow: "0 1px 5px rgba(0,0,0,0.95)" }}>{zh ? item.labelZh : item.labelEn}</span>
+                <div className={`flex h-6 w-6 items-center justify-center rounded-md ${item.iconBg}`}>
+                  <Icon className={`h-3.5 w-3.5 ${item.accent}`} />
                 </div>
               </div>
-
-              <div className="mt-4 flex items-end gap-1">
-                <span className={`text-[1.65rem] font-semibold leading-none ${item.accent}`}>{item.value}</span>
-                <span className="pb-1 text-[11px] text-[#7b8ab8]">{item.unit}</span>
+              <div className="mt-1 flex items-end gap-1">
+                <span className={`text-[1.4rem] font-bold leading-none ${item.accent}`} style={{ textShadow: "0 1px 8px rgba(0,0,0,0.95)" }}>{item.value}</span>
+                <span className="pb-0.5 text-[11px] text-white" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.95)" }}>{item.unit}</span>
               </div>
-
-              <div className="mt-3 h-1 overflow-hidden rounded-full bg-[#17224b]">
-                <div
-                  className={`h-full rounded-full ${
-                    item.key === "charge-energy"
-                      ? "w-[76%] bg-[#39d0ff]"
-                      : item.key === "discharge-energy"
-                        ? "w-[72%] bg-[#ff9a4c]"
-                        : "w-[88%] bg-[#00d4aa]"
-                  }`}
-                />
+              <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
+                <div className={`h-full rounded-full ${item.bar}`} />
               </div>
             </div>
           )
         })}
       </div>
 
-      <div className="mt-2.5 grid min-h-0 flex-1 grid-cols-3 gap-2.5">
-        {qualityStats.map((item) => {
-          const Icon = item.icon
-          const metricValue = Number.parseFloat(item.value)
-          const isEfficiencyMetric = item.unit === "%"
-          const ringFill = Math.max(0, Math.min(metricValue, 100)) * 3.6
-
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
+        {gaugeStats.map((item) => {
+          const ringFill = Math.max(0, Math.min(item.value, 100)) * 3.6
           return (
-            <div
-              key={item.key}
-              className={`flex min-h-0 flex-col justify-between rounded-lg border bg-[linear-gradient(180deg,rgba(16,24,64,0.94),rgba(11,19,52,0.92))] px-3 py-2.5 ${item.border}`}
-            >
-              {isEfficiencyMetric ? (
-                <>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <span className="text-[11px] text-[#7b8ab8]">
-                        {language === "zh" ? item.labelZh : item.labelEn}
-                      </span>
-
-                      <div className="mt-5 flex items-end gap-1">
-                        <span className={`text-[1.85rem] font-semibold leading-none ${item.accent}`}>{item.value}</span>
-                        <span className="pb-1 text-[11px] text-[#7b8ab8]">{item.unit}</span>
-                      </div>
-                    </div>
-
-                    <div className="relative mt-0.5 h-[72px] w-[72px] flex-shrink-0">
-                      <div
-                        className="absolute inset-0 rounded-full"
-                        style={{
-                          background: `conic-gradient(${item.color} 0deg ${ringFill}deg, rgba(123,138,184,0.16) ${ringFill}deg 360deg)`,
-                          boxShadow: `0 0 18px ${item.color}22`,
-                        }}
-                      />
-                      <div className="absolute inset-[8px] rounded-full border border-white/5 bg-[#10183a]" />
-                      <div className="absolute inset-[17px] rounded-full bg-[radial-gradient(circle,#152552_0%,#0f1734_100%)]" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/8 bg-white/5">
-                          <Icon className={`h-4 w-4 ${item.accent}`} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-[#7b8ab8]">
-                      {language === "zh" ? item.labelZh : item.labelEn}
-                    </span>
-                    <div className={`flex h-6 w-6 items-center justify-center rounded-md ${item.iconBg}`}>
-                      <Icon className={`h-3.5 w-3.5 ${item.accent}`} />
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-end gap-1">
-                    <span className={`text-xl font-semibold leading-none ${item.accent}`}>{item.value}</span>
-                    <span className="pb-0.5 text-[11px] text-[#7b8ab8]">{item.unit}</span>
-                  </div>
-                </>
-              )}
+            <div key={item.key} className="flex min-h-0 flex-col items-center justify-center rounded-xl border border-[#22d3ee]/20 px-3 py-2.5">
+              <div className="relative h-[74px] w-[74px]">
+                <div
+                  className="absolute inset-0 rounded-full"
+                  style={{
+                    background: `conic-gradient(${item.color} 0deg ${ringFill}deg, rgba(20,30,60,0.6) ${ringFill}deg 360deg)`,
+                    boxShadow: `0 0 20px ${item.color}40`,
+                  }}
+                />
+                <div className="absolute inset-[7px] rounded-full bg-[#04080f]/70" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Gauge className={`h-5 w-5 ${item.accent}`} />
+                </div>
+              </div>
+              <div className="mt-2 flex items-end gap-0.5">
+                <span className={`text-[1.12rem] font-bold leading-none ${item.accent}`} style={{ textShadow: "0 1px 8px rgba(0,0,0,0.95)" }}>{item.value}</span>
+                <span className="pb-px text-[11px] text-white" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.95)" }}>%</span>
+              </div>
+              <span className="mt-1 text-[10px] font-medium text-white" style={{ textShadow: "0 1px 5px rgba(0,0,0,0.95)" }}>{zh ? item.labelZh : item.labelEn}</span>
             </div>
           )
         })}

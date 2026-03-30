@@ -12,7 +12,7 @@ export const projects = [
     ratedPower: "2.0 MW",
     ratedCapacity: "4.0 MWh",
     commissioningDate: "2025-11-15",
-    image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=200&fit=crop",
+    image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
   },
   {
     id: "ordos",
@@ -21,7 +21,7 @@ export const projects = [
     ratedPower: "5.0 MW",
     ratedCapacity: "10.0 MWh",
     commissioningDate: "2025-11-20",
-    image: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=200&fit=crop",
+    image: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
   },
 ]
 
@@ -39,7 +39,6 @@ export const useProject = () => useContext(ProjectContext)
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [selectedProject, setSelectedProject] = useState(projects[0])
-
   return (
     <ProjectContext.Provider value={{ selectedProject, setSelectedProject }}>
       {children}
@@ -60,51 +59,74 @@ export function DashboardHeader() {
   }, [])
 
   const formatDate = (date: Date) => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, "0")
-    const day = String(date.getDate()).padStart(2, "0")
-    const hours = String(date.getHours()).padStart(2, "0")
-    const minutes = String(date.getMinutes()).padStart(2, "0")
-    const seconds = String(date.getSeconds()).padStart(2, "0")
-    return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`
+    const y = date.getFullYear()
+    const mo = String(date.getMonth() + 1).padStart(2, "0")
+    const d = String(date.getDate()).padStart(2, "0")
+    const h = String(date.getHours()).padStart(2, "0")
+    const mi = String(date.getMinutes()).padStart(2, "0")
+    const s = String(date.getSeconds()).padStart(2, "0")
+    return `${y}/${mo}/${d} ${h}:${mi}:${s}`
   }
 
   return (
-    <header className="relative overflow-hidden border-b border-[#17325d] bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.1),transparent_26%),linear-gradient(180deg,rgba(10,18,48,0.98),rgba(7,12,31,0.98))] px-4 py-2.5">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/45 to-transparent" />
-      <div className="pointer-events-none absolute left-0 top-0 h-14 w-24 border-l border-t border-[#3b82f6]/25" />
-      <div className="pointer-events-none absolute right-0 top-0 h-14 w-24 border-r border-t border-[#3b82f6]/25" />
-      <div className="pointer-events-none absolute left-1/2 top-0 h-10 w-56 -translate-x-1/2 bg-[radial-gradient(circle_at_top,rgba(0,212,170,0.18),transparent_72%)]" />
+    <header className="relative h-[54px] shrink-0 overflow-hidden bg-[#020810]">
+      {/* Scan-line texture */}
+      <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(34,211,238,0.014)_3px,rgba(34,211,238,0.014)_4px)]" />
+      {/* Centre top halo */}
+      <div className="pointer-events-none absolute left-1/2 top-0 h-20 w-[560px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.22),transparent_65%)]" />
+      {/* Top glow line */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#00e8cc] to-transparent" style={{ boxShadow: "0 0 12px rgba(0,232,204,0.6)" }} />
+      {/* Bottom border */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/45 to-transparent" />
+      {/* TL / TR outer corner brackets */}
+      <div className="pointer-events-none absolute left-0 top-0 h-7 w-7 border-l-2 border-t-2 border-[#00d4aa]/60" />
+      <div className="pointer-events-none absolute right-0 top-0 h-7 w-7 border-r-2 border-t-2 border-[#00d4aa]/60" />
+      {/* BL / BR inner corner */}
+      <div className="pointer-events-none absolute bottom-0 left-0 h-4 w-4 border-b border-l border-[#22d3ee]/25" />
+      <div className="pointer-events-none absolute bottom-0 right-0 h-4 w-4 border-b border-r border-[#22d3ee]/25" />
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+      <div className="grid h-full grid-cols-[1fr_auto_1fr] items-center gap-4 px-4">
+
+        {/* ── Left: logo + project ── */}
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#22d3ee]/30 bg-[linear-gradient(135deg,rgba(0,212,170,0.2),rgba(59,130,246,0.22))] shadow-[0_0_16px_rgba(34,211,238,0.14)]">
-            <Zap className="h-4.5 w-4.5 text-[#e8f4fc]" />
+          {/* Icon */}
+          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+            <div className="absolute inset-0 border border-[#00d4aa]/35 bg-[#00d4aa]/8" style={{ clipPath: "polygon(6px 0%,100% 0%,100% calc(100% - 6px),calc(100% - 6px) 100%,0% 100%,0% 6px)" }} />
+            <Zap className="relative h-4 w-4 text-[#00d4aa]" style={{ filter: "drop-shadow(0 0 6px rgba(0,212,170,0.8))" }} />
           </div>
 
+          {/* Online dot */}
+          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-[#00ff9d] shadow-[0_0_8px_#00ff9d,0_0_18px_rgba(0,255,157,0.5)]" />
+
+          {/* Project selector */}
           <div className="relative">
             <button
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex min-w-[208px] items-center justify-between gap-2 rounded-lg border border-[#28507c] bg-[#0b1434]/92 px-3 py-1.5 text-sm text-[#e8f4fc] shadow-[0_0_0_1px_rgba(34,211,238,0.02)_inset] transition-colors hover:border-[#00d4aa]"
+              onClick={() => setDropdownOpen(p => !p)}
+              className="group flex h-7 min-w-[175px] items-center justify-between gap-2 border-b border-[#22d3ee]/30 bg-transparent px-1 transition-colors hover:border-[#22d3ee]/70"
             >
-              <span className="truncate">{language === "zh" ? selectedProject.name : selectedProject.nameEn}</span>
-              <ChevronDown className={`h-4 w-4 text-[#7b8ab8] transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+              <span className="truncate text-[13px] font-medium tracking-[0.04em] text-[#e8f6ff]">
+                {language === "zh" ? selectedProject.name : selectedProject.nameEn}
+              </span>
+              <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#22d3ee]/70 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
             </button>
+
             {dropdownOpen && (
-              <div className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] shadow-lg">
-                {projects.map((project) => (
+              <div className="absolute left-0 top-full z-50 mt-2 w-full overflow-hidden border border-[#22d3ee]/25 bg-[#030d1f] shadow-[0_16px_48px_rgba(0,0,0,0.7),0_0_0_1px_rgba(34,211,238,0.06)_inset]">
+                <div className="h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
+                {projects.map(p => (
                   <button
-                    key={project.id}
-                    onClick={() => {
-                      setSelectedProject(project)
-                      setDropdownOpen(false)
-                    }}
-                    className={`w-full px-3 py-2 text-left text-sm transition-colors hover:bg-[#1a2654] ${
-                      selectedProject.id === project.id ? "bg-[#1a2654]/50 text-[#00d4aa]" : "text-[#e8f4fc]"
+                    key={p.id}
+                    onClick={() => { setSelectedProject(p); setDropdownOpen(false) }}
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-[13px] transition-colors ${
+                      selectedProject.id === p.id
+                        ? "bg-[#0a1e40] text-[#00e8cc]"
+                        : "text-[#b0cce8] hover:bg-[#071428]"
                     }`}
                   >
-                    {language === "zh" ? project.name : project.nameEn}
+                    <span>{language === "zh" ? p.name : p.nameEn}</span>
+                    {selectedProject.id === p.id && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#00e8cc] shadow-[0_0_6px_#00e8cc]" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -112,46 +134,76 @@ export function DashboardHeader() {
           </div>
         </div>
 
-        <div className="relative flex min-w-[500px] items-center justify-center px-10">
-          <div className="absolute left-0 top-1/2 h-px w-24 -translate-y-1/2 bg-gradient-to-r from-transparent to-[#22d3ee]" />
-          <div className="absolute right-0 top-1/2 h-px w-24 -translate-y-1/2 bg-gradient-to-l from-transparent to-[#22d3ee]" />
-          <div className="relative overflow-hidden rounded-[14px] border border-[#28507c] bg-[linear-gradient(180deg,rgba(8,17,46,0.95),rgba(10,18,48,0.9))] px-10 py-2 shadow-[0_0_0_1px_rgba(34,211,238,0.03)_inset]">
-            <div className="absolute left-2 top-2 h-2 w-2 rounded-full bg-[#00d4aa] shadow-[0_0_10px_rgba(0,212,170,0.85)]" />
-            <div className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#22d3ee] shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
-            <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent" />
-            <div className="absolute inset-x-10 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/45 to-transparent" />
-            <div className="text-center">
-              <h1 className="mt-1 text-xl font-semibold tracking-[0.26em] text-[#e8f4fc]">
-                {language === "zh" ? "BMS 数据监测云平台" : "BMS Data Monitoring Cloud"}
-              </h1>
-            </div>
+        {/* ── Centre: title with wings ── */}
+        <div className="relative flex items-center gap-0">
+          {/* Left wing */}
+          <div className="flex items-center gap-2 pr-4">
+            <div className="h-px w-[110px] bg-gradient-to-r from-transparent to-[#22d3ee]/70" />
+            <div className="h-[7px] w-[7px] rotate-45 border border-[#22d3ee]/70 bg-transparent" />
+            <div className="h-[4px] w-[4px] rotate-45 bg-[#22d3ee]/60" />
+          </div>
+
+          {/* Title panel */}
+          <div className="relative px-8 py-1">
+            {/* Corner brackets */}
+            <div className="pointer-events-none absolute left-1 top-0.5 h-3 w-3 border-l-[2px] border-t-[2px] border-[#22d3ee]/90" />
+            <div className="pointer-events-none absolute right-1 top-0.5 h-3 w-3 border-r-[2px] border-t-[2px] border-[#22d3ee]/90" />
+            <div className="pointer-events-none absolute bottom-0.5 left-1 h-3 w-3 border-b-[2px] border-l-[2px] border-[#22d3ee]/45" />
+            <div className="pointer-events-none absolute bottom-0.5 right-1 h-3 w-3 border-b-[2px] border-r-[2px] border-[#22d3ee]/45" />
+            <h1
+              className="bg-gradient-to-r from-[#70e8ff] via-[#ffffff] to-[#00d4aa] bg-clip-text text-[1.12rem] font-bold tracking-[0.22em] text-transparent"
+              style={{ filter: "drop-shadow(0 0 18px rgba(34,211,238,0.55))" }}
+            >
+              {language === "zh" ? "BMS 数据监测云平台" : "BMS DATA MONITORING CLOUD"}
+            </h1>
+          </div>
+
+          {/* Right wing */}
+          <div className="flex flex-row-reverse items-center gap-2 pl-4">
+            <div className="h-px w-[110px] bg-gradient-to-l from-transparent to-[#22d3ee]/70" />
+            <div className="h-[7px] w-[7px] rotate-45 border border-[#22d3ee]/70 bg-transparent" />
+            <div className="h-[4px] w-[4px] rotate-45 bg-[#22d3ee]/60" />
           </div>
         </div>
 
+        {/* ── Right: time + lang ── */}
         <div className="flex items-center justify-end gap-2">
-          <span className="rounded-md border border-[#22456d] bg-[#08112e]/82 px-3 py-1.5 text-xs font-mono text-[#7dd3fc]">
-            {currentTime ? formatDate(currentTime) : "----/--/-- --:--:--"}
-          </span>
+          {/* Time */}
+          <div
+            className="flex h-7 items-center gap-2 px-3"
+            style={{ clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)", border: "1px solid rgba(34,211,238,0.22)", background: "rgba(34,211,238,0.06)" }}
+          >
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00ff9d] shadow-[0_0_8px_#00ff9d]" />
+            <span className="font-mono text-[11.5px] tabular-nums tracking-[0.1em] text-[#70d6ff]">
+              {currentTime ? formatDate(currentTime) : "----/--/-- --:--:--"}
+            </span>
+          </div>
 
-          <div className="flex items-center gap-1.5 rounded-md border border-[#28507c] bg-[#0b1434]/92 px-1.5 py-1">
-            <Globe className="h-3.5 w-3.5 shrink-0 text-[#00d4aa]" />
-            <div className="flex rounded-sm overflow-hidden">
-              {(["zh", "en"] as const).map(lang => (
-                <button
-                  key={lang}
-                  onClick={() => setLanguage(lang)}
-                  className={`px-2 py-0.5 text-xs font-medium transition-all ${
-                    language === lang
-                      ? "bg-[#00d4aa] text-[#041123]"
-                      : "text-[#7b8ab8] hover:text-[#e8f4fc]"
-                  }`}
-                >
-                  {lang === "zh" ? "中文" : "EN"}
-                </button>
-              ))}
+          {/* Language */}
+          <div
+            className="flex h-7 items-center overflow-hidden"
+            style={{ clipPath: "polygon(0% 0%,calc(100% - 8px) 0%,100% 100%,0% 100%)", border: "1px solid rgba(34,211,238,0.22)", background: "rgba(34,211,238,0.06)" }}
+          >
+            <div className="flex items-center px-2">
+              <Globe className="h-3.5 w-3.5 text-[#22d3ee]/60" />
             </div>
+            <div className="h-4 w-px bg-[#22d3ee]/20" />
+            {(["zh", "en"] as const).map(lang => (
+              <button
+                key={lang}
+                onClick={() => setLanguage(lang)}
+                className={`px-3 py-0.5 text-[12px] font-bold tracking-wider transition-all ${
+                  language === lang
+                    ? "bg-[linear-gradient(180deg,#00d4aa,#00b894)] text-[#020c18] shadow-[0_0_12px_rgba(0,212,170,0.4)]"
+                    : "text-[#5a88b0] hover:text-[#a0c8e8]"
+                }`}
+              >
+                {lang === "zh" ? "中文" : "EN"}
+              </button>
+            ))}
           </div>
         </div>
+
       </div>
     </header>
   )
