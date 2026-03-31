@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { CalendarDays, ChevronDown } from "lucide-react"
 import type { DateRange } from "react-day-picker"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
 import { useLanguage } from "@/components/language-provider"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -12,8 +12,7 @@ type QueryType = "today" | "yesterday" | "week" | "custom"
 
 type DataPoint = {
   time: string
-  chargePower: number
-  dischargePower: number
+  power: number
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -42,50 +41,59 @@ const formatRangeLabel = (range: DateRange | undefined) => {
 
 const formatDayLabel = (date: Date) => `${date.getMonth() + 1}/${date.getDate()}`
 
-// Generate minute-level data up to a specific hour:minute.
+const getRealtimePower = (hour: number) => {
+  if (hour >= 0 && hour < 6) {
+    return Math.round(1500 + Math.random() * 400)
+  }
+
+  if (hour >= 12 && hour < 14) {
+    return Math.round(1200 + Math.random() * 300)
+  }
+
+  if ((hour >= 8 && hour < 12) || (hour >= 18 && hour < 22)) {
+    return -Math.round(1600 + Math.random() * 400)
+  }
+
+  return 0
+}
+
+const getAggregatePower = () => {
+  const chargePower = 800 + Math.random() * 600
+  const dischargePower = 700 + Math.random() * 500
+  return Math.round(chargePower - dischargePower)
+}
+
 const generateMinuteDataUntil = (untilHour: number, untilMinute: number): DataPoint[] => {
   const data: DataPoint[] = []
   const limit = untilHour * 60 + untilMinute
+
   for (let i = 0; i <= limit; i += 5) {
     const hour = Math.floor(i / 60)
     const minute = i % 60
-    const time = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
-    let chargePower = 0
-    let dischargePower = 0
-    if (hour >= 0 && hour < 6) {
-      chargePower = 1500 + Math.random() * 400
-    } else if (hour >= 12 && hour < 14) {
-      chargePower = 1200 + Math.random() * 300
-    } else if ((hour >= 8 && hour < 12) || (hour >= 18 && hour < 22)) {
-      dischargePower = 1600 + Math.random() * 400
-    }
     data.push({
-      time,
-      chargePower: Math.round(chargePower),
-      dischargePower: -Math.round(dischargePower),
+      time: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
+      power: getRealtimePower(hour),
     })
   }
+
   return data
 }
 
-// Today: generate data up to current time, then incrementally append new points.
 const generateTodayData = (): DataPoint[] => {
   const now = new Date()
   return generateMinuteDataUntil(now.getHours(), now.getMinutes())
 }
 
-// Yesterday: full 24h.
 const generateYesterdayData = (): DataPoint[] => generateMinuteDataUntil(23, 55)
 
-// Daily data for last 7 days.
 const generateWeekDailyData = (): DataPoint[] => {
   const today = new Date()
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = addDays(today, -6 + i)
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(today, -6 + index)
     return {
-      time: formatDayLabel(d),
-      chargePower: Math.round(800 + Math.random() * 600),
-      dischargePower: -Math.round(700 + Math.random() * 500),
+      time: formatDayLabel(date),
+      power: getAggregatePower(),
     }
   })
 }
@@ -94,22 +102,22 @@ const generateCustomRangeData = (range: DateRange | undefined): DataPoint[] => {
   if (!range?.from || !range.to) return []
 
   const data: DataPoint[] = []
+
   for (let offset = 0; offset < getRangeLength(range.from, range.to); offset += 1) {
     const date = addDays(range.from, offset)
     data.push({
       time: formatDayLabel(date),
-      chargePower: Math.round(800 + Math.random() * 600),
-      dischargePower: -Math.round(700 + Math.random() * 500),
+      power: getAggregatePower(),
     })
   }
+
   return data
 }
 
 const getInitialData = (): DataPoint[] =>
-  Array.from({ length: 24 }, (_, i) => ({
-    time: `${String(i).padStart(2, "0")}:00`,
-    chargePower: 0,
-    dischargePower: 0,
+  Array.from({ length: 24 }, (_, index) => ({
+    time: `${String(index).padStart(2, "0")}:00`,
+    power: 0,
   }))
 
 export function PowerCurveQuery() {
@@ -133,12 +141,12 @@ export function PowerCurveQuery() {
   const { t, language } = useLanguage()
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const customHint =
-    language === "zh" ? "最多选择 7 天" : "Select up to 7 days"
+  const customHint = language === "zh" ? "最多选择 7 天" : "Select up to 7 days"
   const customLabel = language === "zh" ? "自定义" : "Custom"
   const selectRangeLabel = language === "zh" ? "选择日期范围" : "Select range"
   const maxRangeError =
     language === "zh" ? "自定义日期范围最多 7 天" : "Custom date range cannot exceed 7 days"
+  const powerSeriesLabel = language === "zh" ? "功率(kW)" : "Power (kW)"
 
   useEffect(() => {
     setMounted(true)
@@ -152,7 +160,6 @@ export function PowerCurveQuery() {
     setData(generateCustomRangeData(customRange))
   }, [customRange, mounted, queryType])
 
-  // Real-time refresh for "today": tick every minute to append new point.
   useEffect(() => {
     if (!mounted) return
     if (intervalRef.current) clearInterval(intervalRef.current)
@@ -160,27 +167,19 @@ export function PowerCurveQuery() {
 
     intervalRef.current = setInterval(() => {
       const now = new Date()
-      const h = now.getHours()
-      const m = Math.floor(now.getMinutes() / 5) * 5
-      const time = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
-      let chargePower = 0
-      let dischargePower = 0
-      if (h >= 0 && h < 6) {
-        chargePower = 1500 + Math.random() * 400
-      } else if (h >= 12 && h < 14) {
-        chargePower = 1200 + Math.random() * 300
-      } else if ((h >= 8 && h < 12) || (h >= 18 && h < 22)) {
-        dischargePower = 1600 + Math.random() * 400
-      }
+      const hour = now.getHours()
+      const minute = Math.floor(now.getMinutes() / 5) * 5
+      const time = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
       const newPoint: DataPoint = {
         time,
-        chargePower: Math.round(chargePower),
-        dischargePower: -Math.round(dischargePower),
+        power: getRealtimePower(hour),
       }
+
       setData((prev) => {
         if (prev.length > 0 && prev[prev.length - 1].time === time) {
           return [...prev.slice(0, -1), newPoint]
         }
+
         return [...prev, newPoint]
       })
       setNowLabel(time)
@@ -230,6 +229,7 @@ export function PowerCurveQuery() {
 
     const from = toDayStart(nextRange.from)
     const to = toDayStart(nextRange.to)
+
     if (getRangeLength(from, to) > 7) {
       setCustomRange({ from, to: undefined })
       setRangeError(maxRangeError)
@@ -250,9 +250,8 @@ export function PowerCurveQuery() {
     { key: "custom", label: customLabel },
   ] satisfies Array<{ key: QueryType; label: string }>
 
-  const xInterval = (queryType === "today" || queryType === "yesterday")
-    ? Math.max(1, Math.floor(data.length / 8))
-    : 0
+  const xInterval =
+    queryType === "today" || queryType === "yesterday" ? Math.max(1, Math.floor(data.length / 8)) : 0
 
   return (
     <div className="flex h-full w-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
@@ -364,6 +363,7 @@ export function PowerCurveQuery() {
               tickLine={false}
               tick={{ fill: "#7b8ab8", fontSize: 10 }}
             />
+            <ReferenceLine y={0} stroke="#3a5d83" strokeDasharray="4 4" strokeOpacity={0.65} />
             <Tooltip
               contentStyle={{
                 backgroundColor: "#0d1233",
@@ -371,25 +371,13 @@ export function PowerCurveQuery() {
                 borderRadius: "8px",
               }}
               labelStyle={{ color: "#7b8ab8" }}
-            />
-            <Legend
-              wrapperStyle={{ paddingTop: "10px" }}
-              formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "12px" }}>{value}</span>}
+              formatter={(value: number) => [`${value} kW`, powerSeriesLabel]}
             />
             <Line
               type="monotone"
-              dataKey="chargePower"
-              name={language === "zh" ? "充电功率(kW)" : "Charge Power (kW)"}
-              stroke="#3b82f6"
-              strokeWidth={2}
-              dot={false}
-              isAnimationActive={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="dischargePower"
-              name={language === "zh" ? "放电功率(kW)" : "Discharge Power (kW)"}
-              stroke="#f97316"
+              dataKey="power"
+              name={powerSeriesLabel}
+              stroke="#22d3ee"
               strokeWidth={2}
               dot={false}
               isAnimationActive={false}

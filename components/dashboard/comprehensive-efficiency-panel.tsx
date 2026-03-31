@@ -6,7 +6,6 @@ import {
   CartesianGrid,
   ComposedChart,
   Legend,
-  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -105,18 +104,6 @@ const buildYearData = (language: "zh" | "en"): EfficiencyPoint[] => {
   })
 }
 
-const clampEfficiencyDomain = (points: EfficiencyPoint[]) => {
-  if (points.length === 0) {
-    return [70, 100] as [number, number]
-  }
-
-  const values = points.flatMap((point) => [point.capacityEfficiency, point.energyEfficiency])
-  const min = Math.floor(Math.min(...values) - 2)
-  const max = Math.ceil(Math.max(...values) + 2)
-
-  return [Math.max(70, min), Math.min(100, max)] as [number, number]
-}
-
 export function ComprehensiveEfficiencyPanel({
   compact = false,
 }: ComprehensiveEfficiencyPanelProps) {
@@ -139,8 +126,6 @@ export function ComprehensiveEfficiencyPanel({
     return monthData
   }, [monthData, range, weekData, yearData])
 
-  const efficiencyDomain = useMemo(() => clampEfficiencyDomain(activeData), [activeData])
-
   const rangeOptions = [
     { key: "week" as const, label: language === "zh" ? "近7日" : "7 Days" },
     { key: "month" as const, label: language === "zh" ? "本月" : "This Month" },
@@ -152,8 +137,6 @@ export function ComprehensiveEfficiencyPanel({
     dischargeCapacity: language === "zh" ? "放电容量 (Ah)" : "Discharge Capacity (Ah)",
     chargeEnergy: language === "zh" ? "充电电量 (kWh)" : "Charge Energy (kWh)",
     dischargeEnergy: language === "zh" ? "放电电量 (kWh)" : "Discharge Energy (kWh)",
-    capacityEfficiency: language === "zh" ? "容量效率 (%)" : "Capacity Efficiency (%)",
-    energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
   }
 
   const tableHeaders = {
@@ -162,8 +145,6 @@ export function ComprehensiveEfficiencyPanel({
     dischargeCapacity: language === "zh" ? "放容(Ah)" : "Dis Cap",
     chargeEnergy: language === "zh" ? "充电(kWh)" : "Chg kWh",
     dischargeEnergy: language === "zh" ? "放电(kWh)" : "Dis kWh",
-    capacityEfficiency: language === "zh" ? "容量效%" : "Cap Eff",
-    energyEfficiency: language === "zh" ? "能量效%" : "En Eff",
   }
 
   const wrapperClassName = compact
@@ -235,7 +216,7 @@ export function ComprehensiveEfficiencyPanel({
       {viewMode === "chart" ? (
         <div className="min-h-0 flex-1">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={activeData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+            <ComposedChart data={activeData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="#1a2654" strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="label"
@@ -250,15 +231,6 @@ export function ComprehensiveEfficiencyPanel({
                 tickLine={false}
                 tick={{ fill: "#7b8ab8", fontSize: 10 }}
               />
-              <YAxis
-                yAxisId="efficiency"
-                orientation="right"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                domain={efficiencyDomain}
-                tickFormatter={(value) => `${value}%`}
-              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "#0d1233",
@@ -267,10 +239,6 @@ export function ComprehensiveEfficiencyPanel({
                 }}
                 labelStyle={{ color: "#7b8ab8" }}
                 formatter={(value: number, name: string) => {
-                  if (name === legendText.capacityEfficiency || name === legendText.energyEfficiency) {
-                    return [`${value.toFixed(1)}%`, name]
-                  }
-
                   const unit = name.includes("Capacity") || name.includes("容量") ? "Ah" : "kWh"
                   return [`${value.toFixed(1)} ${unit}`, name]
                 }}
@@ -279,12 +247,38 @@ export function ComprehensiveEfficiencyPanel({
                 wrapperStyle={{ paddingTop: "4px" }}
                 formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>}
               />
-              <Bar yAxisId="quantity" dataKey="chargeCapacity" name={legendText.chargeCapacity} fill="#7dd3fc" radius={[4, 4, 0, 0]} barSize={10} />
-              <Bar yAxisId="quantity" dataKey="dischargeCapacity" name={legendText.dischargeCapacity} fill="#fda4af" radius={[4, 4, 0, 0]} barSize={10} />
-              <Bar yAxisId="quantity" dataKey="chargeEnergy" name={legendText.chargeEnergy} fill="#99f6e4" radius={[4, 4, 0, 0]} barSize={10} />
-              <Bar yAxisId="quantity" dataKey="dischargeEnergy" name={legendText.dischargeEnergy} fill="#c4b5fd" radius={[4, 4, 0, 0]} barSize={10} />
-              <Line yAxisId="efficiency" type="monotone" dataKey="capacityEfficiency" name={legendText.capacityEfficiency} stroke="#facc15" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-              <Line yAxisId="efficiency" type="monotone" dataKey="energyEfficiency" name={legendText.energyEfficiency} stroke="#4ade80" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+              <Bar
+                yAxisId="quantity"
+                dataKey="chargeCapacity"
+                name={legendText.chargeCapacity}
+                fill="#7dd3fc"
+                radius={[4, 4, 0, 0]}
+                barSize={10}
+              />
+              <Bar
+                yAxisId="quantity"
+                dataKey="dischargeCapacity"
+                name={legendText.dischargeCapacity}
+                fill="#fda4af"
+                radius={[4, 4, 0, 0]}
+                barSize={10}
+              />
+              <Bar
+                yAxisId="quantity"
+                dataKey="chargeEnergy"
+                name={legendText.chargeEnergy}
+                fill="#99f6e4"
+                radius={[4, 4, 0, 0]}
+                barSize={10}
+              />
+              <Bar
+                yAxisId="quantity"
+                dataKey="dischargeEnergy"
+                name={legendText.dischargeEnergy}
+                fill="#c4b5fd"
+                radius={[4, 4, 0, 0]}
+                barSize={10}
+              />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -292,13 +286,11 @@ export function ComprehensiveEfficiencyPanel({
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-[#1a2654]/80 bg-[#0d1433]/90 [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]">
           <table className="w-full table-fixed text-[12px]">
             <colgroup>
-              <col className="w-[12%]" />
-              <col className="w-[15%]" />
-              <col className="w-[15%]" />
-              <col className="w-[18%]" />
-              <col className="w-[18%]" />
-              <col className="w-[11%]" />
-              <col className="w-[11%]" />
+              <col className="w-[14%]" />
+              <col className="w-[22%]" />
+              <col className="w-[22%]" />
+              <col className="w-[21%]" />
+              <col className="w-[21%]" />
             </colgroup>
             <thead className="sticky top-0 z-10 bg-[#121a40]">
               <tr className="border-b border-[#1a2654] text-[#7b8ab8]">
@@ -307,8 +299,6 @@ export function ComprehensiveEfficiencyPanel({
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.dischargeCapacity}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.chargeEnergy}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.dischargeEnergy}</th>
-                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.capacityEfficiency}</th>
-                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.energyEfficiency}</th>
               </tr>
             </thead>
             <tbody>
@@ -319,8 +309,6 @@ export function ComprehensiveEfficiencyPanel({
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.dischargeCapacity.toFixed(1)}</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.chargeEnergy.toFixed(1)}</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.dischargeEnergy.toFixed(1)}</td>
-                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#00d4aa]">{item.capacityEfficiency.toFixed(1)}%</td>
-                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#00d4aa]">{item.energyEfficiency.toFixed(1)}%</td>
                 </tr>
               ))}
             </tbody>

@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { ChevronDown, Globe, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
@@ -27,6 +27,14 @@ export const projects = [
 
 export type Project = typeof projects[number]
 
+type DashboardHeaderTab = {
+  key: string
+  label: {
+    zh: string
+    en: string
+  }
+}
+
 const ProjectContext = createContext<{
   selectedProject: Project
   setSelectedProject: (project: Project) => void
@@ -39,23 +47,55 @@ export const useProject = () => useContext(ProjectContext)
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [selectedProject, setSelectedProject] = useState(projects[0])
-  return (
-    <ProjectContext.Provider value={{ selectedProject, setSelectedProject }}>
-      {children}
-    </ProjectContext.Provider>
-  )
+
+  return <ProjectContext.Provider value={{ selectedProject, setSelectedProject }}>{children}</ProjectContext.Provider>
 }
 
-export function DashboardHeader() {
+export function DashboardHeader({
+  activeTab,
+  onTabChange,
+  tabs,
+}: {
+  activeTab: string
+  onTabChange: (tab: string) => void
+  tabs: DashboardHeaderTab[]
+}) {
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const { selectedProject, setSelectedProject } = useProject()
+  const [navOpen, setNavOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const { language, setLanguage } = useLanguage()
+  const leftControlsRef = useRef<HTMLDivElement>(null)
+  const activeTabLabel = tabs.find((tab) => tab.key === activeTab)?.label
 
   useEffect(() => {
     setCurrentTime(new Date())
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!leftControlsRef.current?.contains(event.target as Node)) {
+        setNavOpen(false)
+        setDropdownOpen(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setNavOpen(false)
+        setDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown)
+    window.addEventListener("keydown", handleKeyDown)
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown)
+      window.removeEventListener("keydown", handleKeyDown)
+    }
   }, [])
 
   const formatDate = (date: Date) => {
@@ -94,7 +134,7 @@ export function DashboardHeader() {
       </div>
 
       <div className="relative grid h-full grid-cols-[1fr_auto_1fr] items-center px-4">
-        <div className="relative z-40 flex items-center gap-3">
+        <div className="relative z-40 flex items-center gap-3" ref={leftControlsRef}>
           <div
             className="relative flex h-[30px] w-[30px] shrink-0 items-center justify-center border border-[#27f0dd]/45 bg-[linear-gradient(180deg,rgba(7,45,54,0.94),rgba(4,20,28,0.94))] shadow-[0_0_18px_rgba(39,240,221,0.14),inset_0_0_0_1px_rgba(140,255,240,0.04)]"
             style={{ clipPath: "polygon(6px 0%,100% 0%,100% calc(100% - 6px),calc(100% - 6px) 100%,0% 100%,0% 6px)" }}
@@ -107,7 +147,10 @@ export function DashboardHeader() {
 
           <div className="relative min-w-[190px]">
             <button
-              onClick={() => setDropdownOpen((prev) => !prev)}
+              onClick={() => {
+                setDropdownOpen((prev) => !prev)
+                setNavOpen(false)
+              }}
               className="group relative flex h-[30px] w-full items-center justify-between gap-3 border border-[#225d7a]/75 bg-[linear-gradient(180deg,rgba(7,24,39,0.94),rgba(4,13,25,0.94))] px-3 text-left shadow-[inset_0_0_0_1px_rgba(126,220,255,0.04)] transition-all hover:border-[#38cfff]/70 hover:shadow-[0_0_18px_rgba(56,207,255,0.12),inset_0_0_0_1px_rgba(126,220,255,0.06)]"
               style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
             >
@@ -142,6 +185,66 @@ export function DashboardHeader() {
                     )}
                   </button>
                 ))}
+              </div>
+            )}
+          </div>
+
+          <div className="relative min-w-[150px]">
+            <button
+              onClick={() => {
+                setNavOpen((prev) => !prev)
+                setDropdownOpen(false)
+              }}
+              className="group relative flex h-[30px] w-full items-center justify-between gap-3 border border-[#225d7a]/75 bg-[linear-gradient(180deg,rgba(7,24,39,0.94),rgba(4,13,25,0.94))] px-3 text-left shadow-[inset_0_0_0_1px_rgba(126,220,255,0.04)] transition-all hover:border-[#38cfff]/70 hover:shadow-[0_0_18px_rgba(56,207,255,0.12),inset_0_0_0_1px_rgba(126,220,255,0.06)]"
+              style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
+              aria-expanded={navOpen}
+              aria-label={language === "zh" ? "展开导航菜单" : "Toggle navigation"}
+            >
+              <span className="pointer-events-none absolute left-[10px] top-0 h-full w-px bg-gradient-to-b from-[#1df2d7]/0 via-[#1df2d7]/35 to-[#1df2d7]/0" />
+              <span className="pointer-events-none absolute inset-x-4 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3bd2ff]/60 to-transparent" />
+              <span className="pointer-events-none absolute right-3 top-[4px] h-[4px] w-[4px] rotate-45 border border-[#61dcff]/60 opacity-70" />
+              <div className="min-w-0">
+                
+                <div className="truncate text-[12px] font-semibold tracking-[0.05em] text-[#e7fbff]">
+                  {activeTabLabel ? (language === "zh" ? activeTabLabel.zh : activeTabLabel.en) : ""}
+                </div>
+              </div>
+              <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#68dfff] transition-transform ${navOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {navOpen && (
+              <div className="absolute left-0 top-full z-50 mt-2 w-[220px] overflow-hidden rounded-[12px] border border-[#2a6d8e]/70 bg-[linear-gradient(180deg,rgba(4,16,30,0.98),rgba(2,10,20,0.98))] shadow-[0_16px_48px_rgba(0,0,0,0.56),0_0_24px_rgba(40,180,255,0.08)]">
+                <div className="h-px bg-gradient-to-r from-transparent via-[#50dcff]/70 to-transparent" />
+                <div className="px-2 py-2">
+                  {tabs.map((tab) => {
+                    const isActive = activeTab === tab.key
+
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => {
+                          onTabChange(tab.key)
+                          setNavOpen(false)
+                        }}
+                        className={`relative flex w-full items-center justify-between overflow-hidden rounded-[10px] px-3 py-2.5 text-left transition-all ${
+                          isActive
+                            ? "bg-[linear-gradient(90deg,rgba(10,57,82,0.92),rgba(6,29,52,0.92))] text-[#2cf3dd] shadow-[inset_0_0_0_1px_rgba(89,231,255,0.14)]"
+                            : "text-[#a7c8df] hover:bg-[rgba(18,44,72,0.72)]"
+                        }`}
+                      >
+                        <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#5ddfff]/30 to-transparent" />
+                        <span className="text-[12.5px] font-medium tracking-[0.05em]">
+                          {language === "zh" ? tab.label.zh : tab.label.en}
+                        </span>
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full transition-all ${
+                            isActive ? "bg-[#28f0db] shadow-[0_0_6px_rgba(40,240,219,0.8)]" : "bg-[#38627e]"
+                          }`}
+                        />
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -215,9 +318,7 @@ export function DashboardHeader() {
                 key={lang}
                 onClick={() => setLanguage(lang)}
                 className={`px-2.5 text-[11.5px] font-semibold tracking-[0.06em] transition-all ${
-                  language === lang
-                    ? "text-[#26f0dc]"
-                    : "text-[#5a7f95] hover:text-[#9feeff]"
+                  language === lang ? "text-[#26f0dc]" : "text-[#5a7f95] hover:text-[#9feeff]"
                 }`}
                 style={language === lang ? { textShadow: "0 0 10px rgba(38,240,220,0.5)" } : undefined}
               >
