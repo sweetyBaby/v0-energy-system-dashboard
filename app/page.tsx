@@ -217,7 +217,7 @@ function DashboardTabs() {
             >
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
               <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={today} />
-              <CellHistoryCellPicker value={selectedHistoryCell} onChange={setSelectedHistoryCell} />
+              {/* <CellHistoryCellPicker value={selectedHistoryCell} onChange={setSelectedHistoryCell} /> */}
             </div>
             <div className="min-h-0 flex-1 overflow-hidden">
               <CellHistoryReplayPanel date={cellHistoryDate} selectedCell={selectedHistoryCell} onSelectedCellChange={setSelectedHistoryCell} />
