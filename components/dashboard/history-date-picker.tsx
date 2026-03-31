@@ -8,16 +8,22 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const monthNamesEn = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
-]
-const monthNamesZh = [
-  "1月","2月","3月","4月","5月","6月",
-  "7月","8月","9月","10月","11月","12月",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ]
 
-function startOfMonth(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), 1)
+const monthNamesZh = [
+  "1月", "2月", "3月", "4月", "5月", "6月",
+  "7月", "8月", "9月", "10月", "11月", "12月",
+]
+
+const parseLocalDate = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number)
+  return new Date(year, month - 1, day)
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1)
 }
 
 function isFuture(date: Date, max: Date) {
@@ -30,23 +36,22 @@ export function HistoryDatePicker({
   max,
 }: {
   value: string
-  onChange: (d: string) => void
+  onChange: (date: string) => void
   max: string
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
 
-  const maxDate = useMemo(() => new Date(max + "T00:00:00"), [max])
-  const selected = useMemo(
-    () => (value ? new Date(value + "T00:00:00") : maxDate),
-    [value, maxDate],
-  )
+  const maxDate = useMemo(() => parseLocalDate(max), [max])
+  const selected = useMemo(() => (value ? parseLocalDate(value) : maxDate), [value, maxDate])
   const [viewDate, setViewDate] = useState(() => startOfMonth(selected))
   const [open, setOpen] = useState(false)
 
   const yearOptions = useMemo(() => {
     const years: number[] = []
-    for (let y = 2024; y <= maxDate.getFullYear(); y++) years.push(y)
+    for (let year = 2024; year <= maxDate.getFullYear(); year += 1) {
+      years.push(year)
+    }
     return years
   }, [maxDate])
 
@@ -68,22 +73,19 @@ export function HistoryDatePicker({
         align="start"
         className="z-50 w-[300px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]"
       >
-        {/* Year + Month selects */}
         <div className="border-b border-[#1a2654] p-3">
           <div className="grid grid-cols-2 gap-2">
             <Select
               value={String(viewDate.getFullYear())}
-              onValueChange={(v) =>
-                setViewDate(new Date(Number(v), viewDate.getMonth(), 1))
-              }
+              onValueChange={(nextYear) => setViewDate(new Date(Number(nextYear), viewDate.getMonth(), 1))}
             >
               <SelectTrigger className="h-9 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]">
-                {yearOptions.map((y) => (
-                  <SelectItem key={y} value={String(y)} className="text-[#e8f4fc]">
-                    {zh ? `${y}年` : String(y)}
+                {yearOptions.map((year) => (
+                  <SelectItem key={year} value={String(year)} className="text-[#e8f4fc]">
+                    {zh ? `${year}年` : String(year)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -91,17 +93,15 @@ export function HistoryDatePicker({
 
             <Select
               value={String(viewDate.getMonth())}
-              onValueChange={(v) =>
-                setViewDate(new Date(viewDate.getFullYear(), Number(v), 1))
-              }
+              onValueChange={(nextMonth) => setViewDate(new Date(viewDate.getFullYear(), Number(nextMonth), 1))}
             >
               <SelectTrigger className="h-9 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]">
-                {(zh ? monthNamesZh : monthNamesEn).map((m, i) => (
-                  <SelectItem key={m} value={String(i)} className="text-[#e8f4fc]">
-                    {m}
+                {(zh ? monthNamesZh : monthNamesEn).map((month, index) => (
+                  <SelectItem key={month} value={String(index)} className="text-[#e8f4fc]">
+                    {month}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -109,18 +109,18 @@ export function HistoryDatePicker({
           </div>
         </div>
 
-        {/* Day calendar */}
         <Calendar
           mode="single"
           selected={selected}
           month={viewDate}
-          onMonthChange={(m) => setViewDate(startOfMonth(m))}
+          onMonthChange={(month) => setViewDate(startOfMonth(month))}
           disabled={(date) => isFuture(date, maxDate)}
           onSelect={(date) => {
             if (!date) return
-            const pad = (n: number) => String(n).padStart(2, "0")
-            const str = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-            onChange(str)
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, "0")
+            const day = String(date.getDate()).padStart(2, "0")
+            onChange(`${year}-${month}-${day}`)
             setOpen(false)
           }}
           hideNavigation
