@@ -88,7 +88,7 @@ export function RealtimeStatusBoard() {
   ]
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#22d3ee]/25 bg-transparent p-3 backdrop-blur-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#22d3ee]/22 bg-[linear-gradient(180deg,rgba(10,24,46,0.28),rgba(5,14,30,0.42))] p-3 backdrop-blur-[4px] shadow-[0_0_0_1px_rgba(34,211,238,0.06)_inset,0_10px_24px_rgba(0,0,0,0.1)]">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
@@ -112,11 +112,11 @@ export function RealtimeStatusBoard() {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-x-3 gap-y-2 overflow-hidden">
         {metricRows.map((item) => (
           <div
             key={item.labelEn}
-            className="flex min-w-0 items-center justify-between border-b border-[#22d3ee]/14 px-1 pb-1"
+            className="flex min-w-0 items-center justify-between rounded-[12px] border border-[#22d3ee]/10 bg-[linear-gradient(180deg,rgba(13,31,58,0.28),rgba(8,19,39,0.42))] px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.015)]"
           >
             <span
               className="truncate pr-2 text-[11.5px] font-medium tracking-[0.01em] text-white"

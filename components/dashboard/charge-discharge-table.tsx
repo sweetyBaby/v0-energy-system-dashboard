@@ -54,7 +54,7 @@ export function ChargeDischargeTable() {
   const zh = language === "zh"
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2.5 overflow-hidden rounded-[22px] border border-[#22d3ee]/25 bg-transparent p-3 backdrop-blur-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset]">
+    <div className="flex h-full min-h-0 flex-col gap-2.5 overflow-hidden rounded-[22px] border border-[#22d3ee]/22 bg-[linear-gradient(180deg,rgba(10,24,46,0.28),rgba(5,14,30,0.42))] p-3 backdrop-blur-[4px] shadow-[0_0_0_1px_rgba(34,211,238,0.06)_inset,0_10px_24px_rgba(0,0,0,0.1)]">
       <div className="flex shrink-0 items-center gap-2">
         <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
         <h3 className="text-[1.05rem] font-semibold tracking-[0.02em] text-[#00d4aa]" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.95)" }}>
@@ -66,7 +66,7 @@ export function ChargeDischargeTable() {
         {energyStats.map((item) => {
           const Icon = item.icon
           return (
-            <div key={item.key} className="rounded-xl border border-[#22d3ee]/20 px-3 py-2.5">
+            <div key={item.key} className="rounded-xl border border-[#22d3ee]/16 bg-[linear-gradient(180deg,rgba(13,31,58,0.28),rgba(8,19,39,0.42))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.015)]">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-medium text-white" style={{ textShadow: "0 1px 5px rgba(0,0,0,0.95)" }}>{zh ? item.labelZh : item.labelEn}</span>
                 <div className={`flex h-6 w-6 items-center justify-center rounded-md ${item.iconBg}`}>
@@ -89,7 +89,7 @@ export function ChargeDischargeTable() {
         {gaugeStats.map((item) => {
           const ringFill = Math.max(0, Math.min(item.value, 100)) * 3.6
           return (
-            <div key={item.key} className="flex min-h-0 flex-col items-center justify-center rounded-xl border border-[#22d3ee]/20 px-3 py-2.5">
+            <div key={item.key} className="flex min-h-0 flex-col items-center justify-center rounded-xl border border-[#22d3ee]/16 bg-[linear-gradient(180deg,rgba(13,31,58,0.28),rgba(8,19,39,0.42))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.015)]">
               <div className="relative h-[74px] w-[74px]">
                 <div
                   className="absolute inset-0 rounded-full"

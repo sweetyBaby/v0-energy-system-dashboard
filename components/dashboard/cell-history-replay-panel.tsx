@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react"
 import { AlertTriangle, Check, ChevronsUpDown, Thermometer, TrendingDown, TrendingUp, Waves } from "lucide-react"
-import { CartesianGrid, Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { CartesianGrid, Customized, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { useLanguage } from "@/components/language-provider"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -88,11 +88,6 @@ const average = (values: number[]) => values.reduce((sum, value) => sum + value,
 const formatTimeLabel = (index: number) =>
   `${String(Math.floor((index * STEP_MINUTES) / 60)).padStart(2, "0")}:${String((index * STEP_MINUTES) % 60).padStart(2, "0")}`
 
-const timeToPercent = (time: string) => {
-  const [hour, minute] = time.split(":").map(Number)
-  const totalMinutes = hour * 60 + minute
-  return (totalMinutes / ((TOTAL_POINTS - 1) * STEP_MINUTES)) * 100
-}
 
 const getCellTemps = (point: HistoryPoint, cell: number) => [point[`t1_${cell}`], point[`t2_${cell}`], point[`t3_${cell}`]]
 
@@ -273,8 +268,8 @@ function MetricCard({ title, value, tone, icon, compact = false, horizontal = fa
       <div className={`rounded-[14px] border border-[#25466d] bg-[linear-gradient(180deg,rgba(13,27,58,0.92),rgba(11,20,44,0.98))] shadow-[inset_0_0_18px_rgba(69,155,255,0.06)] ${compact ? "px-2.5 py-1.5" : "px-3 py-2"}`}>
         <div className="flex items-center justify-between gap-2">
           <div className={`flex min-w-0 items-center gap-1.5 ${compact ? "text-[9px] tracking-[0.04em]" : "text-[10px] tracking-[0.08em]"} ${mutedText}`}>
-            {icon}
-            <span className="min-w-0 truncate leading-tight">{title}</span>
+            {/* {icon} */}
+            <span className="min-w-0 truncate leading-tight text-[0.78rem] ">{title}</span>
           </div>
           <div className={`shrink-0 font-mono font-semibold leading-none ${compact ? "text-[1.18rem] tracking-[0.02em]" : "text-[1.35rem] tracking-[0.03em]"} ${tone}`}>{value}</div>
         </div>
@@ -504,16 +499,17 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
     [historyData]
   )
 
-  const voltageEventMarkers = useMemo(
+  const voltagePhaseRegions = useMemo(
     () => [
-      { time: formatTimeLabel(8), label: zh ? "充电开始" : "Charge Start" },
-      { time: formatTimeLabel(26), label: zh ? "充电结束" : "Charge End" },
-      { time: formatTimeLabel(30), label: zh ? "放电开始" : "Discharge Start" },
-      { time: formatTimeLabel(39), label: zh ? "放电结束" : "Discharge End" },
-      { time: formatTimeLabel(48), label: zh ? "充电开始" : "Charge Start" },
-      { time: formatTimeLabel(64), label: zh ? "充电结束" : "Charge End" },
-      { time: formatTimeLabel(65), label: zh ? "放电开始" : "Discharge Start" },
-      { time: formatTimeLabel(76), label: zh ? "放电结束" : "Discharge End" },
+      { x1: formatTimeLabel(0),  x2: formatTimeLabel(8),               phase: "rest" as const,      span: 8,  label: zh ? "静置" : "Rest" },
+      { x1: formatTimeLabel(8),  x2: formatTimeLabel(26),              phase: "charge" as const,    span: 18, label: zh ? "充电" : "Charging" },
+      { x1: formatTimeLabel(26), x2: formatTimeLabel(30),              phase: "rest" as const,      span: 4,  label: zh ? "静置" : "Rest" },
+      { x1: formatTimeLabel(30), x2: formatTimeLabel(39),              phase: "discharge" as const, span: 9,  label: zh ? "放电" : "Discharge" },
+      { x1: formatTimeLabel(39), x2: formatTimeLabel(48),              phase: "rest" as const,      span: 9,  label: zh ? "静置" : "Rest" },
+      { x1: formatTimeLabel(48), x2: formatTimeLabel(64),              phase: "charge" as const,    span: 16, label: zh ? "充电" : "Charging" },
+      { x1: formatTimeLabel(64), x2: formatTimeLabel(65),              phase: "rest" as const,      span: 1,  label: zh ? "静" : "R" },
+      { x1: formatTimeLabel(65), x2: formatTimeLabel(76),              phase: "discharge" as const, span: 11, label: zh ? "放电" : "Discharge" },
+      { x1: formatTimeLabel(76), x2: formatTimeLabel(TOTAL_POINTS - 1), phase: "rest" as const,     span: 20, label: zh ? "静置" : "Rest" },
     ],
     [zh]
   )
@@ -535,58 +531,6 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
     ],
     [topHighVoltage, topLowVoltage, topVoltageDeviationCells]
   )
-
-
-  const voltageStartEndAnnotations = useMemo(() => {
-    const firstPoint = voltageFleetData[0]
-    const lastPoint = voltageFleetData[voltageFleetData.length - 1]
-    if (!firstPoint || !lastPoint) return []
-    let sMax = { cell: 1, value: -Infinity }
-    let sMin = { cell: 1, value: Infinity }
-    let eMax = { cell: 1, value: -Infinity }
-    let eMin = { cell: 1, value: Infinity }
-    for (let cell = 1; cell <= CELL_COUNT; cell += 1) {
-      const sv = firstPoint[`c${cell}`] as number
-      const ev = lastPoint[`c${cell}`] as number
-      if (sv > sMax.value) sMax = { cell, value: sv }
-      if (sv < sMin.value) sMin = { cell, value: sv }
-      if (ev > eMax.value) eMax = { cell, value: ev }
-      if (ev < eMin.value) eMin = { cell, value: ev }
-    }
-    return [
-      { cell: sMax.cell, time: firstPoint.time, value: sMax.value, text: `V${sMax.cell}（开始最高）`, kind: "high" as const, side: "start" as const },
-      { cell: sMin.cell, time: firstPoint.time, value: sMin.value, text: `V${sMin.cell}（开始最低）`, kind: "low" as const, side: "start" as const },
-      { cell: eMax.cell, time: lastPoint.time, value: eMax.value, text: `V${eMax.cell}（末端最高）`, kind: "high" as const, side: "end" as const },
-      { cell: eMin.cell, time: lastPoint.time, value: eMin.value, text: `V${eMin.cell}（末端最低）`, kind: "low" as const, side: "end" as const },
-    ]
-  }, [voltageFleetData])
-
-  const voltageEventExtremeAnnotations = useMemo(() => {
-    const topHigh = topHighVoltage[0]
-    const topLow = topLowVoltage[0]
-    const result: Array<{ cell: number; time: string; value: number; text: string; kind: "high" | "low"; color: string }> = []
-    const chargeEndIndices = [26, 64]
-    const dischargeEndIndices = [39, 76]
-    if (topHigh) {
-      for (const idx of chargeEndIndices) {
-        const point = voltageFleetData[idx]
-        if (point) {
-          const v = point[`c${topHigh.cell}`] as number
-          result.push({ cell: topHigh.cell, time: point.time, value: v, text: `V${topHigh.cell} ${zh ? "充电结束" : "Charge End"} ${v.toFixed(3)}V`, kind: "high", color: "#ffb36b" })
-        }
-      }
-    }
-    if (topLow) {
-      for (const idx of dischargeEndIndices) {
-        const point = voltageFleetData[idx]
-        if (point) {
-          const v = point[`c${topLow.cell}`] as number
-          result.push({ cell: topLow.cell, time: point.time, value: v, text: `V${topLow.cell} ${zh ? "放电结束" : "Discharge End"} ${v.toFixed(3)}V`, kind: "low", color: "#8fdcff" })
-        }
-      }
-    }
-    return result
-  }, [voltageFleetData, topHighVoltage, topLowVoltage, zh])
 
   const temperatureFleetCharts = useMemo<TemperatureFleetChart[]>(
     () =>
@@ -645,7 +589,7 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
 
       <div className="relative grid h-full min-h-0 grid-cols-1 gap-3 xl:grid-cols-[0.94fr_1.36fr]">
         <div className="grid min-h-0 grid-rows-[auto_minmax(0,0.9fr)_minmax(0,1fr)] gap-3">
-          <NeonSection title={zh ? "概览" : "Overview"}  badge={date} inlineSubtitle>
+          <NeonSection title={zh ? "概览" : "Overview"}  >
             <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
               <MetricCard compact horizontal title={zh ? "最高电压" : "Max Voltage"} value={`${voltageStats.maxVoltage.toFixed(2)}V`} tone="text-[#aef8ff]" icon={<TrendingUp className="h-3.5 w-3.5 text-[#6ee7ff]" />} />
               <MetricCard compact horizontal title={zh ? "最低电压" : "Min Voltage"} value={`${voltageStats.minVoltage.toFixed(2)}V`} tone="text-[#aef8ff]" icon={<TrendingDown className="h-3.5 w-3.5 text-[#6ee7ff]" />} />
@@ -738,7 +682,7 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
               </div>
               <div className="grid min-h-0 grid-cols-1 gap-2 2xl:grid-cols-2">
                 <InnerFrame title={zh ? "电压最低 TOP3" : "Lowest Voltage TOP3"} accent="#86e8ff"><div className="space-y-1">{topLowVoltage.map((item) => <RankingItem key={`low-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageMin.toFixed(2)}V`} extra={item.voltageMinAt} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
-                <InnerFrame title={zh ? "温差异常 TOP3" : "Temp Spread TOP3"} accent="#ffb676"><div className="space-y-1">{topTempDiffCells.map((item) => <RankingItem key={`tempdiff-${item.cell}`} title={`#${item.cell}`} value={`${item.maxIntraTempDiff.toFixed(1)}°C`} extra={item.maxIntraTempDiffAt} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
+                <InnerFrame title={zh ? "温差最高 TOP3" : "Highest Temp Diff TOP3"} accent="#ffb676"><div className="space-y-1">{topTempDiffCells.map((item) => <RankingItem key={`tempdiff-${item.cell}`} title={`#${item.cell}`} value={`${item.maxIntraTempDiff.toFixed(1)}°C`} extra={item.maxIntraTempDiffAt} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
               </div>
             </div>
           </NeonSection>
@@ -747,9 +691,9 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
         <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
           <NeonSection title={zh ? "50电芯电压历史趋势" : "50-Cell Voltage History"} >
             <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] px-3 py-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
-              <div className="relative min-h-0">
+              <div className="min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={voltageFleetData} margin={{ top: 58, right: 18, left: 6, bottom: 44 }}>
+                  <LineChart data={voltageFleetData} margin={{ top: 16, right: 18, left: 6, bottom: 46 }}>
                     <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="time" tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} interval={11} />
                     <YAxis tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${Number(value).toFixed(2)}V`} domain={["dataMin - 0.03", "dataMax + 0.03"]} label={{ value: zh ? "电芯电压 (V)" : "Cell Voltage (V)", angle: -90, position: "insideLeft", offset: 18, style: { fontSize: 9, fill: "#7fa4be" } }} />
@@ -771,15 +715,11 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                         />
                       }
                     />
-                    {voltageEventMarkers.map((event) => (
-                      <ReferenceLine
-                        key={`${event.label}-${event.time}`}
-                        x={event.time}
-                        stroke="#2793ea"
-                        strokeDasharray="6 4"
-                        strokeWidth={1.3}
-                      />
-                    ))}
+                    {voltagePhaseRegions.map((region, idx) => {
+                      const fills = { charge: "#22c87a", discharge: "#ff8c4b", rest: "#5580b0" }
+                      const opacities = { charge: 0.09, discharge: 0.09, rest: 0.04 }
+                      return <ReferenceArea key={`phase-bg-${idx}`} x1={region.x1} x2={region.x2} fill={fills[region.phase]} fillOpacity={opacities[region.phase]} stroke="none" />
+                    })}
                     {Array.from({ length: CELL_COUNT }, (_, index) => {
                       const cell = index + 1
                       return <Line key={`voltage-cluster-${cell}`} type="monotone" dataKey={`c${cell}`} stroke="#7fa4be" strokeWidth={0.95} strokeOpacity={voltageHighlightCells.includes(cell) ? 0.08 : 0.16} dot={false} isAnimationActive={false} />
@@ -788,80 +728,48 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                       <Line key={`voltage-highlight-${item.cell}`} type="monotone" dataKey={`c${item.cell}`} stroke={item.color} strokeWidth={2.2} dot={false} isAnimationActive={false} />
                     ))}
                     {selectedCell !== null && !voltageHighlightCells.includes(selectedCell) ? <Line type="monotone" dataKey={`c${selectedCell}`} stroke="#ffffff" strokeWidth={2.4} dot={false} isAnimationActive={false} /> : null}
-                    {voltageStartEndAnnotations.map((ann) => (
-                      <ReferenceDot
-                        key={`startend-${ann.cell}-${ann.side}`}
-                        x={ann.time}
-                        y={ann.value}
-                        r={4}
-                        fill={ann.kind === "high" ? "#ffb36b" : "#8fdcff"}
-                        stroke="transparent"
-                      />
-                    ))}
-                    {voltageEventExtremeAnnotations.map((ann, idx) => (
-                      <ReferenceDot
-                        key={`event-extreme-${ann.cell}-${ann.time}-${idx}`}
-                        x={ann.time}
-                        y={ann.value}
-                        r={4}
-                        fill={ann.color}
-                        stroke="transparent"
-                      />
-                    ))}
+                    <Customized component={({ xAxisMap, yAxisMap }: any) => {
+                      const xa = Object.values((xAxisMap ?? {}) as Record<string, any>)[0]
+                      const ya = Object.values((yAxisMap ?? {}) as Record<string, any>)[0]
+                      if (!xa?.scale || !ya?.scale) return null
+                      const re: number = (xa.x as number) + (xa.width as number)
+                      const sy: number = (xa.y as number) + (xa.height as number) + 2
+                      const sh = 18
+                      const pf = { charge: "rgba(34,200,122,0.22)", discharge: "rgba(255,140,75,0.22)", rest: "rgba(80,130,190,0.16)" }
+                      const pb = { charge: "rgba(34,200,122,0.50)", discharge: "rgba(255,140,75,0.50)", rest: "rgba(80,130,190,0.38)" }
+                      const pl = { charge: zh ? "充电" : "Charging", discharge: zh ? "放电" : "Discharge", rest: zh ? "静置" : "Rest" }
+                      const ps = { charge: zh ? "充" : "C", discharge: zh ? "放" : "D", rest: zh ? "静" : "R" }
+                      const pc = { charge: "#4de89f", discharge: "#ffb07a", rest: "#7fa4be" }
+                      return (
+                        <g>
+                          {voltagePhaseRegions.map((r, i) => {
+                            const rx1 = xa.scale(r.x1) as number
+                            const last = i === voltagePhaseRegions.length - 1
+                            const rx2 = last ? re : (xa.scale(r.x2) as number)
+                            const rw = Math.max(rx2 - rx1, 6)
+                            return (
+                              <g key={`vs${i}`}>
+                                <rect x={rx1} y={sy} width={rw} height={sh} fill={pf[r.phase]} />
+                                {!last && <line x1={rx2} y1={sy} x2={rx2} y2={sy + sh} stroke={pb[r.phase]} strokeWidth={1} />}
+                                {rw >= 24 && <text x={rx1 + rw / 2} y={sy + 12} textAnchor="middle" fill={pc[r.phase]} fontSize={9} fontWeight="500">{pl[r.phase]}</text>}
+                                {rw >= 10 && rw < 24 && <text x={rx1 + rw / 2} y={sy + 12} textAnchor="middle" fill={pc[r.phase]} fontSize={8} fontWeight="600">{ps[r.phase]}</text>}
+                              </g>
+                            )
+                          })}
+                        </g>
+                      )
+                    }} />
                   </LineChart>
                 </ResponsiveContainer>
-                <div className="pointer-events-none absolute inset-0">
-                  {voltageEventMarkers.map((event, index) => (
-                    <div
-                      key={`event-overlay-${event.time}`}
-                      className="absolute rounded-[8px] border border-[#245b89] bg-[#071124]/92 px-2 py-1 text-[9px] leading-none text-[#bfe8ff]"
-                      style={{ left: `${timeToPercent(event.time)}%`, top: `${4 + (index % 2) * 18}px`, transform: "translateX(-50%)" }}
-                    >
-                      {`${event.label} ${event.time}`}
-                    </div>
-                  ))}
-                  {voltageStartEndAnnotations.map((ann) => {
-                    const color = ann.kind === "high" ? "#ffb36b" : "#8fdcff"
-                    const style =
-                      ann.side === "start"
-                        ? ann.kind === "high"
-                          ? { left: "8px", top: "42px" }
-                          : { left: "8px", bottom: "12px" }
-                        : ann.kind === "high"
-                          ? { right: "8px", top: "42px" }
-                          : { right: "8px", bottom: "12px" }
-                    return (
-                      <div
-                        key={`startend-overlay-${ann.cell}-${ann.side}`}
-                        className="absolute rounded-[9px] border bg-[#071124]/94 px-2.5 py-1 text-[10px] leading-tight text-[#f8fbff]"
-                        style={{ ...style, borderColor: color, boxShadow: `0 0 0 1px ${color}22 inset` }}
-                      >
-                        <span style={{ color }}>{ann.text}</span>
-                      </div>
-                    )
-                  })}
-                  {voltageEventExtremeAnnotations.map((ann, index) => (
-                    <div
-                      key={`extreme-overlay-${ann.cell}-${ann.time}-${index}`}
-                      className="absolute rounded-[9px] border bg-[#071124]/94 px-2.5 py-1 text-[10px] leading-tight text-[#f8fbff]"
-                      style={{
-                        left: `${timeToPercent(ann.time)}%`,
-                        transform: "translateX(-50%)",
-                        borderColor: ann.color,
-                        top: ann.kind === "high" ? `${40 + index * 18}px` : undefined,
-                        bottom: ann.kind === "low" ? `${10 + index * 18}px` : undefined,
-                        boxShadow: `0 0 0 1px ${ann.color}22 inset`,
-                      }}
-                    >
-                      <span style={{ color: ann.color }}>{ann.text}</span>
-                    </div>
-                  ))}
-                </div>
               </div>
               <div className="flex flex-wrap items-center justify-center gap-4">
-                <LegendItem label={zh ? "正常曲线虚化" : "Ghosted normal curves"} color="#7fa4be" />
-                <LegendItem label={zh ? "极值曲线高亮" : "Highlighted extreme curves"} color="#ffb36b" />
-                <LegendItem label={zh ? "充/放电事件线" : "Charge/discharge events"} color="#2793ea" dashed />
+                <LegendItem label={zh ? "正常曲线虚化" : "Ghosted curves"} color="#7fa4be" />
+                <LegendItem label={zh ? "极值曲线高亮" : "Extreme curves"} color="#ffb36b" />
+                <div className="flex items-center gap-3 text-[11px] text-[#96bdd4]">
+                  <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(34,200,122,0.28)" }} /><span>{zh ? "充电" : "Charging"}</span>
+                  <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(255,140,75,0.28)" }} /><span>{zh ? "放电" : "Discharge"}</span>
+                  <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(80,130,190,0.20)" }} /><span>{zh ? "静置" : "Rest"}</span>
+                </div>
                 {selectedCell !== null && !voltageHighlightCells.includes(selectedCell) ? <LegendItem label={zh ? `当前电芯 #${selectedCell}` : `Cell #${selectedCell}`} color="#ffffff" /> : null}
               </div>
             </div>
@@ -890,10 +798,10 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                 ))}
               </div>
 
-              <div className="relative min-h-0">
+              <div className="min-h-0">
                 {activeTemperatureChart ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={activeTemperatureChart.data} margin={{ top: 56, right: 18, left: 6, bottom: 38 }}>
+                    <LineChart data={activeTemperatureChart.data} margin={{ top: 16, right: 18, left: 6, bottom: 46 }}>
                       <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="time" tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} interval={11} />
                       <YAxis tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${Number(value).toFixed(1)}°C`} domain={["dataMin - 1", "dataMax + 1"]} label={{ value: zh ? "温度 (°C)" : "Temp (°C)", angle: -90, position: "insideLeft", offset: 16, style: { fontSize: 9, fill: "#7fa4be" } }} />
@@ -914,60 +822,63 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                           />
                         }
                       />
-                      {voltageEventMarkers.map((event) => <ReferenceLine key={`${activeTemperatureChart.key}-${event.time}`} x={event.time} stroke="#2793ea" strokeDasharray="6 4" strokeWidth={1.2} />)}
+                      {voltagePhaseRegions.map((region, idx) => {
+                        const fills = { charge: "#22c87a", discharge: "#ff8c4b", rest: "#5580b0" }
+                        const opacities = { charge: 0.09, discharge: 0.09, rest: 0.04 }
+                        return <ReferenceArea key={`temp-phase-bg-${idx}`} x1={region.x1} x2={region.x2} fill={fills[region.phase]} fillOpacity={opacities[region.phase]} stroke="none" />
+                      })}
                       {Array.from({ length: CELL_COUNT }, (_, index) => {
                         const cell = index + 1
                         const isHighlighted = activeTemperatureChart.hotCurves.some((item) => item.cell === cell) || selectedCell === cell
                         return <Line key={`${activeTemperatureChart.key}-cluster-${cell}`} type="stepAfter" dataKey={`c${cell}`} stroke="#7fa4be" strokeWidth={1} strokeOpacity={isHighlighted ? 0.04 : 0.14} dot={false} isAnimationActive={false} />
                       })}
                       {activeTemperatureChart.hotCurves.map((item, index) => (
-                        <Line
-                          key={`${activeTemperatureChart.key}-alert-${item.cell}`}
-                          type="stepAfter"
-                          dataKey={item.dataKey}
-                          stroke={temperatureAlertPalette[index % temperatureAlertPalette.length]}
-                          strokeWidth={2.2}
-                          dot={false}
-                          isAnimationActive={false}
-                        />
+                        <Line key={`${activeTemperatureChart.key}-alert-${item.cell}`} type="stepAfter" dataKey={item.dataKey} stroke={temperatureAlertPalette[index % temperatureAlertPalette.length]} strokeWidth={2.2} dot={false} isAnimationActive={false} />
                       ))}
                       {selectedCell !== null && !activeTemperatureChart.hotCurves.some((item) => item.cell === selectedCell) ? <Line type="stepAfter" dataKey={`c${selectedCell}`} stroke="#ffffff" strokeWidth={2.2} dot={false} isAnimationActive={false} /> : null}
                       <Line type="stepAfter" dataKey="avg" stroke="#f3fbff" strokeWidth={2} dot={false} isAnimationActive={false} />
+                      <Customized component={({ xAxisMap }: any) => {
+                        const xa = Object.values((xAxisMap ?? {}) as Record<string, any>)[0]
+                        if (!xa?.scale) return null
+                        const re: number = (xa.x as number) + (xa.width as number)
+                        const sy: number = (xa.y as number) + (xa.height as number) + 2
+                        const sh = 18
+                        const pf = { charge: "rgba(34,200,122,0.22)", discharge: "rgba(255,140,75,0.22)", rest: "rgba(80,130,190,0.16)" }
+                        const pb2 = { charge: "rgba(34,200,122,0.50)", discharge: "rgba(255,140,75,0.50)", rest: "rgba(80,130,190,0.38)" }
+                        const pl = { charge: zh ? "充电" : "Charging", discharge: zh ? "放电" : "Discharge", rest: zh ? "静置" : "Rest" }
+                        const ps = { charge: zh ? "充" : "C", discharge: zh ? "放" : "D", rest: zh ? "静" : "R" }
+                        const pc = { charge: "#4de89f", discharge: "#ffb07a", rest: "#7fa4be" }
+                        return (
+                          <g>
+                            {voltagePhaseRegions.map((r, i) => {
+                              const rx1 = xa.scale(r.x1) as number
+                              const last = i === voltagePhaseRegions.length - 1
+                              const rx2 = last ? re : (xa.scale(r.x2) as number)
+                              const rw = Math.max(rx2 - rx1, 6)
+                              return (
+                                <g key={`ts${i}`}>
+                                  <rect x={rx1} y={sy} width={rw} height={sh} fill={pf[r.phase]} />
+                                  {!last && <line x1={rx2} y1={sy} x2={rx2} y2={sy + sh} stroke={pb2[r.phase]} strokeWidth={1} />}
+                                  {rw >= 24 && <text x={rx1 + rw / 2} y={sy + 12} textAnchor="middle" fill={pc[r.phase]} fontSize={9} fontWeight="500">{pl[r.phase]}</text>}
+                                  {rw >= 10 && rw < 24 && <text x={rx1 + rw / 2} y={sy + 12} textAnchor="middle" fill={pc[r.phase]} fontSize={8} fontWeight="600">{ps[r.phase]}</text>}
+                                </g>
+                              )
+                            })}
+                          </g>
+                        )
+                      }} />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : null}
-                <div className="pointer-events-none absolute inset-0">
-                  {voltageEventMarkers.map((event, index) => (
-                    <div
-                      key={`temp-event-${event.time}`}
-                      className="absolute rounded-[8px] border border-[#245b89] bg-[#071124]/92 px-2 py-1 text-[9px] leading-none text-[#bfe8ff]"
-                      style={{ left: `${timeToPercent(event.time)}%`, top: `${4 + (index % 2) * 18}px`, transform: "translateX(-50%)" }}
-                    >
-                      {`${event.label} ${event.time}`}
-                    </div>
-                  ))}
-                  {activeTemperatureChart?.alerts.map((item, index) => (
-                    <div
-                      key={`temp-alert-${activeTemperatureChart.key}-${item.cell}`}
-                      className="absolute rounded-[9px] border bg-[#071124]/94 px-2.5 py-1 text-[10px] leading-tight text-[#f8fbff]"
-                      style={{
-                        left: `${timeToPercent(item.time)}%`,
-                        transform: "translateX(-50%)",
-                        borderColor: temperatureAlertPalette[index % temperatureAlertPalette.length],
-                        top: `${40 + index * 18}px`,
-                        boxShadow: `0 0 0 1px ${temperatureAlertPalette[index % temperatureAlertPalette.length]}22 inset`,
-                      }}
-                    >
-                      <span style={{ color: temperatureAlertPalette[index % temperatureAlertPalette.length] }}>{`#${item.cell} ${item.peak.toFixed(1)}°C`}</span>
-                    </div>
-                  ))}
-                </div>
               </div>
-
               <div className="flex flex-wrap items-center justify-center gap-4">
-                <LegendItem label={zh ? "正常曲线虚化" : "Ghosted normal curves"} color="#7fa4be" />
-                <LegendItem label={zh ? "高温曲线高亮" : "Highlighted hot curves"} color="#ffb36b" />
-                <LegendItem label={zh ? "充/放电事件线" : "Charge/discharge events"} color="#2793ea" dashed />
+                <LegendItem label={zh ? "正常曲线虚化" : "Ghosted curves"} color="#7fa4be" />
+                <LegendItem label={zh ? "高温曲线高亮" : "Hot curves"} color="#ffb36b" />
+                <div className="flex items-center gap-3 text-[11px] text-[#96bdd4]">
+                  <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(34,200,122,0.28)" }} /><span>{zh ? "充电" : "Charging"}</span>
+                  <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(255,140,75,0.28)" }} /><span>{zh ? "放电" : "Discharge"}</span>
+                  <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(80,130,190,0.20)" }} /><span>{zh ? "静置" : "Rest"}</span>
+                </div>
                 {selectedCell !== null && !activeTemperatureChart?.hotCurves.some((item) => item.cell === selectedCell) ? <LegendItem label={zh ? `当前电芯 #${selectedCell}` : `Cell #${selectedCell}`} color="#ffffff" /> : null}
               </div>
             </div>
