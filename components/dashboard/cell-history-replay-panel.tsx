@@ -1,6 +1,6 @@
 ﻿"use client"
 
-import { useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { AlertTriangle, Check, ChevronsUpDown, Thermometer, TrendingDown, TrendingUp, Waves } from "lucide-react"
 import { CartesianGrid, Customized, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { useLanguage } from "@/components/language-provider"
@@ -52,7 +52,7 @@ type FleetCurvePoint = {
   avg: number
   upper: number
   lower: number
-} & Record<string, string | number>
+} & Record<string, string | number | null>
 
 type TemperatureChannelKey = "t1" | "t2" | "t3"
 
@@ -67,8 +67,7 @@ type TemperatureFleetChart = {
   key: TemperatureChannelKey
   title: string
   data: FleetCurvePoint[]
-  hotCurves: ChannelAlert[]
-  alerts: ChannelAlert[]
+  highlightedCells: number[]
 }
 
 type VoltageHighlightSeries = {
@@ -217,24 +216,26 @@ function NeonSection({
   subtitle,
   badge,
   inlineSubtitle = false,
+  compact = false,
   children,
 }: {
   title: string
   subtitle?: string
   badge?: string
   inlineSubtitle?: boolean
+  compact?: boolean
   children: ReactNode
 }) {
   return (
     <section
-      className={`relative flex min-h-0 flex-col overflow-hidden rounded-[20px] border border-[#254873]/80 bg-[radial-gradient(circle_at_top_right,rgba(38,109,178,0.15),transparent_28%),linear-gradient(180deg,rgba(10,19,44,0.97),rgba(6,12,29,0.98))] p-3 ${edgeGlow}`}
+      className={`relative flex min-h-0 flex-col overflow-hidden rounded-[20px] border border-[#254873]/80 bg-[radial-gradient(circle_at_top_right,rgba(38,109,178,0.15),transparent_28%),linear-gradient(180deg,rgba(10,19,44,0.97),rgba(6,12,29,0.98))] ${compact ? "p-2.5" : "p-3"} ${edgeGlow}`}
     >
       <div className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#8feaff]/[0.05]" />
       <div className="pointer-events-none absolute left-3 top-3 h-5 w-[2px] rounded-full bg-[#3fe7ff]/90 shadow-[0_0_12px_rgba(63,231,255,0.85)]" />
       <div className="pointer-events-none absolute inset-x-4 top-[50px] h-px bg-gradient-to-r from-[#274f78]/70 via-[#78dfff]/45 to-transparent" />
-      <div className={`relative flex ${inlineSubtitle ? "items-center" : "items-start"} justify-between gap-3 pl-3 ${inlineSubtitle ? "mb-2" : "mb-3"}`}>
+      <div className={`relative flex ${inlineSubtitle ? "items-center" : "items-start"} justify-between gap-3 ${compact ? "pl-2.5" : "pl-3"} ${inlineSubtitle ? (compact ? "mb-1.5" : "mb-2") : (compact ? "mb-2" : "mb-3")}`}>
         <div className={inlineSubtitle ? "flex items-center gap-3" : ""}>
-          <div className="text-[0.98rem] font-semibold tracking-[0.08em] text-[#8ceeff]">{title}</div>
+          <div className={`${compact ? "text-[0.9rem]" : "text-[0.98rem]"} font-semibold tracking-[0.08em] text-[#8ceeff]`}>{title}</div>
           {subtitle ? (
             <div className={inlineSubtitle ? `text-[10px] leading-none ${mutedText}` : `mt-1 text-[10px] leading-4 ${mutedText}`}>{subtitle}</div>
           ) : null}
@@ -245,33 +246,33 @@ function NeonSection({
           </div>
         ) : null}
       </div>
-      <div className="relative min-h-0 flex-1 pl-3">{children}</div>
+      <div className={`relative min-h-0 flex-1 ${compact ? "pl-2.5" : "pl-3"}`}>{children}</div>
     </section>
   )
 }
 
-function InnerFrame({ title, accent = "#74ebff", children }: { title: string; accent?: string; children: ReactNode }) {
+function InnerFrame({ title, accent = "#74ebff", compact = false, children }: { title: string; accent?: string; compact?: boolean; children: ReactNode }) {
   return (
-    <div className="rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] p-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
-      <div className="mb-1.5 flex items-center gap-2">
+    <div className={`flex h-full min-h-0 flex-col rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] shadow-[inset_0_0_16px_rgba(25,92,148,0.08)] ${compact ? "p-1.5" : "p-2"}`}>
+      <div className={`${compact ? "mb-1" : "mb-1.5"} flex items-center gap-2`}>
         <div className="h-5 w-[2px] rounded-full" style={{ backgroundColor: accent, boxShadow: `0 0 10px ${accent}` }} />
-        <div className="text-[0.86rem] font-semibold tracking-[0.06em] text-[#d8f7ff]">{title}</div>
+        <div className={`${compact ? "text-[0.78rem]" : "text-[0.86rem]"} font-semibold tracking-[0.06em] text-[#d8f7ff]`}>{title}</div>
       </div>
-      {children}
+      <div className="min-h-0 flex-1">{children}</div>
     </div>
   )
 }
 
-function MetricCard({ title, value, tone, icon, compact = false, horizontal = false }: { title: string; value: string; tone: string; icon: ReactNode; compact?: boolean; horizontal?: boolean }) {
+function MetricCard({ title, value, tone, icon, compact = false, horizontal = false, tight = false }: { title: string; value: string; tone: string; icon: ReactNode; compact?: boolean; horizontal?: boolean; tight?: boolean }) {
   if (horizontal) {
     return (
-      <div className={`rounded-[14px] border border-[#25466d] bg-[linear-gradient(180deg,rgba(13,27,58,0.92),rgba(11,20,44,0.98))] shadow-[inset_0_0_18px_rgba(69,155,255,0.06)] ${compact ? "px-2.5 py-1.5" : "px-3 py-2"}`}>
+      <div className={`rounded-[14px] border border-[#25466d] bg-[linear-gradient(180deg,rgba(13,27,58,0.92),rgba(11,20,44,0.98))] shadow-[inset_0_0_18px_rgba(69,155,255,0.06)] ${tight ? "px-2 py-1.5" : compact ? "px-2.5 py-1.5" : "px-3 py-2"}`}>
         <div className="flex items-center justify-between gap-2">
-          <div className={`flex min-w-0 items-center gap-1.5 ${compact ? "text-[9px] tracking-[0.04em]" : "text-[10px] tracking-[0.08em]"} ${mutedText}`}>
+          <div className={`flex min-w-0 items-center gap-1.5 ${tight ? "text-[8px] tracking-[0.02em]" : compact ? "text-[9px] tracking-[0.04em]" : "text-[10px] tracking-[0.08em]"} ${mutedText}`}>
             {/* {icon} */}
-            <span className="min-w-0 truncate leading-tight text-[0.78rem] ">{title}</span>
+            <span className={`min-w-0 leading-tight ${tight ? "text-[0.7rem]" : "text-[0.78rem]"} whitespace-nowrap`}>{title}</span>
           </div>
-          <div className={`shrink-0 font-mono font-semibold leading-none ${compact ? "text-[1.18rem] tracking-[0.02em]" : "text-[1.35rem] tracking-[0.03em]"} ${tone}`}>{value}</div>
+          <div className={`shrink-0 font-mono font-semibold leading-none ${tight ? "text-[1.02rem] tracking-[0.01em]" : compact ? "text-[1.18rem] tracking-[0.02em]" : "text-[1.35rem] tracking-[0.03em]"} ${tone}`}>{value}</div>
         </div>
       </div>
     )
@@ -288,10 +289,10 @@ function MetricCard({ title, value, tone, icon, compact = false, horizontal = fa
   )
 }
 
-function LegendItem({ label, color, dashed = false }: { label: string; color: string; dashed?: boolean }) {
+function LegendItem({ label, color, dashed = false, compact = false }: { label: string; color: string; dashed?: boolean; compact?: boolean }) {
   return (
-    <div className="flex items-center gap-2 text-[11px] text-[#96bdd4]">
-      <span className={`block h-[2px] w-5 ${dashed ? "border-t-2 border-dashed" : ""}`} style={dashed ? { borderColor: color } : { backgroundColor: color, boxShadow: `0 0 8px ${color}` }} />
+    <div className={`flex items-center ${compact ? "gap-1.5 text-[10px]" : "gap-2 text-[11px]"} text-[#96bdd4]`}>
+      <span className={`block h-[2px] ${compact ? "w-4" : "w-5"} ${dashed ? "border-t-2 border-dashed" : ""}`} style={dashed ? { borderColor: color } : { backgroundColor: color, boxShadow: `0 0 8px ${color}` }} />
       <span>{label}</span>
     </div>
   )
@@ -357,29 +358,29 @@ function FleetTooltip({
   )
 }
 
-function RankingItem({ title, value, extra, active, onClick }: { title: string; value: string; extra: string; active: boolean; onClick: () => void }) {
+function RankingItem({ title, value, extra, active, compact = false, tight = false, onClick }: { title: string; value: string; extra: string; active: boolean; compact?: boolean; tight?: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-[12px] border px-2.5 py-2 text-left transition-all ${
+      className={`h-full w-full rounded-[12px] border text-left transition-all ${tight ? "px-1.5 py-1" : compact ? "px-2 py-1.5" : "px-2.5 py-2"} ${
         active
           ? "border-[#39eddc] bg-[linear-gradient(180deg,rgba(14,64,74,0.72),rgba(10,36,45,0.94))] shadow-[0_0_16px_rgba(57,237,220,0.12),inset_0_0_18px_rgba(57,237,220,0.07)]"
           : "border-[#234160] bg-[linear-gradient(180deg,rgba(14,28,58,0.88),rgba(10,19,40,0.96))] hover:border-[#3a78a7]"
       }`}
     >
       {extra ? (
-        <div className="grid gap-1">
-          <div className="grid grid-cols-[auto_1fr] items-center gap-2">
-            <div className="text-[0.95rem] font-semibold text-[#eefbff]">{title}</div>
-            <div className="text-right font-mono text-[1.15rem] font-semibold text-[#ffe6a3]">{value}</div>
+        <div className={`grid h-full ${tight ? "content-center gap-0.5" : "gap-1"}`}>
+          <div className={`grid grid-cols-[auto_1fr] items-center ${tight ? "gap-1.5" : "gap-2"}`}>
+            <div className={`${tight ? "text-[0.76rem]" : compact ? "text-[0.82rem]" : "text-[0.95rem]"} font-semibold text-[#eefbff]`}>{title}</div>
+            <div className={`text-right font-mono ${tight ? "text-[0.9rem]" : compact ? "text-[1rem]" : "text-[1.15rem]"} font-semibold text-[#ffe6a3]`}>{value}</div>
           </div>
-          <div className={`text-left text-[10px] ${mutedText}`}>{extra}</div>
+          <div className={`text-left leading-none ${tight ? "text-[8px]" : compact ? "text-[9px]" : "text-[10px]"} ${mutedText}`}>{extra}</div>
         </div>
       ) : (
-        <div className="grid grid-cols-[auto_1fr] items-center gap-2">
-          <div className="text-[0.95rem] font-semibold text-[#eefbff]">{title}</div>
-          <div className="text-right font-mono text-[1.15rem] font-semibold text-[#ffe6a3]">{value}</div>
+        <div className={`grid h-full grid-cols-[auto_1fr] items-center ${tight ? "gap-1.5" : "gap-2"}`}>
+          <div className={`${tight ? "text-[0.76rem]" : compact ? "text-[0.82rem]" : "text-[0.95rem]"} font-semibold text-[#eefbff]`}>{title}</div>
+          <div className={`text-right font-mono ${tight ? "text-[0.9rem]" : compact ? "text-[1rem]" : "text-[1.15rem]"} font-semibold text-[#ffe6a3]`}>{value}</div>
         </div>
       )}
     </button>
@@ -449,6 +450,8 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
   const { language } = useLanguage()
   const zh = language === "zh"
   const [temperatureTab, setTemperatureTab] = useState<TemperatureChannelKey>("t1")
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [availableSize, setAvailableSize] = useState({ width: 0, height: 0 })
 
   const historyData = useMemo(() => createHistoryData(date), [date])
   const overviewData = useMemo(() => buildOverview(historyData), [historyData])
@@ -539,7 +542,17 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
         { key: "t2", title: "T2" },
         { key: "t3", title: "T3" },
       ] as const).map(({ key, title }) => {
-        const data = historyData.map((point) => {
+        const highlightedCellSet = new Set<number>()
+        const topCellsByPoint = historyData.map((point) =>
+          Array.from({ length: CELL_COUNT }, (_, index) => ({
+            cell: index + 1,
+            value: Number(point[`${key}_${index + 1}`].toFixed(1)),
+          }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 3)
+        )
+
+        const data = historyData.map((point, pointIndex) => {
           const row = { time: point.time } as FleetCurvePoint
           const values: number[] = []
 
@@ -557,23 +570,15 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
           row.upper = Number((avg + band).toFixed(1))
           row.lower = Number((avg - band).toFixed(1))
 
+          topCellsByPoint[pointIndex]?.forEach((item) => {
+            highlightedCellSet.add(item.cell)
+            row[`hot_${item.cell}`] = item.value
+          })
+
           return row
         })
 
-        const rankedCurves = Array.from({ length: CELL_COUNT }, (_, index) => {
-          const cell = index + 1
-          const values = historyData.map((point) => point[`${key}_${cell}`])
-          const peak = Math.max(...values)
-          const peakAt = historyData.find((point) => point[`${key}_${cell}`] === peak)?.time ?? "--"
-          return { cell, peak: Number(peak.toFixed(1)), time: peakAt, dataKey: `c${cell}` }
-        })
-          .sort((a, b) => b.peak - a.peak)
-
-        const hotCutoff = Math.max(rankedCurves[Math.min(5, rankedCurves.length - 1)]?.peak ?? -Infinity, (rankedCurves[0]?.peak ?? -Infinity) - 0.8)
-        const hotCurves = rankedCurves.filter((item) => item.peak >= hotCutoff)
-        const alerts = hotCurves.slice(0, 3)
-
-        return { key, title, data, hotCurves, alerts }
+        return { key, title, data, highlightedCells: Array.from(highlightedCellSet) }
       }),
     [historyData]
   )
@@ -581,30 +586,68 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
   const handleSelectCell = (cell: number) => onSelectedCellChange?.(cell)
   const temperatureAlertPalette = ["#ffb36b", "#7cf5ff", "#9bffb7", "#ffd56d", "#f7a8c0", "#9bb8ff"]
   const activeTemperatureChart = temperatureFleetCharts.find((item) => item.key === temperatureTab) ?? temperatureFleetCharts[0]
+  const isCompactCanvas = availableSize.width > 0 && (availableSize.width < 1280 || availableSize.height < 760)
+  const isTightCanvas = availableSize.width > 0 && (availableSize.width < 1120 || availableSize.height < 700)
+
+  useEffect(() => {
+    const node = containerRef.current
+    if (!node) return
+
+    const updateSize = (width: number, height: number) => {
+      setAvailableSize({
+        width: Math.max(width, 320),
+        height: Math.max(height, 320),
+      })
+    }
+
+    updateSize(node.clientWidth, node.clientHeight)
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      updateSize(entry.contentRect.width, entry.contentRect.height)
+    })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#1a3556] bg-[linear-gradient(180deg,#071124,#050c1d)] p-3">
+    <div ref={containerRef} className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#1a3556] bg-[linear-gradient(180deg,#071124,#050c1d)] p-3">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_16%,rgba(67,176,255,0.12),transparent_26%),radial-gradient(circle_at_82%_18%,rgba(255,186,97,0.08),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(60,132,255,0.08),transparent_30%)]" />
       <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#8feaff]/55 to-transparent" />
 
-      <div className="relative grid h-full min-h-0 grid-cols-1 gap-3 xl:grid-cols-[0.94fr_1.36fr]">
-        <div className="grid min-h-0 grid-rows-[auto_minmax(0,0.9fr)_minmax(0,1fr)] gap-3">
-          <NeonSection title={zh ? "概览" : "Overview"}  >
-            <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
-              <MetricCard compact horizontal title={zh ? "最高电压" : "Max Voltage"} value={`${voltageStats.maxVoltage.toFixed(2)}V`} tone="text-[#aef8ff]" icon={<TrendingUp className="h-3.5 w-3.5 text-[#6ee7ff]" />} />
-              <MetricCard compact horizontal title={zh ? "最低电压" : "Min Voltage"} value={`${voltageStats.minVoltage.toFixed(2)}V`} tone="text-[#aef8ff]" icon={<TrendingDown className="h-3.5 w-3.5 text-[#6ee7ff]" />} />
-              <MetricCard compact horizontal title={zh ? "平均电压" : "Avg Voltage"} value={`${voltageStats.avgVoltage.toFixed(2)}V`} tone="text-[#dffbff]" icon={<Waves className="h-3.5 w-3.5 text-[#7effe3]" />} />
-              <MetricCard compact horizontal title={zh ? "最大压差 ΔV" : "Spread ΔV"} value={`${voltageStats.voltageDelta.toFixed(2)}V`} tone="text-[#ffd892]" icon={<AlertTriangle className="h-3.5 w-3.5 text-[#ffd892]" />} />
-              <MetricCard compact horizontal title={zh ? "最高温度" : "Max Temp"} value={`${temperatureStats.maxTemp.toFixed(1)}°C`} tone="text-[#aef8ff]" icon={<Thermometer className="h-3.5 w-3.5 text-[#6ee7ff]" />} />
-              <MetricCard compact horizontal title={zh ? "最低温度" : "Min Temp"} value={`${temperatureStats.minTemp.toFixed(1)}°C`} tone="text-[#aef8ff]" icon={<TrendingDown className="h-3.5 w-3.5 text-[#6ee7ff]" />} />
-              <MetricCard compact horizontal title={zh ? "平均温度" : "Avg Temp"} value={`${temperatureStats.avgTemp.toFixed(1)}°C`} tone="text-[#dffbff]" icon={<Waves className="h-3.5 w-3.5 text-[#7effe3]" />} />
-              <MetricCard compact horizontal title={zh ? "最大温差 ΔT" : "Spread ΔT"} value={`${temperatureStats.tempDelta.toFixed(1)}°C`} tone="text-[#ffd892]" icon={<AlertTriangle className="h-3.5 w-3.5 text-[#ffd892]" />} />
+      <div className={`relative grid h-full min-h-0 ${isCompactCanvas ? "grid-cols-[1.04fr_1.26fr] gap-2.5" : "grid-cols-[0.94fr_1.36fr] gap-3"}`}>
+        <div className={`grid min-h-0 ${isTightCanvas ? "grid-rows-[auto_minmax(0,0.92fr)_minmax(0,1fr)] gap-2" : isCompactCanvas ? "grid-rows-[auto_minmax(0,0.84fr)_minmax(0,1.08fr)] gap-2.5" : "grid-rows-[auto_minmax(0,0.76fr)_minmax(0,1fr)] gap-3"}`}>
+          <NeonSection title={zh ? "概览" : "Overview"} compact={isCompactCanvas} >
+            <div className={`grid grid-cols-4 ${isCompactCanvas ? "gap-1" : "gap-1.5"}`}>
+              <MetricCard compact horizontal tight={isTightCanvas} title={zh ? (isTightCanvas ? "最高电" : "最高电压") : (isTightCanvas ? "Max V" : "Max Voltage")} value={`${voltageStats.maxVoltage.toFixed(2)}V`} tone="text-[#aef8ff]" icon={<TrendingUp className="h-3.5 w-3.5 text-[#6ee7ff]" />} />
+              <MetricCard compact horizontal tight={isTightCanvas} title={zh ? (isTightCanvas ? "最低电" : "最低电压") : (isTightCanvas ? "Min V" : "Min Voltage")} value={`${voltageStats.minVoltage.toFixed(2)}V`} tone="text-[#aef8ff]" icon={<TrendingDown className="h-3.5 w-3.5 text-[#6ee7ff]" />} />
+              <MetricCard compact horizontal tight={isTightCanvas} title={zh ? (isTightCanvas ? "平均电" : "平均电压") : (isTightCanvas ? "Avg V" : "Avg Voltage")} value={`${voltageStats.avgVoltage.toFixed(2)}V`} tone="text-[#dffbff]" icon={<Waves className="h-3.5 w-3.5 text-[#7effe3]" />} />
+              <MetricCard compact horizontal tight={isTightCanvas} title={zh ? (isTightCanvas ? "最大ΔV" : "最大压差 ΔV") : "Spread ΔV"} value={`${voltageStats.voltageDelta.toFixed(2)}V`} tone="text-[#ffd892]" icon={<AlertTriangle className="h-3.5 w-3.5 text-[#ffd892]" />} />
+              <MetricCard compact horizontal tight={isTightCanvas} title={zh ? (isTightCanvas ? "最高温" : "最高温度") : (isTightCanvas ? "Max T" : "Max Temp")} value={`${temperatureStats.maxTemp.toFixed(1)}°C`} tone="text-[#aef8ff]" icon={<Thermometer className="h-3.5 w-3.5 text-[#6ee7ff]" />} />
+              <MetricCard compact horizontal tight={isTightCanvas} title={zh ? (isTightCanvas ? "最低温" : "最低温度") : (isTightCanvas ? "Min T" : "Min Temp")} value={`${temperatureStats.minTemp.toFixed(1)}°C`} tone="text-[#aef8ff]" icon={<TrendingDown className="h-3.5 w-3.5 text-[#6ee7ff]" />} />
+              <MetricCard compact horizontal tight={isTightCanvas} title={zh ? (isTightCanvas ? "平均温" : "平均温度") : (isTightCanvas ? "Avg T" : "Avg Temp")} value={`${temperatureStats.avgTemp.toFixed(1)}°C`} tone="text-[#dffbff]" icon={<Waves className="h-3.5 w-3.5 text-[#7effe3]" />} />
+              <MetricCard compact horizontal tight={isTightCanvas} title={zh ? (isTightCanvas ? "最大ΔT" : "最大温差 ΔT") : "Spread ΔT"} value={`${temperatureStats.tempDelta.toFixed(1)}°C`} tone="text-[#ffd892]" icon={<AlertTriangle className="h-3.5 w-3.5 text-[#ffd892]" />} />
             </div>
           </NeonSection>
 
-          <div className="grid min-h-0 grid-cols-1 gap-3 2xl:grid-cols-2">
-            <NeonSection title={zh ? "电压趋势" : "Voltage Trend"} >
-              <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] px-2.5 py-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
+          <NeonSection title={zh ? "电压/温差分析" : "Voltage / Temperature Analysis"} compact={isCompactCanvas} >
+            <div className={`grid h-full min-h-0 grid-cols-2 ${isCompactCanvas ? "gap-1" : "gap-1.5"}`}>
+              <div className={`grid h-full min-h-0 grid-cols-2 ${isCompactCanvas ? "gap-1" : "gap-1.5"}`}>
+                <InnerFrame title={zh ? "电压最高 TOP3" : "Highest Voltage TOP3"} accent="#ffc970" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topHighVoltage.map((item) => <RankingItem key={`high-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageMax.toFixed(2)}V`} extra={item.voltageMaxAt} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
+                <InnerFrame title={zh ? "电压偏离 TOP3" : "Voltage Offset TOP3"} accent="#8cf7d2" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topVoltageDeviationCells.map((item) => <RankingItem key={`offset-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageDeviation.toFixed(3)}V`} extra={zh ? `均值 ${item.voltageAvg.toFixed(2)}V` : `Avg ${item.voltageAvg.toFixed(2)}V`} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
+              </div>
+              <div className={`grid h-full min-h-0 grid-cols-2 ${isCompactCanvas ? "gap-1" : "gap-1.5"}`}>
+                <InnerFrame title={zh ? "电压最低 TOP3" : "Lowest Voltage TOP3"} accent="#86e8ff" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topLowVoltage.map((item) => <RankingItem key={`low-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageMin.toFixed(2)}V`} extra={item.voltageMinAt} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
+                <InnerFrame title={zh ? "温差最高 TOP3" : "Highest Temp Diff TOP3"} accent="#ffb676" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topTempDiffCells.map((item) => <RankingItem key={`tempdiff-${item.cell}`} title={`#${item.cell}`} value={`${item.maxIntraTempDiff.toFixed(1)}°C`} extra={item.maxIntraTempDiffAt} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
+              </div>
+            </div>
+          </NeonSection>
+
+          <div className={`grid min-h-0 grid-cols-2 ${isCompactCanvas ? "gap-2" : "gap-3"}`}>
+            <NeonSection title={zh ? "电压趋势" : "Voltage Trend"} compact={isCompactCanvas} >
+              <div className={`grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] shadow-[inset_0_0_16px_rgba(25,92,148,0.08)] ${isCompactCanvas ? "gap-1.5 px-2 py-1.5" : "gap-2 px-2.5 py-2"}`}>
                 <div className="min-h-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={overviewData} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
@@ -612,13 +655,13 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                       <XAxis dataKey="time" tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} interval={11} />
                       <YAxis tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${Number(value).toFixed(2)}V`} />
                       <Tooltip
-                        labelStyle={{ color: "#dffbff" }}
-                        contentStyle={{ border: "1px solid #29547f", borderRadius: "12px", background: "rgba(7,17,36,0.96)" }}
-                        itemStyle={{ color: "#bfe8ff", paddingTop: 2, paddingBottom: 2 }}
+                        labelStyle={{ color: "#dffbff", fontSize: isTightCanvas ? 11 : 12 }}
+                        contentStyle={{ border: "1px solid #29547f", borderRadius: isTightCanvas ? "10px" : "12px", background: "rgba(7,17,36,0.96)", padding: isTightCanvas ? "8px 10px" : "10px 12px" }}
+                        itemStyle={{ color: "#bfe8ff", paddingTop: isTightCanvas ? 1 : 2, paddingBottom: isTightCanvas ? 1 : 2, fontSize: isTightCanvas ? 11 : 12 }}
                         formatter={(value: number, name: string) => {
                           const labelMap: Record<string, string> = zh
-                            ? { maxVoltage: "最高电压", minVoltage: "最低电压", avgVoltage: "平均电压", voltageDelta: "压差" }
-                            : { maxVoltage: "Max Voltage", minVoltage: "Min Voltage", avgVoltage: "Avg Voltage", voltageDelta: "Spread" }
+                            ? (isTightCanvas ? { maxVoltage: "最高", minVoltage: "最低", avgVoltage: "平均", voltageDelta: "压差" } : { maxVoltage: "最高电压", minVoltage: "最低电压", avgVoltage: "平均电压", voltageDelta: "压差" })
+                            : (isTightCanvas ? { maxVoltage: "Max", minVoltage: "Min", avgVoltage: "Avg", voltageDelta: "ΔV" } : { maxVoltage: "Max Voltage", minVoltage: "Min Voltage", avgVoltage: "Avg Voltage", voltageDelta: "Spread" })
                           return [`${Number(value).toFixed(3)}V`, labelMap[name] ?? name]
                         }}
                       />
@@ -629,17 +672,17 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <LegendItem label="Max" color="#7cf5ff" />
-                  <LegendItem label="Min" color="#4f9fff" />
-                  <LegendItem label="Avg" color="#f4c95d" />
-                  <LegendItem label="ΔV" color="#9bf9ff" dashed />
+                <div className={`flex flex-wrap items-center justify-center ${isCompactCanvas ? "gap-2.5" : "gap-3"}`}>
+                  <LegendItem label="Max" color="#7cf5ff" compact={isCompactCanvas} />
+                  <LegendItem label="Min" color="#4f9fff" compact={isCompactCanvas} />
+                  <LegendItem label="Avg" color="#f4c95d" compact={isCompactCanvas} />
+                  <LegendItem label="ΔV" color="#9bf9ff" dashed compact={isCompactCanvas} />
                 </div>
               </div>
             </NeonSection>
 
-            <NeonSection title={zh ? "温度趋势" : "Temperature Trend"} >
-              <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] px-2.5 py-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
+            <NeonSection title={zh ? "温度趋势" : "Temperature Trend"} compact={isCompactCanvas} >
+              <div className={`grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] shadow-[inset_0_0_16px_rgba(25,92,148,0.08)] ${isCompactCanvas ? "gap-1.5 px-2 py-1.5" : "gap-2 px-2.5 py-2"}`}>
                 <div className="min-h-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={overviewData} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
@@ -647,13 +690,13 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                       <XAxis dataKey="time" tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} interval={11} />
                       <YAxis tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${Number(value).toFixed(1)}°C`} />
                       <Tooltip
-                        labelStyle={{ color: "#dffbff" }}
-                        contentStyle={{ border: "1px solid #29547f", borderRadius: "12px", background: "rgba(7,17,36,0.96)" }}
-                        itemStyle={{ color: "#bfe8ff", paddingTop: 2, paddingBottom: 2 }}
+                        labelStyle={{ color: "#dffbff", fontSize: isTightCanvas ? 11 : 12 }}
+                        contentStyle={{ border: "1px solid #29547f", borderRadius: isTightCanvas ? "10px" : "12px", background: "rgba(7,17,36,0.96)", padding: isTightCanvas ? "8px 10px" : "10px 12px" }}
+                        itemStyle={{ color: "#bfe8ff", paddingTop: isTightCanvas ? 1 : 2, paddingBottom: isTightCanvas ? 1 : 2, fontSize: isTightCanvas ? 11 : 12 }}
                         formatter={(value: number, name: string) => {
                           const labelMap: Record<string, string> = zh
-                            ? { maxTemp: "最高温度", minTemp: "最低温度", avgTemp: "平均温度", tempDelta: "温差" }
-                            : { maxTemp: "Max Temp", minTemp: "Min Temp", avgTemp: "Avg Temp", tempDelta: "Spread" }
+                            ? (isTightCanvas ? { maxTemp: "最高", minTemp: "最低", avgTemp: "平均", tempDelta: "温差" } : { maxTemp: "最高温度", minTemp: "最低温度", avgTemp: "平均温度", tempDelta: "温差" })
+                            : (isTightCanvas ? { maxTemp: "Max", minTemp: "Min", avgTemp: "Avg", tempDelta: "ΔT" } : { maxTemp: "Max Temp", minTemp: "Min Temp", avgTemp: "Avg Temp", tempDelta: "Spread" })
                           return [`${Number(value).toFixed(1)}°C`, labelMap[name] ?? name]
                         }}
                       />
@@ -664,28 +707,15 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <LegendItem label="Max" color="#f6c35c" />
-                  <LegendItem label="Min" color="#7cf5ff" />
-                  <LegendItem label="Avg" color="#ffdca0" />
-                  <LegendItem label="ΔT" color="#8feeff" dashed />
+                <div className={`flex flex-wrap items-center justify-center ${isCompactCanvas ? "gap-2.5" : "gap-3"}`}>
+                  <LegendItem label="Max" color="#f6c35c" compact={isCompactCanvas} />
+                  <LegendItem label="Min" color="#7cf5ff" compact={isCompactCanvas} />
+                  <LegendItem label="Avg" color="#ffdca0" compact={isCompactCanvas} />
+                  <LegendItem label="ΔT" color="#8feeff" dashed compact={isCompactCanvas} />
                 </div>
               </div>
             </NeonSection>
           </div>
-
-          <NeonSection title={zh ? "电压/温差分析" : "Voltage / Temperature Analysis"} >
-            <div className="grid h-full min-h-0 grid-cols-1 gap-2 xl:grid-cols-2">
-              <div className="grid min-h-0 grid-cols-1 gap-2 2xl:grid-cols-2">
-                <InnerFrame title={zh ? "电压最高 TOP3" : "Highest Voltage TOP3"} accent="#ffc970"><div className="space-y-1">{topHighVoltage.map((item) => <RankingItem key={`high-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageMax.toFixed(2)}V`} extra={item.voltageMaxAt} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
-                <InnerFrame title={zh ? "电压偏离 TOP3" : "Voltage Offset TOP3"} accent="#8cf7d2"><div className="space-y-1">{topVoltageDeviationCells.map((item) => <RankingItem key={`offset-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageDeviation.toFixed(3)}V`} extra={zh ? `均值 ${item.voltageAvg.toFixed(2)}V` : `Avg ${item.voltageAvg.toFixed(2)}V`} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
-              </div>
-              <div className="grid min-h-0 grid-cols-1 gap-2 2xl:grid-cols-2">
-                <InnerFrame title={zh ? "电压最低 TOP3" : "Lowest Voltage TOP3"} accent="#86e8ff"><div className="space-y-1">{topLowVoltage.map((item) => <RankingItem key={`low-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageMin.toFixed(2)}V`} extra={item.voltageMinAt} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
-                <InnerFrame title={zh ? "温差最高 TOP3" : "Highest Temp Diff TOP3"} accent="#ffb676"><div className="space-y-1">{topTempDiffCells.map((item) => <RankingItem key={`tempdiff-${item.cell}`} title={`#${item.cell}`} value={`${item.maxIntraTempDiff.toFixed(1)}°C`} extra={item.maxIntraTempDiffAt} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
-              </div>
-            </div>
-          </NeonSection>
         </div>
 
         <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
@@ -777,7 +807,7 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
 
           <NeonSection title={zh ? "50电芯温度历史趋势" : "50-Cell Temperature History"} >
             <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-2 rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] px-3 py-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
                 {([
                   { key: "t1", label: zh ? "T1（前端点位）" : "T1" },
                   { key: "t2", label: zh ? "T2（中部点位）" : "T2" },
@@ -787,7 +817,7 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                     key={tab.key}
                     type="button"
                     onClick={() => setTemperatureTab(tab.key)}
-                    className={`rounded-[10px] border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                    className={`rounded-[10px] border font-semibold transition-all ${isTightCanvas ? "px-2.5 py-1 text-[10px]" : "px-3 py-1.5 text-[11px]"} ${
                       temperatureTab === tab.key
                         ? "border-[#53e8ff] bg-[linear-gradient(180deg,rgba(18,86,96,0.72),rgba(10,38,49,0.94))] text-[#efffff] shadow-[0_0_14px_rgba(83,232,255,0.16)]"
                         : "border-[#27476b] bg-[#0a1630]/88 text-[#a9cde2] hover:border-[#3c78a4] hover:text-[#ebfbff]"
@@ -806,21 +836,53 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                       <XAxis dataKey="time" tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} interval={11} />
                       <YAxis tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${Number(value).toFixed(1)}°C`} domain={["dataMin - 1", "dataMax + 1"]} label={{ value: zh ? "温度 (°C)" : "Temp (°C)", angle: -90, position: "insideLeft", offset: 16, style: { fontSize: 9, fill: "#7fa4be" } }} />
                       <Tooltip
-                        content={
-                          <FleetTooltip
-                            unit="°C"
-                            valueFormatter={(value) => `${value.toFixed(1)}°C`}
-                            maxRows={4}
-                            labelForKey={(key) => {
-                              if (key === "avg") return zh ? `${activeTemperatureChart.title} 基线` : `${activeTemperatureChart.title} Baseline`
-                              const hotCurve = activeTemperatureChart.hotCurves.find((item) => item.dataKey === key)
-                              if (hotCurve) return zh ? `高温 #${hotCurve.cell}` : `Hot #${hotCurve.cell}`
-                              if (selectedCell !== null && key === `c${selectedCell}`) return zh ? `当前 #${selectedCell}` : `Current #${selectedCell}`
-                              return null
-                            }}
-                            markerVariantForKey={(key) => (key === activeTemperatureChart.alerts[0]?.dataKey ? "diamond" : "dot")}
-                          />
-                        }
+                        content={({ active, label }) => {
+                          if (!active || !label || !activeTemperatureChart) return null
+                          const currentPoint = activeTemperatureChart.data.find((item) => item.time === label)
+                          if (!currentPoint) return null
+
+                          const hottestRows = Array.from({ length: CELL_COUNT }, (_, index) => ({
+                            cell: index + 1,
+                            value: Number(currentPoint[`c${index + 1}`]),
+                          }))
+                            .sort((a, b) => b.value - a.value)
+                            .slice(0, 3)
+
+                          const selectedValue = selectedCell !== null ? Number(currentPoint[`c${selectedCell}`]) : null
+
+                          return (
+                            <div className="rounded-[12px] border border-[#29547f] bg-[rgba(7,17,36,0.96)] px-3 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.28)]">
+                              <div className="mb-1 text-[10px] font-semibold text-[#dffbff]">{label}</div>
+                              <div className="space-y-1">
+                                {hottestRows.map((item, index) => (
+                                  <div key={`temp-hot-${item.cell}`} className="flex items-center justify-between gap-3 text-[10px]">
+                                    <div className="flex items-center gap-2 text-[#bfe8ff]">
+                                      {index === 0 ? (
+                                        <span
+                                          className="h-2.5 w-2.5 rotate-45 rounded-[1px] border"
+                                          style={{ backgroundColor: temperatureAlertPalette[index], borderColor: "#f8fbff" }}
+                                        />
+                                      ) : (
+                                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: temperatureAlertPalette[index] }} />
+                                      )}
+                                      <span className={index === 0 ? "font-semibold text-[#f8fbff]" : undefined}>{`${zh ? "高温" : "Hot"} #${item.cell}`}</span>
+                                    </div>
+                                    <span className="font-mono text-[#fff1b3]">{`${item.value.toFixed(1)}°C`}</span>
+                                  </div>
+                                ))}
+                                {selectedCell !== null && selectedValue !== null && !hottestRows.some((item) => item.cell === selectedCell) ? (
+                                  <div className="flex items-center justify-between gap-3 text-[10px]">
+                                    <div className="flex items-center gap-2 text-[#bfe8ff]">
+                                      <span className="h-2 w-2 rounded-full bg-[#ffffff]" />
+                                      <span>{zh ? `当前 #${selectedCell}` : `Current #${selectedCell}`}</span>
+                                    </div>
+                                    <span className="font-mono text-[#fff1b3]">{`${selectedValue.toFixed(1)}°C`}</span>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          )
+                        }}
                       />
                       {voltagePhaseRegions.map((region, idx) => {
                         const fills = { charge: "#22c87a", discharge: "#ff8c4b", rest: "#5580b0" }
@@ -829,13 +891,21 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                       })}
                       {Array.from({ length: CELL_COUNT }, (_, index) => {
                         const cell = index + 1
-                        const isHighlighted = activeTemperatureChart.hotCurves.some((item) => item.cell === cell) || selectedCell === cell
+                        const isHighlighted = activeTemperatureChart.highlightedCells.includes(cell) || selectedCell === cell
                         return <Line key={`${activeTemperatureChart.key}-cluster-${cell}`} type="stepAfter" dataKey={`c${cell}`} stroke="#7fa4be" strokeWidth={1} strokeOpacity={isHighlighted ? 0.04 : 0.14} dot={false} isAnimationActive={false} />
                       })}
-                      {activeTemperatureChart.hotCurves.map((item, index) => (
-                        <Line key={`${activeTemperatureChart.key}-alert-${item.cell}`} type="stepAfter" dataKey={item.dataKey} stroke={temperatureAlertPalette[index % temperatureAlertPalette.length]} strokeWidth={2.2} dot={false} isAnimationActive={false} />
+                      {activeTemperatureChart.highlightedCells.map((cell, index) => (
+                        <Line
+                          key={`${activeTemperatureChart.key}-hot-${cell}`}
+                          type="stepAfter"
+                          dataKey={`hot_${cell}`}
+                          stroke={temperatureAlertPalette[index % temperatureAlertPalette.length]}
+                          strokeWidth={2.2}
+                          dot={false}
+                          isAnimationActive={false}
+                        />
                       ))}
-                      {selectedCell !== null && !activeTemperatureChart.hotCurves.some((item) => item.cell === selectedCell) ? <Line type="stepAfter" dataKey={`c${selectedCell}`} stroke="#ffffff" strokeWidth={2.2} dot={false} isAnimationActive={false} /> : null}
+                      {selectedCell !== null && !activeTemperatureChart.highlightedCells.includes(selectedCell) ? <Line type="stepAfter" dataKey={`c${selectedCell}`} stroke="#ffffff" strokeWidth={2.2} dot={false} isAnimationActive={false} /> : null}
                       <Line type="stepAfter" dataKey="avg" stroke="#f3fbff" strokeWidth={2} dot={false} isAnimationActive={false} />
                       <Customized component={({ xAxisMap }: any) => {
                         const xa = Object.values((xAxisMap ?? {}) as Record<string, any>)[0]
@@ -879,12 +949,12 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                   <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(255,140,75,0.28)" }} /><span>{zh ? "放电" : "Discharge"}</span>
                   <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(80,130,190,0.20)" }} /><span>{zh ? "静置" : "Rest"}</span>
                 </div>
-                {selectedCell !== null && !activeTemperatureChart?.hotCurves.some((item) => item.cell === selectedCell) ? <LegendItem label={zh ? `当前电芯 #${selectedCell}` : `Cell #${selectedCell}`} color="#ffffff" /> : null}
+                {selectedCell !== null && !activeTemperatureChart?.highlightedCells.includes(selectedCell) ? <LegendItem label={zh ? `当前电芯 #${selectedCell}` : `Cell #${selectedCell}`} color="#ffffff" /> : null}
               </div>
             </div>
           </NeonSection>
         </div>
-      </div>
+        </div>
     </div>
   )
 }
