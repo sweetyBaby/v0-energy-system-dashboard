@@ -245,7 +245,7 @@ const HIST_X_TICK = (props: { x: number; y: number; payload: { value: string } }
   )
 }
 
-function TrendStackedChart({ data, zh, history }: { data: Array<RtPoint | MergedHistPoint>; zh: boolean; history: boolean }) {
+function TrendStackedChart({ data, zh, history, hideCellSeries = false }: { data: Array<RtPoint | MergedHistPoint>; zh: boolean; history: boolean; hideCellSeries?: boolean }) {
   const syncId = history ? "hist" : "rt"
   const sections = [
     {
@@ -318,10 +318,12 @@ function TrendStackedChart({ data, zh, history }: { data: Array<RtPoint | Merged
     },
   ]
 
+  const visibleSections = hideCellSeries ? sections.filter((s) => s.kind !== "triple") : sections
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {sections.map((section, idx) => {
-        const isLast = idx === sections.length - 1
+      {visibleSections.map((section, idx) => {
+        const isLast = idx === visibleSections.length - 1
         const chartTop = section.kind === "triple" ? 24 : 8
         return (
           <div key={section.label} className={`relative min-h-0 flex-1 ${!isLast ? "border-b border-[#1a2654]/40" : ""}`}>
@@ -399,9 +401,11 @@ function TrendStackedChart({ data, zh, history }: { data: Array<RtPoint | Merged
 export function BCUStatusQuery({
   mode = "realtime",
   date,
+  hideCellSeries = false,
 }: {
   mode?: "realtime" | "history"
   date?: string
+  hideCellSeries?: boolean
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -429,13 +433,12 @@ export function BCUStatusQuery({
           <span className="text-sm font-semibold text-[#00d4aa]">
             {zh ? "BCU 运行状态" : "BCU Status"}
           </span>
-         
         </div>
       </div>
 
       <div className="min-h-0 flex-1">
-        {mode === "realtime" && <TrendStackedChart data={rtOverview} zh={zh} history={false} />}
-        {mode === "history" && <TrendStackedChart data={histData} zh={zh} history />}
+        {mode === "realtime" && <TrendStackedChart data={rtOverview} zh={zh} history={false} hideCellSeries={hideCellSeries} />}
+        {mode === "history" && <TrendStackedChart data={histData} zh={zh} history hideCellSeries={hideCellSeries} />}
       </div>
     </div>
   )

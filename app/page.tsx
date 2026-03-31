@@ -5,7 +5,8 @@ import { Battery, Calendar, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
-import { CellHistoryReplayPanel } from "@/components/dashboard/cell-history-replay-panel"
+import { CellHeatmapOverviewPanel } from "@/components/dashboard/cell-heatmap-overview-panel"
+import { CellHistoryReplayPanel, type CellHistoryOverviewStats } from "@/components/dashboard/cell-history-replay-panel"
 import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysis"
 import { ChargeDischargeTable } from "@/components/dashboard/charge-discharge-table"
 import { CellMatrixPanel } from "@/components/dashboard/cell-matrix-panel"
@@ -61,6 +62,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const [historyDate, setHistoryDate] = useState(today)
   const [cellHistoryDate, setCellHistoryDate] = useState(today)
   const [selectedHistoryCell, setSelectedHistoryCell] = useState<number | null>(null)
+  const [cellHistoryStats, setCellHistoryStats] = useState<CellHistoryOverviewStats | null>(null)
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const zh = language === "zh"
@@ -89,7 +91,18 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     },
   ]
 
-  const renderOperationStatusPage = () => (
+  const renderRunningStatusPage = () => (
+    <div className="grid h-full min-h-0 grid-cols-12 gap-4 overflow-hidden">
+      <div className="col-span-12 min-h-0 xl:col-span-6">
+        <BCUStatusQuery mode="realtime" />
+      </div>
+      <div className="col-span-12 min-h-0 xl:col-span-6">
+        <CellHeatmapOverviewPanel />
+      </div>
+    </div>
+  )
+
+  const renderAlarmMonitoringPage = () => (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       <div
         className="relative flex shrink-0 items-center gap-3 overflow-hidden border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
@@ -206,13 +219,37 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
               style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 100%, 0 100%)" }}
             >
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
-              <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={today} />
+              {/* Overview stat chips */}
+              {cellHistoryStats && (
+                <div className="flex items-center gap-2">
+                  {[
+                    { labelZh: "最高电压", labelEn: "Max V",    value: `${cellHistoryStats.maxVoltage.toFixed(2)}V`,  cell: cellHistoryStats.maxVoltageCell, color: "text-[#aef8ff]" },
+                    { labelZh: "最低电压", labelEn: "Min V",    value: `${cellHistoryStats.minVoltage.toFixed(2)}V`,  cell: cellHistoryStats.minVoltageCell, color: "text-[#aef8ff]" },
+                    { labelZh: "最大ΔV",  labelEn: "Spread ΔV", value: `${cellHistoryStats.voltageDelta.toFixed(2)}V`, cell: null, color: "text-[#ffd892]" },
+                    { labelZh: "最高温度", labelEn: "Max T",    value: `${cellHistoryStats.maxTemp.toFixed(1)}°C`,    cell: cellHistoryStats.maxTempCell, color: "text-[#aef8ff]" },
+                    { labelZh: "最低温度", labelEn: "Min T",    value: `${cellHistoryStats.minTemp.toFixed(1)}°C`,    cell: cellHistoryStats.minTempCell, color: "text-[#aef8ff]" },
+                    { labelZh: "最大ΔT",  labelEn: "Spread ΔT", value: `${cellHistoryStats.tempDelta.toFixed(1)}°C`,  cell: null, color: "text-[#ffd892]" },
+                  ].map((item) => (
+                    <div key={item.labelEn} className="flex items-center gap-1.5 rounded-[8px] border border-[#22d3ee]/18 bg-[rgba(13,31,58,0.5)] px-2.5 py-1">
+                      <span className="text-[11px] font-medium text-[#4a7090]">{zh ? item.labelZh : item.labelEn}</span>
+                      <span className={`text-[12px] font-bold tabular-nums ${item.color}`}>
+                        {item.value}{item.cell != null ? ` (#${item.cell})` : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Date picker right-aligned */}
+              <div className="ml-auto">
+                <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={today} />
+              </div>
             </div>
             <div className="min-h-0 flex-1 overflow-hidden">
               <CellHistoryReplayPanel
                 date={cellHistoryDate}
                 selectedCell={selectedHistoryCell}
                 onSelectedCellChange={setSelectedHistoryCell}
+                onOverviewStats={setCellHistoryStats}
               />
             </div>
           </div>
@@ -259,9 +296,9 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           </div>
         )}
 
-        {activeTab === "history" && renderOperationStatusPage()}
+        {activeTab === "history" && renderRunningStatusPage()}
 
-        {activeTab === "alarm-monitoring" && renderOperationStatusPage()}
+        {activeTab === "alarm-monitoring" && renderAlarmMonitoringPage()}
 
         {activeTab === "reports" && (
           <div className="h-full min-h-0 overflow-hidden">
@@ -275,10 +312,12 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
 
 export default function EnergyStorageDashboard() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("realtime")
-  const tabs = (Object.keys(TAB_META) as DashboardTab[]).map((key) => ({
-    key,
-    label: TAB_META[key],
-  }))
+  const tabs = (Object.keys(TAB_META) as DashboardTab[])
+    .filter((key) => key !== "bms")
+    .map((key) => ({
+      key,
+      label: TAB_META[key],
+    }))
 
   return (
     <LanguageProvider>
