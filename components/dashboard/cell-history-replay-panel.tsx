@@ -52,7 +52,7 @@ type FleetCurvePoint = {
   avg: number
   upper: number
   lower: number
-} & Record<string, string | number>
+} & Record<string, string | number | null>
 
 type TemperatureChannelKey = "t1" | "t2" | "t3"
 
@@ -67,8 +67,7 @@ type TemperatureFleetChart = {
   key: TemperatureChannelKey
   title: string
   data: FleetCurvePoint[]
-  hotCurves: ChannelAlert[]
-  alerts: ChannelAlert[]
+  highlightedCells: number[]
 }
 
 type VoltageHighlightSeries = {
@@ -539,7 +538,17 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
         { key: "t2", title: "T2" },
         { key: "t3", title: "T3" },
       ] as const).map(({ key, title }) => {
-        const data = historyData.map((point) => {
+        const highlightedCellSet = new Set<number>()
+        const topCellsByPoint = historyData.map((point) =>
+          Array.from({ length: CELL_COUNT }, (_, index) => ({
+            cell: index + 1,
+            value: Number(point[`${key}_${index + 1}`].toFixed(1)),
+          }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 3)
+        )
+
+        const data = historyData.map((point, pointIndex) => {
           const row = { time: point.time } as FleetCurvePoint
           const values: number[] = []
 
@@ -557,23 +566,15 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
           row.upper = Number((avg + band).toFixed(1))
           row.lower = Number((avg - band).toFixed(1))
 
+          topCellsByPoint[pointIndex]?.forEach((item) => {
+            highlightedCellSet.add(item.cell)
+            row[`hot_${item.cell}`] = item.value
+          })
+
           return row
         })
 
-        const rankedCurves = Array.from({ length: CELL_COUNT }, (_, index) => {
-          const cell = index + 1
-          const values = historyData.map((point) => point[`${key}_${cell}`])
-          const peak = Math.max(...values)
-          const peakAt = historyData.find((point) => point[`${key}_${cell}`] === peak)?.time ?? "--"
-          return { cell, peak: Number(peak.toFixed(1)), time: peakAt, dataKey: `c${cell}` }
-        })
-          .sort((a, b) => b.peak - a.peak)
-
-        const hotCutoff = Math.max(rankedCurves[Math.min(5, rankedCurves.length - 1)]?.peak ?? -Infinity, (rankedCurves[0]?.peak ?? -Infinity) - 0.8)
-        const hotCurves = rankedCurves.filter((item) => item.peak >= hotCutoff)
-        const alerts = hotCurves.slice(0, 3)
-
-        return { key, title, data, hotCurves, alerts }
+        return { key, title, data, highlightedCells: Array.from(highlightedCellSet) }
       }),
     [historyData]
   )
@@ -806,21 +807,53 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                       <XAxis dataKey="time" tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} interval={11} />
                       <YAxis tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${Number(value).toFixed(1)}°C`} domain={["dataMin - 1", "dataMax + 1"]} label={{ value: zh ? "温度 (°C)" : "Temp (°C)", angle: -90, position: "insideLeft", offset: 16, style: { fontSize: 9, fill: "#7fa4be" } }} />
                       <Tooltip
-                        content={
-                          <FleetTooltip
-                            unit="°C"
-                            valueFormatter={(value) => `${value.toFixed(1)}°C`}
-                            maxRows={4}
-                            labelForKey={(key) => {
-                              if (key === "avg") return zh ? `${activeTemperatureChart.title} 基线` : `${activeTemperatureChart.title} Baseline`
-                              const hotCurve = activeTemperatureChart.hotCurves.find((item) => item.dataKey === key)
-                              if (hotCurve) return zh ? `高温 #${hotCurve.cell}` : `Hot #${hotCurve.cell}`
-                              if (selectedCell !== null && key === `c${selectedCell}`) return zh ? `当前 #${selectedCell}` : `Current #${selectedCell}`
-                              return null
-                            }}
-                            markerVariantForKey={(key) => (key === activeTemperatureChart.alerts[0]?.dataKey ? "diamond" : "dot")}
-                          />
-                        }
+                        content={({ active, label }) => {
+                          if (!active || !label || !activeTemperatureChart) return null
+                          const currentPoint = activeTemperatureChart.data.find((item) => item.time === label)
+                          if (!currentPoint) return null
+
+                          const hottestRows = Array.from({ length: CELL_COUNT }, (_, index) => ({
+                            cell: index + 1,
+                            value: Number(currentPoint[`c${index + 1}`]),
+                          }))
+                            .sort((a, b) => b.value - a.value)
+                            .slice(0, 3)
+
+                          const selectedValue = selectedCell !== null ? Number(currentPoint[`c${selectedCell}`]) : null
+
+                          return (
+                            <div className="rounded-[12px] border border-[#29547f] bg-[rgba(7,17,36,0.96)] px-3 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.28)]">
+                              <div className="mb-1 text-[10px] font-semibold text-[#dffbff]">{label}</div>
+                              <div className="space-y-1">
+                                {hottestRows.map((item, index) => (
+                                  <div key={`temp-hot-${item.cell}`} className="flex items-center justify-between gap-3 text-[10px]">
+                                    <div className="flex items-center gap-2 text-[#bfe8ff]">
+                                      {index === 0 ? (
+                                        <span
+                                          className="h-2.5 w-2.5 rotate-45 rounded-[1px] border"
+                                          style={{ backgroundColor: temperatureAlertPalette[index], borderColor: "#f8fbff" }}
+                                        />
+                                      ) : (
+                                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: temperatureAlertPalette[index] }} />
+                                      )}
+                                      <span className={index === 0 ? "font-semibold text-[#f8fbff]" : undefined}>{`${zh ? "高温" : "Hot"} #${item.cell}`}</span>
+                                    </div>
+                                    <span className="font-mono text-[#fff1b3]">{`${item.value.toFixed(1)}°C`}</span>
+                                  </div>
+                                ))}
+                                {selectedCell !== null && selectedValue !== null && !hottestRows.some((item) => item.cell === selectedCell) ? (
+                                  <div className="flex items-center justify-between gap-3 text-[10px]">
+                                    <div className="flex items-center gap-2 text-[#bfe8ff]">
+                                      <span className="h-2 w-2 rounded-full bg-[#ffffff]" />
+                                      <span>{zh ? `当前 #${selectedCell}` : `Current #${selectedCell}`}</span>
+                                    </div>
+                                    <span className="font-mono text-[#fff1b3]">{`${selectedValue.toFixed(1)}°C`}</span>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          )
+                        }}
                       />
                       {voltagePhaseRegions.map((region, idx) => {
                         const fills = { charge: "#22c87a", discharge: "#ff8c4b", rest: "#5580b0" }
@@ -829,13 +862,21 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                       })}
                       {Array.from({ length: CELL_COUNT }, (_, index) => {
                         const cell = index + 1
-                        const isHighlighted = activeTemperatureChart.hotCurves.some((item) => item.cell === cell) || selectedCell === cell
+                        const isHighlighted = activeTemperatureChart.highlightedCells.includes(cell) || selectedCell === cell
                         return <Line key={`${activeTemperatureChart.key}-cluster-${cell}`} type="stepAfter" dataKey={`c${cell}`} stroke="#7fa4be" strokeWidth={1} strokeOpacity={isHighlighted ? 0.04 : 0.14} dot={false} isAnimationActive={false} />
                       })}
-                      {activeTemperatureChart.hotCurves.map((item, index) => (
-                        <Line key={`${activeTemperatureChart.key}-alert-${item.cell}`} type="stepAfter" dataKey={item.dataKey} stroke={temperatureAlertPalette[index % temperatureAlertPalette.length]} strokeWidth={2.2} dot={false} isAnimationActive={false} />
+                      {activeTemperatureChart.highlightedCells.map((cell, index) => (
+                        <Line
+                          key={`${activeTemperatureChart.key}-hot-${cell}`}
+                          type="stepAfter"
+                          dataKey={`hot_${cell}`}
+                          stroke={temperatureAlertPalette[index % temperatureAlertPalette.length]}
+                          strokeWidth={2.2}
+                          dot={false}
+                          isAnimationActive={false}
+                        />
                       ))}
-                      {selectedCell !== null && !activeTemperatureChart.hotCurves.some((item) => item.cell === selectedCell) ? <Line type="stepAfter" dataKey={`c${selectedCell}`} stroke="#ffffff" strokeWidth={2.2} dot={false} isAnimationActive={false} /> : null}
+                      {selectedCell !== null && !activeTemperatureChart.highlightedCells.includes(selectedCell) ? <Line type="stepAfter" dataKey={`c${selectedCell}`} stroke="#ffffff" strokeWidth={2.2} dot={false} isAnimationActive={false} /> : null}
                       <Line type="stepAfter" dataKey="avg" stroke="#f3fbff" strokeWidth={2} dot={false} isAnimationActive={false} />
                       <Customized component={({ xAxisMap }: any) => {
                         const xa = Object.values((xAxisMap ?? {}) as Record<string, any>)[0]
@@ -879,7 +920,7 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                   <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(255,140,75,0.28)" }} /><span>{zh ? "放电" : "Discharge"}</span>
                   <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(80,130,190,0.20)" }} /><span>{zh ? "静置" : "Rest"}</span>
                 </div>
-                {selectedCell !== null && !activeTemperatureChart?.hotCurves.some((item) => item.cell === selectedCell) ? <LegendItem label={zh ? `当前电芯 #${selectedCell}` : `Cell #${selectedCell}`} color="#ffffff" /> : null}
+                {selectedCell !== null && !activeTemperatureChart?.highlightedCells.includes(selectedCell) ? <LegendItem label={zh ? `当前电芯 #${selectedCell}` : `Cell #${selectedCell}`} color="#ffffff" /> : null}
               </div>
             </div>
           </NeonSection>
