@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { AlertTriangle, Check, ChevronsUpDown, Thermometer, TrendingDown, TrendingUp } from "lucide-react"
-import { CartesianGrid, Customized, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { CartesianGrid, Customized, LabelList, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { useLanguage } from "@/components/language-provider"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
@@ -299,6 +299,51 @@ function LegendItem({ label, color, dashed = false, compact = false }: { label: 
   )
 }
 
+function ExtremeTrendTooltip({
+  active,
+  label,
+  payload,
+  unit,
+  digits,
+  zh,
+}: {
+  active?: boolean
+  label?: string
+  payload?: Array<{ dataKey?: string; value?: number | string; color?: string; name?: string; payload?: Record<string, number | string> }>
+  unit: string
+  digits: number
+  zh: boolean
+}) {
+  if (!active || !payload?.length) return null
+
+  const rows = payload
+    .filter((item) => item.dataKey === "max" || item.dataKey === "min")
+    .sort((a, b) => (a.dataKey === "max" ? -1 : 1))
+
+  return (
+    <div className="rounded-[12px] border border-[#29547f] bg-[rgba(7,17,36,0.96)] px-3 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.28)]">
+      <div className="mb-1 text-[10px] font-semibold text-[#dffbff]">{label}</div>
+      <div className="space-y-1">
+        {rows.map((item) => {
+          const cellKey = item.dataKey === "max" ? "maxCell" : "minCell"
+          const cell = Number(item.payload?.[cellKey] ?? 0)
+          const numericValue = Number(item.value ?? 0)
+          return (
+            <div key={String(item.dataKey)} className="flex items-center gap-2 text-[10px] text-[#bfe8ff]">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color ?? "#bfe8ff" }} />
+                <span className="font-mono text-[#fff1b3]">
+                  {zh
+                    ? `${item.name}：${numericValue.toFixed(digits)}${unit}(#${cell})`
+                    : `${item.name}: ${numericValue.toFixed(digits)}${unit} (#${cell})`}
+                </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function FleetTooltip({
   active,
   label,
@@ -507,15 +552,31 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
   }, [voltageStats, temperatureStats, topHighVoltage, topLowVoltage, topHotCells, topColdCells, onOverviewStats])
 
   const voltageTrendData = useMemo(
-    () =>
-      historyData.map((point) => {
-        const values = Array.from({ length: CELL_COUNT }, (_, index) => point[`v${index + 1}`])
+    () => {
+      const baseData = historyData.map((point) => {
+        const values = Array.from({ length: CELL_COUNT }, (_, index) => ({ cell: index + 1, value: point[`v${index + 1}`] }))
+        const maxEntry = values.reduce((best, current) => (current.value > best.value ? current : best), values[0])
+        const minEntry = values.reduce((best, current) => (current.value < best.value ? current : best), values[0])
         return {
           time: point.time,
-          max: Number(Math.max(...values).toFixed(3)),
-          min: Number(Math.min(...values).toFixed(3)),
+          max: Number(maxEntry.value.toFixed(3)),
+          min: Number(minEntry.value.toFixed(3)),
+          maxCell: maxEntry.cell,
+          minCell: minEntry.cell,
         }
-      }),
+      })
+
+      const maxIndex = baseData.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)
+      const minIndex = baseData.reduce((best, current, index, rows) => (current.min < rows[best].min ? index : best), 0)
+
+      return baseData.map((item, index) => ({
+        ...item,
+        maxHighlightLabel: index === maxIndex ? `${item.max.toFixed(3)}V(#${item.maxCell})` : "",
+        minHighlightLabel: index === minIndex ? `${item.min.toFixed(3)}V(#${item.minCell})` : "",
+        isMaxHighlight: index === maxIndex,
+        isMinHighlight: index === minIndex,
+      }))
+    },
     [historyData]
   )
 
@@ -541,14 +602,28 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
         { key: "t2", title: "T2", label: zh ? "中部探头" : "Middle Probe" },
         { key: "t3", title: "T3", label: zh ? "后端探头" : "Rear Probe" },
       ] as const).map(({ key, title, label }) => {
-        const data = historyData.map((point) => {
-          const values = Array.from({ length: CELL_COUNT }, (_, index) => point[`${key}_${index + 1}` as const])
+        const baseData = historyData.map((point) => {
+          const values = Array.from({ length: CELL_COUNT }, (_, index) => ({ cell: index + 1, value: point[`${key}_${index + 1}` as const] }))
+          const maxEntry = values.reduce((best, current) => (current.value > best.value ? current : best), values[0])
+          const minEntry = values.reduce((best, current) => (current.value < best.value ? current : best), values[0])
           return {
             time: point.time,
-            max: Number(Math.max(...values).toFixed(1)),
-            min: Number(Math.min(...values).toFixed(1)),
+            max: Number(maxEntry.value.toFixed(1)),
+            min: Number(minEntry.value.toFixed(1)),
+            maxCell: maxEntry.cell,
+            minCell: minEntry.cell,
           }
         })
+
+        const maxIndex = baseData.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)
+        const minIndex = baseData.reduce((best, current, index, rows) => (current.min < rows[best].min ? index : best), 0)
+        const data = baseData.map((item, index) => ({
+          ...item,
+          maxHighlightLabel: index === maxIndex ? `${item.max.toFixed(1)}°C(#${item.maxCell})` : "",
+          minHighlightLabel: index === minIndex ? `${item.min.toFixed(1)}°C(#${item.minCell})` : "",
+          isMaxHighlight: index === maxIndex,
+          isMinHighlight: index === minIndex,
+        }))
 
         return { key, title, label, data }
       }),
@@ -612,7 +687,7 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
               </div>
               <div className="min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={voltageTrendData} syncId={trendSyncId} margin={{ top: 12, right: 12, left: -8, bottom: 6 }}>
+                  <LineChart data={voltageTrendData} syncId={trendSyncId} margin={{ top: 12, right: 92, left: -8, bottom: 6 }}>
                     <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="time" tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} interval={5} />
                     <YAxis
@@ -622,14 +697,41 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                       tickFormatter={(value) => `${Number(value).toFixed(2)}V`}
                       domain={["dataMin - 0.03", "dataMax + 0.03"]}
                     />
-                    <Tooltip
-                      contentStyle={{ border: "1px solid #29547f", background: "rgba(7,17,36,0.96)", borderRadius: 12 }}
-                      labelStyle={{ color: "#dffbff", fontSize: 11, fontWeight: 600 }}
-                      itemStyle={{ color: "#bfe8ff", fontSize: 11, padding: 0 }}
-                      formatter={(value: number, name: string) => [`${value.toFixed(3)}V`, name]}
-                    />
-                    <Line type="monotone" dataKey="max" name={zh ? "最大值" : "Max"} stroke="#ffd36b" strokeWidth={2.2} dot={false} isAnimationActive={false} />
-                    <Line type="monotone" dataKey="min" name={zh ? "最小值" : "Min"} stroke="#6ee7ff" strokeWidth={2.2} dot={false} isAnimationActive={false} />
+                    <Tooltip content={<ExtremeTrendTooltip unit="V" digits={3} zh={zh} />} />
+                    <Line
+                      type="monotone"
+                      dataKey="max"
+                      name={zh ? "最大值" : "Max"}
+                      stroke="#ffd36b"
+                      strokeWidth={2.2}
+                      dot={(props: any) =>
+                        props?.payload?.isMaxHighlight ? (
+                          <circle cx={props.cx} cy={props.cy} r={4.5} fill="#ffd36b" stroke="#fff4cf" strokeWidth={1.5} />
+                        ) : (
+                          <></>
+                        )
+                      }
+                      isAnimationActive={false}
+                    >
+                      <LabelList dataKey="maxHighlightLabel" position="top" offset={8} fill="#ffe7a8" fontSize={9} />
+                    </Line>
+                    <Line
+                      type="monotone"
+                      dataKey="min"
+                      name={zh ? "最小值" : "Min"}
+                      stroke="#6ee7ff"
+                      strokeWidth={2.2}
+                      dot={(props: any) =>
+                        props?.payload?.isMinHighlight ? (
+                          <circle cx={props.cx} cy={props.cy} r={4.5} fill="#6ee7ff" stroke="#d6fbff" strokeWidth={1.5} />
+                        ) : (
+                          <></>
+                        )
+                      }
+                      isAnimationActive={false}
+                    >
+                      <LabelList dataKey="minHighlightLabel" position="bottom" offset={8} fill="#a6f3ff" fontSize={9} />
+                    </Line>
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -652,7 +754,7 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                     </div>
                     <div className="min-h-0">
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chart.data} syncId={trendSyncId} margin={{ top: 4, right: 10, left: -8, bottom: isLast ? 6 : 0 }}>
+                        <LineChart data={chart.data} syncId={trendSyncId} margin={{ top: 6, right: 88, left: -8, bottom: isLast ? 6 : 0 }}>
                           <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
                           <XAxis
                             dataKey="time"
@@ -670,14 +772,41 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
                             domain={["dataMin - 1", "dataMax + 1"]}
                             width={42}
                           />
-                          <Tooltip
-                            contentStyle={{ border: "1px solid #29547f", background: "rgba(7,17,36,0.96)", borderRadius: 12 }}
-                            labelStyle={{ color: "#dffbff", fontSize: 11, fontWeight: 600 }}
-                            itemStyle={{ color: "#bfe8ff", fontSize: 11, padding: 0 }}
-                            formatter={(value: number, name: string) => [`${value.toFixed(1)}°C`, name]}
-                          />
-                          <Line type="monotone" dataKey="max" name={zh ? "最大值" : "Max"} stroke="#ffd36b" strokeWidth={1.9} dot={false} isAnimationActive={false} />
-                          <Line type="monotone" dataKey="min" name={zh ? "最小值" : "Min"} stroke="#6ee7ff" strokeWidth={1.9} dot={false} isAnimationActive={false} />
+                          <Tooltip content={<ExtremeTrendTooltip unit="°C" digits={1} zh={zh} />} />
+                          <Line
+                            type="monotone"
+                            dataKey="max"
+                            name={zh ? "最大值" : "Max"}
+                            stroke="#ffd36b"
+                            strokeWidth={1.9}
+                            dot={(props: any) =>
+                              props?.payload?.isMaxHighlight ? (
+                                <circle cx={props.cx} cy={props.cy} r={4} fill="#ffd36b" stroke="#fff4cf" strokeWidth={1.4} />
+                              ) : (
+                                <></>
+                              )
+                            }
+                            isAnimationActive={false}
+                          >
+                            <LabelList dataKey="maxHighlightLabel" position="top" offset={6} fill="#ffe7a8" fontSize={8} />
+                          </Line>
+                          <Line
+                            type="monotone"
+                            dataKey="min"
+                            name={zh ? "最小值" : "Min"}
+                            stroke="#6ee7ff"
+                            strokeWidth={1.9}
+                            dot={(props: any) =>
+                              props?.payload?.isMinHighlight ? (
+                                <circle cx={props.cx} cy={props.cy} r={4} fill="#6ee7ff" stroke="#d6fbff" strokeWidth={1.4} />
+                              ) : (
+                                <></>
+                              )
+                            }
+                            isAnimationActive={false}
+                          >
+                            <LabelList dataKey="minHighlightLabel" position="bottom" offset={6} fill="#a6f3ff" fontSize={8} />
+                          </Line>
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
