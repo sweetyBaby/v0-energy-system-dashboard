@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { AlertTriangle, Check, ChevronsUpDown, Thermometer, TrendingDown, TrendingUp } from "lucide-react"
-import { CartesianGrid, Customized, LabelList, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { CartesianGrid, Customized, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { useLanguage } from "@/components/language-provider"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
@@ -80,6 +80,7 @@ type VoltageHighlightSeries = {
 const CELL_COUNT = 50
 const STEP_MINUTES = 15
 const TOTAL_POINTS = (24 * 60) / STEP_MINUTES
+const DAY_END_TIME_LABEL = "23:59:59"
 const mutedText = "text-[#7fa4be]"
 const edgeGlow = "shadow-[0_0_0_1px_rgba(88,181,255,0.08),0_18px_42px_rgba(1,7,19,0.42),inset_0_0_28px_rgba(44,126,198,0.06)]"
 
@@ -88,6 +89,12 @@ const average = (values: number[]) => values.reduce((sum, value) => sum + value,
 const formatTimeLabel = (index: number) =>
   `${String(Math.floor((index * STEP_MINUTES) / 60)).padStart(2, "0")}:${String((index * STEP_MINUTES) % 60).padStart(2, "0")}`
 
+const toTrendTimeLabel = (time: string) => `${time}:00`
+
+const extendTrendToDayEnd = <T extends { time: string }>(rows: T[], resetFields: Partial<T> = {}): T[] => {
+  if (!rows.length || rows[rows.length - 1]?.time === DAY_END_TIME_LABEL) return rows
+  return [...rows, { ...rows[rows.length - 1], ...resetFields, time: DAY_END_TIME_LABEL }]
+}
 
 const getCellTemps = (point: HistoryPoint, cell: number) => [point[`t1_${cell}`], point[`t2_${cell}`], point[`t3_${cell}`]]
 
@@ -101,14 +108,15 @@ const createHistoryData = (date: string): HistoryPoint[] => {
     const isDischarge = (index >= 30 && index <= 39) || (index >= 65 && index <= 76)
 
     for (let cell = 1; cell <= CELL_COUNT; cell += 1) {
-      const cellOffset = (cell - 25.5) * 0.0016
-      const wave = Math.sin(dayPhase + cell * 0.09) * 0.014 + Math.cos(dayPhase * 0.45 + cell * 0.12) * 0.006
-      const ripple = Math.sin(index * 0.32 + cell * 0.17 + daySeed * 0.02) * 0.003
+      const cellOffset = (cell - 25.5) * 0.028
+      const wave = Math.sin(dayPhase + cell * 0.09) * 0.56 + Math.cos(dayPhase * 0.45 + cell * 0.12) * 0.24
+      const ripple = Math.sin(index * 0.32 + cell * 0.17 + daySeed * 0.02) * 0.08
 
-      let voltage = 3.22 + cellOffset + wave + ripple
-      if (isCharge) voltage += 0.08 + Math.max(0, index < 27 ? (index - 8) / 18 : (index - 48) / 16) * 0.36
-      if (isDischarge) voltage -= 0.08 + Math.max(0, index < 40 ? (index - 30) / 9 : (index - 65) / 11) * 0.28
-      if (!isCharge && !isDischarge) voltage += Math.sin(index * 0.08 + cell * 0.07) * 0.005
+      let voltage = 25.9 + cellOffset + wave + ripple
+      if (isCharge) voltage += 0.45 + Math.max(0, index < 27 ? (index - 8) / 18 : (index - 48) / 16) * 2.35
+      if (isDischarge) voltage -= 0.55 + Math.max(0, index < 40 ? (index - 30) / 9 : (index - 65) / 11) * 2.7
+      if (!isCharge && !isDischarge) voltage += Math.sin(index * 0.08 + cell * 0.07) * 0.12
+      voltage = Math.max(21.7, Math.min(29.4, voltage))
 
       const baseTemp = 27.5 + Math.sin(dayPhase * 0.6 + cell * 0.05) * 2.2 + (cell % 9) * 0.08
       const thermalLoad = isCharge ? 2.2 : isDischarge ? 1.3 : 0.3
@@ -218,6 +226,7 @@ function NeonSection({
   badge,
   inlineSubtitle = false,
   compact = false,
+  className = "",
   children,
 }: {
   title: string
@@ -225,11 +234,12 @@ function NeonSection({
   badge?: string
   inlineSubtitle?: boolean
   compact?: boolean
+  className?: string
   children: ReactNode
 }) {
   return (
     <section
-      className={`relative flex min-h-0 flex-col overflow-hidden rounded-[20px] border border-[#254873]/80 bg-[radial-gradient(circle_at_top_right,rgba(38,109,178,0.15),transparent_28%),linear-gradient(180deg,rgba(10,19,44,0.97),rgba(6,12,29,0.98))] ${compact ? "p-2.5" : "p-3"} ${edgeGlow}`}
+      className={`relative flex min-h-0 flex-col overflow-hidden rounded-[20px] border border-[#254873]/80 bg-[radial-gradient(circle_at_top_right,rgba(38,109,178,0.15),transparent_28%),linear-gradient(180deg,rgba(10,19,44,0.97),rgba(6,12,29,0.98))] ${compact ? "p-2.5" : "p-3"} ${edgeGlow} ${className}`}
     >
       <div className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#8feaff]/[0.05]" />
       <div className="pointer-events-none absolute left-3 top-3 h-5 w-[2px] rounded-full bg-[#3fe7ff]/90 shadow-[0_0_12px_rgba(63,231,255,0.85)]" />
@@ -557,8 +567,8 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
         const values = Array.from({ length: CELL_COUNT }, (_, index) => ({ cell: index + 1, value: point[`v${index + 1}`] }))
         const maxEntry = values.reduce((best, current) => (current.value > best.value ? current : best), values[0])
         const minEntry = values.reduce((best, current) => (current.value < best.value ? current : best), values[0])
-        return {
-          time: point.time,
+      return {
+          time: toTrendTimeLabel(point.time),
           max: Number(maxEntry.value.toFixed(3)),
           min: Number(minEntry.value.toFixed(3)),
           maxCell: maxEntry.cell,
@@ -569,13 +579,17 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
       const maxIndex = baseData.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)
       const minIndex = baseData.reduce((best, current, index, rows) => (current.min < rows[best].min ? index : best), 0)
 
-      return baseData.map((item, index) => ({
-        ...item,
-        maxHighlightLabel: index === maxIndex ? `${item.max.toFixed(3)}V(#${item.maxCell})` : "",
-        minHighlightLabel: index === minIndex ? `${item.min.toFixed(3)}V(#${item.minCell})` : "",
-        isMaxHighlight: index === maxIndex,
-        isMinHighlight: index === minIndex,
-      }))
+      return extendTrendToDayEnd(
+        baseData.map((item, index) => ({
+          ...item,
+          isMaxHighlight: index === maxIndex,
+          isMinHighlight: index === minIndex,
+        })),
+        {
+          isMaxHighlight: false,
+          isMinHighlight: false,
+        }
+      )
     },
     [historyData]
   )
@@ -607,7 +621,7 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
           const maxEntry = values.reduce((best, current) => (current.value > best.value ? current : best), values[0])
           const minEntry = values.reduce((best, current) => (current.value < best.value ? current : best), values[0])
           return {
-            time: point.time,
+            time: toTrendTimeLabel(point.time),
             max: Number(maxEntry.value.toFixed(1)),
             min: Number(minEntry.value.toFixed(1)),
             maxCell: maxEntry.cell,
@@ -617,13 +631,17 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
 
         const maxIndex = baseData.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)
         const minIndex = baseData.reduce((best, current, index, rows) => (current.min < rows[best].min ? index : best), 0)
-        const data = baseData.map((item, index) => ({
-          ...item,
-          maxHighlightLabel: index === maxIndex ? `${item.max.toFixed(1)}°C(#${item.maxCell})` : "",
-          minHighlightLabel: index === minIndex ? `${item.min.toFixed(1)}°C(#${item.minCell})` : "",
-          isMaxHighlight: index === maxIndex,
-          isMinHighlight: index === minIndex,
-        }))
+        const data = extendTrendToDayEnd(
+          baseData.map((item, index) => ({
+            ...item,
+            isMaxHighlight: index === maxIndex,
+            isMinHighlight: index === minIndex,
+          })),
+          {
+            isMaxHighlight: false,
+            isMinHighlight: false,
+          }
+        )
 
         return { key, title, label, data }
       }),
@@ -633,7 +651,48 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
   const handleSelectCell = (cell: number) => onSelectedCellChange?.(cell)
   const isCompactCanvas = availableSize.width > 0 && (availableSize.width < 1280 || availableSize.height < 760)
   const isTightCanvas = availableSize.width > 0 && (availableSize.width < 1120 || availableSize.height < 700)
+  const trendXAxisInterval = isTightCanvas ? 11 : isCompactCanvas ? 7 : 5
+  const trendTickStep = isTightCanvas ? 24 : isCompactCanvas ? 16 : 12
   const trendSyncId = "cell-history-extreme-trend"
+  const trendXAxisTicks = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          voltageTrendData
+            .map((item, index) => ({ time: item.time, index }))
+            .filter(({ index }) => index === 0 || index === voltageTrendData.length - 1 || index % trendTickStep === 0)
+            .map(({ time }) => time)
+        )
+      ),
+    [voltageTrendData, trendTickStep]
+  )
+  const voltageTrendSummary = useMemo(() => {
+    const highest = voltageTrendData.reduce((best, current) => (current.max > best.max ? current : best), voltageTrendData[0])
+    const lowest = voltageTrendData.reduce((best, current) => (current.min < best.min ? current : best), voltageTrendData[0])
+    return {
+      title: zh ? "电压趋势" : "Voltage",
+      subtitle: zh ? "电芯极值" : "Cell Extremes",
+      header: zh ? "电压趋势（电芯极值）" : "Voltage (Cell Extremes)",
+      maxText: zh ? `最高电压：${highest.max.toFixed(3)}V(#${highest.maxCell})` : `Max Voltage: ${highest.max.toFixed(3)}V (#${highest.maxCell})`,
+      minText: zh ? `最低电压：${lowest.min.toFixed(3)}V(#${lowest.minCell})` : `Min Voltage: ${lowest.min.toFixed(3)}V (#${lowest.minCell})`,
+    }
+  }, [voltageTrendData, zh])
+  const temperatureTrendSummaries = useMemo(
+    () =>
+      temperatureTrendCharts.map((chart) => {
+        const highest = chart.data.reduce((best, current) => (current.max > best.max ? current : best), chart.data[0])
+        const lowest = chart.data.reduce((best, current) => (current.min < best.min ? current : best), chart.data[0])
+        return {
+          key: chart.key,
+          title: chart.title,
+          subtitle: chart.label,
+          header: zh ? `${chart.title}（${chart.label}）` : `${chart.title} (${chart.label})`,
+          maxText: zh ? `最高温度：${highest.max.toFixed(1)}°C(#${highest.maxCell})` : `Max Temp: ${highest.max.toFixed(1)}°C (#${highest.maxCell})`,
+          minText: zh ? `最低温度：${lowest.min.toFixed(1)}°C(#${lowest.minCell})` : `Min Temp: ${lowest.min.toFixed(1)}°C (#${lowest.minCell})`,
+        }
+      }),
+    [temperatureTrendCharts, zh]
+  )
 
   useEffect(() => {
     const node = containerRef.current
@@ -678,141 +737,158 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
           </div>
         </div>
 
-        <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
-          <NeonSection title={zh ? "电压趋势" : "Voltage Trend"} subtitle={zh ? "电芯极值联动趋势" : "Linked Cell Extremes"}>
-            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2 rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] px-3 py-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
-              <div className="flex items-center justify-end gap-4">
-                <LegendItem label={zh ? "最大值" : "Max"} color="#ffd36b" />
-                <LegendItem label={zh ? "最小值" : "Min"} color="#6ee7ff" />
+        <div className="h-full min-h-0">
+          <NeonSection title={zh ? "电压/温度趋势" : "Voltage / Temperature Trend"} className="h-full">
+            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] px-2 py-1.5 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
+              <div className="mb-1 flex shrink-0 items-center justify-end gap-4 pr-1">
+                <div className="text-[10px] text-[#7fa4be]">{zh ? "" : "Legend"}</div>
+                <div className="flex items-center gap-4">
+                  <LegendItem label={zh ? "最大值" : "Max"} color="#ffd36b" />
+                  <LegendItem label={zh ? "最小值" : "Min"} color="#6ee7ff" />
+                </div>
               </div>
-              <div className="min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={voltageTrendData} syncId={trendSyncId} margin={{ top: 12, right: 92, left: -8, bottom: 6 }}>
-                    <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="time" tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} interval={5} />
-                    <YAxis
-                      tick={{ fill: "#88a8be", fontSize: 10 }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(value) => `${Number(value).toFixed(2)}V`}
-                      domain={["dataMin - 0.03", "dataMax + 0.03"]}
-                    />
-                    <Tooltip content={<ExtremeTrendTooltip unit="V" digits={3} zh={zh} />} />
-                    <Line
-                      type="monotone"
-                      dataKey="max"
-                      name={zh ? "最大值" : "Max"}
-                      stroke="#ffd36b"
-                      strokeWidth={2.2}
-                      dot={(props: any) =>
-                        props?.payload?.isMaxHighlight ? (
-                          <circle cx={props.cx} cy={props.cy} r={4.5} fill="#ffd36b" stroke="#fff4cf" strokeWidth={1.5} />
-                        ) : (
-                          <></>
-                        )
-                      }
-                      isAnimationActive={false}
-                    >
-                      <LabelList dataKey="maxHighlightLabel" position="top" offset={8} fill="#ffe7a8" fontSize={9} />
-                    </Line>
-                    <Line
-                      type="monotone"
-                      dataKey="min"
-                      name={zh ? "最小值" : "Min"}
-                      stroke="#6ee7ff"
-                      strokeWidth={2.2}
-                      dot={(props: any) =>
-                        props?.payload?.isMinHighlight ? (
-                          <circle cx={props.cx} cy={props.cy} r={4.5} fill="#6ee7ff" stroke="#d6fbff" strokeWidth={1.5} />
-                        ) : (
-                          <></>
-                        )
-                      }
-                      isAnimationActive={false}
-                    >
-                      <LabelList dataKey="minHighlightLabel" position="bottom" offset={8} fill="#a6f3ff" fontSize={9} />
-                    </Line>
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </NeonSection>
-
-          <NeonSection title={zh ? "温度趋势" : "Temperature Trend"} subtitle={zh ? "T1 / T2 / T3 分通道联动" : "Linked T1 / T2 / T3 Channels"}>
-            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2 rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] px-3 py-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
-              <div className="flex items-center justify-end gap-4">
-                <LegendItem label={zh ? "最大值" : "Max"} color="#ffd36b" />
-                <LegendItem label={zh ? "最小值" : "Min"} color="#6ee7ff" />
-              </div>
-              {temperatureTrendCharts.map((chart, index) => {
-                const isLast = index === temperatureTrendCharts.length - 1
-                return (
-                  <div key={chart.key} className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-1 rounded-[12px] border border-[#214260] bg-[linear-gradient(180deg,rgba(9,19,40,0.86),rgba(7,15,32,0.94))] px-2 py-2">
-                    <div className="flex items-center justify-between px-1">
-                      <div className="text-[11px] font-semibold tracking-[0.08em] text-[#dff7ff]">{chart.title}</div>
-                      <div className="text-[10px] text-[#7fa4be]">{chart.label}</div>
-                    </div>
-                    <div className="min-h-0">
+              <div className="flex min-h-0 flex-1 gap-2">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                  <div className="relative min-h-0 flex-[1.28] border-b border-[#214260]/90">
+                    <div className="h-full min-h-0">
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chart.data} syncId={trendSyncId} margin={{ top: 6, right: 88, left: -8, bottom: isLast ? 6 : 0 }}>
+                        <LineChart data={voltageTrendData} syncId={trendSyncId} syncMethod="value" margin={{ top: 8, right: 18, left: 0, bottom: 0 }}>
                           <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
-                          <XAxis
-                            dataKey="time"
-                            tick={isLast ? { fill: "#88a8be", fontSize: 10 } : false}
-                            axisLine={false}
-                            tickLine={false}
-                            interval={5}
-                            height={isLast ? 22 : 0}
-                          />
+                          <XAxis dataKey="time" tick={false} axisLine={false} tickLine={false} interval={trendXAxisInterval} height={0} />
                           <YAxis
-                            tick={{ fill: "#88a8be", fontSize: 10 }}
-                            axisLine={false}
+                            tick={{ fill: "#88a8be", fontSize: 9 }}
+                            axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
                             tickLine={false}
-                            tickFormatter={(value) => `${Number(value).toFixed(0)}°C`}
-                            domain={["dataMin - 1", "dataMax + 1"]}
-                            width={42}
+                            width={52}
+                            tickFormatter={(value) => `${Number(value).toFixed(2)}V`}
+                            domain={["dataMin - 0.4", "dataMax + 0.4"]}
                           />
-                          <Tooltip content={<ExtremeTrendTooltip unit="°C" digits={1} zh={zh} />} />
+                          <Tooltip content={<ExtremeTrendTooltip unit="V" digits={3} zh={zh} />} />
                           <Line
                             type="monotone"
                             dataKey="max"
                             name={zh ? "最大值" : "Max"}
                             stroke="#ffd36b"
-                            strokeWidth={1.9}
+                            strokeWidth={2.2}
                             dot={(props: any) =>
                               props?.payload?.isMaxHighlight ? (
-                                <circle cx={props.cx} cy={props.cy} r={4} fill="#ffd36b" stroke="#fff4cf" strokeWidth={1.4} />
+                                <circle cx={props.cx} cy={props.cy} r={4.5} fill="#ffd36b" stroke="#fff4cf" strokeWidth={1.5} />
                               ) : (
                                 <></>
                               )
                             }
                             isAnimationActive={false}
-                          >
-                            <LabelList dataKey="maxHighlightLabel" position="top" offset={6} fill="#ffe7a8" fontSize={8} />
-                          </Line>
+                          />
                           <Line
                             type="monotone"
                             dataKey="min"
                             name={zh ? "最小值" : "Min"}
                             stroke="#6ee7ff"
-                            strokeWidth={1.9}
+                            strokeWidth={2.2}
                             dot={(props: any) =>
                               props?.payload?.isMinHighlight ? (
-                                <circle cx={props.cx} cy={props.cy} r={4} fill="#6ee7ff" stroke="#d6fbff" strokeWidth={1.4} />
+                                <circle cx={props.cx} cy={props.cy} r={4.5} fill="#6ee7ff" stroke="#d6fbff" strokeWidth={1.5} />
                               ) : (
                                 <></>
                               )
                             }
                             isAnimationActive={false}
-                          >
-                            <LabelList dataKey="minHighlightLabel" position="bottom" offset={6} fill="#a6f3ff" fontSize={8} />
-                          </Line>
+                          />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
-                )
-              })}
+
+                  {temperatureTrendCharts.map((chart, index) => {
+                    const isLast = index === temperatureTrendCharts.length - 1
+                    return (
+                      <div key={chart.key} className={`relative min-h-0 flex-1 ${!isLast ? "border-b border-[#214260]/90" : ""}`}>
+                        <div className="h-full min-h-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={chart.data} syncId={trendSyncId} syncMethod="value" margin={{ top: 8, right: 18, left: 0, bottom: isLast ? 6 : 0 }}>
+                              <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
+                              <XAxis
+                                dataKey="time"
+                                tick={isLast ? { fill: "#88a8be", fontSize: 9 } : false}
+                                axisLine={false}
+                                tickLine={false}
+                                ticks={isLast ? trendXAxisTicks : undefined}
+                                interval={isLast ? 0 : trendXAxisInterval}
+                                height={isLast ? 22 : 0}
+                              />
+                              <YAxis
+                                tick={{ fill: "#88a8be", fontSize: 9 }}
+                                axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
+                                tickLine={false}
+                                tickFormatter={(value) => `${Number(value).toFixed(0)}°C`}
+                                domain={["dataMin - 1", "dataMax + 1"]}
+                                width={52}
+                              />
+                              <Tooltip content={<ExtremeTrendTooltip unit="°C" digits={1} zh={zh} />} />
+                              <Line
+                                type="monotone"
+                                dataKey="max"
+                                name={zh ? "最大值" : "Max"}
+                                stroke="#ffd36b"
+                                strokeWidth={1.9}
+                                dot={(props: any) =>
+                                  props?.payload?.isMaxHighlight ? (
+                                    <circle cx={props.cx} cy={props.cy} r={4} fill="#ffd36b" stroke="#fff4cf" strokeWidth={1.4} />
+                                  ) : (
+                                    <></>
+                                  )
+                                }
+                                isAnimationActive={false}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="min"
+                                name={zh ? "最小值" : "Min"}
+                                stroke="#6ee7ff"
+                                strokeWidth={1.9}
+                                dot={(props: any) =>
+                                  props?.payload?.isMinHighlight ? (
+                                    <circle cx={props.cx} cy={props.cy} r={4} fill="#6ee7ff" stroke="#d6fbff" strokeWidth={1.4} />
+                                  ) : (
+                                    <></>
+                                  )
+                                }
+                                isAnimationActive={false}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="flex w-[172px] shrink-0 flex-col overflow-hidden rounded-[12px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))]">
+                  <div className="flex min-h-0 flex-[1.28] items-center border-b border-[#214260]/90 px-3 py-2">
+                    <div className="w-full">
+                      <div className="text-[14px] font-semibold leading-5 tracking-[0.04em] text-[#dff7ff]">{voltageTrendSummary.header}</div>
+                      <div className="mt-3 space-y-2 text-[11px] leading-5 text-[#dff7ff]">
+                        <div>{voltageTrendSummary.maxText}</div>
+                        <div className="text-[#bfe8ff]">{voltageTrendSummary.minText}</div>
+                      </div>
+                    </div>
+                  </div>
+                  {temperatureTrendSummaries.map((chart, index) => {
+                    const isLast = index === temperatureTrendSummaries.length - 1
+                    return (
+                      <div key={`${chart.key}-summary`} className={`flex min-h-0 flex-1 items-center px-3 py-2 ${!isLast ? "border-b border-[#214260]/90" : ""}`}>
+                        <div className="w-full">
+                          <div className="text-[14px] font-semibold leading-5 tracking-[0.04em] text-[#dff7ff]">{chart.header}</div>
+                          <div className="mt-3 space-y-2 text-[11px] leading-5 text-[#dff7ff]">
+                            <div>{chart.maxText}</div>
+                            <div className="text-[#bfe8ff]">{chart.minText}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           </NeonSection>
         </div>
