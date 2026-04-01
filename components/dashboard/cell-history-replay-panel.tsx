@@ -463,7 +463,6 @@ export type CellHistoryOverviewStats = {
 export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChange, onOverviewStats }: { date: string; selectedCell: number | null; onSelectedCellChange?: (cell: number | null) => void; onOverviewStats?: (stats: CellHistoryOverviewStats) => void }) {
   const { language } = useLanguage()
   const zh = language === "zh"
-  const [temperatureTab, setTemperatureTab] = useState<TemperatureChannelKey>("t1")
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [availableSize, setAvailableSize] = useState({ width: 0, height: 0 })
 
@@ -507,27 +506,15 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
     })
   }, [voltageStats, temperatureStats, topHighVoltage, topLowVoltage, topHotCells, topColdCells, onOverviewStats])
 
-  const voltageFleetData = useMemo(
+  const voltageTrendData = useMemo(
     () =>
       historyData.map((point) => {
-        const row = { time: point.time } as FleetCurvePoint
-        const values: number[] = []
-
-        for (let cell = 1; cell <= CELL_COUNT; cell += 1) {
-          const value = point[`v${cell}`]
-          row[`c${cell}`] = value
-          values.push(value)
+        const values = Array.from({ length: CELL_COUNT }, (_, index) => point[`v${index + 1}`])
+        return {
+          time: point.time,
+          max: Number(Math.max(...values).toFixed(3)),
+          min: Number(Math.min(...values).toFixed(3)),
         }
-
-        const avg = average(values)
-        const std = Math.sqrt(average(values.map((value) => (value - avg) ** 2)))
-        const band = Math.max(std * 1.8, 0.018)
-
-        row.avg = Number(avg.toFixed(3))
-        row.upper = Number((avg + band).toFixed(3))
-        row.lower = Number((avg - band).toFixed(3))
-
-        return row
       }),
     [historyData]
   )
@@ -547,77 +534,31 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
     [zh]
   )
 
-  const voltageHighlightCells = useMemo(
-    () => Array.from(new Set([...topHighVoltage.map((item) => item.cell), ...topLowVoltage.map((item) => item.cell), ...topVoltageDeviationCells.map((item) => item.cell)])),
-    [topHighVoltage, topLowVoltage, topVoltageDeviationCells]
-  )
-
-  const voltageHighlightSeries = useMemo<VoltageHighlightSeries[]>(
-    () => [
-      ...topHighVoltage.map((item, index) => ({ cell: item.cell, color: ["#ffb36b", "#7cf5ff", "#9bffb7"][index] ?? "#ffb36b" })),
-      ...topLowVoltage
-        .filter((item) => !topHighVoltage.some((high) => high.cell === item.cell))
-        .map((item, index) => ({ cell: item.cell, color: ["#8fdcff", "#b7a4ff", "#f7a8c0"][index] ?? "#8fdcff" })),
-      ...topVoltageDeviationCells
-        .filter((item) => !topHighVoltage.some((high) => high.cell === item.cell) && !topLowVoltage.some((low) => low.cell === item.cell))
-        .map((item, index) => ({ cell: item.cell, color: ["#8cf7d2", "#ffd56d", "#96ffd6"][index] ?? "#8cf7d2" })),
-    ],
-    [topHighVoltage, topLowVoltage, topVoltageDeviationCells]
-  )
-
-  const temperatureFleetCharts = useMemo<TemperatureFleetChart[]>(
+  const temperatureTrendCharts = useMemo(
     () =>
       ([
-        { key: "t1", title: "T1" },
-        { key: "t2", title: "T2" },
-        { key: "t3", title: "T3" },
-      ] as const).map(({ key, title }) => {
-        const highlightedCellSet = new Set<number>()
-        const topCellsByPoint = historyData.map((point) =>
-          Array.from({ length: CELL_COUNT }, (_, index) => ({
-            cell: index + 1,
-            value: Number(point[`${key}_${index + 1}`].toFixed(1)),
-          }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 3)
-        )
-
-        const data = historyData.map((point, pointIndex) => {
-          const row = { time: point.time } as FleetCurvePoint
-          const values: number[] = []
-
-          for (let cell = 1; cell <= CELL_COUNT; cell += 1) {
-            const value = point[`${key}_${cell}`]
-            row[`c${cell}`] = Number(value.toFixed(1))
-            values.push(value)
+        { key: "t1", title: "T1", label: zh ? "前端探头" : "Front Probe" },
+        { key: "t2", title: "T2", label: zh ? "中部探头" : "Middle Probe" },
+        { key: "t3", title: "T3", label: zh ? "后端探头" : "Rear Probe" },
+      ] as const).map(({ key, title, label }) => {
+        const data = historyData.map((point) => {
+          const values = Array.from({ length: CELL_COUNT }, (_, index) => point[`${key}_${index + 1}` as const])
+          return {
+            time: point.time,
+            max: Number(Math.max(...values).toFixed(1)),
+            min: Number(Math.min(...values).toFixed(1)),
           }
-
-          const avg = average(values)
-          const std = Math.sqrt(average(values.map((value) => (value - avg) ** 2)))
-          const band = Math.max(std * 1.7, 0.8)
-
-          row.avg = Number(avg.toFixed(1))
-          row.upper = Number((avg + band).toFixed(1))
-          row.lower = Number((avg - band).toFixed(1))
-
-          topCellsByPoint[pointIndex]?.forEach((item) => {
-            highlightedCellSet.add(item.cell)
-            row[`hot_${item.cell}`] = item.value
-          })
-
-          return row
         })
 
-        return { key, title, data, highlightedCells: Array.from(highlightedCellSet) }
+        return { key, title, label, data }
       }),
-    [historyData]
+    [historyData, zh]
   )
 
   const handleSelectCell = (cell: number) => onSelectedCellChange?.(cell)
-  const temperatureAlertPalette = ["#ffb36b", "#7cf5ff", "#9bffb7", "#ffd56d", "#f7a8c0", "#9bb8ff"]
-  const activeTemperatureChart = temperatureFleetCharts.find((item) => item.key === temperatureTab) ?? temperatureFleetCharts[0]
   const isCompactCanvas = availableSize.width > 0 && (availableSize.width < 1280 || availableSize.height < 760)
   const isTightCanvas = availableSize.width > 0 && (availableSize.width < 1120 || availableSize.height < 700)
+  const trendSyncId = "cell-history-extreme-trend"
 
   useEffect(() => {
     const node = containerRef.current
@@ -662,239 +603,87 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
           </div>
         </div>
 
-        <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
-          <NeonSection title={zh ? "单体电压历史趋势" : "Cell Voltage History"} >
-            <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] px-3 py-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
+        <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+          <NeonSection title={zh ? "电压趋势" : "Voltage Trend"} subtitle={zh ? "电芯极值联动趋势" : "Linked Cell Extremes"}>
+            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2 rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] px-3 py-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
+              <div className="flex items-center justify-end gap-4">
+                <LegendItem label={zh ? "最大值" : "Max"} color="#ffd36b" />
+                <LegendItem label={zh ? "最小值" : "Min"} color="#6ee7ff" />
+              </div>
               <div className="min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={voltageFleetData} margin={{ top: 16, right: 18, left: 6, bottom: 46 }}>
+                  <LineChart data={voltageTrendData} syncId={trendSyncId} margin={{ top: 12, right: 12, left: -8, bottom: 6 }}>
                     <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="time" tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} interval={11} />
-                    <YAxis tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${Number(value).toFixed(2)}V`} domain={["dataMin - 0.03", "dataMax + 0.03"]} label={{ value: zh ? "电芯电压 (V)" : "Cell Voltage (V)", angle: -90, position: "insideLeft", offset: 18, style: { fontSize: 9, fill: "#7fa4be" } }} />
-                    <Tooltip
-                      content={
-                        <FleetTooltip
-                          unit="V"
-                          valueFormatter={(value) => `${value.toFixed(3)}V`}
-                          maxRows={4}
-                          labelForKey={(key) => {
-                            const cell = Number(String(key).replace("c", ""))
-                            if (Number.isNaN(cell)) return null
-                            if (selectedCell !== null && cell === selectedCell) return zh ? `当前 #${cell}` : `Current #${cell}`
-                            if (topHighVoltage.some((item) => item.cell === cell)) return zh ? `高压 #${cell}` : `High #${cell}`
-                            if (topLowVoltage.some((item) => item.cell === cell)) return zh ? `低压 #${cell}` : `Low #${cell}`
-                            if (topVoltageDeviationCells.some((item) => item.cell === cell)) return zh ? `偏离 #${cell}` : `Offset #${cell}`
-                            return null
-                          }}
-                        />
-                      }
+                    <XAxis dataKey="time" tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} interval={5} />
+                    <YAxis
+                      tick={{ fill: "#88a8be", fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(value) => `${Number(value).toFixed(2)}V`}
+                      domain={["dataMin - 0.03", "dataMax + 0.03"]}
                     />
-                    {voltagePhaseRegions.map((region, idx) => {
-                      const fills = { charge: "#22c87a", discharge: "#ff8c4b", rest: "#5580b0" }
-                      const opacities = { charge: 0.09, discharge: 0.09, rest: 0.04 }
-                      return <ReferenceArea key={`phase-bg-${idx}`} x1={region.x1} x2={region.x2} fill={fills[region.phase]} fillOpacity={opacities[region.phase]} stroke="none" />
-                    })}
-                    {Array.from({ length: CELL_COUNT }, (_, index) => {
-                      const cell = index + 1
-                      return <Line key={`voltage-cluster-${cell}`} type="monotone" dataKey={`c${cell}`} stroke="#7fa4be" strokeWidth={0.95} strokeOpacity={voltageHighlightCells.includes(cell) ? 0.08 : 0.16} dot={false} isAnimationActive={false} />
-                    })}
-                    {voltageHighlightSeries.map((item) => (
-                      <Line key={`voltage-highlight-${item.cell}`} type="monotone" dataKey={`c${item.cell}`} stroke={item.color} strokeWidth={2.2} dot={false} isAnimationActive={false} />
-                    ))}
-                    {selectedCell !== null && !voltageHighlightCells.includes(selectedCell) ? <Line type="monotone" dataKey={`c${selectedCell}`} stroke="#ffffff" strokeWidth={2.4} dot={false} isAnimationActive={false} /> : null}
-                    <Customized component={({ xAxisMap, yAxisMap }: any) => {
-                      const xa = Object.values((xAxisMap ?? {}) as Record<string, any>)[0]
-                      const ya = Object.values((yAxisMap ?? {}) as Record<string, any>)[0]
-                      if (!xa?.scale || !ya?.scale) return null
-                      const re: number = (xa.x as number) + (xa.width as number)
-                      const sy: number = (xa.y as number) + (xa.height as number) + 2
-                      const sh = 18
-                      const pf = { charge: "rgba(34,200,122,0.22)", discharge: "rgba(255,140,75,0.22)", rest: "rgba(80,130,190,0.16)" }
-                      const pb = { charge: "rgba(34,200,122,0.50)", discharge: "rgba(255,140,75,0.50)", rest: "rgba(80,130,190,0.38)" }
-                      const pl = { charge: zh ? "充电" : "Charging", discharge: zh ? "放电" : "Discharge", rest: zh ? "静置" : "Rest" }
-                      const ps = { charge: zh ? "充" : "C", discharge: zh ? "放" : "D", rest: zh ? "静" : "R" }
-                      const pc = { charge: "#4de89f", discharge: "#ffb07a", rest: "#7fa4be" }
-                      return (
-                        <g>
-                          {voltagePhaseRegions.map((r, i) => {
-                            const rx1 = xa.scale(r.x1) as number
-                            const last = i === voltagePhaseRegions.length - 1
-                            const rx2 = last ? re : (xa.scale(r.x2) as number)
-                            const rw = Math.max(rx2 - rx1, 6)
-                            return (
-                              <g key={`vs${i}`}>
-                                <rect x={rx1} y={sy} width={rw} height={sh} fill={pf[r.phase]} />
-                                {!last && <line x1={rx2} y1={sy} x2={rx2} y2={sy + sh} stroke={pb[r.phase]} strokeWidth={1} />}
-                                {rw >= 24 && <text x={rx1 + rw / 2} y={sy + 12} textAnchor="middle" fill={pc[r.phase]} fontSize={9} fontWeight="500">{pl[r.phase]}</text>}
-                                {rw >= 10 && rw < 24 && <text x={rx1 + rw / 2} y={sy + 12} textAnchor="middle" fill={pc[r.phase]} fontSize={8} fontWeight="600">{ps[r.phase]}</text>}
-                              </g>
-                            )
-                          })}
-                        </g>
-                      )
-                    }} />
+                    <Tooltip
+                      contentStyle={{ border: "1px solid #29547f", background: "rgba(7,17,36,0.96)", borderRadius: 12 }}
+                      labelStyle={{ color: "#dffbff", fontSize: 11, fontWeight: 600 }}
+                      itemStyle={{ color: "#bfe8ff", fontSize: 11, padding: 0 }}
+                      formatter={(value: number, name: string) => [`${value.toFixed(3)}V`, name]}
+                    />
+                    <Line type="monotone" dataKey="max" name={zh ? "最大值" : "Max"} stroke="#ffd36b" strokeWidth={2.2} dot={false} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="min" name={zh ? "最小值" : "Min"} stroke="#6ee7ff" strokeWidth={2.2} dot={false} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-4">
-                <LegendItem label={zh ? "正常曲线虚化" : "Ghosted curves"} color="#7fa4be" />
-                <LegendItem label={zh ? "极值曲线高亮" : "Extreme curves"} color="#ffb36b" />
-                <div className="flex items-center gap-3 text-[11px] text-[#96bdd4]">
-                  <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(34,200,122,0.28)" }} /><span>{zh ? "充电" : "Charging"}</span>
-                  <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(255,140,75,0.28)" }} /><span>{zh ? "放电" : "Discharge"}</span>
-                  <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(80,130,190,0.20)" }} /><span>{zh ? "静置" : "Rest"}</span>
-                </div>
-                {selectedCell !== null && !voltageHighlightCells.includes(selectedCell) ? <LegendItem label={zh ? `当前电芯 #${selectedCell}` : `Cell #${selectedCell}`} color="#ffffff" /> : null}
               </div>
             </div>
           </NeonSection>
 
-          <NeonSection title={zh ? "单体温度历史趋势" : "Cell Temperature History"} >
-            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-2 rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] px-3 py-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
-              <div className="flex flex-wrap justify-end gap-2">
-                {([
-                  { key: "t1", label: zh ? "T1（前端点位）" : "T1" },
-                  { key: "t2", label: zh ? "T2（中部点位）" : "T2" },
-                  { key: "t3", label: zh ? "T3（后端点位）" : "T3" },
-                ] as const).map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setTemperatureTab(tab.key)}
-                    className={`rounded-[10px] border font-semibold transition-all ${isTightCanvas ? "px-2.5 py-1 text-[10px]" : "px-3 py-1.5 text-[11px]"} ${
-                      temperatureTab === tab.key
-                        ? "border-[#53e8ff] bg-[linear-gradient(180deg,rgba(18,86,96,0.72),rgba(10,38,49,0.94))] text-[#efffff] shadow-[0_0_14px_rgba(83,232,255,0.16)]"
-                        : "border-[#27476b] bg-[#0a1630]/88 text-[#a9cde2] hover:border-[#3c78a4] hover:text-[#ebfbff]"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+          <NeonSection title={zh ? "温度趋势" : "Temperature Trend"} subtitle={zh ? "T1 / T2 / T3 分通道联动" : "Linked T1 / T2 / T3 Channels"}>
+            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2 rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] px-3 py-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
+              <div className="flex items-center justify-end gap-4">
+                <LegendItem label={zh ? "最大值" : "Max"} color="#ffd36b" />
+                <LegendItem label={zh ? "最小值" : "Min"} color="#6ee7ff" />
               </div>
-
-              <div className="min-h-0">
-                {activeTemperatureChart ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={activeTemperatureChart.data} margin={{ top: 16, right: 18, left: 6, bottom: 46 }}>
-                      <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="time" tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} interval={11} />
-                      <YAxis tick={{ fill: "#88a8be", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${Number(value).toFixed(1)}°C`} domain={["dataMin - 1", "dataMax + 1"]} label={{ value: zh ? "温度 (°C)" : "Temp (°C)", angle: -90, position: "insideLeft", offset: 16, style: { fontSize: 9, fill: "#7fa4be" } }} />
-                      <Tooltip
-                        content={({ active, label }) => {
-                          if (!active || !label || !activeTemperatureChart) return null
-                          const currentPoint = activeTemperatureChart.data.find((item) => item.time === label)
-                          if (!currentPoint) return null
-
-                          const hottestRows = Array.from({ length: CELL_COUNT }, (_, index) => ({
-                            cell: index + 1,
-                            value: Number(currentPoint[`c${index + 1}`]),
-                          }))
-                            .sort((a, b) => b.value - a.value)
-                            .slice(0, 3)
-
-                          const selectedValue = selectedCell !== null ? Number(currentPoint[`c${selectedCell}`]) : null
-
-                          return (
-                            <div className="rounded-[12px] border border-[#29547f] bg-[rgba(7,17,36,0.96)] px-3 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.28)]">
-                              <div className="mb-1 text-[10px] font-semibold text-[#dffbff]">{label}</div>
-                              <div className="space-y-1">
-                                {hottestRows.map((item, index) => (
-                                  <div key={`temp-hot-${item.cell}`} className="flex items-center justify-between gap-3 text-[10px]">
-                                    <div className="flex items-center gap-2 text-[#bfe8ff]">
-                                      {index === 0 ? (
-                                        <span
-                                          className="h-2.5 w-2.5 rotate-45 rounded-[1px] border"
-                                          style={{ backgroundColor: temperatureAlertPalette[index], borderColor: "#f8fbff" }}
-                                        />
-                                      ) : (
-                                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: temperatureAlertPalette[index] }} />
-                                      )}
-                                      <span className={index === 0 ? "font-semibold text-[#f8fbff]" : undefined}>{`${zh ? "高温" : "Hot"} #${item.cell}`}</span>
-                                    </div>
-                                    <span className="font-mono text-[#fff1b3]">{`${item.value.toFixed(1)}°C`}</span>
-                                  </div>
-                                ))}
-                                {selectedCell !== null && selectedValue !== null && !hottestRows.some((item) => item.cell === selectedCell) ? (
-                                  <div className="flex items-center justify-between gap-3 text-[10px]">
-                                    <div className="flex items-center gap-2 text-[#bfe8ff]">
-                                      <span className="h-2 w-2 rounded-full bg-[#ffffff]" />
-                                      <span>{zh ? `当前 #${selectedCell}` : `Current #${selectedCell}`}</span>
-                                    </div>
-                                    <span className="font-mono text-[#fff1b3]">{`${selectedValue.toFixed(1)}°C`}</span>
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-                          )
-                        }}
-                      />
-                      {voltagePhaseRegions.map((region, idx) => {
-                        const fills = { charge: "#22c87a", discharge: "#ff8c4b", rest: "#5580b0" }
-                        const opacities = { charge: 0.09, discharge: 0.09, rest: 0.04 }
-                        return <ReferenceArea key={`temp-phase-bg-${idx}`} x1={region.x1} x2={region.x2} fill={fills[region.phase]} fillOpacity={opacities[region.phase]} stroke="none" />
-                      })}
-                      {Array.from({ length: CELL_COUNT }, (_, index) => {
-                        const cell = index + 1
-                        const isHighlighted = activeTemperatureChart.highlightedCells.includes(cell) || selectedCell === cell
-                        return <Line key={`${activeTemperatureChart.key}-cluster-${cell}`} type="stepAfter" dataKey={`c${cell}`} stroke="#7fa4be" strokeWidth={1} strokeOpacity={isHighlighted ? 0.04 : 0.14} dot={false} isAnimationActive={false} />
-                      })}
-                      {activeTemperatureChart.highlightedCells.map((cell, index) => (
-                        <Line
-                          key={`${activeTemperatureChart.key}-hot-${cell}`}
-                          type="stepAfter"
-                          dataKey={`hot_${cell}`}
-                          stroke={temperatureAlertPalette[index % temperatureAlertPalette.length]}
-                          strokeWidth={2.2}
-                          dot={false}
-                          isAnimationActive={false}
-                        />
-                      ))}
-                      {selectedCell !== null && !activeTemperatureChart.highlightedCells.includes(selectedCell) ? <Line type="stepAfter" dataKey={`c${selectedCell}`} stroke="#ffffff" strokeWidth={2.2} dot={false} isAnimationActive={false} /> : null}
-                      <Line type="stepAfter" dataKey="avg" stroke="#f3fbff" strokeWidth={2} dot={false} isAnimationActive={false} />
-                      <Customized component={({ xAxisMap }: any) => {
-                        const xa = Object.values((xAxisMap ?? {}) as Record<string, any>)[0]
-                        if (!xa?.scale) return null
-                        const re: number = (xa.x as number) + (xa.width as number)
-                        const sy: number = (xa.y as number) + (xa.height as number) + 2
-                        const sh = 18
-                        const pf = { charge: "rgba(34,200,122,0.22)", discharge: "rgba(255,140,75,0.22)", rest: "rgba(80,130,190,0.16)" }
-                        const pb2 = { charge: "rgba(34,200,122,0.50)", discharge: "rgba(255,140,75,0.50)", rest: "rgba(80,130,190,0.38)" }
-                        const pl = { charge: zh ? "充电" : "Charging", discharge: zh ? "放电" : "Discharge", rest: zh ? "静置" : "Rest" }
-                        const ps = { charge: zh ? "充" : "C", discharge: zh ? "放" : "D", rest: zh ? "静" : "R" }
-                        const pc = { charge: "#4de89f", discharge: "#ffb07a", rest: "#7fa4be" }
-                        return (
-                          <g>
-                            {voltagePhaseRegions.map((r, i) => {
-                              const rx1 = xa.scale(r.x1) as number
-                              const last = i === voltagePhaseRegions.length - 1
-                              const rx2 = last ? re : (xa.scale(r.x2) as number)
-                              const rw = Math.max(rx2 - rx1, 6)
-                              return (
-                                <g key={`ts${i}`}>
-                                  <rect x={rx1} y={sy} width={rw} height={sh} fill={pf[r.phase]} />
-                                  {!last && <line x1={rx2} y1={sy} x2={rx2} y2={sy + sh} stroke={pb2[r.phase]} strokeWidth={1} />}
-                                  {rw >= 24 && <text x={rx1 + rw / 2} y={sy + 12} textAnchor="middle" fill={pc[r.phase]} fontSize={9} fontWeight="500">{pl[r.phase]}</text>}
-                                  {rw >= 10 && rw < 24 && <text x={rx1 + rw / 2} y={sy + 12} textAnchor="middle" fill={pc[r.phase]} fontSize={8} fontWeight="600">{ps[r.phase]}</text>}
-                                </g>
-                              )
-                            })}
-                          </g>
-                        )
-                      }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-4">
-                <LegendItem label={zh ? "正常曲线虚化" : "Ghosted curves"} color="#7fa4be" />
-                <LegendItem label={zh ? "高温曲线高亮" : "Hot curves"} color="#ffb36b" />
-                <div className="flex items-center gap-3 text-[11px] text-[#96bdd4]">
-                  <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(34,200,122,0.28)" }} /><span>{zh ? "充电" : "Charging"}</span>
-                  <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(255,140,75,0.28)" }} /><span>{zh ? "放电" : "Discharge"}</span>
-                  <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "rgba(80,130,190,0.20)" }} /><span>{zh ? "静置" : "Rest"}</span>
-                </div>
-                {selectedCell !== null && !activeTemperatureChart?.highlightedCells.includes(selectedCell) ? <LegendItem label={zh ? `当前电芯 #${selectedCell}` : `Cell #${selectedCell}`} color="#ffffff" /> : null}
-              </div>
+              {temperatureTrendCharts.map((chart, index) => {
+                const isLast = index === temperatureTrendCharts.length - 1
+                return (
+                  <div key={chart.key} className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-1 rounded-[12px] border border-[#214260] bg-[linear-gradient(180deg,rgba(9,19,40,0.86),rgba(7,15,32,0.94))] px-2 py-2">
+                    <div className="flex items-center justify-between px-1">
+                      <div className="text-[11px] font-semibold tracking-[0.08em] text-[#dff7ff]">{chart.title}</div>
+                      <div className="text-[10px] text-[#7fa4be]">{chart.label}</div>
+                    </div>
+                    <div className="min-h-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chart.data} syncId={trendSyncId} margin={{ top: 4, right: 10, left: -8, bottom: isLast ? 6 : 0 }}>
+                          <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
+                          <XAxis
+                            dataKey="time"
+                            tick={isLast ? { fill: "#88a8be", fontSize: 10 } : false}
+                            axisLine={false}
+                            tickLine={false}
+                            interval={5}
+                            height={isLast ? 22 : 0}
+                          />
+                          <YAxis
+                            tick={{ fill: "#88a8be", fontSize: 10 }}
+                            axisLine={false}
+                            tickLine={false}
+                            tickFormatter={(value) => `${Number(value).toFixed(0)}°C`}
+                            domain={["dataMin - 1", "dataMax + 1"]}
+                            width={42}
+                          />
+                          <Tooltip
+                            contentStyle={{ border: "1px solid #29547f", background: "rgba(7,17,36,0.96)", borderRadius: 12 }}
+                            labelStyle={{ color: "#dffbff", fontSize: 11, fontWeight: 600 }}
+                            itemStyle={{ color: "#bfe8ff", fontSize: 11, padding: 0 }}
+                            formatter={(value: number, name: string) => [`${value.toFixed(1)}°C`, name]}
+                          />
+                          <Line type="monotone" dataKey="max" name={zh ? "最大值" : "Max"} stroke="#ffd36b" strokeWidth={1.9} dot={false} isAnimationActive={false} />
+                          <Line type="monotone" dataKey="min" name={zh ? "最小值" : "Min"} stroke="#6ee7ff" strokeWidth={1.9} dot={false} isAnimationActive={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </NeonSection>
         </div>

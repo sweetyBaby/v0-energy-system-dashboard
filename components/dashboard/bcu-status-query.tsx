@@ -298,7 +298,6 @@ function TrendStackedChart({ data, zh, history, hideCellSeries = false }: { data
       tooltipFormatter: (v: number) => `${v.toFixed(1)} °C`,
       lines: [
         { key: "maxTemp" as const, name: zh ? "最高温" : "Max", color: "#f87171" },
-        { key: "avgTemp" as const, name: zh ? "平均温" : "Avg", color: "#fbbf24" },
         { key: "minTemp" as const, name: zh ? "最低温" : "Min", color: "#7dd3fc" },
       ],
     },
@@ -312,7 +311,6 @@ function TrendStackedChart({ data, zh, history, hideCellSeries = false }: { data
       tooltipFormatter: (v: number) => `${(v as number).toFixed(3)} V`,
       lines: [
         { key: "maxCell" as const, name: zh ? "最高单体" : "Max", color: "#f87171" },
-        { key: "avgCell" as const, name: zh ? "平均单体" : "Avg", color: "#22d3ee" },
         { key: "minCell" as const, name: zh ? "最低单体" : "Min", color: "#7dd3fc" },
       ],
     },
