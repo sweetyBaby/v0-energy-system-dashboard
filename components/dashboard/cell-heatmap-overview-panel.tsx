@@ -14,6 +14,8 @@ type CellMetrics = {
 type TempSensorKey = "temp1" | "temp2" | "temp3"
 type HeatmapMode = "voltage" | "temperature"
 
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+
 const RACK_LAYOUT: (number | null)[][] = [
   [50, 49, 18, 17, 16, 15],
   [48, 47, 20, 19, 14, 13],
@@ -40,12 +42,12 @@ const TEMPERATURE_GRADIENT =
 const buildCells = (): CellMetrics[] =>
   Array.from({ length: 50 }, (_, index) => {
     const id = index + 1
-    const baseVoltage = 3.32 + Math.sin(id * 0.71) * 0.04 + (id % 7 === 0 ? 0.07 : 0) + (id % 13 === 0 ? -0.06 : 0)
+    const baseVoltage = 25.9 + Math.sin(id * 0.71) * 1.15 + (id % 7 === 0 ? 1.85 : 0) + (id % 13 === 0 ? -2.1 : 0)
     const baseTemp = 29.5 + Math.sin(id * 0.43) * 2.8 + (id % 11 === 0 ? 2.4 : 0) + (id % 17 === 0 ? -1.8 : 0)
 
     return {
       id,
-      voltage: +baseVoltage.toFixed(3),
+      voltage: +clamp(baseVoltage, 21, 29).toFixed(2),
       temp1: +(baseTemp + (((id * 3) % 10) - 5) * 0.22).toFixed(1),
       temp2: +(baseTemp + 0.6 + (((id * 7) % 10) - 5) * 0.18).toFixed(1),
       temp3: +(baseTemp - 0.4 + (((id * 11) % 10) - 5) * 0.26).toFixed(1),
@@ -61,7 +63,7 @@ function tempColor(temperature: number): string {
     { t: 32, r: 220, g: 53, b: 34 },
     { t: 34, r: 136, g: 19, b: 19 },
   ]
-  const value = Math.max(22, Math.min(34, temperature))
+  const value = clamp(temperature, 22, 34)
 
   for (let index = 0; index < stops.length - 1; index += 1) {
     if (value <= stops[index + 1].t) {
@@ -98,14 +100,13 @@ function foregroundColor(background: string) {
   if (!match) return "#000000"
 
   const [r, g, b] = match.map(Number)
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.48 ? "rgba(0,0,0,0.78)" : "rgba(255,255,255,0.92)"
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.48 ? "rgba(0,0,0,0.82)" : "rgba(255,255,255,0.94)"
 }
 
 function buildStat(values: number[]) {
   const min = Math.min(...values)
   const max = Math.max(...values)
   const avg = values.reduce((sum, value) => sum + value, 0) / values.length
-
   return { min, max, avg }
 }
 
@@ -121,13 +122,13 @@ function HeatmapCard({
   return (
     <section className="min-h-0 overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1433]/90">
       <div className="flex h-full min-h-0 items-stretch gap-1.5 p-1.5">
-        <div className="relative flex w-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-white/5 bg-[linear-gradient(180deg,rgba(11,20,48,0.96),rgba(8,17,39,0.72))]">
+        <div className="relative flex w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-white/5 bg-[linear-gradient(180deg,rgba(11,20,48,0.96),rgba(8,17,39,0.72))]">
           <div
             className="pointer-events-none absolute inset-y-1 left-0 w-px"
             style={{ background: `linear-gradient(to bottom, transparent, ${accentColor}, transparent)` }}
           />
           <h3
-            className="whitespace-nowrap text-[9.5px] font-semibold tracking-[0.12em]"
+            className="whitespace-nowrap text-[10.5px] font-semibold tracking-[0.08em]"
             style={{ color: accentColor, transform: "rotate(-90deg)" }}
           >
             {title}
@@ -148,12 +149,12 @@ function HeatmapGrid({
   getColor: (cell: CellMetrics) => string
   getValue: (cell: CellMetrics) => string
 }) {
-  const idFontSize = 6.4
-  const valueFontSize = 7.2
+  const idFontSize = 10.4
+  const valueFontSize = 13.8
 
   return (
     <div
-      className="grid h-full min-h-0 min-w-0 flex-1 grid-cols-6 gap-[3px]"
+      className="grid h-full min-h-0 min-w-0 flex-1 grid-cols-6 gap-1"
       style={{ gridTemplateRows: `repeat(${RACK_LAYOUT.length}, minmax(0, 1fr))` }}
     >
       {RACK_LAYOUT.flatMap((row, rowIndex) =>
@@ -172,10 +173,10 @@ function HeatmapGrid({
               className="flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center rounded-[10px]"
               style={{ backgroundColor }}
             >
-              <div className="leading-none" style={{ color, opacity: 0.62, fontSize: idFontSize }}>
+              <div className="leading-none" style={{ color, opacity: 0.72, fontSize: idFontSize }}>
                 #{cellId}
               </div>
-              <div className="mt-0.5 font-semibold leading-none" style={{ color, fontSize: valueFontSize }}>
+              <div className="mt-1 font-semibold leading-none" style={{ color, fontSize: valueFontSize }}>
                 {getValue(cell)}
               </div>
             </div>
@@ -239,12 +240,12 @@ export function CellHeatmapOverviewPanel() {
   const cells = useMemo(
     () =>
       baseCells.map((cell) => {
-        const voltageOffset = Math.sin(tick * 0.7 + cell.id * 0.31) * 0.003 + Math.sin(tick * 0.4 + cell.id * 0.17) * 0.001
+        const voltageOffset = Math.sin(tick * 0.7 + cell.id * 0.31) * 0.08 + Math.sin(tick * 0.4 + cell.id * 0.17) * 0.04
         const tempOffset = Math.sin(tick * 0.5 + cell.id * 0.29) * 0.15
 
         return {
           ...cell,
-          voltage: +(cell.voltage + voltageOffset).toFixed(3),
+          voltage: +clamp(cell.voltage + voltageOffset, 21, 29).toFixed(2),
           temp1: +(cell.temp1 + tempOffset + Math.sin(tick * 0.9 + cell.id) * 0.08).toFixed(1),
           temp2: +(cell.temp2 + tempOffset + Math.sin(tick * 0.8 + cell.id * 1.1) * 0.08).toFixed(1),
           temp3: +(cell.temp3 + tempOffset + Math.sin(tick * 1.1 + cell.id * 0.9) * 0.08).toFixed(1),
@@ -279,12 +280,12 @@ export function CellHeatmapOverviewPanel() {
             <HeatmapGrid
               cellMap={cellMap}
               getColor={(cell) => voltColor(cell.voltage, voltageStats.min, voltageStats.max, voltageStats.avg)}
-              getValue={(cell) => cell.voltage.toFixed(3)}
+              getValue={(cell) => cell.voltage.toFixed(2)}
             />
             <HeatmapLegend
               mode="voltage"
-              maxLabel={`${voltageStats.max.toFixed(3)}V`}
-              minLabel={`${voltageStats.min.toFixed(3)}V`}
+              maxLabel={`${voltageStats.max.toFixed(2)}V`}
+              minLabel={`${voltageStats.min.toFixed(2)}V`}
               zh={zh}
             />
           </div>
