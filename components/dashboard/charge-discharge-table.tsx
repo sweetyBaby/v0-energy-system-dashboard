@@ -58,7 +58,7 @@ export function ChargeDischargeTable() {
   const zh = language === "zh"
 
   return (
-    <div className="flex h-full max-h-full w-full flex-col gap-1.5 overflow-hidden rounded-[22px] border border-[#22d3ee]/22 bg-[linear-gradient(180deg,rgba(10,24,46,0.28),rgba(5,14,30,0.42))] p-2.5 backdrop-blur-[4px] shadow-[0_0_0_1px_rgba(34,211,238,0.06)_inset,0_10px_24px_rgba(0,0,0,0.1)]">
+    <div className="flex h-full max-h-full w-full flex-col gap-1.5 overflow-hidden rounded-[22px] border border-[#22d3ee]/35 bg-[linear-gradient(180deg,rgba(10,24,46,0.06),rgba(5,14,30,0.14))] p-2.5 backdrop-blur-[1px] shadow-[0_0_0_1px_rgba(34,211,238,0.06)_inset,0_10px_24px_rgba(0,0,0,0.1)]">
       <style>{`
         @keyframes cdt-blink   { 0%,100%{opacity:1}      50%{opacity:0.12} }
         @keyframes cdt-arrow-in  { 0%,100%{opacity:0.5; transform:translateY(0)}   50%{opacity:1; transform:translateY(2px)} }
@@ -100,7 +100,7 @@ export function ChargeDischargeTable() {
               key={item.key}
               className="relative flex min-h-0 flex-col justify-between overflow-hidden px-2.5 pb-1.5 pt-2"
               style={{
-                background: "linear-gradient(145deg,rgba(14,34,62,0.55) 0%,rgba(8,18,38,0.72) 100%)",
+                background: "linear-gradient(145deg,rgba(14,34,62,0.18) 0%,rgba(8,18,38,0.30) 100%)",
                 clipPath: "polygon(7px 0%,100% 0%,100% calc(100% - 7px),calc(100% - 7px) 100%,0% 100%,0% 7px)",
               }}
             >
