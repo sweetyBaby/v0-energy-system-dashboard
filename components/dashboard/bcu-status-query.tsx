@@ -5,6 +5,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -258,6 +259,8 @@ function TrendStackedChart({ data, zh, history, hideCellSeries = false }: { data
       tooltipLabel: zh ? "电流" : "Current",
       color: "#f472b6",
       domain: [-100, 100] as [number, number],
+      ticks: [-100, 0, 100],
+      zeroLine: true,
       unit: "A",
       tickFormatter: (v: number) => `${v}`,
     },
@@ -268,6 +271,8 @@ function TrendStackedChart({ data, zh, history, hideCellSeries = false }: { data
       tooltipLabel: zh ? "功率" : "Power",
       color: "#4ade80",
       domain: [-150, 150] as [number, number],
+      ticks: [-150, 0, 150],
+      zeroLine: true,
       unit: "kW",
       tickFormatter: (v: number) => `${v}`,
     },
@@ -359,10 +364,14 @@ function TrendStackedChart({ data, zh, history, hideCellSeries = false }: { data
                   tick={{ fill: section.color, fontSize: 8 }}
                   axisLine={{ stroke: section.color, strokeOpacity: 0.25 }}
                   tickLine={false}
+                  ticks={"ticks" in section ? section.ticks : undefined}
                   tickCount={3}
                   tickMargin={3}
                   tickFormatter={section.tickFormatter}
                 />
+                {"zeroLine" in section && section.zeroLine && (
+                  <ReferenceLine y={0} stroke="#9fb9d6" strokeDasharray="4 3" strokeOpacity={0.72} ifOverflow="extendDomain" />
+                )}
                 <Tooltip
                   wrapperStyle={TWS}
                   contentStyle={TS}
@@ -403,10 +412,12 @@ export function BCUStatusQuery({
   mode = "realtime",
   date,
   hideCellSeries = false,
+  panelVariant = "default",
 }: {
   mode?: "realtime" | "history"
   date?: string
   hideCellSeries?: boolean
+  panelVariant?: "default" | "overview"
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -425,15 +436,31 @@ export function BCUStatusQuery({
   }, [mode])
 
   const histData = useMemo(() => createHistorySeries(date), [date])
+  const liveTimeLabel = rtOverview[rtOverview.length - 1]?.time.slice(0, 5) ?? "--:--"
+  const isOverviewVariant = panelVariant === "overview"
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-3">
+    <div
+      className={`flex h-full min-h-0 flex-col overflow-hidden ${
+        isOverviewVariant
+          ? "relative rounded-[20px] border border-[#254873]/80 bg-[radial-gradient(circle_at_top_right,rgba(38,109,178,0.15),transparent_28%),linear-gradient(180deg,rgba(10,19,44,0.97),rgba(6,12,29,0.98))] p-3 shadow-[0_0_0_1px_rgba(88,181,255,0.08),0_18px_42px_rgba(1,7,19,0.42),inset_0_0_28px_rgba(44,126,198,0.06)]"
+          : "rounded-lg border border-[#1a2654] bg-[#0d1233] p-3"
+      }`}
+    >
+      {isOverviewVariant ? <div className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#8feaff]/[0.05]" /> : null}
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
           <span className="text-sm font-semibold text-[#00d4aa]">
             {zh ? "BCU 运行状态" : "BCU Status"}
           </span>
+          {mode === "realtime" && (
+            <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-[#1f5f92] bg-[linear-gradient(180deg,rgba(14,44,78,0.96),rgba(9,26,50,0.96))] px-2.5 text-[11px] font-semibold text-[#bfe7ff] shadow-[inset_0_0_0_1px_rgba(110,196,255,0.08)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#20d4ff] shadow-[0_0_8px_rgba(32,212,255,0.9)]" />
+              <span>{zh ? "实时" : "Live"}</span>
+              <span className="tabular-nums text-[#f2fbff]">{liveTimeLabel}</span>
+            </span>
+          )}
         </div>
       </div>
 

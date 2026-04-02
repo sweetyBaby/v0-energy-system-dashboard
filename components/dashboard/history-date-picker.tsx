@@ -34,10 +34,12 @@ export function HistoryDatePicker({
   value,
   onChange,
   max,
+  compact = false,
 }: {
   value: string
   onChange: (date: string) => void
   max: string
+  compact?: boolean
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -62,7 +64,13 @@ export function HistoryDatePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex h-9 items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3 text-xs text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60">
+        <button
+          className={`flex shrink-0 items-center whitespace-nowrap border border-[#26456e] bg-[#101840] text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60 ${
+            compact
+              ? "h-8 gap-1.5 rounded-[11px] px-2.5 text-[11px]"
+              : "h-9 gap-2 rounded-xl px-3 text-xs"
+          }`}
+        >
           <CalendarDays className="h-3.5 w-3.5 text-[#8db7ff]" />
           <span className="font-medium">{formatted}</span>
           <ChevronDown className="h-3.5 w-3.5 text-[#7b8ab8]" />

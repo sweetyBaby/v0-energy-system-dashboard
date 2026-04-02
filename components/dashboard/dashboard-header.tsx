@@ -9,8 +9,8 @@ export const projects = [
     id: "jintan",
     name: "金坛储能中心",
     nameEn: "Jintan Energy Storage Center",
-    ratedPower: "2.0 MW",
-    ratedCapacity: "4.0 MWh",
+    ratedPower: "75 kW",
+    ratedCapacity: "150 kWh",
     commissioningDate: "2025-11-15",
     image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
   },
@@ -18,8 +18,8 @@ export const projects = [
     id: "ordos",
     name: "鄂尔多斯储能中心",
     nameEn: "Ordos Energy Storage Center",
-    ratedPower: "5.0 MW",
-    ratedCapacity: "10.0 MWh",
+    ratedPower: "75 kW",
+    ratedCapacity: "150 kWh",
     commissioningDate: "2025-11-20",
     image: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
   },
@@ -173,12 +173,20 @@ export function DashboardHeader({
             <div className="flex min-w-0 flex-col items-start">
              
               <h1
-                className={`relative mt-0.5 whitespace-nowrap bg-gradient-to-r from-[#b6fbff] via-[#ffffff] to-[#7effd7] bg-clip-text font-bold text-transparent ${
+                className={`relative mt-0.5 whitespace-nowrap font-bold ${
                   zh
                     ? "text-[0.92rem] tracking-[0.14em] xl:text-[1rem] xl:tracking-[0.18em]"
                     : "text-[0.56rem] tracking-[0em] sm:text-[0.62rem] sm:tracking-[0.01em] xl:text-[0.82rem] xl:tracking-[0.1em]"
                 }`}
-                style={zh ? { filter: "drop-shadow(0 0 20px rgba(60,223,255,0.56))" } : { fontSize: "clamp(0.56rem,0.84vw,0.82rem)", letterSpacing: "0.02em", filter: "drop-shadow(0 0 20px rgba(60,223,255,0.56))" }}
+                style={{
+                  ...(zh ? {} : { fontSize: "clamp(0.56rem,0.84vw,0.82rem)", letterSpacing: "0.02em" }),
+                  color: "#e2f8ff",
+                  backgroundImage: "linear-gradient(90deg,#b6fbff,#ffffff,#7effd7)",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  filter: "drop-shadow(0 0 20px rgba(60,223,255,0.56))",
+                }}
               >
                 {zh ? "BMS 数据监测云平台" : "BMS Data Monitoring Cloud Platform"}
               </h1>

@@ -37,6 +37,8 @@ const yearMonthLabels = {
   en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
 } as const
 
+// 75kW/150kWh 系统，V≈1300V → 额定容量≈115Ah
+// 日充约115kWh / 88Ah，日放约96kWh / 74Ah，效率≈83-85%
 const buildLastWeekData = (): EfficiencyPoint[] => {
   const today = new Date()
 
@@ -44,10 +46,10 @@ const buildLastWeekData = (): EfficiencyPoint[] => {
     const date = new Date(today)
     date.setDate(today.getDate() - 6 + index)
 
-    const chargeCapacity = 218 + index * 4 + (index % 3) * 7
-    const dischargeCapacity = chargeCapacity - 16 + (index % 2) * 5
-    const chargeEnergy = 252 + index * 6 + (index % 4) * 8
-    const dischargeEnergy = chargeEnergy - 22 + (index % 3) * 4
+    const chargeCapacity = 86 + index * 1.5 + (index % 3) * 2.5
+    const dischargeCapacity = chargeCapacity * 0.845 + (index % 2) * 1.8
+    const chargeEnergy = 112 + index * 2 + (index % 4) * 3
+    const dischargeEnergy = chargeEnergy * 0.842 + (index % 3) * 1.5
 
     return {
       label: `${date.getMonth() + 1}/${date.getDate()}`,
@@ -66,10 +68,10 @@ const buildMonthData = (): EfficiencyPoint[] => {
   const month = today.getMonth() + 1
 
   return Array.from({ length: today.getDate() }, (_, index) => {
-    const chargeCapacity = 210 + (index % 7) * 6 + Math.floor(index / 6) * 2
-    const dischargeCapacity = chargeCapacity - 20 + (index % 3) * 5
-    const chargeEnergy = 242 + (index % 6) * 11 + Math.floor(index / 5) * 4
-    const dischargeEnergy = chargeEnergy - 24 + (index % 4) * 6
+    const chargeCapacity = 84 + (index % 7) * 2.2 + Math.floor(index / 6) * 0.8
+    const dischargeCapacity = chargeCapacity * 0.846 + (index % 3) * 1.5
+    const chargeEnergy = 110 + (index % 6) * 4 + Math.floor(index / 5) * 1.5
+    const dischargeEnergy = chargeEnergy * 0.840 + (index % 4) * 2
 
     return {
       label: `${month}/${index + 1}`,
@@ -88,10 +90,10 @@ const buildYearData = (language: "zh" | "en"): EfficiencyPoint[] => {
   const labels = language === "zh" ? yearMonthLabels.zh : yearMonthLabels.en
 
   return labels.slice(0, currentMonth + 1).map((label, index) => {
-    const chargeCapacity = 6900 + index * 280 + (index % 2) * 320
-    const dischargeCapacity = chargeCapacity - 520 + (index % 3) * 90
-    const chargeEnergy = 7800 + index * 340 + (index % 4) * 260
-    const dischargeEnergy = chargeEnergy - 650 + (index % 3) * 120
+    const chargeCapacity = 2580 + index * 45 + (index % 2) * 80
+    const dischargeCapacity = chargeCapacity * 0.845 + (index % 3) * 28
+    const chargeEnergy = 3240 + index * 55 + (index % 4) * 70
+    const dischargeEnergy = chargeEnergy * 0.841 + (index % 3) * 35
 
     return {
       label,
@@ -144,12 +146,12 @@ export function ComprehensiveEfficiencyPanel({
 
   const tableHeaders = {
     period: language === "zh" ? "时间" : "Period",
-    chargeCapacity: language === "zh" ? "充容(Ah)" : "Chg Cap",
-    dischargeCapacity: language === "zh" ? "放容(Ah)" : "Dis Cap",
-    chargeEnergy: language === "zh" ? "充电(kWh)" : "Chg kWh",
-    dischargeEnergy: language === "zh" ? "放电(kWh)" : "Dis kWh",
-    capacityEfficiency: language === "zh" ? "容量效率" : "Cap Eff",
-    energyEfficiency: language === "zh" ? "能量效率" : "Energy Eff",
+    chargeCapacity: language === "zh" ? "充电容量 (Ah)" : "Charge Capacity (Ah)",
+    dischargeCapacity: language === "zh" ? "放电容量 (Ah)" : "Discharge Capacity (Ah)",
+    capacityEfficiency: language === "zh" ? "容量效率 (%)" : "Capacity Efficiency (%)",
+    chargeEnergy: language === "zh" ? "充电电量 (kWh)" : "Charge Energy (kWh)",
+    dischargeEnergy: language === "zh" ? "放电电量 (kWh)" : "Discharge Energy (kWh)",
+    energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
   }
 
   const wrapperClassName = compact
@@ -337,9 +339,9 @@ export function ComprehensiveEfficiencyPanel({
                 <th className="px-2 py-3 text-left text-[11px] font-medium leading-tight">{tableHeaders.period}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.chargeCapacity}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.dischargeCapacity}</th>
+                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.capacityEfficiency}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.chargeEnergy}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.dischargeEnergy}</th>
-                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.capacityEfficiency}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.energyEfficiency}</th>
               </tr>
             </thead>
@@ -349,9 +351,9 @@ export function ComprehensiveEfficiencyPanel({
                   <td className="truncate px-2 py-3 text-[#dce7ff]">{item.label}</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.chargeCapacity.toFixed(1)}</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.dischargeCapacity.toFixed(1)}</td>
+                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.capacityEfficiency.toFixed(1)}%</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.chargeEnergy.toFixed(1)}</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.dischargeEnergy.toFixed(1)}</td>
-                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#ffd60a]">{item.capacityEfficiency.toFixed(1)}%</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#4ade80]">{item.energyEfficiency.toFixed(1)}%</td>
                 </tr>
               ))}

@@ -1,240 +1,314 @@
 "use client"
 
+import type { ReactNode } from "react"
+import { BatteryCharging, BatteryMedium, Gauge } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
-const energyStats = [
+type DetailItem = {
+  labelZh: string
+  labelEn: string
+  value: string
+  unit: string
+}
+
+type HeroCard = {
+  key: string
+  labelZh: string
+  labelEn: string
+  value: string
+  unit: string
+  accent: string
+  softAccent: string
+  ringClass: string
+  valueClass: string
+  icon: ReactNode
+  details: DetailItem[]
+}
+
+const heroCards: HeroCard[] = [
   {
-    key: "today-charge",
+    key: "efficiency",
+    labelZh: "昨日效率",
+    labelEn: "Yesterday Efficiency",
+    value: "83.46",
+    unit: "%",
+    accent: "#57a8ff",
+    softAccent: "rgba(87,168,255,0.28)",
+    ringClass: "from-[#4a90ff] to-[#2e6be2]",
+    valueClass: "text-[#f5f9ff]",
+    icon: <Gauge className="h-5 w-5 text-[#73b6ff]" strokeWidth={1.8} />,
+    details: [
+      { labelZh: "本月", labelEn: "Month", value: "82.14", unit: "%" },
+      { labelZh: "本年", labelEn: "Year", value: "83.07", unit: "%" },
+      { labelZh: "累计", labelEn: "Total", value: "83.07", unit: "%" },
+    ],
+  },
+  {
+    key: "charge",
     labelZh: "今日充电量",
     labelEn: "Today Charge",
-    value: "3,256.8",
+    value: "108.4",
     unit: "kWh",
-    isIn: true,
-    accent: "#39d0ff",
-    glow: "rgba(57,208,255,0.45)",
-    live: true,
-    animDelay: "0s",
+    accent: "#8ef14d",
+    softAccent: "rgba(142,241,77,0.28)",
+    ringClass: "from-[#a3ff58] to-[#69d936]",
+    valueClass: "text-[#b9ff8b]",
+    icon: <BatteryCharging className="h-5 w-5 text-[#a0ff66]" strokeWidth={1.8} />,
+    details: [
+      { labelZh: "昨日", labelEn: "Yesterday", value: "122.6", unit: "kWh" },
+      { labelZh: "本月", labelEn: "Month", value: "3286.4", unit: "kWh" },
+      { labelZh: "累计", labelEn: "Total", value: "15.24", unit: "MWh" },
+    ],
   },
   {
-    key: "today-discharge",
+    key: "discharge",
     labelZh: "今日放电量",
     labelEn: "Today Discharge",
-    value: "3,102.4",
+    value: "90.5",
     unit: "kWh",
-    isIn: false,
-    accent: "#ff9a4c",
-    glow: "rgba(255,154,76,0.45)",
-    live: true,
-    animDelay: "0.6s",
+    accent: "#58a7ff",
+    softAccent: "rgba(88,167,255,0.28)",
+    ringClass: "from-[#5ca9ff] to-[#3575eb]",
+    valueClass: "text-[#f5f9ff]",
+    icon: <BatteryMedium className="h-5 w-5 text-[#6fb5ff]" strokeWidth={1.8} />,
+    details: [
+      { labelZh: "昨日", labelEn: "Yesterday", value: "102.3", unit: "kWh" },
+      { labelZh: "本月", labelEn: "Month", value: "2741.8", unit: "kWh" },
+      { labelZh: "累计", labelEn: "Total", value: "12.68", unit: "MWh" },
+    ],
   },
+]
+
+const totalCards = [
   {
-    key: "total-charge",
+    key: "charge-total",
     labelZh: "累计充电量",
     labelEn: "Total Charge",
-    value: "286,540.2",
-    unit: "kWh",
-    isIn: true,
-    accent: "#22e6b8",
-    glow: "rgba(34,230,184,0.45)",
-    live: false,
-    animDelay: "1.1s",
+    value: "15.24",
+    unit: "MWh",
+    accent: "#8af7bc",
+    glow: "rgba(92,247,191,0.35)",
   },
   {
-    key: "total-discharge",
+    key: "discharge-total",
     labelZh: "累计放电量",
     labelEn: "Total Discharge",
-    value: "271,908.7",
-    unit: "kWh",
-    isIn: false,
-    accent: "#7dd3fc",
-    glow: "rgba(125,211,252,0.45)",
-    live: false,
-    animDelay: "1.7s",
+    value: "12.68",
+    unit: "MWh",
+    accent: "#ffb347",
+    glow: "rgba(255,179,71,0.35)",
   },
 ] as const
+
+function splitNumber(value: string) {
+  const dotIndex = value.lastIndexOf(".")
+  if (dotIndex === -1) return { integer: value, decimal: "" }
+  return {
+    integer: value.slice(0, dotIndex),
+    decimal: value.slice(dotIndex),
+  }
+}
+
+function TileFrame({
+  accent,
+  softAccent,
+  className,
+  children,
+}: {
+  accent: string
+  softAccent: string
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <div
+      className={`relative rounded-[16px] border border-dashed border-white/55 bg-[linear-gradient(180deg,rgba(13,36,78,0.92),rgba(10,26,58,0.96))] ${className ?? ""}`}
+      style={{
+        boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.04), inset 0 -24px 40px ${softAccent}, 0 0 18px rgba(0,0,0,0.18)`,
+      }}
+    >
+      <div className="pointer-events-none absolute inset-0 rounded-[16px] bg-[radial-gradient(circle_at_18%_22%,rgba(130,193,255,0.14),transparent_30%),radial-gradient(circle_at_78%_84%,rgba(92,246,228,0.14),transparent_26%)]" />
+      <div
+        className="pointer-events-none absolute bottom-0 left-6 right-6 h-[3px] rounded-full"
+        style={{
+          background: `linear-gradient(90deg,transparent,${accent},transparent)`,
+          boxShadow: `0 0 10px ${accent}`,
+        }}
+      />
+      {children}
+    </div>
+  )
+}
+
+function HeroStatCard({ card, zh, className }: { card: HeroCard; zh: boolean; className?: string }) {
+  const { integer, decimal } = splitNumber(card.value)
+
+  return (
+    <TileFrame accent={card.accent} softAccent={card.softAccent} className={`h-full ${className ?? ""}`.trim()}>
+      <div className="relative flex h-full flex-col px-3 py-2.5">
+        {/* Top row: icon + title + main value */}
+        <div className="flex items-center gap-2">
+          {/* Icon circle */}
+          <div
+            className="relative flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(180deg,rgba(5,18,43,0.96),rgba(9,27,60,0.88))] ring-1 ring-white/10"
+            style={{ boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.06), 0 0 18px ${card.softAccent}` }}
+          >
+            <div className={`absolute inset-[3px] rounded-full bg-gradient-to-b ${card.ringClass} opacity-95`} />
+            <div className="absolute inset-[7px] rounded-full bg-[linear-gradient(180deg,rgba(5,20,47,0.96),rgba(7,24,52,0.94))]" />
+            <div className="relative z-10 flex h-[26px] w-[26px] items-center justify-center rounded-[8px] border border-white/15 bg-[linear-gradient(180deg,rgba(15,58,118,0.7),rgba(8,27,59,0.92))]">
+              {card.icon}
+            </div>
+          </div>
+
+          {/* Title + value */}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="text-[0.7rem] font-semibold leading-tight tracking-[0.02em] text-[#f5f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.55)]">
+              {zh ? card.labelZh : card.labelEn}
+            </span>
+            <div className="flex items-baseline gap-0.5">
+              <span
+                className={`font-bold tabular-nums leading-none ${card.valueClass}`}
+                style={{
+                  fontSize: "clamp(1.2rem, 1.7vw, 1.75rem)",
+                  textShadow: `0 0 16px ${card.softAccent}, 0 2px 8px rgba(0,0,0,0.45)`,
+                }}
+              >
+                {integer}
+              </span>
+              {decimal && (
+                <span
+                  className={`font-bold tabular-nums leading-none ${card.valueClass}`}
+                  style={{
+                    fontSize: "clamp(0.75rem, 1vw, 0.95rem)",
+                    textShadow: `0 0 12px ${card.softAccent}, 0 2px 8px rgba(0,0,0,0.45)`,
+                  }}
+                >
+                  {decimal}
+                </span>
+              )}
+              <span className="text-[0.65rem] font-semibold text-[#f4f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.45)]">
+                {card.unit}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="my-2 h-px w-full bg-[linear-gradient(90deg,transparent,rgba(180,220,255,0.7),transparent)]" />
+
+        {/* Detail rows: stretch to fill remaining height */}
+        <div className="flex flex-1 flex-col justify-between">
+          {card.details.map((detail, idx) => (
+            <div key={detail.labelEn} className="flex items-center justify-between gap-1">
+              <span className="shrink-0 text-[0.66rem] font-medium leading-none text-[#b8d4f8]/85">
+                {zh ? detail.labelZh : detail.labelEn}
+              </span>
+              {idx < card.details.length - 1 && (
+                <div className="h-px flex-1 bg-[linear-gradient(90deg,rgba(196,230,255,0.25),transparent)]" />
+              )}
+              {idx === card.details.length - 1 && <div className="flex-1" />}
+              <div className="flex shrink-0 items-baseline gap-[2px]">
+                <span
+                  className="font-semibold tabular-nums leading-none text-[#f2f8ff]"
+                  style={{
+                    fontSize: "0.78rem",
+                    textShadow: `0 0 8px ${card.accent}33, 0 2px 6px rgba(0,0,0,0.4)`,
+                  }}
+                >
+                  {detail.value}
+                </span>
+                <span className="text-[0.6rem] leading-none text-[#d8eeff]/85">{detail.unit}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </TileFrame>
+  )
+}
+
+function TotalCard({
+  title,
+  value,
+  unit,
+  accent,
+  glow,
+  zh,
+  labelEn,
+}: {
+  title: string
+  labelEn: string
+  value: string
+  unit: string
+  accent: string
+  glow: string
+  zh: boolean
+}) {
+  return (
+    <TileFrame accent={accent} softAccent={glow} className="min-h-0">
+      <div className="relative flex h-full min-h-0 flex-col justify-center px-3.5 py-2">
+        <div className="text-[0.75rem] font-semibold tracking-[0.02em] text-[#f6f9ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.5)]">
+          {zh ? title : labelEn}
+        </div>
+        <div
+          className="my-1.5 h-px w-full"
+          style={{ background: `linear-gradient(90deg,transparent,${accent},transparent)` }}
+        />
+        <div className="flex items-baseline gap-1">
+          <span
+            className="font-bold tabular-nums leading-none"
+            style={{
+              fontSize: "clamp(1.2rem, 1.7vw, 1.75rem)",
+              color: accent,
+              textShadow: `0 0 20px ${glow}, 0 2px 8px rgba(0,0,0,0.45)`,
+            }}
+          >
+            {value}
+          </span>
+          <span className="text-[0.7rem] font-semibold text-[#f4f8ff]">{unit}</span>
+        </div>
+      </div>
+    </TileFrame>
+  )
+}
 
 export function ChargeDischargeTable() {
   const { language } = useLanguage()
   const zh = language === "zh"
 
   return (
-    <div className="flex h-full max-h-full w-full flex-col gap-1.5 overflow-hidden rounded-[22px] border border-[#22d3ee]/35 bg-[linear-gradient(180deg,rgba(10,24,46,0.06),rgba(5,14,30,0.14))] p-2.5 backdrop-blur-[1px] shadow-[0_0_0_1px_rgba(34,211,238,0.06)_inset,0_10px_24px_rgba(0,0,0,0.1)]">
-      <style>{`
-        @keyframes cdt-blink   { 0%,100%{opacity:1}      50%{opacity:0.12} }
-        @keyframes cdt-arrow-in  { 0%,100%{opacity:0.5; transform:translateY(0)}   50%{opacity:1; transform:translateY(2px)} }
-        @keyframes cdt-arrow-out { 0%,100%{opacity:0.5; transform:translateY(0)}   50%{opacity:1; transform:translateY(-2px)} }
-        @keyframes cdt-ring    { 0%,100%{opacity:0.18; transform:scale(1)}  60%{opacity:0.05; transform:scale(1.55)} }
-        @keyframes cdt-scanline{ 0%{transform:translateY(-100%)} 100%{transform:translateY(100%)} }
-      `}</style>
+    <div className="relative w-full overflow-hidden rounded-[22px] border border-[#22d3ee]/26 bg-[radial-gradient(circle_at_18%_16%,rgba(64,124,255,0.22),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(0,212,170,0.14),transparent_24%),linear-gradient(180deg,rgba(11,31,67,0.66),rgba(6,20,47,0.74))] p-1.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_16px_32px_rgba(0,0,0,0.16)]">
+      <div className="grid h-[290px] w-full grid-cols-2 grid-rows-2 gap-1.5">
+        {/* 左上: 昨日效率 */}
+        <HeroStatCard card={heroCards[0]} zh={zh} />
 
-      {/* Header */}
-      <div className="flex shrink-0 items-center gap-2">
-        <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
-        <h3
-          className="text-[1.05rem] font-semibold tracking-[0.02em] text-[#00d4aa]"
-          style={{ textShadow: "0 1px 6px rgba(0,0,0,0.95)" }}
-        >
-          {zh ? "充放电统计" : "Charge / Discharge"}
-        </h3>
-        <div className="ml-auto flex items-center gap-1">
-          <span
-            className="h-1.5 w-1.5 rounded-full bg-[#00e87a]"
-            style={{ animation: "cdt-blink 1.8s ease-in-out infinite" }}
+        {/* 右上: 累计充电量 + 累计放电量 */}
+        <div className="grid h-full grid-rows-2 gap-1.5">
+          <TotalCard
+            title={totalCards[0].labelZh}
+            labelEn={totalCards[0].labelEn}
+            value={totalCards[0].value}
+            unit={totalCards[0].unit}
+            accent={totalCards[0].accent}
+            glow={totalCards[0].glow}
+            zh={zh}
           />
-          <span className="text-[10px] font-semibold tracking-[0.1em] text-[#00e87a]/65">LIVE</span>
+          <TotalCard
+            title={totalCards[1].labelZh}
+            labelEn={totalCards[1].labelEn}
+            value={totalCards[1].value}
+            unit={totalCards[1].unit}
+            accent={totalCards[1].accent}
+            glow={totalCards[1].glow}
+            zh={zh}
+          />
         </div>
-      </div>
 
-      {/* 2×2 Grid */}
-      <div className="grid min-h-0 flex-1 grid-cols-2 auto-rows-fr gap-1.5">
-        {energyStats.map((item) => {
-          const dotIdx = item.value.lastIndexOf(".")
-          const integer = dotIdx >= 0 ? item.value.slice(0, dotIdx) : item.value
-          const decimal = dotIdx >= 0 ? item.value.slice(dotIdx) : ""
-          const flowFrom = item.isIn ? "-4" : "104"
-          const flowTo   = item.isIn ? "104" : "-4"
-          const arrowAnim = item.isIn ? "cdt-arrow-in" : "cdt-arrow-out"
+        {/* 左下: 今日放电量 */}
+        <HeroStatCard card={heroCards[2]} zh={zh} />
 
-          return (
-            <div
-              key={item.key}
-              className="relative flex min-h-0 flex-col justify-between overflow-hidden px-2.5 pb-1.5 pt-2"
-              style={{
-                background: "linear-gradient(145deg,rgba(14,34,62,0.18) 0%,rgba(8,18,38,0.30) 100%)",
-                clipPath: "polygon(7px 0%,100% 0%,100% calc(100% - 7px),calc(100% - 7px) 100%,0% 100%,0% 7px)",
-              }}
-            >
-              {/* Scanline shimmer */}
-              <div
-                className="pointer-events-none absolute inset-x-0 z-10 h-[35%] opacity-[0.04]"
-                style={{
-                  background: "linear-gradient(180deg,transparent,rgba(255,255,255,1),transparent)",
-                  animation: "cdt-scanline 4s ease-in-out infinite",
-                  animationDelay: item.animDelay,
-                }}
-              />
-
-              {/* Corner brackets */}
-              <div className="pointer-events-none absolute inset-0 z-20">
-                <div className="absolute left-0 top-0 h-3 w-3" style={{ borderLeft: `1.5px solid ${item.accent}`, borderTop: `1.5px solid ${item.accent}`, opacity: 0.75 }} />
-                <div className="absolute right-0 top-0 h-3 w-3" style={{ borderRight: `1.5px solid ${item.accent}`, borderTop: `1.5px solid ${item.accent}`, opacity: 0.75 }} />
-                <div className="absolute bottom-0 left-0 h-3 w-3" style={{ borderLeft: `1.5px solid ${item.accent}`, borderBottom: `1.5px solid ${item.accent}`, opacity: 0.75 }} />
-                <div className="absolute bottom-0 right-0 h-3 w-3" style={{ borderRight: `1.5px solid ${item.accent}`, borderBottom: `1.5px solid ${item.accent}`, opacity: 0.75 }} />
-              </div>
-
-              {/* Top glow line */}
-              <div
-                className="pointer-events-none absolute inset-x-0 top-0 h-px"
-                style={{ background: `linear-gradient(90deg,transparent,${item.accent}66,transparent)` }}
-              />
-
-              {/* Label + direction icon */}
-              <div className="flex items-center justify-between gap-1">
-                <span
-                  className="text-[10.5px] font-medium leading-tight text-white/52"
-                  style={{ textShadow: "0 1px 4px rgba(0,0,0,0.95)" }}
-                >
-                  {zh ? item.labelZh : item.labelEn}
-                </span>
-
-                {/* Animated direction icon */}
-                <svg width="20" height="20" viewBox="0 0 20 20" style={{ flexShrink: 0 }}>
-                  {/* Pulsing ring */}
-                  <circle
-                    cx="10" cy="10" r="9"
-                    fill="none"
-                    stroke={item.accent}
-                    strokeWidth="0.7"
-                    style={{ animation: `cdt-ring 2s ease-out infinite`, animationDelay: item.animDelay, transformOrigin: "10px 10px" }}
-                  />
-                  {/* Solid inner circle */}
-                  <circle cx="10" cy="10" r="7" fill={`${item.accent}18`} stroke={item.accent} strokeWidth="0.8" opacity="0.7" />
-                  {/* Arrow */}
-                  {item.isIn ? (
-                    <path
-                      d="M10 5.5v9M7 11l3 3.5 3-3.5"
-                      stroke={item.accent}
-                      strokeWidth="1.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                      style={{ animation: `${arrowAnim} 1.8s ease-in-out infinite`, transformOrigin: "10px 10px", animationDelay: item.animDelay }}
-                    />
-                  ) : (
-                    <path
-                      d="M10 14.5v-9M7 9l3-3.5 3 3.5"
-                      stroke={item.accent}
-                      strokeWidth="1.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                      style={{ animation: `${arrowAnim} 2.1s ease-in-out infinite`, transformOrigin: "10px 10px", animationDelay: item.animDelay }}
-                    />
-                  )}
-                </svg>
-              </div>
-
-              {/* Value — integer bold + decimal muted */}
-              <div className="flex items-end gap-0.5">
-                <span
-                  className="font-bold leading-none tabular-nums"
-                  style={{
-                    fontSize: "1.18rem",
-                    color: item.accent,
-                    textShadow: `0 0 14px ${item.glow}, 0 1px 6px rgba(0,0,0,0.95)`,
-                  }}
-                >
-                  {integer}
-                </span>
-                {decimal && (
-                  <span
-                    className="pb-[1px] font-semibold tabular-nums"
-                    style={{ fontSize: "0.85rem", color: item.accent, opacity: 0.6 }}
-                  >
-                    {decimal}
-                  </span>
-                )}
-                <span className="pb-[1px] pl-0.5 text-[10px] text-white/38">
-                  {item.unit}
-                </span>
-              </div>
-
-              {/* Energy flow line (animated dot) */}
-              <svg
-                width="100%"
-                height="5"
-                viewBox="0 0 100 5"
-                preserveAspectRatio="none"
-                style={{ display: "block", overflow: "visible" }}
-              >
-                {/* Track */}
-                <line x1="0" y1="2.5" x2="100" y2="2.5" stroke={item.accent} strokeWidth="0.4" opacity="0.2" />
-                {/* Tick marks */}
-                {[20, 40, 60, 80].map((x) => (
-                  <line key={x} x1={x} y1="1" x2={x} y2="4" stroke={item.accent} strokeWidth="0.5" opacity="0.18" />
-                ))}
-                {/* Moving glow dot */}
-                <circle cy="2.5" r="2.4" fill={item.accent}>
-                  <animate attributeName="cx" from={flowFrom} to={flowTo} dur="2.5s" begin={item.animDelay} repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0;0.95;0.95;0" keyTimes="0;0.08;0.9;1" dur="2.5s" begin={item.animDelay} repeatCount="indefinite" />
-                </circle>
-              </svg>
-
-              {/* Live pulse dot */}
-              {item.live && (
-                <div
-                  className="pointer-events-none absolute right-2 bottom-1.5 h-[5px] w-[5px] rounded-full"
-                  style={{
-                    background: item.accent,
-                    boxShadow: `0 0 5px ${item.accent}`,
-                    animation: "cdt-blink 1.5s ease-in-out infinite",
-                    animationDelay: item.animDelay,
-                  }}
-                />
-              )}
-            </div>
-          )
-        })}
+        {/* 右下: 今日充电量 */}
+        <HeroStatCard card={heroCards[1]} zh={zh} />
       </div>
     </div>
   )

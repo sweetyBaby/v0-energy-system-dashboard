@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, type ReactNode } from "react"
 import { Battery, Calendar, Zap } from "lucide-react"
@@ -140,7 +140,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
               {bcuMode === mode && mode === "realtime" && (
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#021a12]" />
               )}
-              {mode === "realtime" ? (zh ? "实时监控" : "Live") : (zh ? "历史查询" : "History")}
+              {mode === "realtime" ? (zh ? "瀹炴椂鐩戞帶" : "Live") : (zh ? "鍘嗗彶鏌ヨ" : "History")}
             </button>
           ))}
         </div>
@@ -231,24 +231,23 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
 
         {activeTab === "cell-history" && (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-            <div
-              className="relative flex shrink-0 flex-wrap items-center gap-2 overflow-hidden border border-[#22d3ee]/20 bg-[#020810] px-3 py-1.5"
-              style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 100%, 0 100%)" }}
-            >
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
+            <div className="flex shrink-0 items-center gap-1.5 overflow-hidden px-1 py-0.5">
               {/* Overview stat chips */}
               {cellHistoryViewMode === "overview" && cellHistoryStats && (
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pr-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {[
-                    { labelZh: "最高电压", labelEn: "Max V",    value: `${cellHistoryStats.maxVoltage.toFixed(2)}V`,  cell: cellHistoryStats.maxVoltageCell, color: "text-[#aef8ff]" },
-                    { labelZh: "最低电压", labelEn: "Min V",    value: `${cellHistoryStats.minVoltage.toFixed(2)}V`,  cell: cellHistoryStats.minVoltageCell, color: "text-[#aef8ff]" },
-                    { labelZh: "最大ΔV",  labelEn: "Spread ΔV", value: `${cellHistoryStats.voltageDelta.toFixed(2)}V`, cell: null, color: "text-[#ffd892]" },
-                    { labelZh: "最高温度", labelEn: "Max T",    value: `${cellHistoryStats.maxTemp.toFixed(1)}°C`,    cell: cellHistoryStats.maxTempCell, color: "text-[#aef8ff]" },
-                    { labelZh: "最低温度", labelEn: "Min T",    value: `${cellHistoryStats.minTemp.toFixed(1)}°C`,    cell: cellHistoryStats.minTempCell, color: "text-[#aef8ff]" },
-                    { labelZh: "最大ΔT",  labelEn: "Spread ΔT", value: `${cellHistoryStats.tempDelta.toFixed(1)}°C`,  cell: null, color: "text-[#ffd892]" },
+                    { labelZh: "最高电压", labelEn: "Max V", value: `${cellHistoryStats.maxVoltage.toFixed(2)}V`, cell: cellHistoryStats.maxVoltageCell, color: "text-[#aef8ff]" },
+                    { labelZh: "最低电压", labelEn: "Min V", value: `${cellHistoryStats.minVoltage.toFixed(2)}V`, cell: cellHistoryStats.minVoltageCell, color: "text-[#aef8ff]" },
+                    { labelZh: "最大ΔV", labelEn: "Spread ΔV", value: `${cellHistoryStats.voltageDelta.toFixed(2)}V`, cell: null, color: "text-[#ffd892]" },
+                    { labelZh: "最高温度", labelEn: "Max T", value: `${cellHistoryStats.maxTemp.toFixed(1)}°C`, cell: cellHistoryStats.maxTempCell, color: "text-[#aef8ff]" },
+                    { labelZh: "最低温度", labelEn: "Min T", value: `${cellHistoryStats.minTemp.toFixed(1)}°C`, cell: cellHistoryStats.minTempCell, color: "text-[#aef8ff]" },
+                    { labelZh: "最大ΔT", labelEn: "Spread ΔT", value: `${cellHistoryStats.tempDelta.toFixed(1)}°C`, cell: null, color: "text-[#ffd892]" },
+                    { labelZh: "日充电量", labelEn: "Daily Charge", value: `${cellHistoryStats.chargeEnergy.toFixed(1)}kWh`, cell: null, color: "text-[#8ee7ff]" },
+                    { labelZh: "日放电量", labelEn: "Daily Discharge", value: `${cellHistoryStats.dischargeEnergy.toFixed(1)}kWh`, cell: null, color: "text-[#ffc98b]" },
+                    { labelZh: "综合效率", labelEn: "Efficiency", value: `${cellHistoryStats.roundTripEfficiency.toFixed(1)}%`, cell: null, color: "text-[#8cf5c6]" },
                   ].map((item) => (
-                    <div key={item.labelEn} className="flex items-center gap-1.5 rounded-[8px] border border-[#22d3ee]/18 bg-[rgba(13,31,58,0.5)] px-2.5 py-1">
-                      <span className="text-[11px] font-medium text-[#4a7090]">{zh ? item.labelZh : item.labelEn}</span>
+                    <div key={item.labelEn} className="flex shrink-0 items-center gap-1 rounded-[8px] border border-[#2da7d8]/28 bg-[rgba(13,31,58,0.62)] px-2 py-0.5">
+                      <span className="text-[11px] font-medium text-[#91bdd8]">{zh ? item.labelZh : item.labelEn}</span>
                       <span className={`text-[12px] font-bold tabular-nums ${item.color}`}>
                         {item.value}{item.cell != null ? ` (#${item.cell})` : ""}
                       </span>
@@ -257,16 +256,16 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                 </div>
               )}
               {/* Date picker right-aligned */}
-              <div className="ml-auto flex flex-wrap items-center gap-2">
+              <div className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap">
                 {cellHistoryViewMode === "detail" && (
                   <CellHistoryMultiPicker value={selectedHistoryCells} onChange={setSelectedHistoryCells} />
                 )}
-                <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={today} />
-                <div className="flex h-9 items-center gap-1 rounded-[14px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[3px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]">
+                <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={today} compact />
+                <div className="flex h-8 shrink-0 items-center gap-1 rounded-[12px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]">
                   {([
                     {
                       key: "overview",
-                      labelZh: "总览",
+                      labelZh: "鎬昏",
                       labelEn: "Overview",
                       icon: (
                         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -279,7 +278,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                     },
                     {
                       key: "detail",
-                      labelZh: "明细",
+                      labelZh: "鏄庣粏",
                       labelEn: "Detail",
                       icon: (
                         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -306,7 +305,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                         }}
                         aria-label={zh ? item.labelZh : item.labelEn}
                         title={zh ? item.labelZh : item.labelEn}
-                        className={`flex h-[30px] w-[30px] items-center justify-center rounded-[9px] text-[12px] font-medium transition-all ${
+                        className={`flex h-[28px] w-[28px] items-center justify-center rounded-[8px] text-[12px] font-medium transition-all ${
                           active
                             ? "border border-[#45f1d0]/45 bg-[linear-gradient(180deg,rgba(20,221,190,0.94),rgba(7,193,164,0.88))] text-[#04241c] shadow-[0_0_10px_rgba(34,211,238,0.18)]"
                             : "border border-transparent bg-transparent text-[#6d90ad] hover:border-[#22d3ee]/22 hover:text-[#d5efff]"
@@ -340,7 +339,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
             >
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
               <span className="text-[11px] font-medium tracking-[0.06em] text-[#4a7090]">
-                {zh ? "时间范围" : "TIME RANGE"}
+                {zh ? "鏃堕棿鑼冨洿" : "TIME RANGE"}
               </span>
               <div className="h-3 w-px bg-[#22d3ee]/25" />
               <div className="flex gap-1">
