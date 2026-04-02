@@ -70,6 +70,20 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const { selectedProject } = useProject()
   const zh = language === "zh"
 
+  const getDefaultDetailCells = () => {
+    const prioritizedCells = [
+      cellHistoryStats?.maxVoltageCell,
+      cellHistoryStats?.minVoltageCell,
+      cellHistoryStats?.maxTempCell,
+    ].filter((cell): cell is number => cell != null)
+
+    const uniqueCells = prioritizedCells.filter((cell, index) => prioritizedCells.indexOf(cell) === index)
+
+    if (uniqueCells.length > 0) return uniqueCells.slice(0, 3)
+    if (selectedHistoryCell != null) return [selectedHistoryCell]
+    return [1]
+  }
+
   const projectStats = [
     {
       icon: <Zap className="h-6 w-6 text-[#25efff]" fill="currentColor" />,
@@ -286,12 +300,8 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                         type="button"
                         onClick={() => {
                           setCellHistoryViewMode(item.key)
-                          if (item.key === "detail" && selectedHistoryCell != null) {
-                            setSelectedHistoryCells((current) =>
-                              current.includes(selectedHistoryCell)
-                                ? current
-                                : [...current.slice(0, 2), selectedHistoryCell].slice(-3).sort((a, b) => a - b)
-                            )
+                          if (item.key === "detail") {
+                            setSelectedHistoryCells(getDefaultDetailCells())
                           }
                         }}
                         aria-label={zh ? item.labelZh : item.labelEn}

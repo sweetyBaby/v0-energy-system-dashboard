@@ -85,6 +85,8 @@ const TOTAL_POINTS = (24 * 60) / STEP_MINUTES
 const DAY_END_TIME_LABEL = "23:59:59"
 const mutedText = "text-[#7fa4be]"
 const edgeGlow = "shadow-[0_0_0_1px_rgba(88,181,255,0.08),0_18px_42px_rgba(1,7,19,0.42),inset_0_0_28px_rgba(44,126,198,0.06)]"
+const pickerScrollbarClass =
+  "[scrollbar-width:thin] [scrollbar-color:rgba(137,170,230,0.85)_rgba(8,18,42,0.96)] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[#0b1431] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-[2px] [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-[#0b1431] [&::-webkit-scrollbar-thumb]:bg-[#809dd6] hover:[&::-webkit-scrollbar-thumb]:bg-[#a9c4ff]"
 
 const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1)
 
@@ -228,6 +230,7 @@ function NeonSection({
   badge,
   headerExtra,
   showHeaderRule = true,
+  bare = false,
   inlineSubtitle = false,
   compact = false,
   className = "",
@@ -238,6 +241,7 @@ function NeonSection({
   badge?: string
   headerExtra?: ReactNode
   showHeaderRule?: boolean
+  bare?: boolean
   inlineSubtitle?: boolean
   compact?: boolean
   className?: string
@@ -245,9 +249,9 @@ function NeonSection({
 }) {
   return (
     <section
-      className={`relative flex min-h-0 flex-col overflow-hidden rounded-[20px] border border-[#254873]/80 bg-[radial-gradient(circle_at_top_right,rgba(38,109,178,0.15),transparent_28%),linear-gradient(180deg,rgba(10,19,44,0.97),rgba(6,12,29,0.98))] ${compact ? "p-2.5" : "p-3"} ${edgeGlow} ${className}`}
+      className={`relative flex min-h-0 flex-col overflow-hidden rounded-[20px] ${bare ? "" : "border border-[#254873]/80 bg-[radial-gradient(circle_at_top_right,rgba(38,109,178,0.15),transparent_28%),linear-gradient(180deg,rgba(10,19,44,0.97),rgba(6,12,29,0.98))]"} ${compact ? "p-2.5" : "p-3"} ${bare ? "" : edgeGlow} ${className}`}
     >
-      <div className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#8feaff]/[0.05]" />
+      {!bare ? <div className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#8feaff]/[0.05]" /> : null}
       <div className="pointer-events-none absolute left-3 top-3 h-5 w-[2px] rounded-full bg-[#3fe7ff]/90 shadow-[0_0_12px_rgba(63,231,255,0.85)]" />
       {showHeaderRule ? (
         <div className="pointer-events-none absolute inset-x-4 top-[50px] h-px bg-gradient-to-r from-[#274f78]/70 via-[#78dfff]/45 to-transparent" />
@@ -489,7 +493,7 @@ export function CellHistoryCellPicker({ value, onChange }: { value: number | nul
       <PopoverContent align="start" className="z-50 w-[240px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]">
         <Command className="bg-[#0d1233] text-[#e8f4fc]">
           <CommandInput placeholder={zh ? "搜索电芯..." : "Search cells..."} className="text-[#e8f4fc] placeholder:text-[#5f79ad]" />
-          <CommandList>
+          <CommandList className={pickerScrollbarClass}>
             <CommandEmpty>{zh ? "未找到电芯" : "No cell found"}</CommandEmpty>
             <CommandGroup>
               <CommandItem value="all cells" onSelect={() => { onChange(null); setOpen(false) }} className="text-[#dcefff]">
@@ -560,7 +564,7 @@ export function CellHistoryMultiPicker({
       <PopoverContent align="start" className="z-50 w-[260px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]">
         <Command className="bg-[#0d1233] text-[#e8f4fc]">
           <CommandInput placeholder={zh ? "搜索电芯..." : "Search cells..."} className="text-[#e8f4fc] placeholder:text-[#5f79ad]" />
-          <CommandList>
+          <CommandList className={pickerScrollbarClass}>
             <CommandEmpty>{zh ? "未找到电芯" : "No cell found"}</CommandEmpty>
             <CommandGroup>
               {Array.from({ length: CELL_COUNT }, (_, index) => {
@@ -577,9 +581,7 @@ export function CellHistoryMultiPicker({
                   >
                     <Check className={`h-4 w-4 ${selected ? "opacity-100 text-[#1bd9c5]" : "opacity-0"}`} />
                     <span className="flex-1">{zh ? `电芯 ${cell}` : `Cell ${cell}`}</span>
-                    {disabled ? (
-                      <span className="text-[10px] text-[#6f8cb1]">{zh ? "已满" : "Max"}</span>
-                    ) : null}
+                   
                   </CommandItem>
                 )
               })}
@@ -965,7 +967,7 @@ export function CellHistoryReplayPanel({
     })
   }, [cellMetrics, detailSeries])
 
-  const detailTickStep = isTightCanvas ? 24 : isCompactCanvas ? 16 : 12
+  const detailTickStep = 4
   const detailXAxisTicks = useMemo(
     () =>
       Array.from(
@@ -998,49 +1000,47 @@ export function CellHistoryReplayPanel({
     }
 
     return (
-      <div ref={containerRef} className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#1a3556] bg-[linear-gradient(180deg,#071124,#050c1d)] p-3">
+      <div ref={containerRef} className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#1a3556] bg-[linear-gradient(180deg,#071124,#050c1d)] p-2">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_16%,rgba(67,176,255,0.12),transparent_26%),radial-gradient(circle_at_82%_18%,rgba(255,186,97,0.08),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(60,132,255,0.08),transparent_30%)]" />
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#8feaff]/55 to-transparent" />
-
-        <div className="relative h-full min-h-0">
-          <NeonSection
-            title={zh ? "电芯明细" : "Cell Detail"}
-            className="h-full"
-            showHeaderRule={false}
-            headerExtra={
-              <div className="flex items-center gap-4">
-                {detailMetricLegend.map((item) => (
-                  <button
-                    key={`detail-legend-${item.key}`}
-                    type="button"
-                    onClick={() => handleToggleDetailMetric(item.key)}
-                    className={`flex items-center gap-1.5 text-[10px] transition-all ${
-                      detailVisibleMetrics[item.key] ? "text-[#96bdd4]" : "text-[#547084]"
-                    }`}
-                  >
-                    <span className="block h-[2px] w-4" style={{ backgroundColor: item.color, boxShadow: detailVisibleMetrics[item.key] ? `0 0 8px ${item.color}` : "none", opacity: detailVisibleMetrics[item.key] ? 1 : 0.4 }} />
-                    <span className={detailVisibleMetrics[item.key] ? "" : "line-through"}>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            }
+        <NeonSection
+          title={zh ? "电芯明细" : "Cell Detail"}
+          className="h-full px-1.5 py-1"
+          bare
+          showHeaderRule={false}
+          headerExtra={
+            <div className="flex items-center gap-3">
+              {detailMetricLegend.map((item) => (
+                <button
+                  key={`detail-legend-${item.key}`}
+                  type="button"
+                  onClick={() => handleToggleDetailMetric(item.key)}
+                  className={`flex items-center gap-1 text-[10px] transition-all ${
+                    detailVisibleMetrics[item.key] ? "text-[#96bdd4]" : "text-[#547084]"
+                  }`}
+                >
+                  <span className="block h-[2px] w-4" style={{ backgroundColor: item.color, boxShadow: detailVisibleMetrics[item.key] ? `0 0 8px ${item.color}` : "none", opacity: detailVisibleMetrics[item.key] ? 1 : 0.4 }} />
+                  <span className={detailVisibleMetrics[item.key] ? "" : "line-through"}>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          }
+        >
+          <div
+            className="grid h-full min-h-0 gap-1"
+            style={{ gridTemplateRows: `repeat(${detailCellSummaries.length}, minmax(0, 1fr))` }}
           >
-            <div className="flex h-full min-h-0 flex-col overflow-hidden">
-              <div
-                className="grid min-h-0 flex-1 gap-2.5"
-                style={{ gridTemplateRows: `repeat(${detailCellSummaries.length}, minmax(0, 1fr))` }}
-              >
-                {detailCellSummaries.map((cell, index) => {
-                  const isLast = index === detailCellSummaries.length - 1
-                  const series = detailSeries.find((item) => item.cell === cell.cell)
-                  if (!series) return null
+            {detailCellSummaries.map((cell, index) => {
+              const isLast = index === detailCellSummaries.length - 1
+              const series = detailSeries.find((item) => item.cell === cell.cell)
+              if (!series) return null
 
-                  return (
-                    <div
-                      key={`detail-chart-${cell.cell}`}
-                      className="flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))] px-1.5 pb-1.5"
-                    >
-                      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#214260]/90 px-3 py-2">
+              return (
+                <div
+                  key={`detail-chart-${cell.cell}`}
+                  className="flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))] px-0.5 pb-0.5"
+                >
+                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-1.5 border-b border-[#214260]/90 px-3 py-1.5">
                         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
                           {[
                             { label: zh ? "最高电压" : "Max V", value: `${cell.voltageMax.toFixed(2)}V`, color: "text-[#aef8ff]" },
@@ -1063,16 +1063,17 @@ export function CellHistoryReplayPanel({
                           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: cell.color, boxShadow: `0 0 10px ${cell.color}` }} />
                           <div className="text-[0.95rem] font-semibold tracking-[0.05em] text-[#eefbff]">{zh ? `电芯 #${cell.cell}` : `Cell #${cell.cell}`}</div>
                         </div>
-                      </div>
-                      <div className="min-h-0 flex-1">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={detailReplayData} syncId="cell-history-detail-replay" syncMethod="value" margin={{ top: 12, right: 14, left: 0, bottom: isLast ? 6 : 0 }}>
+                  </div>
+                  <div className="min-h-0 flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={detailReplayData} syncId="cell-history-detail-replay" syncMethod="value" margin={{ top: 12, right: 14, left: 0, bottom: isLast ? 6 : 0 }}>
                             <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
                             <XAxis
                               dataKey="time"
                               tick={isLast ? { fill: "#88a8be", fontSize: 9 } : false}
                               axisLine={false}
                               tickLine={false}
+                              tickFormatter={(value) => String(value).slice(0, 5)}
                               ticks={isLast ? detailXAxisTicks : undefined}
                               interval={isLast ? 0 : trendXAxisInterval}
                               height={isLast ? 22 : 0}
@@ -1145,28 +1146,26 @@ export function CellHistoryReplayPanel({
                                 isAnimationActive={false}
                               />
                             )}
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </NeonSection>
-        </div>
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </NeonSection>
       </div>
     )
   }
 
   return (
-    <div ref={containerRef} className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#1a3556] bg-[linear-gradient(180deg,#071124,#050c1d)] p-3">
+    <div ref={containerRef} className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#1a3556] bg-[linear-gradient(180deg,#071124,#050c1d)] p-2">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_16%,rgba(67,176,255,0.12),transparent_26%),radial-gradient(circle_at_82%_18%,rgba(255,186,97,0.08),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(60,132,255,0.08),transparent_30%)]" />
       <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#8feaff]/55 to-transparent" />
 
-      <div className={`relative grid h-full min-h-0 ${isCompactCanvas ? "grid-cols-[1.04fr_1.26fr] gap-2.5" : "grid-cols-[0.94fr_1.36fr] gap-3"}`}>
-        <div className={`grid min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1.4fr)] ${isCompactCanvas ? "gap-2" : "gap-3"}`}>
-          <NeonSection title={zh ? "电压/温差分析" : "Voltage / Temperature Analysis"} compact={isCompactCanvas} >
+      <div className={`relative grid h-full min-h-0 ${isCompactCanvas ? "grid-cols-[1.04fr_1.26fr] gap-2" : "grid-cols-[0.94fr_1.36fr] gap-2.5"}`}>
+        <div className={`grid min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1.4fr)] ${isCompactCanvas ? "gap-1.5" : "gap-2"}`}>
+          <NeonSection title={zh ? "电压/温差分析" : "Voltage / Temperature Analysis"} compact={isCompactCanvas} bare className="px-1.5 py-1">
             <div className={`grid h-full min-h-0 grid-cols-3 ${isCompactCanvas ? "gap-1" : "gap-1.5"}`}>
               <InnerFrame title={zh ? "电压最高 TOP3" : "Highest Voltage TOP3"} accent="#ffc970" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topHighVoltage.map((item) => <RankingItem key={`high-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageMax.toFixed(2)}V`} extra={item.voltageMaxAt} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
               <InnerFrame title={zh ? "电压最低 TOP3" : "Lowest Voltage TOP3"} accent="#86e8ff" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topLowVoltage.map((item) => <RankingItem key={`low-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageMin.toFixed(2)}V`} extra={item.voltageMinAt} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
@@ -1180,8 +1179,8 @@ export function CellHistoryReplayPanel({
         </div>
 
         <div className="h-full min-h-0">
-          <NeonSection title={zh ? "电压/温度趋势" : "Voltage / Temperature Trend"} className="h-full">
-            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] px-2 py-1.5 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
+          <NeonSection title={zh ? "电压/温度趋势" : "Voltage / Temperature Trend"} className="h-full px-1.5 py-1" bare>
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
               <div className="mb-1 flex shrink-0 items-center justify-end gap-4 pr-1">
                 <div className="text-[10px] text-[#7fa4be]">{zh ? "" : "Legend"}</div>
                 <div className="flex items-center gap-4">
@@ -1338,3 +1337,5 @@ export function CellHistoryReplayPanel({
     </div>
   )
 }
+
+
