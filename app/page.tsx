@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { Battery, Calendar, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { CellHeatmapOverviewPanel } from "@/components/dashboard/cell-heatmap-overview-panel"
-import { CellHistoryReplayPanel, type CellHistoryOverviewStats } from "@/components/dashboard/cell-history-replay-panel"
+import { CellHistoryMultiPicker, CellHistoryReplayPanel, type CellHistoryOverviewStats } from "@/components/dashboard/cell-history-replay-panel"
 import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysis"
 import { ChargeDischargeTable } from "@/components/dashboard/charge-discharge-table"
 import { CellMatrixPanel } from "@/components/dashboard/cell-matrix-panel"
@@ -31,6 +31,7 @@ type DashboardTab =
 
 type BcuMode = "realtime" | "history"
 type AnalysisRange = 7 | 15 | 30
+type CellHistoryViewMode = "overview" | "detail"
 
 const formatDateInputValue = (date: Date) => {
   const year = date.getFullYear()
@@ -61,7 +62,9 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const today = formatDateInputValue(new Date())
   const [historyDate, setHistoryDate] = useState(today)
   const [cellHistoryDate, setCellHistoryDate] = useState(today)
+  const [cellHistoryViewMode, setCellHistoryViewMode] = useState<CellHistoryViewMode>("overview")
   const [selectedHistoryCell, setSelectedHistoryCell] = useState<number | null>(null)
+  const [selectedHistoryCells, setSelectedHistoryCells] = useState<number[]>([1])
   const [cellHistoryStats, setCellHistoryStats] = useState<CellHistoryOverviewStats | null>(null)
   const { language } = useLanguage()
   const { selectedProject } = useProject()
@@ -215,12 +218,12 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         {activeTab === "cell-history" && (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
             <div
-              className="relative flex shrink-0 items-center gap-3 overflow-hidden border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
+              className="relative flex shrink-0 flex-wrap items-center gap-2 overflow-hidden border border-[#22d3ee]/20 bg-[#020810] px-3 py-1.5"
               style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 100%, 0 100%)" }}
             >
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
               {/* Overview stat chips */}
-              {cellHistoryStats && (
+              {cellHistoryViewMode === "overview" && cellHistoryStats && (
                 <div className="flex items-center gap-2">
                   {[
                     { labelZh: "最高电压", labelEn: "Max V",    value: `${cellHistoryStats.maxVoltage.toFixed(2)}V`,  cell: cellHistoryStats.maxVoltageCell, color: "text-[#aef8ff]" },
@@ -240,14 +243,78 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                 </div>
               )}
               {/* Date picker right-aligned */}
-              <div className="ml-auto">
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                {cellHistoryViewMode === "detail" && (
+                  <CellHistoryMultiPicker value={selectedHistoryCells} onChange={setSelectedHistoryCells} />
+                )}
                 <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={today} />
+                <div className="flex h-9 items-center gap-1 rounded-[14px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[3px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]">
+                  {([
+                    {
+                      key: "overview",
+                      labelZh: "总览",
+                      labelEn: "Overview",
+                      icon: (
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="4" y="4" width="6" height="6" rx="1.2" />
+                          <rect x="14" y="4" width="6" height="6" rx="1.2" />
+                          <rect x="4" y="14" width="6" height="6" rx="1.2" />
+                          <rect x="14" y="14" width="6" height="6" rx="1.2" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      key: "detail",
+                      labelZh: "明细",
+                      labelEn: "Detail",
+                      icon: (
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M5 18V9" />
+                          <path d="M10 18V6" />
+                          <path d="M15 18v-4" />
+                          <path d="M20 18V11" />
+                          <path d="M4 18h17" />
+                        </svg>
+                      ),
+                    },
+                  ] as { key: CellHistoryViewMode; labelZh: string; labelEn: string; icon: ReactNode }[]).map((item) => {
+                    const active = cellHistoryViewMode === item.key
+
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => {
+                          setCellHistoryViewMode(item.key)
+                          if (item.key === "detail" && selectedHistoryCell != null) {
+                            setSelectedHistoryCells((current) =>
+                              current.includes(selectedHistoryCell)
+                                ? current
+                                : [...current.slice(0, 2), selectedHistoryCell].slice(-3).sort((a, b) => a - b)
+                            )
+                          }
+                        }}
+                        aria-label={zh ? item.labelZh : item.labelEn}
+                        title={zh ? item.labelZh : item.labelEn}
+                        className={`flex h-[30px] w-[30px] items-center justify-center rounded-[9px] text-[12px] font-medium transition-all ${
+                          active
+                            ? "border border-[#45f1d0]/45 bg-[linear-gradient(180deg,rgba(20,221,190,0.94),rgba(7,193,164,0.88))] text-[#04241c] shadow-[0_0_10px_rgba(34,211,238,0.18)]"
+                            : "border border-transparent bg-transparent text-[#6d90ad] hover:border-[#22d3ee]/22 hover:text-[#d5efff]"
+                        }`}
+                      >
+                        <span className={active ? "scale-100" : "scale-[0.95]"}>{item.icon}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
             <div className="min-h-0 flex-1 overflow-hidden">
               <CellHistoryReplayPanel
                 date={cellHistoryDate}
                 selectedCell={selectedHistoryCell}
+                detailCells={selectedHistoryCells}
+                viewMode={cellHistoryViewMode}
                 onSelectedCellChange={setSelectedHistoryCell}
                 onOverviewStats={setCellHistoryStats}
               />

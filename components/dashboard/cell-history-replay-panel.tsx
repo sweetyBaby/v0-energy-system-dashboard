@@ -1,7 +1,7 @@
 ﻿"use client"
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { AlertTriangle, Check, ChevronsUpDown, Thermometer, TrendingDown, TrendingUp } from "lucide-react"
+import { Check, ChevronsUpDown } from "lucide-react"
 import { CartesianGrid, Customized, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { useLanguage } from "@/components/language-provider"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
@@ -56,6 +56,8 @@ type FleetCurvePoint = {
 } & Record<string, string | number | null>
 
 type TemperatureChannelKey = "t1" | "t2" | "t3"
+type DetailMetricKey = "voltage" | "t1" | "t2" | "t3"
+type DetailReplayPoint = { time: string } & Record<string, string | number>
 
 type ChannelAlert = {
   cell: number
@@ -224,6 +226,8 @@ function NeonSection({
   title,
   subtitle,
   badge,
+  headerExtra,
+  showHeaderRule = true,
   inlineSubtitle = false,
   compact = false,
   className = "",
@@ -232,6 +236,8 @@ function NeonSection({
   title: string
   subtitle?: string
   badge?: string
+  headerExtra?: ReactNode
+  showHeaderRule?: boolean
   inlineSubtitle?: boolean
   compact?: boolean
   className?: string
@@ -243,7 +249,9 @@ function NeonSection({
     >
       <div className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#8feaff]/[0.05]" />
       <div className="pointer-events-none absolute left-3 top-3 h-5 w-[2px] rounded-full bg-[#3fe7ff]/90 shadow-[0_0_12px_rgba(63,231,255,0.85)]" />
-      <div className="pointer-events-none absolute inset-x-4 top-[50px] h-px bg-gradient-to-r from-[#274f78]/70 via-[#78dfff]/45 to-transparent" />
+      {showHeaderRule ? (
+        <div className="pointer-events-none absolute inset-x-4 top-[50px] h-px bg-gradient-to-r from-[#274f78]/70 via-[#78dfff]/45 to-transparent" />
+      ) : null}
       <div className={`relative flex ${inlineSubtitle ? "items-center" : "items-start"} justify-between gap-3 ${compact ? "pl-2.5" : "pl-3"} ${inlineSubtitle ? (compact ? "mb-1.5" : "mb-2") : (compact ? "mb-2" : "mb-3")}`}>
         <div className={inlineSubtitle ? "flex items-center gap-3" : ""}>
           <div className={`${compact ? "text-[0.9rem]" : "text-[0.98rem]"} font-semibold tracking-[0.08em] text-[#8ceeff]`}>{title}</div>
@@ -251,11 +259,14 @@ function NeonSection({
             <div className={inlineSubtitle ? `text-[10px] leading-none ${mutedText}` : `mt-1 text-[10px] leading-4 ${mutedText}`}>{subtitle}</div>
           ) : null}
         </div>
-        {badge ? (
-          <div className="rounded-[10px] border border-[#29547f] bg-[linear-gradient(180deg,rgba(12,28,60,0.95),rgba(8,19,42,0.96))] px-2.5 py-1 text-[10px] text-[#c0eeff] shadow-[inset_0_0_12px_rgba(63,231,255,0.06)]">
-            {badge}
-          </div>
-        ) : null}
+        <div className="flex items-center gap-3">
+          {headerExtra}
+          {badge ? (
+            <div className="rounded-[10px] border border-[#29547f] bg-[linear-gradient(180deg,rgba(12,28,60,0.95),rgba(8,19,42,0.96))] px-2.5 py-1 text-[10px] text-[#c0eeff] shadow-[inset_0_0_12px_rgba(63,231,255,0.06)]">
+              {badge}
+            </div>
+          ) : null}
+        </div>
       </div>
       <div className={`relative min-h-0 flex-1 ${compact ? "pl-2.5" : "pl-3"}`}>{children}</div>
     </section>
@@ -502,6 +513,170 @@ export function CellHistoryCellPicker({ value, onChange }: { value: number | nul
   )
 }
 
+export function CellHistoryMultiPicker({
+  value,
+  onChange,
+  maxSelection = 3,
+}: {
+  value: number[]
+  onChange: (value: number[]) => void
+  maxSelection?: number
+}) {
+  const { language } = useLanguage()
+  const zh = language === "zh"
+  const [open, setOpen] = useState(false)
+  const limitReached = value.length >= maxSelection
+  const label =
+    value.length > 0
+      ? `${zh ? "电芯" : "Cells"} ${value.join(", ")}`
+      : zh
+        ? "选择电芯"
+        : "Select Cells"
+
+  const handleToggleCell = (cell: number) => {
+    if (value.includes(cell)) {
+      onChange(value.filter((item) => item !== cell))
+      return
+    }
+
+    if (!limitReached) {
+      onChange([...value, cell].sort((a, b) => a - b))
+    }
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="flex h-9 min-w-[220px] items-center justify-between gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3 text-xs text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="font-medium">{label}</span>
+            <span className="rounded-full border border-[#2f568a] bg-[#0b1735] px-1.5 py-0.5 text-[10px] text-[#8feaff]">
+              {value.length}/{maxSelection}
+            </span>
+          </div>
+          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-[#7b8ab8]" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="z-50 w-[260px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]">
+        <Command className="bg-[#0d1233] text-[#e8f4fc]">
+          <CommandInput placeholder={zh ? "搜索电芯..." : "Search cells..."} className="text-[#e8f4fc] placeholder:text-[#5f79ad]" />
+          <CommandList>
+            <CommandEmpty>{zh ? "未找到电芯" : "No cell found"}</CommandEmpty>
+            <CommandGroup>
+              {Array.from({ length: CELL_COUNT }, (_, index) => {
+                const cell = index + 1
+                const selected = value.includes(cell)
+                const disabled = !selected && limitReached
+
+                return (
+                  <CommandItem
+                    key={cell}
+                    value={`cell ${cell}`}
+                    onSelect={() => handleToggleCell(cell)}
+                    className={`text-[#dcefff] ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
+                  >
+                    <Check className={`h-4 w-4 ${selected ? "opacity-100 text-[#1bd9c5]" : "opacity-0"}`} />
+                    <span className="flex-1">{zh ? `电芯 ${cell}` : `Cell ${cell}`}</span>
+                    {disabled ? (
+                      <span className="text-[10px] text-[#6f8cb1]">{zh ? "已满" : "Max"}</span>
+                    ) : null}
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+          </CommandList>
+          <div className="border-t border-[#1a2654] px-3 py-2 text-[10px] text-[#6f8cb1]">
+            {zh ? `最多选择 ${maxSelection} 个电芯` : `Up to ${maxSelection} cells`}
+          </div>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function DetailReplayTooltip({
+  active,
+  label,
+  payload,
+  zh,
+}: {
+  active?: boolean
+  label?: string
+  payload?: Array<{ dataKey?: string; value?: number | string; color?: string }>
+  zh: boolean
+}) {
+  if (!active || !payload?.length) return null
+
+  type DetailTooltipMetric = {
+    label: string
+    unit: string
+    digits: number
+    order: number
+  }
+
+  type DetailTooltipRow = {
+    key: string
+    value: number
+    color: string
+    metric: DetailTooltipMetric
+  }
+
+  const metricMeta: Record<"v" | "t1" | "t2" | "t3", DetailTooltipMetric> = {
+    v: { label: zh ? "电压" : "Voltage", unit: "V", digits: 3, order: 0 },
+    t1: { label: "T1", unit: "°C", digits: 1, order: 1 },
+    t2: { label: "T2", unit: "°C", digits: 1, order: 2 },
+    t3: { label: "T3", unit: "°C", digits: 1, order: 3 },
+  }
+
+  const rows: DetailTooltipRow[] = []
+  const seenMetrics = new Set<number>()
+
+  payload.forEach((item) => {
+    const key = String(item.dataKey ?? "")
+    const value = typeof item.value === "number" ? item.value : Number(item.value)
+    let metricKey: "v" | "t1" | "t2" | "t3" | null = null
+
+    if (key.startsWith("v")) metricKey = "v"
+    else if (key.startsWith("t1_")) metricKey = "t1"
+    else if (key.startsWith("t2_")) metricKey = "t2"
+    else if (key.startsWith("t3_")) metricKey = "t3"
+
+    if (!metricKey || Number.isNaN(value)) return
+
+    const metric = metricMeta[metricKey]
+    if (seenMetrics.has(metric.order)) return
+
+    seenMetrics.add(metric.order)
+    rows.push({
+      key,
+      value,
+      color: item.color ?? "#bfe8ff",
+      metric,
+    })
+  })
+
+  rows.sort((a, b) => a.metric.order - b.metric.order)
+
+  if (!rows.length) return null
+
+  return (
+    <div className="rounded-[12px] border border-[#29547f] bg-[rgba(7,17,36,0.96)] px-3 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.28)]">
+      <div className="mb-1 text-[10px] font-semibold text-[#dffbff]">{label}</div>
+      <div className="space-y-1">
+        {rows.map((item) => (
+          <div key={item.key} className="flex items-center justify-between gap-3 text-[10px]">
+            <div className="flex items-center gap-2 text-[#bfe8ff]">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+              <span>{item.metric.label}</span>
+            </div>
+            <span className="font-mono text-[#fff1b3]">{`${item.value.toFixed(item.metric.digits)}${item.metric.unit}`}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export type CellHistoryOverviewStats = {
   maxVoltage: number
   maxVoltageCell: number | null
@@ -515,11 +690,31 @@ export type CellHistoryOverviewStats = {
   tempDelta: number
 }
 
-export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChange, onOverviewStats }: { date: string; selectedCell: number | null; onSelectedCellChange?: (cell: number | null) => void; onOverviewStats?: (stats: CellHistoryOverviewStats) => void }) {
+export function CellHistoryReplayPanel({
+  date,
+  selectedCell,
+  detailCells = [],
+  viewMode = "overview",
+  onSelectedCellChange,
+  onOverviewStats,
+}: {
+  date: string
+  selectedCell: number | null
+  detailCells?: number[]
+  viewMode?: "overview" | "detail"
+  onSelectedCellChange?: (cell: number | null) => void
+  onOverviewStats?: (stats: CellHistoryOverviewStats) => void
+}) {
   const { language } = useLanguage()
   const zh = language === "zh"
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [availableSize, setAvailableSize] = useState({ width: 0, height: 0 })
+  const [detailVisibleMetrics, setDetailVisibleMetrics] = useState<Record<DetailMetricKey, boolean>>({
+    voltage: true,
+    t1: true,
+    t2: true,
+    t3: true,
+  })
 
   const historyData = useMemo(() => createHistoryData(date), [date])
   const overviewData = useMemo(() => buildOverview(historyData), [historyData])
@@ -716,6 +911,253 @@ export function CellHistoryReplayPanel({ date, selectedCell, onSelectedCellChang
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
+
+  const effectiveDetailCells = useMemo(() => {
+    const limitedCells = detailCells.slice(0, 3)
+    if (limitedCells.length > 0) return limitedCells
+    if (selectedCell != null) return [selectedCell]
+    return [1]
+  }, [detailCells, selectedCell])
+
+  const detailSeries = useMemo(
+    () =>
+      effectiveDetailCells.map((cell, index) => ({
+        cell,
+        color: ["#49e6ff", "#ffd36b", "#9bffb0"][index % 3],
+        voltageKey: `v${cell}`,
+        temp1Key: `t1_${cell}`,
+        temp2Key: `t2_${cell}`,
+        temp3Key: `t3_${cell}`,
+      })),
+    [effectiveDetailCells]
+  )
+
+  const detailReplayData = useMemo(
+    () =>
+      extendTrendToDayEnd(
+        historyData.map((point) => {
+          const row: DetailReplayPoint = { time: toTrendTimeLabel(point.time) }
+          detailSeries.forEach((series) => {
+            row[series.voltageKey] = point[series.voltageKey as keyof HistoryPoint] as number
+            row[series.temp1Key] = point[series.temp1Key as keyof HistoryPoint] as number
+            row[series.temp2Key] = point[series.temp2Key as keyof HistoryPoint] as number
+            row[series.temp3Key] = point[series.temp3Key as keyof HistoryPoint] as number
+          })
+          return row
+        })
+      ),
+    [historyData, detailSeries]
+  )
+
+  const detailCellSummaries = useMemo(() => {
+    return detailSeries.map((series) => {
+      const metrics = cellMetrics.find((item) => item.cell === series.cell)
+      return {
+        cell: series.cell,
+        color: series.color,
+        voltageMax: metrics?.voltageMax ?? 0,
+        voltageMin: metrics?.voltageMin ?? 0,
+        voltageSpread: metrics?.voltageSpread ?? 0,
+        tempMax: metrics?.tempMax ?? 0,
+        tempMin: metrics?.tempMin ?? 0,
+        tempSpread: metrics?.tempSpread ?? 0,
+      }
+    })
+  }, [cellMetrics, detailSeries])
+
+  const detailTickStep = isTightCanvas ? 24 : isCompactCanvas ? 16 : 12
+  const detailXAxisTicks = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          detailReplayData
+            .map((item, index) => ({ time: String(item.time), index }))
+            .filter(({ index }) => index === 0 || index === detailReplayData.length - 1 || index % detailTickStep === 0)
+            .map(({ time }) => time)
+        )
+      ),
+    [detailReplayData, detailTickStep]
+  )
+
+  if (viewMode === "detail") {
+    const detailMetricLegend = [
+      { key: "voltage", label: zh ? "电压" : "Voltage", color: "#49e6ff" },
+      { key: "t1", label: "T1", color: "#ffd36b" },
+      { key: "t2", label: "T2", color: "#ff9f5f" },
+      { key: "t3", label: "T3", color: "#ff6b88" },
+    ] as const satisfies Array<{ key: DetailMetricKey; label: string; color: string }>
+
+    const handleToggleDetailMetric = (metricKey: DetailMetricKey) => {
+      const visibleCount = Object.values(detailVisibleMetrics).filter(Boolean).length
+      if (detailVisibleMetrics[metricKey] && visibleCount <= 1) return
+
+      setDetailVisibleMetrics((current) => ({
+        ...current,
+        [metricKey]: !current[metricKey],
+      }))
+    }
+
+    return (
+      <div ref={containerRef} className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#1a3556] bg-[linear-gradient(180deg,#071124,#050c1d)] p-3">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_16%,rgba(67,176,255,0.12),transparent_26%),radial-gradient(circle_at_82%_18%,rgba(255,186,97,0.08),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(60,132,255,0.08),transparent_30%)]" />
+        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#8feaff]/55 to-transparent" />
+
+        <div className="relative h-full min-h-0">
+          <NeonSection
+            title={zh ? "电芯明细" : "Cell Detail"}
+            className="h-full"
+            showHeaderRule={false}
+            headerExtra={
+              <div className="flex items-center gap-4">
+                {detailMetricLegend.map((item) => (
+                  <button
+                    key={`detail-legend-${item.key}`}
+                    type="button"
+                    onClick={() => handleToggleDetailMetric(item.key)}
+                    className={`flex items-center gap-1.5 text-[10px] transition-all ${
+                      detailVisibleMetrics[item.key] ? "text-[#96bdd4]" : "text-[#547084]"
+                    }`}
+                  >
+                    <span className="block h-[2px] w-4" style={{ backgroundColor: item.color, boxShadow: detailVisibleMetrics[item.key] ? `0 0 8px ${item.color}` : "none", opacity: detailVisibleMetrics[item.key] ? 1 : 0.4 }} />
+                    <span className={detailVisibleMetrics[item.key] ? "" : "line-through"}>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            }
+          >
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+              <div
+                className="grid min-h-0 flex-1 gap-2.5"
+                style={{ gridTemplateRows: `repeat(${detailCellSummaries.length}, minmax(0, 1fr))` }}
+              >
+                {detailCellSummaries.map((cell, index) => {
+                  const isLast = index === detailCellSummaries.length - 1
+                  const series = detailSeries.find((item) => item.cell === cell.cell)
+                  if (!series) return null
+
+                  return (
+                    <div
+                      key={`detail-chart-${cell.cell}`}
+                      className="flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))] px-1.5 pb-1.5"
+                    >
+                      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#214260]/90 px-3 py-2">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                          {[
+                            { label: zh ? "最高电压" : "Max V", value: `${cell.voltageMax.toFixed(2)}V`, color: "text-[#aef8ff]" },
+                            { label: zh ? "最低电压" : "Min V", value: `${cell.voltageMin.toFixed(2)}V`, color: "text-[#aef8ff]" },
+                            { label: zh ? "最大ΔV" : "Max ΔV", value: `${cell.voltageSpread.toFixed(2)}V`, color: "text-[#ffd892]" },
+                            { label: zh ? "最高温度" : "Max T", value: `${cell.tempMax.toFixed(1)}°C`, color: "text-[#aef8ff]" },
+                            { label: zh ? "最低温度" : "Min T", value: `${cell.tempMin.toFixed(1)}°C`, color: "text-[#aef8ff]" },
+                            { label: zh ? "最大ΔT" : "Max ΔT", value: `${cell.tempSpread.toFixed(1)}°C`, color: "text-[#ffd892]" },
+                          ].map((item) => (
+                            <div
+                              key={`${cell.cell}-${item.label}`}
+                              className="flex items-center gap-1.5 rounded-[8px] border border-[#22d3ee]/18 bg-[rgba(13,31,58,0.5)] px-2.5 py-1"
+                            >
+                              <span className="text-[11px] font-medium text-[#4a7090]">{item.label}</span>
+                              <span className={`text-[12px] font-bold tabular-nums ${item.color}`}>{item.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2 px-1 py-1">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: cell.color, boxShadow: `0 0 10px ${cell.color}` }} />
+                          <div className="text-[0.95rem] font-semibold tracking-[0.05em] text-[#eefbff]">{zh ? `电芯 #${cell.cell}` : `Cell #${cell.cell}`}</div>
+                        </div>
+                      </div>
+                      <div className="min-h-0 flex-1">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={detailReplayData} syncId="cell-history-detail-replay" syncMethod="value" margin={{ top: 12, right: 14, left: 0, bottom: isLast ? 6 : 0 }}>
+                            <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
+                            <XAxis
+                              dataKey="time"
+                              tick={isLast ? { fill: "#88a8be", fontSize: 9 } : false}
+                              axisLine={false}
+                              tickLine={false}
+                              ticks={isLast ? detailXAxisTicks : undefined}
+                              interval={isLast ? 0 : trendXAxisInterval}
+                              height={isLast ? 22 : 0}
+                            />
+                            <YAxis
+                              yAxisId="voltage"
+                              tick={{ fill: "#88a8be", fontSize: 9 }}
+                              axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
+                              tickLine={false}
+                              tickFormatter={(value) => `${Number(value).toFixed(2)}V`}
+                              domain={["dataMin - 0.2", "dataMax + 0.2"]}
+                              width={54}
+                            />
+                            <YAxis
+                              yAxisId="temp"
+                              orientation="right"
+                              tick={{ fill: "#88a8be", fontSize: 9 }}
+                              axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
+                              tickLine={false}
+                              tickFormatter={(value) => `${Number(value).toFixed(0)}°C`}
+                              domain={["dataMin - 1", "dataMax + 1"]}
+                              width={54}
+                            />
+                            <Tooltip content={<DetailReplayTooltip zh={zh} />} />
+                            {detailVisibleMetrics.voltage && (
+                              <Line
+                                yAxisId="voltage"
+                                type="monotone"
+                                dataKey={series.voltageKey}
+                                stroke="#49e6ff"
+                                strokeWidth={2}
+                                dot={false}
+                                activeDot={{ r: 4, fill: "#49e6ff", stroke: "#f8fbff", strokeWidth: 1.2 }}
+                                isAnimationActive={false}
+                              />
+                            )}
+                            {detailVisibleMetrics.t1 && (
+                              <Line
+                                yAxisId="temp"
+                                type="monotone"
+                                dataKey={series.temp1Key}
+                                stroke="#ffd36b"
+                                strokeWidth={1.9}
+                                dot={false}
+                                activeDot={{ r: 4, fill: "#ffd36b", stroke: "#f8fbff", strokeWidth: 1.2 }}
+                                isAnimationActive={false}
+                              />
+                            )}
+                            {detailVisibleMetrics.t2 && (
+                              <Line
+                                yAxisId="temp"
+                                type="monotone"
+                                dataKey={series.temp2Key}
+                                stroke="#ff9f5f"
+                                strokeWidth={1.9}
+                                dot={false}
+                                activeDot={{ r: 4, fill: "#ff9f5f", stroke: "#f8fbff", strokeWidth: 1.2 }}
+                                isAnimationActive={false}
+                              />
+                            )}
+                            {detailVisibleMetrics.t3 && (
+                              <Line
+                                yAxisId="temp"
+                                type="monotone"
+                                dataKey={series.temp3Key}
+                                stroke="#ff6b88"
+                                strokeWidth={1.9}
+                                dot={false}
+                                activeDot={{ r: 4, fill: "#ff6b88", stroke: "#f8fbff", strokeWidth: 1.2 }}
+                                isAnimationActive={false}
+                              />
+                            )}
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </NeonSection>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div ref={containerRef} className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#1a3556] bg-[linear-gradient(180deg,#071124,#050c1d)] p-3">

@@ -62,7 +62,7 @@ export function HistoryDatePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3 py-1.5 text-xs text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60">
+        <button className="flex h-9 items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3 text-xs text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60">
           <CalendarDays className="h-3.5 w-3.5 text-[#8db7ff]" />
           <span className="font-medium">{formatted}</span>
           <ChevronDown className="h-3.5 w-3.5 text-[#7b8ab8]" />
