@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { BatteryCharging, BatteryMedium, Gauge, Zap } from "lucide-react"
+import { BatteryCharging, BatteryMedium, Gauge } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 type DetailItem = {
@@ -309,12 +309,6 @@ export function ChargeDischargeTable() {
 
         {/* 右下: 今日充电量 */}
         <HeroStatCard card={heroCards[1]} zh={zh} />
-      </div>
-
-      {/* LIVE badge */}
-      <div className="pointer-events-none absolute right-3 top-2.5 rounded-full bg-[#6df4ff]/65 px-1.5 py-[2px] text-[8px] font-semibold tracking-[0.18em] text-[#062441] shadow-[0_0_14px_rgba(109,244,255,0.45)]">
-        <Zap className="mr-0.5 inline h-2 w-2" />
-        LIVE
       </div>
     </div>
   )
