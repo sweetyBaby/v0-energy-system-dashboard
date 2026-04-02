@@ -79,7 +79,7 @@ const buildHist=(cid:number):Hist[]=>{
 
 const TS={backgroundColor:"#0d1233",border:"1px solid #1a2654",borderRadius:"6px",fontSize:10}
 
-// 鈹€鈹€鈹€ Heatmap grid 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// Heatmap grid
 function HeatGrid({mode,cellMap,vs,sel,onClk}:{
   mode:"voltage"|"temperature"; cellMap:Record<number,Cell>
   vs:{min:number;max:number;avg:number}; sel:number|null; onClk:(id:number)=>void
@@ -120,7 +120,7 @@ function HeatGrid({mode,cellMap,vs,sel,onClk}:{
   )
 }
 
-// 鈹€鈹€鈹€ Main panel 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// Main panel
 export function CellMatrixPanel(){
   const{language}=useLanguage()
   const[sel,setSel]=useState<number|null>(null)
@@ -159,7 +159,7 @@ export function CellMatrixPanel(){
   return(
     <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-3">
 
-      {/* 鈹€鈹€ Main row: 4 columns 鈹€鈹€ */}
+      {/* Main row: 4 columns */}
       <div className="flex min-h-0 flex-1 gap-3">
 
         {/* 1. Voltage heatmap */}
@@ -268,7 +268,7 @@ export function CellMatrixPanel(){
       </div>
 
 
-{/* 鈹€鈹€ Cell detail modal 鈹€鈹€ */}
+{/* Cell detail modal */}
       {sel!==null&&(
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#0a0e27]/70 backdrop-blur-sm"
           onClick={e=>{if(e.target===e.currentTarget)setSel(null)}}>

@@ -6,6 +6,7 @@ import {
   CartesianGrid,
   ComposedChart,
   Legend,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -137,6 +138,8 @@ export function ComprehensiveEfficiencyPanel({
     dischargeCapacity: language === "zh" ? "放电容量 (Ah)" : "Discharge Capacity (Ah)",
     chargeEnergy: language === "zh" ? "充电电量 (kWh)" : "Charge Energy (kWh)",
     dischargeEnergy: language === "zh" ? "放电电量 (kWh)" : "Discharge Energy (kWh)",
+    capacityEfficiency: language === "zh" ? "容量效率 (%)" : "Capacity Efficiency (%)",
+    energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
   }
 
   const tableHeaders = {
@@ -145,6 +148,8 @@ export function ComprehensiveEfficiencyPanel({
     dischargeCapacity: language === "zh" ? "放容(Ah)" : "Dis Cap",
     chargeEnergy: language === "zh" ? "充电(kWh)" : "Chg kWh",
     dischargeEnergy: language === "zh" ? "放电(kWh)" : "Dis kWh",
+    capacityEfficiency: language === "zh" ? "容量效率" : "Cap Eff",
+    energyEfficiency: language === "zh" ? "能量效率" : "Energy Eff",
   }
 
   const wrapperClassName = compact
@@ -231,6 +236,15 @@ export function ComprehensiveEfficiencyPanel({
                 tickLine={false}
                 tick={{ fill: "#7b8ab8", fontSize: 10 }}
               />
+              <YAxis
+                yAxisId="efficiency"
+                orientation="right"
+                domain={[89, 98]}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: "#7b8ab8", fontSize: 10 }}
+                tickFormatter={(value: number) => `${value}%`}
+              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "#0d1233",
@@ -239,7 +253,11 @@ export function ComprehensiveEfficiencyPanel({
                 }}
                 labelStyle={{ color: "#7b8ab8" }}
                 formatter={(value: number, name: string) => {
-                  const unit = name.includes("Capacity") || name.includes("容量") ? "Ah" : "kWh"
+                  const unit = name.includes("Efficiency")
+                    ? "%"
+                    : name.includes("Capacity")
+                      ? "Ah"
+                      : "kWh"
                   return [`${value.toFixed(1)} ${unit}`, name]
                 }}
               />
@@ -279,6 +297,26 @@ export function ComprehensiveEfficiencyPanel({
                 radius={[4, 4, 0, 0]}
                 barSize={10}
               />
+              <Line
+                yAxisId="efficiency"
+                type="monotone"
+                dataKey="capacityEfficiency"
+                name={legendText.capacityEfficiency}
+                stroke="#ffd60a"
+                strokeWidth={2.5}
+                dot={{ r: 4, fill: "#0d1233", stroke: "#ffd60a", strokeWidth: 3 }}
+                activeDot={{ r: 5 }}
+              />
+              <Line
+                yAxisId="efficiency"
+                type="monotone"
+                dataKey="energyEfficiency"
+                name={legendText.energyEfficiency}
+                stroke="#4ade80"
+                strokeWidth={2.5}
+                dot={{ r: 4, fill: "#0d1233", stroke: "#4ade80", strokeWidth: 3 }}
+                activeDot={{ r: 5 }}
+              />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -286,11 +324,13 @@ export function ComprehensiveEfficiencyPanel({
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-[#1a2654]/80 bg-[#0d1433]/90 [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]">
           <table className="w-full table-fixed text-[12px]">
             <colgroup>
-              <col className="w-[14%]" />
-              <col className="w-[22%]" />
-              <col className="w-[22%]" />
-              <col className="w-[21%]" />
-              <col className="w-[21%]" />
+              <col className="w-[12%]" />
+              <col className="w-[16%]" />
+              <col className="w-[16%]" />
+              <col className="w-[16%]" />
+              <col className="w-[16%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
             </colgroup>
             <thead className="sticky top-0 z-10 bg-[#121a40]">
               <tr className="border-b border-[#1a2654] text-[#7b8ab8]">
@@ -299,6 +339,8 @@ export function ComprehensiveEfficiencyPanel({
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.dischargeCapacity}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.chargeEnergy}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.dischargeEnergy}</th>
+                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.capacityEfficiency}</th>
+                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.energyEfficiency}</th>
               </tr>
             </thead>
             <tbody>
@@ -309,6 +351,8 @@ export function ComprehensiveEfficiencyPanel({
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.dischargeCapacity.toFixed(1)}</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.chargeEnergy.toFixed(1)}</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.dischargeEnergy.toFixed(1)}</td>
+                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#ffd60a]">{item.capacityEfficiency.toFixed(1)}%</td>
+                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#4ade80]">{item.energyEfficiency.toFixed(1)}%</td>
                 </tr>
               ))}
             </tbody>

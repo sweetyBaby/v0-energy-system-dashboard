@@ -73,7 +73,7 @@ const seededSigned = (seed: number, index: number) => {
   return (x - Math.floor(x)) * 2 - 1
 }
 
-// 鈹€鈹€ 瀹炴椂鏁版嵁鐢熸垚 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// 实时数据生成
 const getRealtimeTargets = (at: Date) => {
   const daySeed = hashSeed(formatDateKey(at))
   const seconds = at.getHours() * 3600 + at.getMinutes() * 60 + at.getSeconds()
@@ -168,7 +168,7 @@ const initRtOverview = (): RtPoint[] => {
   return pts
 }
 
-// 鈹€鈹€ 鍘嗗彶鏁版嵁鐢熸垚锛?鍒嗛挓闂撮殧锛?88鐐?澶╋級 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// 历史数据生成，5分钟间隔，288个点（1天）
 const getDailyLoadFactor = (hour: number) => {
   if (hour < 5.5)  return 0.12 + hour * 0.018
   if (hour < 8.5)  return 0.21 + ((hour - 5.5) / 3) * 0.42
@@ -198,7 +198,7 @@ const createHistorySeries = (date?: string): MergedHistPoint[] => {
     const avgTemp  = ambient + 2.2 + load * 5.2 + Math.sin((hour / 24) * Math.PI * 3) * 0.3
     const spread   = 1.8 + load * 2 + Math.abs(seededSigned(seed, slot + 80)) * 0.4
 
-    // 鍗曚綋鐢靛帇
+    // 单体电压
     const baseCell    = 25.8 + soc * 0.028
     const chargeBoost = (hour >= 6 && hour < 8.5) ? 0.75 : 0
     const dischSag    = (hour >= 8.5 && hour < 18.5) ? load * 1.85 : load * 0.65
@@ -234,7 +234,7 @@ const createHistorySeries = (date?: string): MergedHistPoint[] => {
   return merged
 }
 
-// 鈹€鈹€ 鍘嗗彶鍏变韩鏃堕棿杞村爢鍙犲浘锛?琛岋級 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// 历史共享时间轴堆叠图（4行）
 const HIST_X_TICK = (props: { x: number; y: number; payload: { value: string } }) => {
   const mn = parseInt((props.payload.value).split(":")[1] ?? "1")
   if (mn !== 0) return <g />
