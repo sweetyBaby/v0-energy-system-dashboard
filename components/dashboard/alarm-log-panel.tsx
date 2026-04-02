@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { BarChart2, Filter, List } from "lucide-react"
+import { BarChart2, ChevronDown, Filter, List } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 // ── 等级定义 ──────────────────────────────────────────────────────────────────
@@ -153,6 +153,9 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 type LevelFilter = "all" | "lv45" | "lv3" | "lv12"
+type GroupFilter = "all" | keyof typeof GRP_LABEL
+
+const GROUP_FILTERS: GroupFilter[] = ["all", "cell", "temp", "current", "soc", "comms", "pack", "other"]
 
 // ── 从 AlarmEntry[] 派生甘特事件（统一数据源）────────────────────────────────
 type TimelineEvent = { nameZh: string; nameEn: string; start: number; end: number; lv: number }
@@ -604,6 +607,7 @@ export function AlarmLogPanel({
 
   const [viewMode,    setViewMode]    = useState<"gantt" | "table">("gantt")
   const [levelFilter, setLevelFilter] = useState<LevelFilter>("all")
+  const [groupFilter, setGroupFilter] = useState<GroupFilter>("all")
 
   // ── 实时告警状态（动态更新） ────────────────────────────────────────────────
   const [liveAlarms, setLiveAlarms] = useState<AlarmEntry[]>(() =>
@@ -652,12 +656,17 @@ export function AlarmLogPanel({
     return b.time.localeCompare(a.time)
   })
 
-  const displayed = sorted.filter(a =>
-    levelFilter === "all"
-    || (levelFilter === "lv45" && a.lv >= 4)
-    || (levelFilter === "lv3"  && a.lv === 3)
-    || (levelFilter === "lv12" && a.lv <= 2)
-  )
+  const displayed = sorted.filter(a => {
+    const levelMatched =
+      levelFilter === "all"
+      || (levelFilter === "lv45" && a.lv >= 4)
+      || (levelFilter === "lv3"  && a.lv === 3)
+      || (levelFilter === "lv12" && a.lv <= 2)
+
+    const groupMatched = groupFilter === "all" || a.group === groupFilter
+
+    return levelMatched && groupMatched
+  })
 
   const cnt = {
     total:  baseData.length,
@@ -752,6 +761,21 @@ export function AlarmLogPanel({
                   {l === "all" ? (zh ? "全部" : "All") : l === "lv45" ? (zh ? "严重" : "Crit") : l === "lv3" ? (zh ? "预警" : "Warn") : (zh ? "提示" : "Info")}
                 </button>
               ))}
+            </div>
+            <div className="h-4 w-px bg-[#1a2654]" />
+            <div className="relative min-w-[128px]">
+              <select
+                value={groupFilter}
+                onChange={(event) => setGroupFilter(event.target.value as GroupFilter)}
+                className="h-7 w-full appearance-none rounded-md border border-[#1e3a70] bg-[#0e1e3a] pl-2.5 pr-7 text-[11px] font-semibold text-[#8fe7ff] outline-none transition-colors hover:border-[#2a4f92] focus:border-[#3b7bd6]"
+              >
+                {GROUP_FILTERS.map(group => (
+                  <option key={group} value={group}>
+                    {group === "all" ? (zh ? "全部分类" : "All Types") : (zh ? GRP_LABEL[group].zh : GRP_LABEL[group].en)}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#5f79ad]" />
             </div>
           </div>
 
