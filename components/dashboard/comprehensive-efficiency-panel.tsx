@@ -144,12 +144,12 @@ export function ComprehensiveEfficiencyPanel({
 
   const tableHeaders = {
     period: language === "zh" ? "时间" : "Period",
-    chargeCapacity: language === "zh" ? "充容(Ah)" : "Chg Cap",
-    dischargeCapacity: language === "zh" ? "放容(Ah)" : "Dis Cap",
-    chargeEnergy: language === "zh" ? "充电(kWh)" : "Chg kWh",
-    dischargeEnergy: language === "zh" ? "放电(kWh)" : "Dis kWh",
-    capacityEfficiency: language === "zh" ? "容量效率" : "Cap Eff",
-    energyEfficiency: language === "zh" ? "能量效率" : "Energy Eff",
+    chargeCapacity: language === "zh" ? "充电容量 (Ah)" : "Charge Capacity (Ah)",
+    dischargeCapacity: language === "zh" ? "放电容量 (Ah)" : "Discharge Capacity (Ah)",
+    capacityEfficiency: language === "zh" ? "容量效率 (%)" : "Capacity Efficiency (%)",
+    chargeEnergy: language === "zh" ? "充电电量 (kWh)" : "Charge Energy (kWh)",
+    dischargeEnergy: language === "zh" ? "放电电量 (kWh)" : "Discharge Energy (kWh)",
+    energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
   }
 
   const wrapperClassName = compact
@@ -337,9 +337,9 @@ export function ComprehensiveEfficiencyPanel({
                 <th className="px-2 py-3 text-left text-[11px] font-medium leading-tight">{tableHeaders.period}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.chargeCapacity}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.dischargeCapacity}</th>
+                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.capacityEfficiency}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.chargeEnergy}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.dischargeEnergy}</th>
-                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.capacityEfficiency}</th>
                 <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.energyEfficiency}</th>
               </tr>
             </thead>
@@ -349,9 +349,9 @@ export function ComprehensiveEfficiencyPanel({
                   <td className="truncate px-2 py-3 text-[#dce7ff]">{item.label}</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.chargeCapacity.toFixed(1)}</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.dischargeCapacity.toFixed(1)}</td>
+                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.capacityEfficiency.toFixed(1)}%</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.chargeEnergy.toFixed(1)}</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.dischargeEnergy.toFixed(1)}</td>
-                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#ffd60a]">{item.capacityEfficiency.toFixed(1)}%</td>
                   <td className="px-2 py-3 text-right font-mono text-[11px] text-[#4ade80]">{item.energyEfficiency.toFixed(1)}%</td>
                 </tr>
               ))}

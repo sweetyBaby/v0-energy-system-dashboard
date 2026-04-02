@@ -83,7 +83,7 @@ const CELL_COUNT = 50
 const STEP_MINUTES = 15
 const TOTAL_POINTS = (24 * 60) / STEP_MINUTES
 const DAY_END_TIME_LABEL = "23:59:59"
-const mutedText = "text-[#7fa4be]"
+const mutedText = "text-[#94bbd6]"
 const edgeGlow = "shadow-[0_0_0_1px_rgba(88,181,255,0.08),0_18px_42px_rgba(1,7,19,0.42),inset_0_0_28px_rgba(44,126,198,0.06)]"
 const pickerScrollbarClass =
   "[scrollbar-width:thin] [scrollbar-color:rgba(137,170,230,0.85)_rgba(8,18,42,0.96)] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[#0b1431] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-[2px] [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-[#0b1431] [&::-webkit-scrollbar-thumb]:bg-[#809dd6] hover:[&::-webkit-scrollbar-thumb]:bg-[#a9c4ff]"
@@ -224,6 +224,32 @@ const buildCellMetrics = (historyData: HistoryPoint[]): CellMetric[] =>
     }
   })
 
+const getDailyCurrentProfile = (index: number) => {
+  if (index >= 8 && index <= 26) return 82 + ((index - 8) / 18) * 46
+  if (index >= 48 && index <= 64) return 76 + ((index - 48) / 16) * 42
+  if (index >= 30 && index <= 39) return -(98 + ((index - 30) / 9) * 26)
+  if (index >= 65 && index <= 76) return -(92 + ((index - 65) / 11) * 30)
+  return 0
+}
+
+const buildDailyEnergySummary = (overviewData: OverviewPoint[]) => {
+  const stepHours = STEP_MINUTES / 60
+
+  return overviewData.reduce(
+    (acc, point, index) => {
+      const packVoltage = point.avgVoltage * CELL_COUNT
+      const current = getDailyCurrentProfile(index)
+      const energy = (packVoltage * Math.abs(current) * stepHours) / 1000
+
+      if (current > 0) acc.chargeEnergy += energy
+      if (current < 0) acc.dischargeEnergy += energy
+
+      return acc
+    },
+    { chargeEnergy: 0, dischargeEnergy: 0 }
+  )
+}
+
 function NeonSection({
   title,
   subtitle,
@@ -233,6 +259,9 @@ function NeonSection({
   bare = false,
   inlineSubtitle = false,
   compact = false,
+  headerVariant = "default",
+  titleClassName = "",
+  accentBarClassName = "",
   className = "",
   children,
 }: {
@@ -244,21 +273,36 @@ function NeonSection({
   bare?: boolean
   inlineSubtitle?: boolean
   compact?: boolean
+  headerVariant?: "default" | "bcu"
+  titleClassName?: string
+  accentBarClassName?: string
   className?: string
   children: ReactNode
 }) {
+  const isBcuHeader = headerVariant === "bcu"
+  const defaultAccentBarClass = isBcuHeader
+    ? "bg-[#00d4aa]"
+    : "bg-[#3fe7ff]/90 shadow-[0_0_12px_rgba(63,231,255,0.85)]"
+  const defaultTitleClass = isBcuHeader
+    ? "text-sm font-semibold text-[#00d4aa]"
+    : `${compact ? "text-[0.9rem]" : "text-[0.98rem]"} font-semibold tracking-[0.08em] text-[#8ceeff]`
+  const headerSpacingClass = inlineSubtitle
+    ? (compact ? "mb-1.5" : "mb-2")
+    : (compact ? "mb-2" : "mb-3")
+  const headerPaddingLeftClass = isBcuHeader ? "pl-4.5" : (compact ? "pl-2.5" : "pl-3")
+
   return (
     <section
       className={`relative flex min-h-0 flex-col overflow-hidden rounded-[20px] ${bare ? "" : "border border-[#254873]/80 bg-[radial-gradient(circle_at_top_right,rgba(38,109,178,0.15),transparent_28%),linear-gradient(180deg,rgba(10,19,44,0.97),rgba(6,12,29,0.98))]"} ${compact ? "p-2.5" : "p-3"} ${bare ? "" : edgeGlow} ${className}`}
     >
       {!bare ? <div className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#8feaff]/[0.05]" /> : null}
-      <div className="pointer-events-none absolute left-3 top-3 h-5 w-[2px] rounded-full bg-[#3fe7ff]/90 shadow-[0_0_12px_rgba(63,231,255,0.85)]" />
+      <div className={`pointer-events-none absolute left-3 ${isBcuHeader ? "top-[13px] h-4 w-1" : "top-3 h-5 w-[2px]"} rounded-full ${accentBarClassName || defaultAccentBarClass}`} />
       {showHeaderRule ? (
         <div className="pointer-events-none absolute inset-x-4 top-[50px] h-px bg-gradient-to-r from-[#274f78]/70 via-[#78dfff]/45 to-transparent" />
       ) : null}
-      <div className={`relative flex ${inlineSubtitle ? "items-center" : "items-start"} justify-between gap-3 ${compact ? "pl-2.5" : "pl-3"} ${inlineSubtitle ? (compact ? "mb-1.5" : "mb-2") : (compact ? "mb-2" : "mb-3")}`}>
+      <div className={`relative flex ${inlineSubtitle || isBcuHeader ? "items-center" : "items-start"} justify-between gap-3 ${headerPaddingLeftClass} ${headerSpacingClass}`}>
         <div className={inlineSubtitle ? "flex items-center gap-3" : ""}>
-          <div className={`${compact ? "text-[0.9rem]" : "text-[0.98rem]"} font-semibold tracking-[0.08em] text-[#8ceeff]`}>{title}</div>
+          <div className={titleClassName || defaultTitleClass}>{title}</div>
           {subtitle ? (
             <div className={inlineSubtitle ? `text-[10px] leading-none ${mutedText}` : `mt-1 text-[10px] leading-4 ${mutedText}`}>{subtitle}</div>
           ) : null}
@@ -446,7 +490,7 @@ function RankingItem({ title, value, extra, active, compact = false, tight = fal
             <div className={`${tight ? "text-[0.76rem]" : compact ? "text-[0.82rem]" : "text-[0.95rem]"} font-semibold text-[#eefbff]`}>{title}</div>
             <div className={`text-right font-mono ${tight ? "text-[0.9rem]" : compact ? "text-[1rem]" : "text-[1.15rem]"} font-semibold text-[#ffe6a3]`}>{value}</div>
           </div>
-          <div className={`text-left leading-none ${tight ? "text-[8px]" : compact ? "text-[9px]" : "text-[10px]"} ${mutedText}`}>{extra}</div>
+          <div className={`text-left leading-none ${tight ? "text-[8px]" : compact ? "text-[9px]" : "text-[10px]"} text-[#9cc6e2]`}>{extra}</div>
         </div>
       ) : (
         <div className={`grid h-full grid-cols-[auto_1fr] items-center ${tight ? "gap-1.5" : "gap-2"}`}>
@@ -690,6 +734,9 @@ export type CellHistoryOverviewStats = {
   minTemp: number
   minTempCell: number | null
   tempDelta: number
+  chargeEnergy: number
+  dischargeEnergy: number
+  roundTripEfficiency: number
 }
 
 export function CellHistoryReplayPanel({
@@ -736,13 +783,19 @@ export function CellHistoryReplayPanel({
     return { maxTemp, minTemp, avgTemp, tempDelta: maxTemp - minTemp }
   }, [overviewData])
 
+  const dailyEnergyStats = useMemo(() => {
+    const summary = buildDailyEnergySummary(overviewData)
+    const chargeEnergy = Number(summary.chargeEnergy.toFixed(1))
+    const dischargeEnergy = Number(summary.dischargeEnergy.toFixed(1))
+    const roundTripEfficiency = chargeEnergy > 0 ? Number(((dischargeEnergy / chargeEnergy) * 100).toFixed(1)) : 0
+    return { chargeEnergy, dischargeEnergy, roundTripEfficiency }
+  }, [overviewData])
+
   const topHighVoltage = useMemo(() => cellMetrics.slice().sort((a, b) => b.voltageMax - a.voltageMax).slice(0, 3), [cellMetrics])
   const topLowVoltage = useMemo(() => cellMetrics.slice().sort((a, b) => a.voltageMin - b.voltageMin).slice(0, 3), [cellMetrics])
   const topVoltageDeviationCells = useMemo(() => cellMetrics.slice().sort((a, b) => b.voltageDeviation - a.voltageDeviation).slice(0, 3), [cellMetrics])
   const topHotCells = useMemo(() => cellMetrics.slice().sort((a, b) => b.tempMax - a.tempMax).slice(0, 3), [cellMetrics])
   const topColdCells = useMemo(() => cellMetrics.slice().sort((a, b) => a.tempMin - b.tempMin).slice(0, 1), [cellMetrics])
-  const topTempDiffCells = useMemo(() => cellMetrics.slice().sort((a, b) => b.maxIntraTempDiff - a.maxIntraTempDiff).slice(0, 3), [cellMetrics])
-
   useEffect(() => {
     onOverviewStats?.({
       maxVoltage: voltageStats.maxVoltage,
@@ -755,8 +808,11 @@ export function CellHistoryReplayPanel({
       minTemp: temperatureStats.minTemp,
       minTempCell: topColdCells[0]?.cell ?? null,
       tempDelta: temperatureStats.tempDelta,
+      chargeEnergy: dailyEnergyStats.chargeEnergy,
+      dischargeEnergy: dailyEnergyStats.dischargeEnergy,
+      roundTripEfficiency: dailyEnergyStats.roundTripEfficiency,
     })
-  }, [voltageStats, temperatureStats, topHighVoltage, topLowVoltage, topHotCells, topColdCells, onOverviewStats])
+  }, [voltageStats, temperatureStats, dailyEnergyStats, topHighVoltage, topLowVoltage, topHotCells, topColdCells, onOverviewStats])
 
   const voltageTrendData = useMemo(
     () => {
@@ -1005,8 +1061,9 @@ export function CellHistoryReplayPanel({
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#8feaff]/55 to-transparent" />
         <NeonSection
           title={zh ? "电芯明细" : "Cell Detail"}
-          className="h-full px-1.5 py-1"
+          className="h-full px-1.5 pt-2.5 pb-1"
           bare
+          headerVariant="bcu"
           showHeaderRule={false}
           headerExtra={
             <div className="flex items-center gap-3">
@@ -1165,31 +1222,41 @@ export function CellHistoryReplayPanel({
 
       <div className={`relative grid h-full min-h-0 ${isCompactCanvas ? "grid-cols-[1.04fr_1.26fr] gap-2" : "grid-cols-[0.94fr_1.36fr] gap-2.5"}`}>
         <div className={`grid min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1.4fr)] ${isCompactCanvas ? "gap-1.5" : "gap-2"}`}>
-          <NeonSection title={zh ? "电压/温差分析" : "Voltage / Temperature Analysis"} compact={isCompactCanvas} bare className="px-1.5 py-1">
+          <NeonSection
+            title={zh ? "电压/温差分析" : "Voltage / Temperature Analysis"}
+            compact={isCompactCanvas}
+            className="px-1.5 pt-2.5 pb-1"
+            headerVariant="bcu"
+          >
             <div className={`grid h-full min-h-0 grid-cols-3 ${isCompactCanvas ? "gap-1" : "gap-1.5"}`}>
               <InnerFrame title={zh ? "电压最高 TOP3" : "Highest Voltage TOP3"} accent="#ffc970" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topHighVoltage.map((item) => <RankingItem key={`high-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageMax.toFixed(2)}V`} extra={item.voltageMaxAt} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
               <InnerFrame title={zh ? "电压最低 TOP3" : "Lowest Voltage TOP3"} accent="#86e8ff" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topLowVoltage.map((item) => <RankingItem key={`low-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageMin.toFixed(2)}V`} extra={item.voltageMinAt} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
-              <InnerFrame title={zh ? "温差最高 TOP3" : "Highest Temp Diff TOP3"} accent="#ffb676" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topTempDiffCells.map((item) => <RankingItem key={`tempdiff-${item.cell}`} title={`#${item.cell}`} value={`${item.maxIntraTempDiff.toFixed(1)}°C`} extra={item.maxIntraTempDiffAt} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
+              <InnerFrame title={zh ? "温度最高 TOP3" : "Highest Temp TOP3"} accent="#ffb676" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topHotCells.map((item) => <RankingItem key={`hot-${item.cell}`} title={`#${item.cell}`} value={`${item.tempMax.toFixed(1)}°C`} extra={item.tempMaxAt} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
             </div>
           </NeonSection>
 
           <div className="min-h-0 overflow-hidden">
-            <BCUStatusQuery mode="history" date={date} hideCellSeries />
+            <BCUStatusQuery mode="history" date={date} hideCellSeries panelVariant="overview" />
           </div>
         </div>
 
         <div className="h-full min-h-0">
-          <NeonSection title={zh ? "电压/温度趋势" : "Voltage / Temperature Trend"} className="h-full px-1.5 py-1" bare>
-            <div className="flex h-full min-h-0 flex-col overflow-hidden">
-              <div className="mb-1 flex shrink-0 items-center justify-end gap-4 pr-1">
-                <div className="text-[10px] text-[#7fa4be]">{zh ? "" : "Legend"}</div>
-                <div className="flex items-center gap-4">
-                  <LegendItem label={zh ? "最大值" : "Max"} color="#ffd36b" />
-                  <LegendItem label={zh ? "最小值" : "Min"} color="#6ee7ff" />
-                </div>
+          <NeonSection
+            title={zh ? "电压/温度趋势" : "Voltage / Temperature Trend"}
+            className="h-full px-1.5 pt-2.5 pb-1"
+            inlineSubtitle
+            headerVariant="bcu"
+            headerExtra={
+              <div className="ml-auto flex items-center justify-end gap-4 self-center pr-1">
+                <LegendItem label={zh ? "最大值" : "Max"} color="#ffd36b" />
+                <LegendItem label={zh ? "最小值" : "Min"} color="#6ee7ff" />
               </div>
-              <div className="flex min-h-0 flex-1 gap-2">
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            }
+          >
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+              <div className="flex min-h-0 flex-1 overflow-hidden rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] p-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
+                <div className="flex min-h-0 flex-1 items-stretch gap-2">
+                  <div className="grid min-h-0 flex-1 grid-rows-[1.28fr_repeat(3,minmax(0,1fr))] overflow-hidden">
                   <div className="relative min-h-0 flex-[1.28] border-b border-[#214260]/90">
                     <div className="h-full min-h-0">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1302,10 +1369,10 @@ export function CellHistoryReplayPanel({
                       </div>
                     )
                   })}
-                </div>
+                  </div>
 
-                <div className="flex w-[172px] shrink-0 flex-col overflow-hidden rounded-[12px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))]">
-                  <div className="flex min-h-0 flex-[1.28] items-center border-b border-[#214260]/90 px-3 py-2">
+                  <div className="grid w-[172px] shrink-0 grid-rows-[1.28fr_repeat(3,minmax(0,1fr))] overflow-hidden rounded-[12px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))] self-stretch">
+                  <div className="flex min-h-0 flex-[1.28] items-start border-b border-[#214260]/90 px-3 py-2">
                     <div className="w-full">
                       <div className="text-[14px] font-semibold leading-5 tracking-[0.04em] text-[#dff7ff]">{voltageTrendSummary.header}</div>
                       <div className="mt-3 space-y-2 text-[11px] leading-5 text-[#dff7ff]">
@@ -1317,7 +1384,7 @@ export function CellHistoryReplayPanel({
                   {temperatureTrendSummaries.map((chart, index) => {
                     const isLast = index === temperatureTrendSummaries.length - 1
                     return (
-                      <div key={`${chart.key}-summary`} className={`flex min-h-0 flex-1 items-center px-3 py-2 ${!isLast ? "border-b border-[#214260]/90" : ""}`}>
+                      <div key={`${chart.key}-summary`} className={`flex min-h-0 flex-1 items-start px-3 py-2 ${!isLast ? "border-b border-[#214260]/90" : ""}`}>
                         <div className="w-full">
                           <div className="text-[14px] font-semibold leading-5 tracking-[0.04em] text-[#dff7ff]">{chart.header}</div>
                           <div className="mt-3 space-y-2 text-[11px] leading-5 text-[#dff7ff]">
@@ -1328,6 +1395,7 @@ export function CellHistoryReplayPanel({
                       </div>
                     )
                   })}
+                  </div>
                 </div>
               </div>
             </div>
