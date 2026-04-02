@@ -39,9 +39,10 @@ type MergedHistPoint = {
   minCell: number
 }
 
-// 绯荤粺瑙勬牸锛?00 涓茶仈鐢佃姱锛岄瀹?1320V锛岄噺绋?0-1500V
-const CELLS_IN_SERIES = 400
 const RT_WINDOW_SECONDS = 60
+const PACK_SERIES_COUNT = 50
+const PACK_VOLTAGE_MIN = 1050
+const PACK_VOLTAGE_MAX = 1450
 const TS  = { backgroundColor: "#0d1233", border: "1px solid #1a2654", borderRadius: "8px", padding: "8px 12px" }
 const TWS = { zIndex: 100 }
 
@@ -72,7 +73,7 @@ const seededSigned = (seed: number, index: number) => {
   return (x - Math.floor(x)) * 2 - 1
 }
 
-// 鈹€鈹€ 瀹炴椂鏁版嵁鐢熸垚 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// 实时数据生成
 const getRealtimeTargets = (at: Date) => {
   const daySeed = hashSeed(formatDateKey(at))
   const seconds = at.getHours() * 3600 + at.getMinutes() * 60 + at.getSeconds()
@@ -109,12 +110,12 @@ const getRealtimeTargets = (at: Date) => {
   const ambient = 24.5 + Math.sin(((hour - 6) / 24) * Math.PI * 2) * 3 + seeded * 0.12
   const avgTemp = ambient + 2.2 + load * 5.2 + Math.sin((hour / 24) * Math.PI * 3) * 0.3 + waveFast * 0.12 + Math.abs(microLoad) * 0.06
   const tempSpread = 1.8 + load * 2 + Math.abs(waveSlow) * 0.35 + Math.abs(wavePulse) * 0.15
-  const baseCell = 3.175 + soc * 0.0023
-  const chargeBoost = hour >= 6 && hour < 8.5 ? 0.008 : 0
-  const dischSag = hour >= 8.5 && hour < 18.5 ? load * 0.012 : load * 0.004
-  const avgCell = baseCell + chargeBoost - dischSag + seededSigned(daySeed, Math.floor(seconds / 30) + 160) * 0.001 + waveFast * 0.0003 - current * 0.000015
-  const cellSpread = 0.012 + load * 0.008 + Math.abs(waveFast) * 0.001 + Math.abs(wavePulse) * 0.0006
-  const voltage = avgCell * CELLS_IN_SERIES + (current >= 0 ? current * 0.12 : current * 0.18)
+  const baseCell = 25.8 + soc * 0.028
+  const chargeBoost = hour >= 6 && hour < 8.5 ? 0.75 : 0
+  const dischSag = hour >= 8.5 && hour < 18.5 ? load * 1.85 : load * 0.65
+  const avgCell = baseCell + chargeBoost - dischSag + seededSigned(daySeed, Math.floor(seconds / 30) + 160) * 0.18 + waveFast * 0.08 - current * 0.0035
+  const cellSpread = 0.42 + load * 0.52 + Math.abs(waveFast) * 0.08 + Math.abs(wavePulse) * 0.06
+  const voltage = avgCell * PACK_SERIES_COUNT + (current >= 0 ? current * 0.3 : current * 0.45)
 
   return {
     current,
@@ -132,14 +133,16 @@ const nextRtPoint = (prev?: RtPoint, at = new Date()): RtPoint => {
   // 降低平滑系数，让实时曲线在60s窗口内有明显波动
   const current = prev ? clamp(prev.current * 0.45 + target.current * 0.55, -148, 148) : round(target.current, 1)
   const soc = prev ? clamp(prev.soc * 0.97 + target.soc * 0.03, 0, 100) : target.soc
-  const avgCell = prev ? clamp(prev.avgCell * 0.5 + target.avgCell * 0.5, 2.9, 3.7) : clamp(target.avgCell, 2.9, 3.7)
-  const voltage = prev ? clamp(prev.voltage * 0.48 + target.voltage * 0.52, 1100, 1450) : round(target.voltage, 1)
+  const avgCell = prev ? clamp(prev.avgCell * 0.5 + target.avgCell * 0.5, 21, 29) : clamp(target.avgCell, 21, 29)
+  const voltage = prev
+    ? clamp(prev.voltage * 0.48 + target.voltage * 0.52, PACK_VOLTAGE_MIN, PACK_VOLTAGE_MAX)
+    : clamp(target.voltage, PACK_VOLTAGE_MIN, PACK_VOLTAGE_MAX)
   const avgTemp = prev ? clamp(prev.avgTemp * 0.72 + target.avgTemp * 0.28, 24, 40) : round(target.avgTemp, 1)
   const tempSpread = prev
     ? clamp((prev.maxTemp - prev.avgTemp) * 0.68 + target.tempSpread * 0.32, 1.6, 4.5)
     : target.tempSpread
   const cellSpread = prev
-    ? clamp((prev.maxCell - prev.avgCell) * 2 * 0.55 + target.cellSpread * 0.45, 0.01, 0.03)
+    ? clamp((prev.maxCell - prev.avgCell) * 2 * 0.55 + target.cellSpread * 0.45, 0.25, 1.2)
     : target.cellSpread
   return {
     time: formatClock(at),
@@ -150,9 +153,9 @@ const nextRtPoint = (prev?: RtPoint, at = new Date()): RtPoint => {
     maxTemp: round(avgTemp + tempSpread, 1),
     avgTemp: round(avgTemp, 1),
     minTemp: round(avgTemp - (tempSpread - 0.7), 1),
-    maxCell: round(avgCell + cellSpread / 2, 3),
-    avgCell: round(avgCell, 3),
-    minCell: round(avgCell - cellSpread / 2, 3),
+    maxCell: round(clamp(avgCell + cellSpread / 2, 21, 29), 2),
+    avgCell: round(avgCell, 2),
+    minCell: round(clamp(avgCell - cellSpread / 2, 21, 29), 2),
   }
 }
 
@@ -165,7 +168,7 @@ const initRtOverview = (): RtPoint[] => {
   return pts
 }
 
-// 鈹€鈹€ 鍘嗗彶鏁版嵁鐢熸垚锛?鍒嗛挓闂撮殧锛?88鐐?澶╋級 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// 历史数据生成，5分钟间隔，288个点（1天）
 const getDailyLoadFactor = (hour: number) => {
   if (hour < 5.5)  return 0.12 + hour * 0.018
   if (hour < 8.5)  return 0.21 + ((hour - 5.5) / 3) * 0.42
@@ -195,12 +198,12 @@ const createHistorySeries = (date?: string): MergedHistPoint[] => {
     const avgTemp  = ambient + 2.2 + load * 5.2 + Math.sin((hour / 24) * Math.PI * 3) * 0.3
     const spread   = 1.8 + load * 2 + Math.abs(seededSigned(seed, slot + 80)) * 0.4
 
-    // 鍗曚綋鐢靛帇
-    const baseCell    = 3.175 + soc * 0.0023
-    const chargeBoost = (hour >= 6 && hour < 8.5) ? 0.008 : 0
-    const dischSag    = (hour >= 8.5 && hour < 18.5) ? load * 0.012 : load * 0.004
-    const avgCell     = baseCell + chargeBoost - dischSag + seededSigned(seed, slot + 160) * 0.001
-    const cellSpread  = 0.012 + load * 0.008
+    // 单体电压
+    const baseCell    = 25.8 + soc * 0.028
+    const chargeBoost = (hour >= 6 && hour < 8.5) ? 0.75 : 0
+    const dischSag    = (hour >= 8.5 && hour < 18.5) ? load * 1.85 : load * 0.65
+    const avgCell     = baseCell + chargeBoost - dischSag + seededSigned(seed, slot + 160) * 0.18
+    const cellSpread  = 0.42 + load * 0.48
 
     // 电流，正值为充电，负值为放电
     let current: number
@@ -211,27 +214,27 @@ const createHistorySeries = (date?: string): MergedHistPoint[] => {
     else                  current = -5  + Math.sin(hour * 1.2) * 2 + ns * 1.5
 
     current = clamp(current, -148, 148)
-    const packV = avgCell * CELLS_IN_SERIES + (current >= 0 ? current * 0.12 : current * 0.18)
+    const packV = avgCell * PACK_SERIES_COUNT + (current >= 0 ? current * 0.3 : current * 0.45)
 
     merged.push({
       time:    formatFiveMin(slot),
-      voltage: round(packV, 1),
+      voltage: round(clamp(packV, PACK_VOLTAGE_MIN, PACK_VOLTAGE_MAX), 1),
       current: round(current, 1),
       soc:     round(clamp(soc + ns * 0.15, 0, 100), 1),
       power:   round(packV * current / 1000, 1),
       maxTemp: round(avgTemp + spread, 1),
       avgTemp: round(avgTemp, 1),
       minTemp: round(avgTemp - (spread - 0.8), 1),
-      maxCell: round(avgCell + cellSpread / 2, 3),
-      avgCell: round(avgCell, 3),
-      minCell: round(avgCell - cellSpread / 2, 3),
+      maxCell: round(clamp(avgCell + cellSpread / 2, 21, 29), 2),
+      avgCell: round(clamp(avgCell, 21, 29), 2),
+      minCell: round(clamp(avgCell - cellSpread / 2, 21, 29), 2),
     })
   }
 
   return merged
 }
 
-// 鈹€鈹€ 鍘嗗彶鍏变韩鏃堕棿杞村爢鍙犲浘锛?琛岋級 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// 历史共享时间轴堆叠图（4行）
 const HIST_X_TICK = (props: { x: number; y: number; payload: { value: string } }) => {
   const mn = parseInt((props.payload.value).split(":")[1] ?? "1")
   if (mn !== 0) return <g />
@@ -245,7 +248,7 @@ const HIST_X_TICK = (props: { x: number; y: number; payload: { value: string } }
   )
 }
 
-function TrendStackedChart({ data, zh, history }: { data: Array<RtPoint | MergedHistPoint>; zh: boolean; history: boolean }) {
+function TrendStackedChart({ data, zh, history, hideCellSeries = false }: { data: Array<RtPoint | MergedHistPoint>; zh: boolean; history: boolean; hideCellSeries?: boolean }) {
   const syncId = history ? "hist" : "rt"
   const sections = [
     {
@@ -284,7 +287,7 @@ function TrendStackedChart({ data, zh, history }: { data: Array<RtPoint | Merged
       label: zh ? "Pack电压(V)" : "Pack(V)",
       tooltipLabel: zh ? "Pack电压" : "Pack V",
       color: "#fb923c",
-      domain: [0, 1500] as [number, number],
+      domain: [1100, 1450] as [number, number],
       unit: "V",
       tickFormatter: (v: number) => `${Math.round(v)}`,
     },
@@ -298,7 +301,6 @@ function TrendStackedChart({ data, zh, history }: { data: Array<RtPoint | Merged
       tooltipFormatter: (v: number) => `${v.toFixed(1)} °C`,
       lines: [
         { key: "maxTemp" as const, name: zh ? "最高温" : "Max", color: "#f87171" },
-        { key: "avgTemp" as const, name: zh ? "平均温" : "Avg", color: "#fbbf24" },
         { key: "minTemp" as const, name: zh ? "最低温" : "Min", color: "#7dd3fc" },
       ],
     },
@@ -306,22 +308,23 @@ function TrendStackedChart({ data, zh, history }: { data: Array<RtPoint | Merged
       kind: "triple" as const,
       label: zh ? "单体电压(V)" : "Cell Volt(V)",
       color: "#22d3ee",
-      domain: [3.28, 3.38] as [number, number],
+      domain: [21, 29] as [number, number],
       unit: "V",
-      tickFormatter: (v: number) => (v as number).toFixed(2),
-      tooltipFormatter: (v: number) => `${(v as number).toFixed(3)} V`,
+      tickFormatter: (v: number) => (v as number).toFixed(1),
+      tooltipFormatter: (v: number) => `${(v as number).toFixed(2)} V`,
       lines: [
         { key: "maxCell" as const, name: zh ? "最高单体" : "Max", color: "#f87171" },
-        { key: "avgCell" as const, name: zh ? "平均单体" : "Avg", color: "#22d3ee" },
         { key: "minCell" as const, name: zh ? "最低单体" : "Min", color: "#7dd3fc" },
       ],
     },
   ]
 
+  const visibleSections = hideCellSeries ? sections.filter((s) => s.kind !== "triple") : sections
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {sections.map((section, idx) => {
-        const isLast = idx === sections.length - 1
+      {visibleSections.map((section, idx) => {
+        const isLast = idx === visibleSections.length - 1
         const chartTop = section.kind === "triple" ? 24 : 8
         return (
           <div key={section.label} className={`relative min-h-0 flex-1 ${!isLast ? "border-b border-[#1a2654]/40" : ""}`}>
@@ -399,9 +402,11 @@ function TrendStackedChart({ data, zh, history }: { data: Array<RtPoint | Merged
 export function BCUStatusQuery({
   mode = "realtime",
   date,
+  hideCellSeries = false,
 }: {
   mode?: "realtime" | "history"
   date?: string
+  hideCellSeries?: boolean
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -429,13 +434,12 @@ export function BCUStatusQuery({
           <span className="text-sm font-semibold text-[#00d4aa]">
             {zh ? "BCU 运行状态" : "BCU Status"}
           </span>
-         
         </div>
       </div>
 
       <div className="min-h-0 flex-1">
-        {mode === "realtime" && <TrendStackedChart data={rtOverview} zh={zh} history={false} />}
-        {mode === "history" && <TrendStackedChart data={histData} zh={zh} history />}
+        {mode === "realtime" && <TrendStackedChart data={rtOverview} zh={zh} history={false} hideCellSeries={hideCellSeries} />}
+        {mode === "history" && <TrendStackedChart data={histData} zh={zh} history hideCellSeries={hideCellSeries} />}
       </div>
     </div>
   )

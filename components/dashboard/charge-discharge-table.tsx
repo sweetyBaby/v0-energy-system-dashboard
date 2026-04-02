@@ -1,51 +1,55 @@
 "use client"
 
-import { ArrowDown, ArrowUp, Gauge } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 const energyStats = [
   {
-    key: "charge",
+    key: "today-charge",
     labelZh: "今日充电量",
     labelEn: "Today Charge",
     value: "3,256.8",
     unit: "kWh",
-    icon: ArrowDown,
-    accent: "text-[#39d0ff]",
-    border: "border-[#1e4d6a]",
-    iconBg: "bg-[#39d0ff]/12",
-    bar: "w-[76%] bg-gradient-to-r from-[#39d0ff]/60 to-[#39d0ff]",
+    isIn: true,
+    accent: "#39d0ff",
+    glow: "rgba(57,208,255,0.45)",
+    live: true,
+    animDelay: "0s",
   },
   {
-    key: "discharge",
+    key: "today-discharge",
     labelZh: "今日放电量",
     labelEn: "Today Discharge",
     value: "3,102.4",
     unit: "kWh",
-    icon: ArrowUp,
-    accent: "text-[#ff9a4c]",
-    border: "border-[#5a3a1a]",
-    iconBg: "bg-[#ff9a4c]/12",
-    bar: "w-[72%] bg-gradient-to-r from-[#ff9a4c]/60 to-[#ff9a4c]",
-  },
-] as const
-
-const gaugeStats = [
-  {
-    key: "charge-discharge-efficiency",
-    labelZh: "充放电效率",
-    labelEn: "Round-trip Eff.",
-    value: 95.26,
-    color: "#facc15",
-    accent: "text-[#facc15]",
+    isIn: false,
+    accent: "#ff9a4c",
+    glow: "rgba(255,154,76,0.45)",
+    live: true,
+    animDelay: "0.6s",
   },
   {
-    key: "system-efficiency",
-    labelZh: "系统效率",
-    labelEn: "System Eff.",
-    value: 94.73,
-    color: "#29e6c2",
-    accent: "text-[#29e6c2]",
+    key: "total-charge",
+    labelZh: "累计充电量",
+    labelEn: "Total Charge",
+    value: "286,540.2",
+    unit: "kWh",
+    isIn: true,
+    accent: "#22e6b8",
+    glow: "rgba(34,230,184,0.45)",
+    live: false,
+    animDelay: "1.1s",
+  },
+  {
+    key: "total-discharge",
+    labelZh: "累计放电量",
+    labelEn: "Total Discharge",
+    value: "271,908.7",
+    unit: "kWh",
+    isIn: false,
+    accent: "#7dd3fc",
+    glow: "rgba(125,211,252,0.45)",
+    live: false,
+    animDelay: "1.7s",
   },
 ] as const
 
@@ -54,60 +58,180 @@ export function ChargeDischargeTable() {
   const zh = language === "zh"
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2.5 overflow-hidden rounded-[22px] border border-[#22d3ee]/22 bg-[linear-gradient(180deg,rgba(10,24,46,0.28),rgba(5,14,30,0.42))] p-3 backdrop-blur-[4px] shadow-[0_0_0_1px_rgba(34,211,238,0.06)_inset,0_10px_24px_rgba(0,0,0,0.1)]">
+    <div className="flex h-full max-h-full w-full flex-col gap-1.5 overflow-hidden rounded-[22px] border border-[#22d3ee]/35 bg-[linear-gradient(180deg,rgba(10,24,46,0.06),rgba(5,14,30,0.14))] p-2.5 backdrop-blur-[1px] shadow-[0_0_0_1px_rgba(34,211,238,0.06)_inset,0_10px_24px_rgba(0,0,0,0.1)]">
+      <style>{`
+        @keyframes cdt-blink   { 0%,100%{opacity:1}      50%{opacity:0.12} }
+        @keyframes cdt-arrow-in  { 0%,100%{opacity:0.5; transform:translateY(0)}   50%{opacity:1; transform:translateY(2px)} }
+        @keyframes cdt-arrow-out { 0%,100%{opacity:0.5; transform:translateY(0)}   50%{opacity:1; transform:translateY(-2px)} }
+        @keyframes cdt-ring    { 0%,100%{opacity:0.18; transform:scale(1)}  60%{opacity:0.05; transform:scale(1.55)} }
+        @keyframes cdt-scanline{ 0%{transform:translateY(-100%)} 100%{transform:translateY(100%)} }
+      `}</style>
+
+      {/* Header */}
       <div className="flex shrink-0 items-center gap-2">
         <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
-        <h3 className="text-[1.05rem] font-semibold tracking-[0.02em] text-[#00d4aa]" style={{ textShadow: "0 1px 6px rgba(0,0,0,0.95)" }}>
+        <h3
+          className="text-[1.05rem] font-semibold tracking-[0.02em] text-[#00d4aa]"
+          style={{ textShadow: "0 1px 6px rgba(0,0,0,0.95)" }}
+        >
           {zh ? "充放电统计" : "Charge / Discharge"}
         </h3>
+        <div className="ml-auto flex items-center gap-1">
+          <span
+            className="h-1.5 w-1.5 rounded-full bg-[#00e87a]"
+            style={{ animation: "cdt-blink 1.8s ease-in-out infinite" }}
+          />
+          <span className="text-[10px] font-semibold tracking-[0.1em] text-[#00e87a]/65">LIVE</span>
+        </div>
       </div>
 
-      <div className="grid shrink-0 grid-cols-2 gap-2">
+      {/* 2×2 Grid */}
+      <div className="grid min-h-0 flex-1 grid-cols-2 auto-rows-fr gap-1.5">
         {energyStats.map((item) => {
-          const Icon = item.icon
-          return (
-            <div key={item.key} className="rounded-xl border border-[#22d3ee]/16 bg-[linear-gradient(180deg,rgba(13,31,58,0.28),rgba(8,19,39,0.42))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.015)]">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-white" style={{ textShadow: "0 1px 5px rgba(0,0,0,0.95)" }}>{zh ? item.labelZh : item.labelEn}</span>
-                <div className={`flex h-6 w-6 items-center justify-center rounded-md ${item.iconBg}`}>
-                  <Icon className={`h-3.5 w-3.5 ${item.accent}`} />
-                </div>
-              </div>
-              <div className="mt-1 flex items-end gap-1">
-                <span className={`text-[1.4rem] font-bold leading-none ${item.accent}`} style={{ textShadow: "0 1px 8px rgba(0,0,0,0.95)" }}>{item.value}</span>
-                <span className="pb-0.5 text-[11px] text-white" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.95)" }}>{item.unit}</span>
-              </div>
-              <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
-                <div className={`h-full rounded-full ${item.bar}`} />
-              </div>
-            </div>
-          )
-        })}
-      </div>
+          const dotIdx = item.value.lastIndexOf(".")
+          const integer = dotIdx >= 0 ? item.value.slice(0, dotIdx) : item.value
+          const decimal = dotIdx >= 0 ? item.value.slice(dotIdx) : ""
+          const flowFrom = item.isIn ? "-4" : "104"
+          const flowTo   = item.isIn ? "104" : "-4"
+          const arrowAnim = item.isIn ? "cdt-arrow-in" : "cdt-arrow-out"
 
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
-        {gaugeStats.map((item) => {
-          const ringFill = Math.max(0, Math.min(item.value, 100)) * 3.6
           return (
-            <div key={item.key} className="flex min-h-0 flex-col items-center justify-center rounded-xl border border-[#22d3ee]/16 bg-[linear-gradient(180deg,rgba(13,31,58,0.28),rgba(8,19,39,0.42))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.015)]">
-              <div className="relative h-[74px] w-[74px]">
-                <div
-                  className="absolute inset-0 rounded-full"
+            <div
+              key={item.key}
+              className="relative flex min-h-0 flex-col justify-between overflow-hidden px-2.5 pb-1.5 pt-2"
+              style={{
+                background: "linear-gradient(145deg,rgba(14,34,62,0.18) 0%,rgba(8,18,38,0.30) 100%)",
+                clipPath: "polygon(7px 0%,100% 0%,100% calc(100% - 7px),calc(100% - 7px) 100%,0% 100%,0% 7px)",
+              }}
+            >
+              {/* Scanline shimmer */}
+              <div
+                className="pointer-events-none absolute inset-x-0 z-10 h-[35%] opacity-[0.04]"
+                style={{
+                  background: "linear-gradient(180deg,transparent,rgba(255,255,255,1),transparent)",
+                  animation: "cdt-scanline 4s ease-in-out infinite",
+                  animationDelay: item.animDelay,
+                }}
+              />
+
+              {/* Corner brackets */}
+              <div className="pointer-events-none absolute inset-0 z-20">
+                <div className="absolute left-0 top-0 h-3 w-3" style={{ borderLeft: `1.5px solid ${item.accent}`, borderTop: `1.5px solid ${item.accent}`, opacity: 0.75 }} />
+                <div className="absolute right-0 top-0 h-3 w-3" style={{ borderRight: `1.5px solid ${item.accent}`, borderTop: `1.5px solid ${item.accent}`, opacity: 0.75 }} />
+                <div className="absolute bottom-0 left-0 h-3 w-3" style={{ borderLeft: `1.5px solid ${item.accent}`, borderBottom: `1.5px solid ${item.accent}`, opacity: 0.75 }} />
+                <div className="absolute bottom-0 right-0 h-3 w-3" style={{ borderRight: `1.5px solid ${item.accent}`, borderBottom: `1.5px solid ${item.accent}`, opacity: 0.75 }} />
+              </div>
+
+              {/* Top glow line */}
+              <div
+                className="pointer-events-none absolute inset-x-0 top-0 h-px"
+                style={{ background: `linear-gradient(90deg,transparent,${item.accent}66,transparent)` }}
+              />
+
+              {/* Label + direction icon */}
+              <div className="flex items-center justify-between gap-1">
+                <span
+                  className="text-[10.5px] font-medium leading-tight text-white/52"
+                  style={{ textShadow: "0 1px 4px rgba(0,0,0,0.95)" }}
+                >
+                  {zh ? item.labelZh : item.labelEn}
+                </span>
+
+                {/* Animated direction icon */}
+                <svg width="20" height="20" viewBox="0 0 20 20" style={{ flexShrink: 0 }}>
+                  {/* Pulsing ring */}
+                  <circle
+                    cx="10" cy="10" r="9"
+                    fill="none"
+                    stroke={item.accent}
+                    strokeWidth="0.7"
+                    style={{ animation: `cdt-ring 2s ease-out infinite`, animationDelay: item.animDelay, transformOrigin: "10px 10px" }}
+                  />
+                  {/* Solid inner circle */}
+                  <circle cx="10" cy="10" r="7" fill={`${item.accent}18`} stroke={item.accent} strokeWidth="0.8" opacity="0.7" />
+                  {/* Arrow */}
+                  {item.isIn ? (
+                    <path
+                      d="M10 5.5v9M7 11l3 3.5 3-3.5"
+                      stroke={item.accent}
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                      style={{ animation: `${arrowAnim} 1.8s ease-in-out infinite`, transformOrigin: "10px 10px", animationDelay: item.animDelay }}
+                    />
+                  ) : (
+                    <path
+                      d="M10 14.5v-9M7 9l3-3.5 3 3.5"
+                      stroke={item.accent}
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                      style={{ animation: `${arrowAnim} 2.1s ease-in-out infinite`, transformOrigin: "10px 10px", animationDelay: item.animDelay }}
+                    />
+                  )}
+                </svg>
+              </div>
+
+              {/* Value — integer bold + decimal muted */}
+              <div className="flex items-end gap-0.5">
+                <span
+                  className="font-bold leading-none tabular-nums"
                   style={{
-                    background: `conic-gradient(${item.color} 0deg ${ringFill}deg, rgba(20,30,60,0.6) ${ringFill}deg 360deg)`,
-                    boxShadow: `0 0 20px ${item.color}40`,
+                    fontSize: "1.18rem",
+                    color: item.accent,
+                    textShadow: `0 0 14px ${item.glow}, 0 1px 6px rgba(0,0,0,0.95)`,
+                  }}
+                >
+                  {integer}
+                </span>
+                {decimal && (
+                  <span
+                    className="pb-[1px] font-semibold tabular-nums"
+                    style={{ fontSize: "0.85rem", color: item.accent, opacity: 0.6 }}
+                  >
+                    {decimal}
+                  </span>
+                )}
+                <span className="pb-[1px] pl-0.5 text-[10px] text-white/38">
+                  {item.unit}
+                </span>
+              </div>
+
+              {/* Energy flow line (animated dot) */}
+              <svg
+                width="100%"
+                height="5"
+                viewBox="0 0 100 5"
+                preserveAspectRatio="none"
+                style={{ display: "block", overflow: "visible" }}
+              >
+                {/* Track */}
+                <line x1="0" y1="2.5" x2="100" y2="2.5" stroke={item.accent} strokeWidth="0.4" opacity="0.2" />
+                {/* Tick marks */}
+                {[20, 40, 60, 80].map((x) => (
+                  <line key={x} x1={x} y1="1" x2={x} y2="4" stroke={item.accent} strokeWidth="0.5" opacity="0.18" />
+                ))}
+                {/* Moving glow dot */}
+                <circle cy="2.5" r="2.4" fill={item.accent}>
+                  <animate attributeName="cx" from={flowFrom} to={flowTo} dur="2.5s" begin={item.animDelay} repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0;0.95;0.95;0" keyTimes="0;0.08;0.9;1" dur="2.5s" begin={item.animDelay} repeatCount="indefinite" />
+                </circle>
+              </svg>
+
+              {/* Live pulse dot */}
+              {item.live && (
+                <div
+                  className="pointer-events-none absolute right-2 bottom-1.5 h-[5px] w-[5px] rounded-full"
+                  style={{
+                    background: item.accent,
+                    boxShadow: `0 0 5px ${item.accent}`,
+                    animation: "cdt-blink 1.5s ease-in-out infinite",
+                    animationDelay: item.animDelay,
                   }}
                 />
-                <div className="absolute inset-[7px] rounded-full bg-[#04080f]/70" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Gauge className={`h-5 w-5 ${item.accent}`} />
-                </div>
-              </div>
-              <div className="mt-2 flex items-end gap-0.5">
-                <span className={`text-[1.12rem] font-bold leading-none ${item.accent}`} style={{ textShadow: "0 1px 8px rgba(0,0,0,0.95)" }}>{item.value}</span>
-                <span className="pb-px text-[11px] text-white" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.95)" }}>%</span>
-              </div>
-              <span className="mt-1 text-[10px] font-medium text-white" style={{ textShadow: "0 1px 5px rgba(0,0,0,0.95)" }}>{zh ? item.labelZh : item.labelEn}</span>
+              )}
             </div>
           )
         })}
