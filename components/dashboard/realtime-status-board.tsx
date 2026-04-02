@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Activity, ArrowUpDown, ShieldCheck, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
@@ -22,11 +22,11 @@ type LiveSnapshot = {
 const packStatusCycle: PackStatus[] = ["standby", "charge", "charge", "discharge", "precharge", "charge"]
 
 const packStatusLabels: Record<PackStatus, { zh: string; en: string }> = {
-  offline:   { zh: "断开",  en: "Offline" },
+  offline:   { zh: "离线",  en: "Offline" },
   precharge: { zh: "预充",  en: "Precharge" },
-  standby:   { zh: "待机",  en: "Standby" },
-  charge:    { zh: "充电",  en: "Charge" },
-  discharge: { zh: "放电",  en: "Discharge" },
+  standby:   { zh: "静置",  en: "Standby" },
+  charge:    { zh: "充电",  en: "Charging" },
+  discharge: { zh: "放电",  en: "Discharging" },
   fault:     { zh: "故障",  en: "Fault" },
 }
 
@@ -46,73 +46,19 @@ const createSnapshot = (phase: number): LiveSnapshot => {
   }
 }
 
-const statusColors: Record<PackStatus, { wave: string; fill: string; glow: string; border: string; text: string }> = {
-  charge:    { wave: "#00e87a", fill: "linear-gradient(0deg,#054d22,#0c7a38,#00c060)", glow: "rgba(0,232,122,0.55)",  border: "rgba(0,200,100,0.7)",  text: "text-[#00f38d]" },
-  discharge: { wave: "#f59e0b", fill: "linear-gradient(0deg,#7c3000,#c05a00,#f59e0b)", glow: "rgba(245,158,11,0.55)", border: "rgba(230,130,0,0.7)",  text: "text-[#ffb14a]" },
-  standby:   { wave: "#38bdf8", fill: "linear-gradient(0deg,#0c2a4a,#1a5080,#38bdf8)", glow: "rgba(56,189,248,0.45)", border: "rgba(56,189,248,0.6)", text: "text-white" },
-  precharge: { wave: "#59b6ff", fill: "linear-gradient(0deg,#0c2a4a,#1a5080,#59b6ff)", glow: "rgba(89,182,255,0.45)", border: "rgba(89,182,255,0.6)", text: "text-[#59b6ff]" },
-  offline:   { wave: "#4a6070", fill: "linear-gradient(0deg,#0a1520,#1a2a38,#2a3a48)", glow: "rgba(74,96,112,0.3)",  border: "rgba(74,96,112,0.5)",  text: "text-[#8ea4be]" },
-  fault:     { wave: "#ff6464", fill: "linear-gradient(0deg,#4a0000,#8a0000,#ff3232)", glow: "rgba(255,100,100,0.55)", border: "rgba(255,80,80,0.7)", text: "text-[#ff6464]" },
-}
-
-// Sparkline data sets — 16 points, y in 0–16 space (0=top, 16=bottom)
-const SPARKLINES: Record<string, number[]> = {
-  voltage:  [9, 8, 8.5, 7, 8, 9, 7.5, 8, 6.5, 8.5, 7, 8, 7.5, 8, 7, 8.5],
-  power:    [11, 7, 13, 5, 10, 4, 11, 14, 7, 11, 5, 10, 8, 13, 6, 10],
-  current:  [10, 7, 12, 6, 10, 8, 5, 12, 9, 6, 10, 7, 8, 10, 6, 9],
-  soh:      [8.5, 8, 8.5, 7.5, 8, 8.5, 7.5, 8, 8.5, 7.5, 8, 8.5, 8, 8.5, 8, 8.5],
-}
-
-function buildPath(data: number[], w = 96): string {
-  const step = w / (data.length - 1)
-  return data.map((y, i) => `${i === 0 ? "M" : "L"}${(i * step).toFixed(1)},${y.toFixed(1)}`).join(" ")
-}
-
-function SparkLine({
-  dataKey,
-  accent,
-  delay = "0s",
-}: {
-  dataKey: string
-  accent: string
-  delay?: string
-}) {
-  const data = SPARKLINES[dataKey]
-  const pathD = buildPath(data)
-  const areaD = `${pathD} L96,16 L0,16 Z`
-
-  return (
-    <svg
-      width="100%"
-      height="14"
-      viewBox="0 0 96 16"
-      preserveAspectRatio="none"
-      style={{ display: "block", overflow: "visible" }}
-    >
-      <defs>
-        <linearGradient id={`spark-fill-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={accent} stopOpacity="0.22" />
-          <stop offset="100%" stopColor={accent} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {/* Area */}
-      <path d={areaD} fill={`url(#spark-fill-${dataKey})`} />
-      {/* Line */}
-      <path id={`spark-path-${dataKey}`} d={pathD} fill="none" stroke={accent} strokeWidth="1.3" opacity="0.55" strokeLinejoin="round" strokeLinecap="round" />
-      {/* Scan dot */}
-      <circle r="2.2" fill={accent}>
-        <animateMotion dur="3.5s" begin={delay} repeatCount="indefinite">
-          <mpath href={`#spark-path-${dataKey}`} />
-        </animateMotion>
-        <animate attributeName="opacity" values="0;0.95;0.95;0" keyTimes="0;0.04;0.94;1" dur="3.5s" begin={delay} repeatCount="indefinite" />
-      </circle>
-    </svg>
-  )
+const statusColors: Record<PackStatus, { wave: string; fill: string; glow: string; border: string; text: string; pill: string }> = {
+  charge:    { wave: "#00e87a", fill: "linear-gradient(0deg,#054d22,#0c7a38,#00c060)", glow: "rgba(0,232,122,0.55)",  border: "rgba(0,200,100,0.7)",  text: "#00f38d", pill: "rgba(0,200,100,0.25)" },
+  discharge: { wave: "#f59e0b", fill: "linear-gradient(0deg,#7c3000,#c05a00,#f59e0b)", glow: "rgba(245,158,11,0.55)", border: "rgba(230,130,0,0.7)",  text: "#ffb14a", pill: "rgba(230,130,0,0.25)" },
+  standby:   { wave: "#38bdf8", fill: "linear-gradient(0deg,#0c2a4a,#1a5080,#38bdf8)", glow: "rgba(56,189,248,0.45)", border: "rgba(56,189,248,0.6)", text: "#ffffff", pill: "rgba(56,189,248,0.2)" },
+  precharge: { wave: "#59b6ff", fill: "linear-gradient(0deg,#0c2a4a,#1a5080,#59b6ff)", glow: "rgba(89,182,255,0.45)", border: "rgba(89,182,255,0.6)", text: "#59b6ff", pill: "rgba(89,182,255,0.2)" },
+  offline:   { wave: "#4a6070", fill: "linear-gradient(0deg,#0a1520,#1a2a38,#2a3a48)", glow: "rgba(74,96,112,0.3)",  border: "rgba(74,96,112,0.5)",  text: "#8ea4be", pill: "rgba(74,96,112,0.2)" },
+  fault:     { wave: "#ff6464", fill: "linear-gradient(0deg,#4a0000,#8a0000,#ff3232)", glow: "rgba(255,100,100,0.55)", border: "rgba(255,80,80,0.7)", text: "#ff6464", pill: "rgba(255,80,80,0.25)" },
 }
 
 export function RealtimeStatusBoard() {
   const { language } = useLanguage()
   const [snapshot, setSnapshot] = useState<LiveSnapshot>(() => createSnapshot(0))
+  const [liveBlink, setLiveBlink] = useState(true)
 
   useEffect(() => {
     let phase = 0
@@ -123,83 +69,104 @@ export function RealtimeStatusBoard() {
     return () => window.clearInterval(timer)
   }, [])
 
-  const packStatusLabel = useMemo(
-    () => (language === "zh" ? packStatusLabels[snapshot.packStatus].zh : packStatusLabels[snapshot.packStatus].en),
-    [language, snapshot.packStatus],
-  )
+  useEffect(() => {
+    const t = window.setInterval(() => setLiveBlink((v) => !v), 1200)
+    return () => window.clearInterval(t)
+  }, [])
 
   const colors = statusColors[snapshot.packStatus]
+  const packStatusLabel = language === "zh"
+    ? packStatusLabels[snapshot.packStatus].zh
+    : packStatusLabels[snapshot.packStatus].en
 
   const metricRows = [
     {
       labelZh: "PACK电压", labelEn: "PACK Voltage",
       value: snapshot.packVoltage.toFixed(1), unit: "V",
       Icon: Activity,
-      accent: "#39d0ff", glow: "rgba(57,208,255,0.45)",
-      sparkKey: "voltage", sparkDelay: "0s",
+      accent: "#39d0ff", glow: "rgba(57,208,255,0.55)",
     },
     {
       labelZh: "当前功率", labelEn: "Power",
       value: snapshot.powerKw.toFixed(1), unit: "kW",
       Icon: Zap,
-      accent: "#00d4aa", glow: "rgba(0,212,170,0.45)",
-      sparkKey: "power", sparkDelay: "0.9s",
+      accent: "#00e87a", glow: "rgba(0,232,122,0.55)",
     },
     {
       labelZh: "组串电流", labelEn: "String Current",
       value: snapshot.stringCurrent.toFixed(1), unit: "A",
       Icon: ArrowUpDown,
-      accent: "#7dd3fc", glow: "rgba(125,211,252,0.45)",
-      sparkKey: "current", sparkDelay: "1.8s",
+      accent: "#39d0ff", glow: "rgba(57,208,255,0.55)",
     },
     {
       labelZh: "SOH", labelEn: "SOH",
       value: snapshot.soh.toFixed(1), unit: "%",
       Icon: ShieldCheck,
-      accent: "#22e6b8", glow: "rgba(34,230,184,0.45)",
-      sparkKey: "soh", sparkDelay: "0.4s",
+      accent: "#00e87a", glow: "rgba(0,232,122,0.55)",
     },
   ]
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#22d3ee]/35 bg-[linear-gradient(180deg,rgba(10,24,46,0.06),rgba(5,14,30,0.14))] p-3 backdrop-blur-[1px] shadow-[0_0_0_1px_rgba(34,211,238,0.06)_inset,0_10px_24px_rgba(0,0,0,0.1)]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border border-[#22d3ee]/30 bg-[linear-gradient(180deg,rgba(8,20,42,0.82),rgba(4,12,28,0.92))] p-3 backdrop-blur-sm shadow-[0_0_0_1px_rgba(34,211,238,0.06)_inset,0_10px_28px_rgba(0,0,0,0.25)]">
       <style>{`
         @keyframes rsb-wave1  { 0%{transform:translateX(0)}     100%{transform:translateX(-50%)} }
         @keyframes rsb-wave2  { 0%{transform:translateX(-25%)}  100%{transform:translateX(25%)}  }
         @keyframes rsb-scanline { 0%{transform:translateY(-100%)} 100%{transform:translateY(100%)} }
-        @keyframes rsb-ring   { 0%,100%{opacity:0.18; transform:scale(1)}  55%{opacity:0.04; transform:scale(1.65)} }
-        @keyframes rsb-blink  { 0%,100%{opacity:1} 50%{opacity:0.12} }
-        @keyframes rsb-glow-pulse { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.35)} }
+        @keyframes rsb-ring1  { 0%,100%{opacity:0.5; transform:scale(1)}    60%{opacity:0; transform:scale(1.7)} }
+        @keyframes rsb-ring2  { 0%,100%{opacity:0.3; transform:scale(1)}    60%{opacity:0; transform:scale(2.1)} }
+        @keyframes rsb-sonar  { 0%{opacity:0.6; transform:scale(0.85)} 100%{opacity:0; transform:scale(1.55)} }
       `}</style>
 
-      {/* Title */}
-      <div className="mb-2 flex shrink-0 items-center gap-2">
-        <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
-        <h3
-          className="text-[1.05rem] font-semibold tracking-[0.02em] text-[#00d4aa]"
-          style={{ textShadow: "0 1px 6px rgba(0,0,0,0.95)" }}
-        >
-          {language === "zh" ? "系统状态" : "System Status"}
-        </h3>
+      {/* ── Title row ── */}
+      <div className="mb-2.5 flex shrink-0 items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
+          <h3
+            className="text-[1.05rem] font-semibold tracking-[0.02em] text-[#00d4aa]"
+            style={{ textShadow: "0 1px 6px rgba(0,0,0,0.95)" }}
+          >
+            {language === "zh" ? "系统状态" : "System Status"}
+          </h3>
+        </div>
+        {/* Online / Offline badge */}
+        <div className="flex items-center gap-1.5">
+          <div
+            className="h-2 w-2 rounded-full"
+            style={{
+              background: "#00e87a",
+              opacity: liveBlink ? 1 : 0.2,
+              transition: "opacity 0.4s ease",
+              boxShadow: "0 0 6px rgba(0,232,122,0.8)",
+            }}
+          />
+          <span className="text-[11px] font-bold tracking-[0.06em] text-[#00e87a]" style={{ textShadow: "0 0 8px rgba(0,232,122,0.6)" }}>
+            {language === "zh" ? "在线" : "Online"}
+          </span>
+        </div>
       </div>
 
-      {/* Body */}
+      {/* ── Body ── */}
       <div className="flex min-h-0 flex-1 flex-row gap-3 overflow-hidden">
 
         {/* ── Battery column ── */}
-        <div className="flex w-[68px] shrink-0 flex-col items-center justify-center gap-1">
-          {/* Terminal */}
+        <div className="flex w-[80px] shrink-0 flex-col items-center justify-center gap-2">
+          {/* Terminal nub */}
           <div
-            className="h-[5px] w-[28px] rounded-t-[3px] transition-all duration-700"
-            style={{ background: colors.wave, boxShadow: `0 0 8px ${colors.glow}` }}
+            className="h-[6px] w-[32px] rounded-t-[4px] transition-all duration-700"
+            style={{ background: colors.wave, boxShadow: `0 0 10px ${colors.glow}` }}
           />
 
           {/* Shell */}
           <div
-            className="relative h-[132px] w-full overflow-hidden rounded-[12px] transition-all duration-700"
-            style={{ border: `1.5px solid ${colors.border}`, background: "#020810", boxShadow: `0 0 22px ${colors.glow}, inset 0 0 16px rgba(0,0,0,0.7)` }}
+            className="relative w-full overflow-hidden rounded-[14px] transition-all duration-700"
+            style={{
+              height: "148px",
+              border: `1.5px solid ${colors.border}`,
+              background: "#020810",
+              boxShadow: `0 0 28px ${colors.glow}, inset 0 0 18px rgba(0,0,0,0.7)`,
+            }}
           >
-            <div className="pointer-events-none absolute inset-[2px] z-10 rounded-[10px] border border-white/[0.07]" />
+            <div className="pointer-events-none absolute inset-[2px] z-10 rounded-[12px] border border-white/[0.07]" />
 
             {/* Fill */}
             <div
@@ -240,9 +207,9 @@ export function RealtimeStatusBoard() {
 
             {/* SOC overlay */}
             <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-0.5">
-              <Zap className="h-3 w-3 text-white/70" fill="currentColor" />
+              <Zap className="h-4 w-4 text-white/80" fill="currentColor" />
               <span
-                className="text-[1.05rem] font-extrabold leading-none text-white"
+                className="text-[1.2rem] font-extrabold leading-none text-white"
                 style={{ textShadow: "0 0 12px rgba(0,0,0,0.95), 0 1px 6px rgba(0,0,0,0.95)" }}
               >
                 {Math.round(snapshot.soc)}%
@@ -252,84 +219,101 @@ export function RealtimeStatusBoard() {
 
           {/* Status label */}
           <div
-            className={`shrink-0 text-[11px] font-bold tracking-[0.04em] ${colors.text}`}
-            style={{ textShadow: `0 0 8px ${colors.glow}` }}
+            className="shrink-0 rounded-full px-3 py-0.5 text-[11px] font-bold tracking-[0.04em] transition-all duration-700"
+            style={{
+              color: colors.text,
+              background: colors.pill,
+              border: `1px solid ${colors.border}`,
+              boxShadow: `0 0 8px ${colors.glow}`,
+              textShadow: `0 0 6px ${colors.glow}`,
+            }}
           >
             {packStatusLabel}
           </div>
         </div>
 
         {/* ── 2×2 metric grid ── */}
-        <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-1.5 overflow-hidden">
+        <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-2 overflow-hidden">
           {metricRows.map((item) => {
             const Icon = item.Icon
             return (
               <div
                 key={item.labelEn}
-                className="relative flex min-h-0 min-w-0 flex-col justify-between overflow-hidden px-2.5 pb-1.5 pt-2"
+                className="relative flex min-h-0 min-w-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-[12px] py-2"
                 style={{
-                  background: "linear-gradient(145deg,rgba(14,34,62,0.18) 0%,rgba(8,18,38,0.30) 100%)",
-                  clipPath: "polygon(7px 0%,100% 0%,100% calc(100% - 7px),calc(100% - 7px) 100%,0% 100%,0% 7px)",
+                  background: "linear-gradient(145deg,rgba(12,28,58,0.7) 0%,rgba(6,16,36,0.85) 100%)",
+                  border: "1px solid rgba(34,211,238,0.12)",
+                  boxShadow: "inset 0 0 16px rgba(0,0,0,0.35)",
                 }}
               >
-                {/* Corner brackets */}
-                <div className="pointer-events-none absolute inset-0 z-10">
-                  <div className="absolute left-0 top-0 h-2.5 w-2.5" style={{ borderLeft: `1.5px solid ${item.accent}`, borderTop: `1.5px solid ${item.accent}`, opacity: 0.6 }} />
-                  <div className="absolute right-0 top-0 h-2.5 w-2.5" style={{ borderRight: `1.5px solid ${item.accent}`, borderTop: `1.5px solid ${item.accent}`, opacity: 0.6 }} />
-                  <div className="absolute bottom-0 left-0 h-2.5 w-2.5" style={{ borderLeft: `1.5px solid ${item.accent}`, borderBottom: `1.5px solid ${item.accent}`, opacity: 0.6 }} />
-                  <div className="absolute bottom-0 right-0 h-2.5 w-2.5" style={{ borderRight: `1.5px solid ${item.accent}`, borderBottom: `1.5px solid ${item.accent}`, opacity: 0.6 }} />
-                </div>
+                {/* Label */}
+                <span
+                  className="text-[11px] font-semibold tracking-wide"
+                  style={{ color: "rgba(255,255,255,0.65)", textShadow: "0 1px 5px rgba(0,0,0,0.9)" }}
+                >
+                  {language === "zh" ? item.labelZh : item.labelEn}
+                </span>
 
-                {/* Top glow line */}
-                <div className="pointer-events-none absolute inset-x-3 top-0 h-px" style={{ background: `linear-gradient(90deg,transparent,${item.accent}55,transparent)` }} />
-
-                {/* Icon + label */}
-                <div className="flex items-center justify-between gap-1">
-                  <span
-                    className="text-[11px] font-semibold tracking-[0.02em] text-white/72"
-                    style={{ textShadow: "0 1px 5px rgba(0,0,0,0.95)" }}
+                {/* Circle icon with sonar rings */}
+                <div className="relative flex items-center justify-center" style={{ width: 36, height: 36 }}>
+                  {/* Sonar ring 1 */}
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      inset: -3,
+                      border: `1px solid ${item.accent}`,
+                      animation: "rsb-sonar 2.2s ease-out infinite",
+                    }}
+                  />
+                  {/* Sonar ring 2 */}
+                  <div
+                    className="absolute rounded-full"
+                    style={{
+                      inset: -3,
+                      border: `1px solid ${item.accent}`,
+                      animation: "rsb-sonar 2.2s ease-out infinite",
+                      animationDelay: "0.7s",
+                    }}
+                  />
+                  {/* Outer glow ring */}
+                  <div
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      background: `radial-gradient(circle, ${item.glow} 0%, transparent 70%)`,
+                    }}
+                  />
+                  {/* Icon circle */}
+                  <div
+                    className="relative flex items-center justify-center rounded-full"
+                    style={{
+                      width: 34,
+                      height: 34,
+                      background: `radial-gradient(circle at 35% 35%, ${item.accent}30, ${item.accent}08)`,
+                      border: `1.5px solid ${item.accent}80`,
+                      boxShadow: `0 0 12px ${item.glow}, inset 0 0 8px ${item.accent}18`,
+                    }}
                   >
-                    {language === "zh" ? item.labelZh : item.labelEn}
-                  </span>
-
-                  {/* Icon with pulsing ring */}
-                  <div className="relative flex h-6 w-6 shrink-0 items-center justify-center">
-                    {/* Pulsing ring */}
-                    <div
-                      className="absolute inset-0 rounded-full"
-                      style={{
-                        background: `${item.accent}22`,
-                        animation: `rsb-ring 2.4s ease-out infinite`,
-                        animationDelay: item.sparkDelay,
-                      }}
+                    <Icon
+                      style={{ width: 15, height: 15, color: item.accent, filter: `drop-shadow(0 0 4px ${item.glow})` }}
                     />
-                    <div
-                      className="relative flex h-6 w-6 items-center justify-center rounded-[7px]"
-                      style={{ background: `${item.accent}18` }}
-                    >
-                      <Icon
-                        className="h-3.5 w-3.5"
-                        style={{ color: item.accent, animation: `rsb-glow-pulse 2.4s ease-in-out infinite`, animationDelay: item.sparkDelay }}
-                      />
-                    </div>
                   </div>
                 </div>
 
                 {/* Value */}
-                <div className="flex items-end gap-1">
+                <div className="flex items-end gap-1 leading-none">
                   <span
-                    className="text-[1.15rem] font-bold leading-none tabular-nums"
-                    style={{ color: item.accent, textShadow: `0 0 12px ${item.glow}, 0 1px 8px rgba(0,0,0,0.95)` }}
+                    className="text-[1.25rem] font-bold tabular-nums"
+                    style={{ color: item.accent, textShadow: `0 0 14px ${item.glow}, 0 1px 8px rgba(0,0,0,0.95)` }}
                   >
                     {item.value}
                   </span>
-                  <span className="pb-0.5 text-[11px] text-white/55" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.95)" }}>
+                  <span
+                    className="pb-0.5 text-[11px]"
+                    style={{ color: "rgba(255,255,255,0.5)", textShadow: "0 1px 4px rgba(0,0,0,0.95)" }}
+                  >
                     {item.unit}
                   </span>
                 </div>
-
-                {/* Sparkline */}
-                <SparkLine dataKey={item.sparkKey} accent={item.accent} delay={item.sparkDelay} />
               </div>
             )
           })}
