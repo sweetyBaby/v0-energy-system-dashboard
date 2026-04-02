@@ -29,11 +29,11 @@ const packStatusLabels: Record<PackStatus, { zh: string; en: string }> = {
 const createSnapshot = (phase: number): LiveSnapshot => {
   const packStatus = packStatusCycle[phase % packStatusCycle.length]
   return {
-    soc:           93 + (phase % 4) * 2,
-    packVoltage:   5682.4 + (phase % 4) * 6.2,
-    powerKw:       packStatus === "discharge" ? -628.8 : 655.4 + (phase % 3) * 18.6,
-    stringCurrent: packStatus === "discharge" ? -154.8 : 161.3 + (phase % 4) * 2.8,
-    soh:           99.6 + (phase % 3) * 0.1,
+    soc:           62 + (phase % 5) * 4,
+    packVoltage:   1296.4 + (phase % 4) * 3.8,
+    powerKw:       packStatus === "discharge" ? -(58.2 + (phase % 3) * 4.6) : 62.4 + (phase % 3) * 5.2,
+    stringCurrent: packStatus === "discharge" ? -(44.8 + (phase % 3) * 3.5) : 48.1 + (phase % 4) * 2.2,
+    soh:           98.4 + (phase % 3) * 0.1,
     packStatus,
   }
 }

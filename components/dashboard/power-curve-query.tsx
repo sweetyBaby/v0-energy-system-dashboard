@@ -41,26 +41,28 @@ const formatRangeLabel = (range: DateRange | undefined) => {
 
 const formatDayLabel = (date: Date) => `${date.getMonth() + 1}/${date.getDate()}`
 
+// 75kW 系统：充电正值，放电负值，最大±75kW
 const getRealtimePower = (hour: number) => {
   if (hour >= 0 && hour < 6) {
-    return Math.round(1500 + Math.random() * 400)
+    return Math.round(62 + Math.random() * 12)   // 深夜低谷充电 62~74kW
   }
 
   if (hour >= 12 && hour < 14) {
-    return Math.round(1200 + Math.random() * 300)
+    return Math.round(55 + Math.random() * 18)   // 午间低谷充电 55~73kW
   }
 
   if ((hour >= 8 && hour < 12) || (hour >= 18 && hour < 22)) {
-    return -Math.round(1600 + Math.random() * 400)
+    return -Math.round(58 + Math.random() * 16)  // 早晚高峰放电 -58~-74kW
   }
 
   return 0
 }
 
 const getAggregatePower = () => {
-  const chargePower = 800 + Math.random() * 600
-  const dischargePower = 700 + Math.random() * 500
-  return Math.round(chargePower - dischargePower)
+  // 日净充放，单位 kWh，日充~115kWh，日放~96kWh
+  const charge = 105 + Math.random() * 20
+  const discharge = 88 + Math.random() * 18
+  return Math.round(charge - discharge)
 }
 
 const generateMinuteDataUntil = (untilHour: number, untilMinute: number): DataPoint[] => {
