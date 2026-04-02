@@ -109,16 +109,28 @@ export function DashboardHeader({
     <header className="relative z-30 h-[72px] shrink-0 overflow-visible bg-[linear-gradient(180deg,#06111f_0%,#040b16_100%)] shadow-[0_10px_28px_rgba(0,0,0,0.28)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-40%,rgba(34,211,238,0.28),transparent_38%),radial-gradient(circle_at_18%_40%,rgba(22,163,255,0.12),transparent_36%),radial-gradient(circle_at_82%_32%,rgba(0,212,170,0.10),transparent_26%),linear-gradient(90deg,rgba(4,14,26,0.98),rgba(8,22,38,0.84)_52%,rgba(4,14,26,0.98))]" />
       <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent,transparent_118px,rgba(84,191,255,0.055)_119px),repeating-linear-gradient(0deg,transparent,transparent_7px,rgba(0,212,170,0.02)_8px)] opacity-80" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#68e6ff] to-transparent shadow-[0_0_14px_rgba(104,230,255,0.6)]" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#1ce1c2]/70 to-transparent" />
-      <div className="pointer-events-none absolute left-0 top-0 h-9 w-9 border-l border-t border-[#29e4d4]/45" />
-      <div className="pointer-events-none absolute right-0 top-0 h-9 w-9 border-r border-t border-[#29e4d4]/45" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#68e6ff] to-transparent shadow-[0_0_20px_rgba(104,230,255,0.9),0_0_40px_rgba(104,230,255,0.4)]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#1ce1c2]/80 to-transparent shadow-[0_0_8px_rgba(28,225,194,0.5)]" />
+      {/* 四角装饰 */}
+      <div className="pointer-events-none absolute left-0 top-0 h-10 w-10 border-l-2 border-t-2 border-[#29e4d4]/70" />
+      <div className="pointer-events-none absolute right-0 top-0 h-10 w-10 border-r-2 border-t-2 border-[#29e4d4]/70" />
+      <div className="pointer-events-none absolute left-0 bottom-0 h-10 w-10 border-l-2 border-b-2 border-[#1ce1c2]/50" />
+      <div className="pointer-events-none absolute right-0 bottom-0 h-10 w-10 border-r-2 border-b-2 border-[#1ce1c2]/50" />
+      {/* 角点高亮 */}
+      <div className="pointer-events-none absolute left-0 top-0 h-1 w-1 bg-[#68e6ff] shadow-[0_0_8px_rgba(104,230,255,1)]" />
+      <div className="pointer-events-none absolute right-0 top-0 h-1 w-1 bg-[#68e6ff] shadow-[0_0_8px_rgba(104,230,255,1)]" />
 
       <div className="pointer-events-none absolute left-[360px] right-[380px] top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-[#46dfff]/30 to-transparent" />
       <div className="pointer-events-none absolute left-[460px] right-[480px] top-1/2 h-[18px] -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,rgba(53,208,255,0.16),transparent_72%)]" />
 
-      <div className="relative grid h-full grid-cols-[minmax(320px,430px)_minmax(0,1fr)_auto] items-center gap-4 px-4">
-        <div className="relative flex min-w-0 items-center gap-3">
+      <div
+        className={`relative grid h-full items-center gap-2 px-3 sm:gap-3 sm:px-4 ${
+          zh
+            ? "grid-cols-[minmax(220px,320px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(260px,360px)_minmax(0,1fr)_auto]"
+            : "grid-cols-[minmax(220px,290px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)_auto]"
+        }`}
+      >
+        <div className="relative flex min-w-0 items-center gap-2 sm:gap-3">
           <div
             className="relative flex h-[36px] w-[36px] shrink-0 items-center justify-center border border-[#27f0dd]/45 bg-[linear-gradient(180deg,rgba(7,45,54,0.96),rgba(4,20,28,0.96))] shadow-[0_0_18px_rgba(39,240,221,0.14),inset_0_0_0_1px_rgba(140,255,240,0.04)]"
             style={{ clipPath: "polygon(8px 0%,100% 0%,100% calc(100% - 8px),calc(100% - 8px) 100%,0% 100%,0% 8px)" }}
@@ -130,7 +142,9 @@ export function DashboardHeader({
           <div className="h-[8px] w-[8px] shrink-0 rounded-full bg-[#15ffaf] shadow-[0_0_10px_rgba(21,255,175,0.8)]" />
 
           <div
-            className="relative min-w-0 flex-1 overflow-hidden border border-[#235f7f]/70 bg-[linear-gradient(180deg,rgba(8,29,44,0.96),rgba(4,14,27,0.98))] px-4 py-2 shadow-[0_0_24px_rgba(18,94,132,0.14),inset_0_0_0_1px_rgba(126,220,255,0.04)]"
+            className={`relative min-w-0 flex-1 overflow-hidden border border-[#235f7f]/70 bg-[linear-gradient(180deg,rgba(8,29,44,0.96),rgba(4,14,27,0.98))] py-2 shadow-[0_0_24px_rgba(18,94,132,0.14),inset_0_0_0_1px_rgba(126,220,255,0.04)] ${
+              zh ? "px-4" : "px-2.5 sm:px-3 xl:px-4"
+            }`}
             style={{ clipPath: "polygon(12px 0%,100% 0%,calc(100% - 14px) 100%,0% 100%)" }}
           >
             <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#7de9ff]/70 to-transparent" />
@@ -139,9 +153,11 @@ export function DashboardHeader({
              
               <h1
                 className={`mt-1 whitespace-nowrap bg-gradient-to-r from-[#9ff7ff] via-[#ffffff] to-[#7effd7] bg-clip-text font-bold text-transparent ${
-                  zh ? "text-[1.04rem] tracking-[0.18em]" : "text-[0.86rem] tracking-[0.12em]"
+                  zh
+                    ? "text-[0.94rem] tracking-[0.14em] xl:text-[1.04rem] xl:tracking-[0.18em]"
+                    : "text-[0.56rem] tracking-[0em] sm:text-[0.62rem] sm:tracking-[0.01em] xl:text-[0.82rem] xl:tracking-[0.1em]"
                 }`}
-                style={{ filter: "drop-shadow(0 0 18px rgba(60,223,255,0.48))" }}
+                style={zh ? { filter: "drop-shadow(0 0 18px rgba(60,223,255,0.48))" } : { fontSize: "clamp(0.56rem,0.84vw,0.82rem)", letterSpacing: "0.02em", filter: "drop-shadow(0 0 18px rgba(60,223,255,0.48))" }}
               >
                 {zh ? "BMS 数据监测云平台" : "BMS Data Monitoring Cloud Platform"}
               </h1>
@@ -151,12 +167,12 @@ export function DashboardHeader({
 
         <div className="relative min-w-0">
           <div
-            className="relative flex h-[42px] items-center overflow-hidden border border-[#245b78]/72 bg-[linear-gradient(180deg,rgba(9,28,44,0.96),rgba(4,14,28,0.98))] px-2 shadow-[0_0_28px_rgba(36,204,255,0.10),inset_0_0_0_1px_rgba(129,224,255,0.04)]"
+            className="relative flex h-[40px] items-center overflow-hidden border border-[#245b78]/72 bg-[linear-gradient(180deg,rgba(9,28,44,0.96),rgba(4,14,28,0.98))] px-1.5 shadow-[0_0_28px_rgba(36,204,255,0.10),inset_0_0_0_1px_rgba(129,224,255,0.04)] sm:h-[42px] sm:px-2"
             style={{ clipPath: "polygon(12px 0%,calc(100% - 12px) 0%,100% 50%,calc(100% - 12px) 100%,12px 100%,0% 50%)" }}
           >
             <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#6ee9ff]/75 to-transparent" />
             <span className="pointer-events-none absolute inset-x-10 bottom-0 h-px bg-gradient-to-r from-transparent via-[#1ce1c2]/45 to-transparent" />
-            <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-2">
+            <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1.5 sm:px-2">
               {tabs.map((tab) => {
                 const isActive = activeTab === tab.key
                 const label = zh ? tab.label.zh : tab.label.en
@@ -165,7 +181,7 @@ export function DashboardHeader({
                   <button
                     key={tab.key}
                     onClick={() => onTabChange(tab.key)}
-                    className={`group relative h-[30px] shrink-0 whitespace-nowrap px-4 text-[12px] font-semibold tracking-[0.08em] transition-all ${
+                    className={`group relative h-[28px] shrink-0 whitespace-nowrap px-2.5 text-[11px] font-semibold tracking-[0.03em] transition-all sm:h-[30px] sm:px-3 sm:text-[12px] sm:tracking-[0.06em] ${
                       isActive
                         ? "border border-[#2cead7]/60 bg-[linear-gradient(180deg,rgba(11,88,103,0.95),rgba(6,42,58,0.92))] text-[#d8ffff] shadow-[0_0_18px_rgba(44,234,215,0.16),inset_0_0_0_1px_rgba(139,255,247,0.10)]"
                         : "border border-transparent bg-[linear-gradient(180deg,rgba(8,24,39,0.82),rgba(4,14,26,0.82))] text-[#8fb7cb] hover:border-[#2a88ad]/45 hover:text-[#d9f7ff]"
@@ -189,9 +205,9 @@ export function DashboardHeader({
           </div>
         </div>
 
-        <div className="relative z-40 flex items-center gap-2" ref={controlRef}>
+        <div className="relative z-40 flex items-center gap-1.5 xl:gap-2" ref={controlRef}>
           <div
-            className="relative flex h-[32px] items-center gap-2 px-3"
+            className="relative hidden h-[32px] items-center gap-2 px-3 2xl:flex"
             style={{
               clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)",
               border: "1px solid rgba(53,188,245,0.28)",
@@ -206,18 +222,18 @@ export function DashboardHeader({
             </span>
           </div>
 
-          <div className="relative w-[270px] xl:w-[300px]">
+          <div className={`relative ${zh ? "w-[132px] sm:w-[144px] xl:w-[160px]" : "w-[182px] sm:w-[204px] xl:w-[236px]"}`}>
             <button
               onClick={() => setDropdownOpen((prev) => !prev)}
-              className="group relative flex h-[32px] w-full items-center justify-between gap-3 border border-[#225d7a]/75 bg-[linear-gradient(180deg,rgba(7,24,39,0.94),rgba(4,13,25,0.94))] px-3 text-left shadow-[inset_0_0_0_1px_rgba(126,220,255,0.04)] transition-all hover:border-[#38cfff]/70 hover:shadow-[0_0_18px_rgba(56,207,255,0.12),inset_0_0_0_1px_rgba(126,220,255,0.06)]"
+              className="group relative flex h-[32px] w-full items-center justify-between gap-2 border border-[#225d7a]/75 bg-[linear-gradient(180deg,rgba(7,24,39,0.94),rgba(4,13,25,0.94))] px-3 text-left shadow-[inset_0_0_0_1px_rgba(126,220,255,0.04)] transition-all hover:border-[#38cfff]/70 hover:shadow-[0_0_20px_rgba(56,207,255,0.18),inset_0_0_0_1px_rgba(126,220,255,0.08)]"
               style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
               aria-expanded={dropdownOpen}
               aria-label={zh ? "切换项目" : "Switch project"}
             >
               <span className="pointer-events-none absolute left-[10px] top-0 h-full w-px bg-gradient-to-b from-[#1df2d7]/0 via-[#1df2d7]/35 to-[#1df2d7]/0" />
               <span className="pointer-events-none absolute inset-x-4 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3bd2ff]/60 to-transparent" />
-              <div className="min-w-0">
-                <div className="whitespace-nowrap text-[12px] font-semibold tracking-[0.03em] text-[#e7fbff]">
+              <div className="min-w-0 flex-1">
+                <div className="whitespace-nowrap text-[10.5px] font-semibold tracking-[0.02em] text-[#e7fbff] sm:text-[11.5px] sm:tracking-[0.04em] xl:text-[12px] xl:tracking-[0.05em]" style={{ textShadow: "0 0 12px rgba(104,230,255,0.35)" }}>
                   {zh ? selectedProject.name : selectedProject.nameEn}
                 </div>
               </div>
@@ -225,7 +241,7 @@ export function DashboardHeader({
             </button>
 
             {dropdownOpen && (
-              <div className="absolute right-0 top-full z-50 mt-2 w-full overflow-hidden rounded-[12px] border border-[#2a6d8e]/70 bg-[linear-gradient(180deg,rgba(4,16,30,0.98),rgba(2,10,20,0.98))] shadow-[0_16px_48px_rgba(0,0,0,0.56),0_0_24px_rgba(40,180,255,0.08)]">
+              <div className="absolute right-0 top-full z-50 mt-2 min-w-full overflow-hidden rounded-[12px] border border-[#2a6d8e]/70 bg-[linear-gradient(180deg,rgba(4,16,30,0.98),rgba(2,10,20,0.98))] shadow-[0_16px_48px_rgba(0,0,0,0.56),0_0_24px_rgba(40,180,255,0.08)]">
                 <div className="h-px bg-gradient-to-r from-transparent via-[#50dcff]/70 to-transparent" />
                 {projects.map((project) => {
                   const isActive = selectedProject.id === project.id
@@ -256,27 +272,29 @@ export function DashboardHeader({
             className="relative flex h-[32px] items-center overflow-hidden"
             style={{
               clipPath: "polygon(0% 0%,calc(100% - 10px) 0%,100% 100%,0% 100%)",
-              border: "1px solid rgba(53,188,245,0.28)",
-              background: "linear-gradient(180deg,rgba(9,29,48,0.94),rgba(4,17,31,0.94))",
-              boxShadow: "inset 0 0 0 1px rgba(129,224,255,0.04)",
+              border: "1px solid rgba(53,188,245,0.45)",
+              background: "linear-gradient(180deg,rgba(9,29,48,0.96),rgba(4,17,31,0.96))",
+              boxShadow: "0 0 14px rgba(56,207,255,0.12),inset 0 0 0 1px rgba(129,224,255,0.06)",
             }}
           >
+            <span className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-[#6ee9ff]/80 to-transparent" />
             <div className="flex items-center px-2.5">
-              <Globe className="h-[13px] w-[13px] text-[#62dfff]" />
+              <Globe className="h-[13px] w-[13px] text-[#62dfff]" style={{ filter: "drop-shadow(0 0 4px rgba(98,223,255,0.8))" }} />
             </div>
-            <div className="h-4 w-px bg-[#38cfff]/20" />
+            <div className="h-4 w-px bg-[#38cfff]/30" />
             {(["zh", "en"] as const).map((lang) => {
               const isActive = language === lang
               return (
                 <button
                   key={lang}
                   onClick={() => setLanguage(lang)}
-                  className={`px-3 text-[11.5px] font-semibold tracking-[0.05em] transition-all ${
+                  className={`relative px-2.5 text-[12px] font-bold tracking-[0.08em] transition-all ${
                     isActive ? "text-[#26f0dc]" : "text-[#5a7f95] hover:text-[#9feeff]"
                   }`}
-                  style={isActive ? { textShadow: "0 0 10px rgba(38,240,220,0.5)" } : undefined}
+                  style={isActive ? { textShadow: "0 0 12px rgba(38,240,220,0.7),0 0 4px rgba(38,240,220,0.9)" } : undefined}
                 >
-                  {lang === "zh" ? "中文" : "English"}
+                  {isActive && <span className="absolute -bottom-px left-1/2 h-px w-3 -translate-x-1/2 bg-[#26f0dc] shadow-[0_0_6px_rgba(38,240,220,0.8)]" />}
+                  {lang === "zh" ? "中" : "EN"}
                 </button>
               )
             })}

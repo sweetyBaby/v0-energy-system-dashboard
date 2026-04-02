@@ -48,7 +48,7 @@ const ANALYSIS_RANGES: { key: AnalysisRange; zh: string; en: string }[] = [
 const TAB_META: Record<DashboardTab, { zh: string; en: string }> = {
   realtime: { zh: "总览", en: "Overview" },
   history: { zh: "运行状态", en: "Operations" },
-  "alarm-monitoring": { zh: "告警监测", en: "Alarm Monitoring" },
+  "alarm-monitoring": { zh: "告警监测", en: "Alarm" },
   bms: { zh: "电芯矩阵", en: "Cell Matrix" },
   "cell-history": { zh: "电芯历史", en: "Cell History" },
   analysis: { zh: "数据分析", en: "Analysis" },
