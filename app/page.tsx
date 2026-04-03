@@ -174,8 +174,8 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(8,20,40,0.02)_0%,rgba(8,20,40,0.00)_32%,rgba(5,12,28,0.12)_72%,rgba(3,8,20,0.24)_100%)]" />
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00d4aa]/50 to-transparent" />
 
-              <div className="relative grid h-full grid-cols-12 gap-3 px-3 pb-3 pt-6">
-                <div className="col-span-3 min-h-0">
+              <div className="relative grid h-full grid-cols-12 items-stretch gap-3 px-3 pb-3 pt-6">
+                <div className="col-span-3 min-h-0 h-full">
                   <RealtimeStatusBoard />
                 </div>
 
@@ -208,7 +208,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                   </div>
                 </div>
 
-                <div className="col-span-3 flex min-h-0 items-start justify-end">
+                <div className="col-span-3 flex min-h-0 h-full items-stretch justify-end">
                   <ChargeDischargeTable />
                 </div>
               </div>

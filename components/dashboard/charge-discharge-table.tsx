@@ -140,36 +140,33 @@ function TileFrame({
   )
 }
 
-function HeroStatCard({ card, zh, className }: { card: HeroCard; zh: boolean; className?: string }) {
+function HeroStatCard({ card, zh }: { card: HeroCard; zh: boolean }) {
   const { integer, decimal } = splitNumber(card.value)
 
   return (
-    <TileFrame accent={card.accent} softAccent={card.softAccent} className={`h-full ${className ?? ""}`.trim()}>
+    <TileFrame accent={card.accent} softAccent={card.softAccent} className="h-full min-h-0">
       <div className="relative flex h-full flex-col px-3 py-2.5">
-        {/* Top row: icon + title + main value */}
-        <div className="flex items-center gap-2">
-          {/* Icon circle */}
+        <div className="flex items-center gap-3">
           <div
-            className="relative flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(180deg,rgba(5,18,43,0.96),rgba(9,27,60,0.88))] ring-1 ring-white/10"
+            className="relative flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(180deg,rgba(5,18,43,0.96),rgba(9,27,60,0.88))] ring-1 ring-white/10"
             style={{ boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.06), 0 0 18px ${card.softAccent}` }}
           >
             <div className={`absolute inset-[3px] rounded-full bg-gradient-to-b ${card.ringClass} opacity-95`} />
             <div className="absolute inset-[7px] rounded-full bg-[linear-gradient(180deg,rgba(5,20,47,0.96),rgba(7,24,52,0.94))]" />
-            <div className="relative z-10 flex h-[26px] w-[26px] items-center justify-center rounded-[8px] border border-white/15 bg-[linear-gradient(180deg,rgba(15,58,118,0.7),rgba(8,27,59,0.92))]">
+            <div className="relative z-10 flex h-[28px] w-[28px] items-center justify-center rounded-[8px] border border-white/15 bg-[linear-gradient(180deg,rgba(15,58,118,0.7),rgba(8,27,59,0.92))]">
               {card.icon}
             </div>
           </div>
 
-          {/* Title + value */}
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span className="text-[0.7rem] font-semibold leading-tight tracking-[0.02em] text-[#f5f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.55)]">
+          <div className="flex min-w-0 flex-1 flex-col justify-center">
+            <span className="text-[0.72rem] font-semibold leading-tight tracking-[0.02em] text-[#f5f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.55)]">
               {zh ? card.labelZh : card.labelEn}
             </span>
-            <div className="flex items-baseline gap-0.5">
+            <div className="mt-1.5 flex items-baseline gap-0.5">
               <span
                 className={`font-bold tabular-nums leading-none ${card.valueClass}`}
                 style={{
-                  fontSize: "clamp(1.2rem, 1.7vw, 1.75rem)",
+                  fontSize: "clamp(1.45rem, 2vw, 2.05rem)",
                   textShadow: `0 0 16px ${card.softAccent}, 0 2px 8px rgba(0,0,0,0.45)`,
                 }}
               >
@@ -179,45 +176,44 @@ function HeroStatCard({ card, zh, className }: { card: HeroCard; zh: boolean; cl
                 <span
                   className={`font-bold tabular-nums leading-none ${card.valueClass}`}
                   style={{
-                    fontSize: "clamp(0.75rem, 1vw, 0.95rem)",
+                    fontSize: "clamp(0.86rem, 1.12vw, 1.05rem)",
                     textShadow: `0 0 12px ${card.softAccent}, 0 2px 8px rgba(0,0,0,0.45)`,
                   }}
                 >
                   {decimal}
                 </span>
               )}
-              <span className="text-[0.65rem] font-semibold text-[#f4f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.45)]">
+              <span className="text-[0.68rem] font-semibold text-[#f4f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.45)]">
                 {card.unit}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Divider */}
         <div className="my-2 h-px w-full bg-[linear-gradient(90deg,transparent,rgba(180,220,255,0.7),transparent)]" />
 
-        {/* Detail rows: stretch to fill remaining height */}
         <div className="flex flex-1 flex-col justify-between">
           {card.details.map((detail, idx) => (
             <div key={detail.labelEn} className="flex items-center justify-between gap-1">
-              <span className="shrink-0 text-[0.66rem] font-medium leading-none text-[#b8d4f8]/85">
+              <span className="shrink-0 text-[0.68rem] font-medium leading-none text-[#b8d4f8]/88">
                 {zh ? detail.labelZh : detail.labelEn}
               </span>
-              {idx < card.details.length - 1 && (
-                <div className="h-px flex-1 bg-[linear-gradient(90deg,rgba(196,230,255,0.25),transparent)]" />
+              {idx < card.details.length - 1 ? (
+                <div className="h-px flex-1 bg-[linear-gradient(90deg,rgba(196,230,255,0.3),transparent)]" />
+              ) : (
+                <div className="flex-1" />
               )}
-              {idx === card.details.length - 1 && <div className="flex-1" />}
               <div className="flex shrink-0 items-baseline gap-[2px]">
                 <span
                   className="font-semibold tabular-nums leading-none text-[#f2f8ff]"
                   style={{
-                    fontSize: "0.78rem",
+                    fontSize: "0.84rem",
                     textShadow: `0 0 8px ${card.accent}33, 0 2px 6px rgba(0,0,0,0.4)`,
                   }}
                 >
                   {detail.value}
                 </span>
-                <span className="text-[0.6rem] leading-none text-[#d8eeff]/85">{detail.unit}</span>
+                <span className="text-[0.62rem] leading-none text-[#d8eeff]/85">{detail.unit}</span>
               </div>
             </div>
           ))}
@@ -245,27 +241,26 @@ function TotalCard({
   zh: boolean
 }) {
   return (
-    <TileFrame accent={accent} softAccent={glow} className="min-h-0">
-      <div className="relative flex h-full min-h-0 flex-col justify-center px-3.5 py-2">
-        <div className="text-[0.75rem] font-semibold tracking-[0.02em] text-[#f6f9ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.5)]">
+    <TileFrame accent={accent} softAccent={glow} className="h-full min-h-0">
+      <div className="relative flex h-full min-h-0 flex-col justify-between px-3.5 py-2.5">
+        <div className="text-[0.8rem] font-semibold tracking-[0.02em] text-[#f6f9ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.5)]">
           {zh ? title : labelEn}
         </div>
-        <div
-          className="my-1.5 h-px w-full"
-          style={{ background: `linear-gradient(90deg,transparent,${accent},transparent)` }}
-        />
-        <div className="flex items-baseline gap-1">
+        <div className="my-1.5 h-px w-full" style={{ background: `linear-gradient(90deg,transparent,${accent},transparent)` }} />
+        <div className="flex flex-1 items-center">
+          <div className="flex items-baseline gap-1">
           <span
             className="font-bold tabular-nums leading-none"
             style={{
-              fontSize: "clamp(1.2rem, 1.7vw, 1.75rem)",
+              fontSize: "clamp(1.7rem, 2.25vw, 2.2rem)",
               color: accent,
               textShadow: `0 0 20px ${glow}, 0 2px 8px rgba(0,0,0,0.45)`,
             }}
           >
             {value}
           </span>
-          <span className="text-[0.7rem] font-semibold text-[#f4f8ff]">{unit}</span>
+          <span className="text-[0.74rem] font-semibold text-[#f4f8ff]">{unit}</span>
+          </div>
         </div>
       </div>
     </TileFrame>
@@ -277,12 +272,12 @@ export function ChargeDischargeTable() {
   const zh = language === "zh"
 
   return (
-    <div className="relative w-full overflow-hidden rounded-[22px] border border-[#22d3ee]/26 bg-[radial-gradient(circle_at_18%_16%,rgba(64,124,255,0.22),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(0,212,170,0.14),transparent_24%),linear-gradient(180deg,rgba(11,31,67,0.66),rgba(6,20,47,0.74))] p-1.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_16px_32px_rgba(0,0,0,0.16)]">
-      <div className="grid h-[290px] w-full grid-cols-2 grid-rows-2 gap-1.5">
+    <div className="relative h-full w-full overflow-hidden rounded-[22px] border border-[#22d3ee]/26 bg-[radial-gradient(circle_at_18%_16%,rgba(64,124,255,0.22),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(0,212,170,0.14),transparent_24%),linear-gradient(180deg,rgba(11,31,67,0.66),rgba(6,20,47,0.74))] p-1.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_16px_32px_rgba(0,0,0,0.16)]">
+      <div className="grid h-full min-h-0 w-full grid-cols-2 grid-rows-2 gap-1.5">
         <HeroStatCard card={heroCards[1]} zh={zh} />
         <HeroStatCard card={heroCards[2]} zh={zh} />
         <HeroStatCard card={heroCards[0]} zh={zh} />
-        <div className="grid h-full grid-rows-2 gap-1.5">
+        <div className="grid h-full min-h-0 grid-rows-2 gap-1.5">
           <TotalCard
             title={totalCards[0].labelZh}
             labelEn={totalCards[0].labelEn}
