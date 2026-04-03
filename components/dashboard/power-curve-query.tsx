@@ -1,12 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { CalendarDays, ChevronDown } from "lucide-react"
+import { CalendarDays } from "lucide-react"
 import type { DateRange } from "react-day-picker"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
 import { useLanguage } from "@/components/language-provider"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
 
 type QueryType = "today" | "yesterday" | "week" | "custom"
 
@@ -136,10 +135,7 @@ export function PowerCurveQuery() {
   const [data, setData] = useState<DataPoint[]>(getInitialData)
   const [mounted, setMounted] = useState(false)
   const [nowLabel, setNowLabel] = useState("")
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [pickerMonth, setPickerMonth] = useState(defaultCustomRange.from ?? today)
   const [customRange, setCustomRange] = useState<DateRange | undefined>(defaultCustomRange)
-  const [rangeError, setRangeError] = useState("")
   const { t, language } = useLanguage()
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -194,8 +190,6 @@ export function PowerCurveQuery() {
 
   const handleQueryTypeChange = (type: QueryType) => {
     setQueryType(type)
-    setRangeError("")
-
     if (type === "today") {
       setData(generateTodayData())
       const now = new Date()
@@ -214,35 +208,6 @@ export function PowerCurveQuery() {
     }
 
     setData(generateCustomRangeData(customRange))
-  }
-
-  const handleRangeSelect = (nextRange: DateRange | undefined) => {
-    if (!nextRange?.from) {
-      setCustomRange(undefined)
-      setRangeError("")
-      return
-    }
-
-    if (!nextRange.to) {
-      setCustomRange({ from: toDayStart(nextRange.from), to: undefined })
-      setRangeError("")
-      return
-    }
-
-    const from = toDayStart(nextRange.from)
-    const to = toDayStart(nextRange.to)
-
-    if (getRangeLength(from, to) > 7) {
-      setCustomRange({ from, to: undefined })
-      setRangeError(maxRangeError)
-      setPickerMonth(from)
-      return
-    }
-
-    setCustomRange({ from, to })
-    setRangeError("")
-    setPickerMonth(from)
-    setPickerOpen(false)
   }
 
   const queryTypes = [
@@ -288,64 +253,17 @@ export function PowerCurveQuery() {
             </div>
 
             {queryType === "custom" && (
-              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-                <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3 py-1.5 text-xs text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60">
-                    <CalendarDays className="h-3.5 w-3.5 text-[#8db7ff]" />
-                    <span className="font-medium">{customRange?.from ? formatRangeLabel(customRange) : selectRangeLabel}</span>
-                    <ChevronDown className="h-3.5 w-3.5 text-[#7b8ab8]" />
-                  </button>
-                </PopoverTrigger>
-
-                <PopoverContent
-                  align="end"
-                  className="z-50 w-[320px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]"
-                >
-                  <div className="border-b border-[#1a2654] px-4 py-3">
-                    <div className="text-sm font-semibold text-[#e8f4fc]">{selectRangeLabel}</div>
-                    <div className="mt-1 text-[11px] text-[#7b8ab8]">{customHint}</div>
-                  </div>
-
-                  <Calendar
-                    mode="range"
-                    selected={customRange}
-                    month={pickerMonth}
-                    onMonthChange={(month) => setPickerMonth(toDayStart(month))}
-                    onSelect={handleRangeSelect}
-                    numberOfMonths={1}
-                    disabled={(date) => {
-                      const day = toDayStart(date)
-                      if (day > today) return true
-                      if (customRange?.from && !customRange.to) {
-                        return Math.abs(getDayDiff(customRange.from, day)) > 6
-                      }
-                      return false
-                    }}
-                    hideNavigation={false}
-                    showOutsideDays={false}
-                    className="bg-[#0d1233] p-3"
-                    classNames={{
-                      weekday: "flex-1 rounded-md text-xs text-[#7b8ab8]",
-                      day: "relative aspect-square w-full p-0 text-center",
-                      selected: "rounded-md bg-[#00d4aa] text-[#041123] font-semibold",
-                      today: "rounded-md bg-[#1c315f] text-[#e8f4fc]",
-                      outside: "text-[#42557f]",
-                      disabled: "text-[#42557f] opacity-40",
-                      range_middle: "bg-[#15406d] text-[#dff8ff]",
-                      range_start: "rounded-l-md bg-[#00d4aa] text-[#041123]",
-                      range_end: "rounded-r-md bg-[#00d4aa] text-[#041123]",
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
+              <CustomRangePicker
+                value={customRange}
+                onChange={setCustomRange}
+                maxDate={today}
+                maxDays={7}
+                buttonLabel={customRange?.from ? formatRangeLabel(customRange) : selectRangeLabel}
+                hint={customHint}
+                maxRangeError={maxRangeError}
+              />
             )}
           </div>
-
-          {queryType === "custom" && (
-            <div className={`text-right text-[11px] ${rangeError ? "text-[#fda4af]" : "text-[#7b8ab8]"}`}>
-              {rangeError || customHint}
-            </div>
-          )}
         </div>
       </div>
 

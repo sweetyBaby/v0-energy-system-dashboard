@@ -333,31 +333,6 @@ function InnerFrame({ title, accent = "#74ebff", compact = false, children }: { 
   )
 }
 
-function MetricCard({ title, value, tone, icon, compact = false, horizontal = false, tight = false }: { title: string; value: string; tone: string; icon: ReactNode; compact?: boolean; horizontal?: boolean; tight?: boolean }) {
-  if (horizontal) {
-    return (
-      <div className={`rounded-[14px] border border-[#25466d] bg-[linear-gradient(180deg,rgba(13,27,58,0.92),rgba(11,20,44,0.98))] shadow-[inset_0_0_18px_rgba(69,155,255,0.06)] ${tight ? "px-2 py-1.5" : compact ? "px-2.5 py-1.5" : "px-3 py-2"}`}>
-        <div className="flex items-center justify-between gap-2">
-          <div className={`flex min-w-0 items-center gap-1.5 ${tight ? "text-[8px] tracking-[0.02em]" : compact ? "text-[9px] tracking-[0.04em]" : "text-[10px] tracking-[0.08em]"} ${mutedText}`}>
-            {/* {icon} */}
-            <span className={`min-w-0 leading-tight ${tight ? "text-[0.7rem]" : "text-[0.78rem]"} whitespace-nowrap`}>{title}</span>
-          </div>
-          <div className={`shrink-0 font-mono font-semibold leading-none ${tight ? "text-[1.02rem] tracking-[0.01em]" : compact ? "text-[1.18rem] tracking-[0.02em]" : "text-[1.35rem] tracking-[0.03em]"} ${tone}`}>{value}</div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className={`rounded-[14px] border border-[#25466d] bg-[linear-gradient(180deg,rgba(13,27,58,0.92),rgba(11,20,44,0.98))] shadow-[inset_0_0_18px_rgba(69,155,255,0.06)] ${compact ? "px-2.5 py-2" : "px-3 py-2.5"}`}>
-      <div className={`flex min-w-0 items-center gap-1.5 ${compact ? "text-[9px] tracking-[0.05em]" : "text-[10px] tracking-[0.08em]"} ${mutedText}`}>
-        {icon}
-        <span className="min-w-0 truncate leading-tight">{title}</span>
-      </div>
-      <div className={`font-mono font-semibold leading-none ${compact ? "mt-1 text-[1.28rem] tracking-[0.02em]" : "mt-1.5 text-[1.55rem] tracking-[0.04em]"} ${tone}`}>{value}</div>
-    </div>
-  )
-}
 
 function LegendItem({ label, color, dashed = false, compact = false }: { label: string; color: string; dashed?: boolean; compact?: boolean }) {
   return (
@@ -473,34 +448,6 @@ function FleetTooltip({
   )
 }
 
-function RankingItem({ title, value, extra, active, compact = false, tight = false, onClick }: { title: string; value: string; extra: string; active: boolean; compact?: boolean; tight?: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`h-full w-full rounded-[12px] border text-left transition-all ${tight ? "px-1.5 py-1" : compact ? "px-2 py-1.5" : "px-2.5 py-2"} ${
-        active
-          ? "border-[#39eddc] bg-[linear-gradient(180deg,rgba(14,64,74,0.72),rgba(10,36,45,0.94))] shadow-[0_0_16px_rgba(57,237,220,0.12),inset_0_0_18px_rgba(57,237,220,0.07)]"
-          : "border-[#234160] bg-[linear-gradient(180deg,rgba(14,28,58,0.88),rgba(10,19,40,0.96))] hover:border-[#3a78a7]"
-      }`}
-    >
-      {extra ? (
-        <div className={`grid h-full ${tight ? "content-center gap-0.5" : "gap-1"}`}>
-          <div className={`grid grid-cols-[auto_1fr] items-center ${tight ? "gap-1.5" : "gap-2"}`}>
-            <div className={`${tight ? "text-[0.76rem]" : compact ? "text-[0.82rem]" : "text-[0.95rem]"} font-semibold text-[#eefbff]`}>{title}</div>
-            <div className={`text-right font-mono ${tight ? "text-[0.9rem]" : compact ? "text-[1rem]" : "text-[1.15rem]"} font-semibold text-[#ffe6a3]`}>{value}</div>
-          </div>
-          <div className={`text-left leading-none ${tight ? "text-[8px]" : compact ? "text-[9px]" : "text-[10px]"} text-[#9cc6e2]`}>{extra}</div>
-        </div>
-      ) : (
-        <div className={`grid h-full grid-cols-[auto_1fr] items-center ${tight ? "gap-1.5" : "gap-2"}`}>
-          <div className={`${tight ? "text-[0.76rem]" : compact ? "text-[0.82rem]" : "text-[0.95rem]"} font-semibold text-[#eefbff]`}>{title}</div>
-          <div className={`text-right font-mono ${tight ? "text-[0.9rem]" : compact ? "text-[1rem]" : "text-[1.15rem]"} font-semibold text-[#ffe6a3]`}>{value}</div>
-        </div>
-      )}
-    </button>
-  )
-}
 
 function CellChip({ label, active, warning, onClick }: { label: string; active: boolean; warning: boolean; onClick: () => void }) {
   return (
@@ -901,7 +848,6 @@ export function CellHistoryReplayPanel({
     [historyData, zh]
   )
 
-  const handleSelectCell = (cell: number) => onSelectedCellChange?.(cell)
   const isCompactCanvas = availableSize.width > 0 && (availableSize.width < 1280 || availableSize.height < 760)
   const isTightCanvas = availableSize.width > 0 && (availableSize.width < 1120 || availableSize.height < 700)
   const trendXAxisInterval = isTightCanvas ? 11 : isCompactCanvas ? 7 : 5
@@ -1223,15 +1169,66 @@ export function CellHistoryReplayPanel({
       <div className={`relative grid h-full min-h-0 ${isCompactCanvas ? "grid-cols-[1.04fr_1.26fr] gap-2" : "grid-cols-[0.94fr_1.36fr] gap-2.5"}`}>
         <div className={`grid min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1.4fr)] ${isCompactCanvas ? "gap-1.5" : "gap-2"}`}>
           <NeonSection
-            title={zh ? "电压/温差分析" : "Voltage / Temperature Analysis"}
+            title={zh ? "概览" : "Overview"}
             compact={isCompactCanvas}
             className="px-1.5 pt-2.5 pb-1"
             headerVariant="bcu"
           >
             <div className={`grid h-full min-h-0 grid-cols-3 ${isCompactCanvas ? "gap-1" : "gap-1.5"}`}>
-              <InnerFrame title={zh ? "电压最高 TOP3" : "Highest Voltage TOP3"} accent="#ffc970" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topHighVoltage.map((item) => <RankingItem key={`high-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageMax.toFixed(2)}V`} extra={item.voltageMaxAt} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
-              <InnerFrame title={zh ? "电压最低 TOP3" : "Lowest Voltage TOP3"} accent="#86e8ff" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topLowVoltage.map((item) => <RankingItem key={`low-${item.cell}`} title={`#${item.cell}`} value={`${item.voltageMin.toFixed(2)}V`} extra={item.voltageMinAt} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
-              <InnerFrame title={zh ? "温度最高 TOP3" : "Highest Temp TOP3"} accent="#ffb676" compact={isCompactCanvas}><div className="grid h-full min-h-0 grid-rows-3 gap-0.5">{topHotCells.map((item) => <RankingItem key={`hot-${item.cell}`} title={`#${item.cell}`} value={`${item.tempMax.toFixed(1)}°C`} extra={item.tempMaxAt} compact={isCompactCanvas} tight={isTightCanvas} active={selectedCell === item.cell} onClick={() => handleSelectCell(item.cell)} />)}</div></InnerFrame>
+              {[
+                {
+                  title: zh ? "电压" : "Voltage",
+                  accent: "#6ee7ff",
+                  items: [
+                    { label: zh ? "最高电压" : "Max V", value: `${voltageStats.maxVoltage.toFixed(2)}V`, sub: `#${topHighVoltage[0]?.cell ?? "-"}`, subColor: "#ffd36b", tone: "text-[#ffd36b]" },
+                    { label: zh ? "最低电压" : "Min V", value: `${voltageStats.minVoltage.toFixed(2)}V`, sub: `#${topLowVoltage[0]?.cell ?? "-"}`, subColor: "#6ee7ff", tone: "text-[#6ee7ff]" },
+                    { label: zh ? "最大ΔV" : "Max ΔV", value: `${voltageStats.voltageDelta.toFixed(2)}V`, sub: "", subColor: "", tone: "text-[#a8f0ff]" },
+                  ],
+                },
+                {
+                  title: zh ? "温度" : "Temperature",
+                  accent: "#ffb676",
+                  items: [
+                    { label: zh ? "最高温度" : "Max T", value: `${temperatureStats.maxTemp.toFixed(1)}°C`, sub: `#${topHotCells[0]?.cell ?? "-"}`, subColor: "#ffb47a", tone: "text-[#ff9f6b]" },
+                    { label: zh ? "最低温度" : "Min T", value: `${temperatureStats.minTemp.toFixed(1)}°C`, sub: `#${topColdCells[0]?.cell ?? "-"}`, subColor: "#86d8ff", tone: "text-[#86d8ff]" },
+                    { label: zh ? "最大ΔT" : "Max ΔT", value: `${temperatureStats.tempDelta.toFixed(1)}°C`, sub: "", subColor: "", tone: "text-[#ffd6a5]" },
+                  ],
+                },
+                {
+                  title: zh ? "电量" : "Energy",
+                  accent: "#8ef14d",
+                  items: [
+                    { label: zh ? "日充电量" : "Charge", value: `${dailyEnergyStats.chargeEnergy.toFixed(1)}`, sub: "kWh", subColor: "#b0d8a0", tone: "text-[#8ef14d]" },
+                    { label: zh ? "日放电量" : "Discharge", value: `${dailyEnergyStats.dischargeEnergy.toFixed(1)}`, sub: "kWh", subColor: "#8ec8ff", tone: "text-[#57a8ff]" },
+                    { label: zh ? "综合效率" : "Efficiency", value: `${dailyEnergyStats.roundTripEfficiency.toFixed(1)}%`, sub: "", subColor: "", tone: "text-[#8af7bc]" },
+                  ],
+                },
+              ].map((group) => (
+                <InnerFrame key={group.title} title={group.title} accent={group.accent} compact={isCompactCanvas}>
+                  <div className="grid h-full min-h-0 grid-rows-3 gap-0.5">
+                    {group.items.map((item) => (
+                      <div
+                        key={item.label}
+                        className={`flex h-full flex-col items-center justify-center rounded-[12px] border border-[#1e3d60] bg-[linear-gradient(180deg,rgba(14,30,62,0.95),rgba(10,20,46,0.98))] ${isTightCanvas ? "gap-1 px-1 py-0.5" : isCompactCanvas ? "gap-1.5 px-1.5 py-1" : "gap-2 px-2 py-1.5"}`}
+                        style={{ boxShadow: "inset 0 0 12px rgba(25,80,148,0.12)" }}
+                      >
+                        <div className={`flex items-baseline gap-0.5 font-mono font-bold leading-none tracking-wide ${isTightCanvas ? "text-[0.96rem]" : isCompactCanvas ? "text-[1.08rem]" : "text-[1.22rem]"} ${item.tone}`}>
+                          {item.value}
+                          {item.sub ? (
+                            <span
+                              className={`font-sans font-semibold ${isTightCanvas ? "text-[0.68rem]" : isCompactCanvas ? "text-[0.74rem]" : "text-[0.78rem]"}`}
+                              style={{ color: item.subColor }}
+                            >
+                              {item.sub}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className={`w-full truncate text-center font-medium leading-tight tracking-wide text-[#c2dcf2] ${isTightCanvas ? "text-[0.68rem]" : isCompactCanvas ? "text-[0.72rem]" : "text-[0.76rem]"}`}>{item.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </InnerFrame>
+              ))}
             </div>
           </NeonSection>
 

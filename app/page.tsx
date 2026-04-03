@@ -232,30 +232,6 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         {activeTab === "cell-history" && (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
             <div className="flex shrink-0 items-center gap-1.5 overflow-hidden px-1 py-0.5">
-              {/* Overview stat chips */}
-              {cellHistoryViewMode === "overview" && cellHistoryStats && (
-                <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pr-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {[
-                    { labelZh: "最高电压", labelEn: "Max V", value: `${cellHistoryStats.maxVoltage.toFixed(2)}V`, cell: cellHistoryStats.maxVoltageCell, color: "text-[#aef8ff]" },
-                    { labelZh: "最低电压", labelEn: "Min V", value: `${cellHistoryStats.minVoltage.toFixed(2)}V`, cell: cellHistoryStats.minVoltageCell, color: "text-[#aef8ff]" },
-                    { labelZh: "最大ΔV", labelEn: "Spread ΔV", value: `${cellHistoryStats.voltageDelta.toFixed(2)}V`, cell: null, color: "text-[#ffd892]" },
-                    { labelZh: "最高温度", labelEn: "Max T", value: `${cellHistoryStats.maxTemp.toFixed(1)}°C`, cell: cellHistoryStats.maxTempCell, color: "text-[#aef8ff]" },
-                    { labelZh: "最低温度", labelEn: "Min T", value: `${cellHistoryStats.minTemp.toFixed(1)}°C`, cell: cellHistoryStats.minTempCell, color: "text-[#aef8ff]" },
-                    { labelZh: "最大ΔT", labelEn: "Spread ΔT", value: `${cellHistoryStats.tempDelta.toFixed(1)}°C`, cell: null, color: "text-[#ffd892]" },
-                    { labelZh: "日充电量", labelEn: "Daily Charge", value: `${cellHistoryStats.chargeEnergy.toFixed(1)}kWh`, cell: null, color: "text-[#8ee7ff]" },
-                    { labelZh: "日放电量", labelEn: "Daily Discharge", value: `${cellHistoryStats.dischargeEnergy.toFixed(1)}kWh`, cell: null, color: "text-[#ffc98b]" },
-                    { labelZh: "综合效率", labelEn: "Efficiency", value: `${cellHistoryStats.roundTripEfficiency.toFixed(1)}%`, cell: null, color: "text-[#8cf5c6]" },
-                  ].map((item) => (
-                    <div key={item.labelEn} className="flex shrink-0 items-center gap-1 rounded-[8px] border border-[#2da7d8]/28 bg-[rgba(13,31,58,0.62)] px-2 py-0.5">
-                      <span className="text-[11px] font-medium text-[#91bdd8]">{zh ? item.labelZh : item.labelEn}</span>
-                      <span className={`text-[12px] font-bold tabular-nums ${item.color}`}>
-                        {item.value}{item.cell != null ? ` (#${item.cell})` : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* Date picker right-aligned */}
               <div className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap">
                 {cellHistoryViewMode === "detail" && (
                   <CellHistoryMultiPicker value={selectedHistoryCells} onChange={setSelectedHistoryCells} />

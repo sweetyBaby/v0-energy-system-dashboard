@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import type { DateRange } from "react-day-picker"
 import {
   Bar,
   CartesianGrid,
@@ -14,8 +15,9 @@ import {
 } from "recharts"
 import { LineChartIcon, Table } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
 
-type RangeKey = "week" | "month" | "year"
+type RangeKey = "week" | "month" | "year" | "custom"
 type ViewMode = "chart" | "table"
 type SeriesKey =
   | "chargeCapacity"
@@ -38,6 +40,21 @@ type EfficiencyPoint = {
 type ComprehensiveEfficiencyPanelProps = {
   compact?: boolean
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+const toDayStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return toDayStart(next)
+}
+
+const getDayDiff = (from: Date, to: Date) =>
+  Math.round((toDayStart(to).getTime() - toDayStart(from).getTime()) / DAY_MS)
+
+const getRangeLength = (from: Date, to: Date) => getDayDiff(from, to) + 1
 
 const yearMonthLabels = {
   zh: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
@@ -112,13 +129,48 @@ const buildYearData = (language: "zh" | "en"): EfficiencyPoint[] => {
   })
 }
 
+const buildCustomData = (range: DateRange | undefined): EfficiencyPoint[] => {
+  if (!range?.from || !range.to) return []
+
+  return Array.from({ length: getRangeLength(range.from, range.to) }, (_, index) => {
+    const date = addDays(range.from!, index)
+    const chargeCapacity = 84 + (index % 7) * 2.2 + Math.floor(index / 6) * 0.8
+    const dischargeCapacity = chargeCapacity * 0.846 + (index % 3) * 1.5
+    const chargeEnergy = 110 + (index % 6) * 4 + Math.floor(index / 5) * 1.5
+    const dischargeEnergy = chargeEnergy * 0.84 + (index % 4) * 2
+
+    return {
+      label: `${date.getMonth() + 1}/${date.getDate()}`,
+      chargeCapacity: Number(chargeCapacity.toFixed(1)),
+      dischargeCapacity: Number(dischargeCapacity.toFixed(1)),
+      chargeEnergy: Number(chargeEnergy.toFixed(1)),
+      dischargeEnergy: Number(dischargeEnergy.toFixed(1)),
+      capacityEfficiency: Number(((dischargeCapacity / chargeCapacity) * 100).toFixed(1)),
+      energyEfficiency: Number(((dischargeEnergy / chargeEnergy) * 100).toFixed(1)),
+    }
+  })
+}
+
 export function ComprehensiveEfficiencyPanel({
   compact = false,
 }: ComprehensiveEfficiencyPanelProps) {
   const { language } = useLanguage()
+  const today = useMemo(() => toDayStart(new Date()), [])
+  const defaultCustomRange = useMemo<DateRange>(
+    () => ({
+      from: addDays(today, -30),
+      to: today,
+    }),
+    [today],
+  )
   const [range, setRange] = useState<RangeKey>("week")
   const [viewMode, setViewMode] = useState<ViewMode>("chart")
-  const [hiddenSeries, setHiddenSeries] = useState<SeriesKey[]>([])
+  const [hiddenSeries, setHiddenSeries] = useState<SeriesKey[]>([
+    "chargeCapacity",
+    "dischargeCapacity",
+    "capacityEfficiency",
+  ])
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(defaultCustomRange)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -128,17 +180,20 @@ export function ComprehensiveEfficiencyPanel({
   const weekData = useMemo(() => (mounted ? buildLastWeekData() : []), [mounted])
   const monthData = useMemo(() => (mounted ? buildMonthData() : []), [mounted])
   const yearData = useMemo(() => (mounted ? buildYearData(language) : []), [language, mounted])
+  const customData = useMemo(() => (mounted ? buildCustomData(customRange) : []), [customRange, mounted])
 
   const activeData = useMemo(() => {
     if (range === "week") return weekData
     if (range === "year") return yearData
+    if (range === "custom") return customData
     return monthData
-  }, [monthData, range, weekData, yearData])
+  }, [customData, monthData, range, weekData, yearData])
 
   const rangeOptions = [
     { key: "week" as const, label: language === "zh" ? "近7日" : "7 Days" },
     { key: "month" as const, label: language === "zh" ? "本月" : "This Month" },
     { key: "year" as const, label: language === "zh" ? "本年" : "This Year" },
+    { key: "custom" as const, label: language === "zh" ? "自定义" : "Custom" },
   ]
 
   const legendText = {
@@ -167,6 +222,17 @@ export function ComprehensiveEfficiencyPanel({
     chargeEnergy: language === "zh" ? "充电电量 (kWh)" : "Charge Energy (kWh)",
     dischargeEnergy: language === "zh" ? "放电电量 (kWh)" : "Discharge Energy (kWh)",
     energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
+  }
+
+  const customHint = language === "zh" ? "最多选择 31 天" : "Select up to 31 days"
+  const maxRangeError = language === "zh" ? "自定义日期范围最多 31 天" : "Custom date range cannot exceed 31 days"
+  const selectRangeLabel = language === "zh" ? "选择日期范围" : "Select range"
+
+  const formatRangeLabel = (rangeValue: DateRange | undefined) => {
+    if (!rangeValue?.from) return selectRangeLabel
+    const formatDate = (date: Date) => `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
+    if (!rangeValue.to) return formatDate(rangeValue.from)
+    return `${formatDate(rangeValue.from)} - ${formatDate(rangeValue.to)}`
   }
 
   const toggleSeries = (seriesKey: SeriesKey) => {
@@ -244,6 +310,18 @@ export function ComprehensiveEfficiencyPanel({
               <Table className="h-[18px] w-[18px]" />
             </button>
           </div>
+
+          {range === "custom" && (
+            <CustomRangePicker
+              value={customRange}
+              onChange={setCustomRange}
+              maxDate={today}
+              maxDays={31}
+              buttonLabel={formatRangeLabel(customRange)}
+              hint={customHint}
+              maxRangeError={maxRangeError}
+            />
+          )}
         </div>
       </div>
 
@@ -259,12 +337,7 @@ export function ComprehensiveEfficiencyPanel({
                 tick={{ fill: "#7b8ab8", fontSize: 10 }}
                 interval={range === "month" && activeData.length > 16 ? 1 : 0}
               />
-              <YAxis
-                yAxisId="quantity"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#7b8ab8", fontSize: 10 }}
-              />
+              <YAxis yAxisId="quantity" axisLine={false} tickLine={false} tick={{ fill: "#7b8ab8", fontSize: 10 }} />
               <YAxis
                 yAxisId="efficiency"
                 orientation="right"
@@ -282,11 +355,7 @@ export function ComprehensiveEfficiencyPanel({
                 }}
                 labelStyle={{ color: "#7b8ab8" }}
                 formatter={(value: number, name: string) => {
-                  const unit = name.includes("Efficiency")
-                    ? "%"
-                    : name.includes("Capacity")
-                      ? "Ah"
-                      : "kWh"
+                  const unit = name.includes("Efficiency") ? "%" : name.includes("Capacity") ? "Ah" : "kWh"
                   return [`${value.toFixed(1)} ${unit}`, name]
                 }}
               />
@@ -302,7 +371,7 @@ export function ComprehensiveEfficiencyPanel({
                           type="button"
                           onClick={() => toggleSeries(series.key)}
                           className="inline-flex items-center gap-1.5 rounded-md bg-transparent px-1 py-0.5 text-[11px]"
-                          style={{ color: hidden ? "#526289" : "#7b8ab8", opacity: hidden ? 0.45 : 1 }}
+                          style={{ color: hidden ? "#8ea3c7" : "#7b8ab8", opacity: hidden ? 0.78 : 1 }}
                         >
                           <span
                             className="block h-2.5 w-2.5 rounded-[2px]"
@@ -311,7 +380,9 @@ export function ComprehensiveEfficiencyPanel({
                               boxShadow: hidden ? "none" : `0 0 8px ${series.color}55`,
                             }}
                           />
-                          <span>{series.name}</span>
+                          <span style={{ textDecoration: hidden ? "line-through" : "none", textDecorationThickness: "1.5px" }}>
+                            {series.name}
+                          </span>
                         </button>
                       )
                     })}
@@ -319,44 +390,16 @@ export function ComprehensiveEfficiencyPanel({
                 )}
               />
               {!hiddenSeries.includes("chargeCapacity") && (
-                <Bar
-                  yAxisId="quantity"
-                  dataKey="chargeCapacity"
-                  name={legendText.chargeCapacity}
-                  fill="#7dd3fc"
-                  radius={[4, 4, 0, 0]}
-                  barSize={10}
-                />
+                <Bar yAxisId="quantity" dataKey="chargeCapacity" name={legendText.chargeCapacity} fill="#7dd3fc" radius={[4, 4, 0, 0]} barSize={10} />
               )}
               {!hiddenSeries.includes("dischargeCapacity") && (
-                <Bar
-                  yAxisId="quantity"
-                  dataKey="dischargeCapacity"
-                  name={legendText.dischargeCapacity}
-                  fill="#fda4af"
-                  radius={[4, 4, 0, 0]}
-                  barSize={10}
-                />
+                <Bar yAxisId="quantity" dataKey="dischargeCapacity" name={legendText.dischargeCapacity} fill="#fda4af" radius={[4, 4, 0, 0]} barSize={10} />
               )}
               {!hiddenSeries.includes("chargeEnergy") && (
-                <Bar
-                  yAxisId="quantity"
-                  dataKey="chargeEnergy"
-                  name={legendText.chargeEnergy}
-                  fill="#99f6e4"
-                  radius={[4, 4, 0, 0]}
-                  barSize={10}
-                />
+                <Bar yAxisId="quantity" dataKey="chargeEnergy" name={legendText.chargeEnergy} fill="#99f6e4" radius={[4, 4, 0, 0]} barSize={10} />
               )}
               {!hiddenSeries.includes("dischargeEnergy") && (
-                <Bar
-                  yAxisId="quantity"
-                  dataKey="dischargeEnergy"
-                  name={legendText.dischargeEnergy}
-                  fill="#c4b5fd"
-                  radius={[4, 4, 0, 0]}
-                  barSize={10}
-                />
+                <Bar yAxisId="quantity" dataKey="dischargeEnergy" name={legendText.dischargeEnergy} fill="#c4b5fd" radius={[4, 4, 0, 0]} barSize={10} />
               )}
               {!hiddenSeries.includes("capacityEfficiency") && (
                 <Line
@@ -386,8 +429,8 @@ export function ComprehensiveEfficiencyPanel({
           </ResponsiveContainer>
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-[#1a2654]/80 bg-[#0d1433]/90 [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]">
-          <table className="w-full table-fixed text-[12px]">
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.95),rgba(11,18,44,0.92))] p-2 [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]">
+          <table className="w-full table-fixed border-separate border-spacing-y-1.5 text-[13px]">
             <colgroup>
               <col className="w-[12%]" />
               <col className="w-[16%]" />
@@ -397,27 +440,41 @@ export function ComprehensiveEfficiencyPanel({
               <col className="w-[12%]" />
               <col className="w-[12%]" />
             </colgroup>
-            <thead className="sticky top-0 z-10 bg-[#121a40]">
-              <tr className="border-b border-[#1a2654] text-[#7b8ab8]">
-                <th className="px-2 py-3 text-left text-[11px] font-medium leading-tight">{tableHeaders.period}</th>
-                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.chargeCapacity}</th>
-                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.dischargeCapacity}</th>
-                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.capacityEfficiency}</th>
-                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.chargeEnergy}</th>
-                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.dischargeEnergy}</th>
-                <th className="px-2 py-3 text-right text-[11px] font-medium leading-tight">{tableHeaders.energyEfficiency}</th>
+            <thead>
+              <tr className="text-[#7b8ab8]">
+                <th className="rounded-l-lg bg-[#121a40] px-2 py-3 text-left text-[12px] font-medium leading-tight">{tableHeaders.period}</th>
+                <th className="bg-[#121a40] px-2 py-3 text-right text-[12px] font-medium leading-tight">{tableHeaders.chargeCapacity}</th>
+                <th className="bg-[#121a40] px-2 py-3 text-right text-[12px] font-medium leading-tight">{tableHeaders.dischargeCapacity}</th>
+                <th className="bg-[#121a40] px-2 py-3 text-right text-[12px] font-medium leading-tight">{tableHeaders.capacityEfficiency}</th>
+                <th className="bg-[#121a40] px-2 py-3 text-right text-[12px] font-medium leading-tight">{tableHeaders.chargeEnergy}</th>
+                <th className="bg-[#121a40] px-2 py-3 text-right text-[12px] font-medium leading-tight">{tableHeaders.dischargeEnergy}</th>
+                <th className="rounded-r-lg bg-[#121a40] px-2 py-3 text-right text-[12px] font-medium leading-tight">{tableHeaders.energyEfficiency}</th>
               </tr>
             </thead>
             <tbody>
               {activeData.map((item) => (
-                <tr key={item.label} className="border-b border-[#1a2654]/60 last:border-b-0 hover:bg-[#1a2654]/20">
-                  <td className="truncate px-2 py-3 text-[#dce7ff]">{item.label}</td>
-                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.chargeCapacity.toFixed(1)}</td>
-                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.dischargeCapacity.toFixed(1)}</td>
-                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.capacityEfficiency.toFixed(1)}%</td>
-                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.chargeEnergy.toFixed(1)}</td>
-                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#eef4ff]">{item.dischargeEnergy.toFixed(1)}</td>
-                  <td className="px-2 py-3 text-right font-mono text-[11px] text-[#4ade80]">{item.energyEfficiency.toFixed(1)}%</td>
+                <tr key={item.label} className="group">
+                  <td className="truncate rounded-l-lg border-y border-l border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-[13px] text-[#dce7ff] transition-colors group-hover:bg-[#162252]">
+                    {item.label}
+                  </td>
+                  <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[12px] text-[#8ee7ff] transition-colors group-hover:bg-[#162252]">
+                    {item.chargeCapacity.toFixed(1)}
+                  </td>
+                  <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[12px] text-[#ffb7c2] transition-colors group-hover:bg-[#162252]">
+                    {item.dischargeCapacity.toFixed(1)}
+                  </td>
+                  <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[12px] text-[#ffd36b] transition-colors group-hover:bg-[#162252]">
+                    {item.capacityEfficiency.toFixed(1)}%
+                  </td>
+                  <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[12px] text-[#9af7df] transition-colors group-hover:bg-[#162252]">
+                    {item.chargeEnergy.toFixed(1)}
+                  </td>
+                  <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[12px] text-[#d6c2ff] transition-colors group-hover:bg-[#162252]">
+                    {item.dischargeEnergy.toFixed(1)}
+                  </td>
+                  <td className="rounded-r-lg border-y border-r border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[12px] text-[#4ade80] transition-colors group-hover:bg-[#162252]">
+                    {item.energyEfficiency.toFixed(1)}%
+                  </td>
                 </tr>
               ))}
             </tbody>
