@@ -1,0 +1,13 @@
+services:
+  energy-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: energy-dashboard:latest
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      API_BASE_URL: ${API_BASE_URL}

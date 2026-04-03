@@ -10,8 +10,10 @@ next.user-config.*
 
 # Environment variables
 .env*.local
+.env.docker
 
 # Common ignores
 node_modules/
 .next/
 .DS_Store
+*.tsbuildinfo
