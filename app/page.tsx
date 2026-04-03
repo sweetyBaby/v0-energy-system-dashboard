@@ -163,7 +163,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className={activeTab === "realtime" ? "min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-0" : "min-h-0 flex-1 overflow-hidden p-3"}>
         {activeTab === "realtime" && (
-          <div className="grid h-full grid-cols-12 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+          <div className="grid h-full grid-cols-12 grid-rows-[minmax(240px,1fr)_minmax(0,1fr)] gap-3">
             <div className="relative col-span-12 min-h-0 overflow-hidden rounded-b-xl border border-[#22d3ee]/30 border-t-0">
               <img
                 src={selectedProject.image}

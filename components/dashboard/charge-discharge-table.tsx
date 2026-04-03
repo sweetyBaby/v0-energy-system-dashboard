@@ -36,7 +36,7 @@ const heroCards: HeroCard[] = [
     softAccent: "rgba(87,168,255,0.28)",
     ringClass: "from-[#4a90ff] to-[#2e6be2]",
     valueClass: "text-[#f5f9ff]",
-    icon: <Gauge className="h-5 w-5 text-[#73b6ff]" strokeWidth={1.8} />,
+    icon: <Gauge className="h-4 w-4 text-[#73b6ff]" strokeWidth={1.8} />,
     details: [
       { labelZh: "本月", labelEn: "Month", value: "82.14", unit: "%" },
       { labelZh: "本年", labelEn: "Year", value: "83.07", unit: "%" },
@@ -53,7 +53,7 @@ const heroCards: HeroCard[] = [
     softAccent: "rgba(142,241,77,0.28)",
     ringClass: "from-[#a3ff58] to-[#69d936]",
     valueClass: "text-[#b9ff8b]",
-    icon: <BatteryCharging className="h-5 w-5 text-[#a0ff66]" strokeWidth={1.8} />,
+    icon: <BatteryCharging className="h-4 w-4 text-[#a0ff66]" strokeWidth={1.8} />,
     details: [
       { labelZh: "昨日", labelEn: "Yesterday", value: "122.6", unit: "kWh" },
       { labelZh: "本月", labelEn: "Month", value: "3286.4", unit: "kWh" },
@@ -70,7 +70,7 @@ const heroCards: HeroCard[] = [
     softAccent: "rgba(88,167,255,0.28)",
     ringClass: "from-[#5ca9ff] to-[#3575eb]",
     valueClass: "text-[#f5f9ff]",
-    icon: <BatteryMedium className="h-5 w-5 text-[#6fb5ff]" strokeWidth={1.8} />,
+    icon: <BatteryMedium className="h-4 w-4 text-[#6fb5ff]" strokeWidth={1.8} />,
     details: [
       { labelZh: "昨日", labelEn: "Yesterday", value: "102.3", unit: "kWh" },
       { labelZh: "本月", labelEn: "Month", value: "2741.8", unit: "kWh" },
@@ -122,7 +122,7 @@ function TileFrame({
 }) {
   return (
     <div
-      className={`relative rounded-[16px] border border-dashed border-white/55 bg-[linear-gradient(180deg,rgba(13,36,78,0.92),rgba(10,26,58,0.96))] ${className ?? ""}`}
+      className={`relative overflow-hidden rounded-[16px] border border-dashed border-white/55 bg-[linear-gradient(180deg,rgba(13,36,78,0.92),rgba(10,26,58,0.96))] ${className ?? ""}`}
       style={{
         boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.04), inset 0 -24px 40px ${softAccent}, 0 0 18px rgba(0,0,0,0.18)`,
       }}
@@ -144,16 +144,16 @@ function HeroStatCard({ card, zh }: { card: HeroCard; zh: boolean }) {
   const { integer, decimal } = splitNumber(card.value)
 
   return (
-    <TileFrame accent={card.accent} softAccent={card.softAccent} className="h-full min-h-0">
+    <TileFrame accent={card.accent} softAccent={card.softAccent} className="h-full min-h-[110px]">
       <div className="relative flex h-full flex-col px-3 py-2.5">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <div
-            className="relative flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(180deg,rgba(5,18,43,0.96),rgba(9,27,60,0.88))] ring-1 ring-white/10"
+            className="relative flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(180deg,rgba(5,18,43,0.96),rgba(9,27,60,0.88))] ring-1 ring-white/10"
             style={{ boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.06), 0 0 18px ${card.softAccent}` }}
           >
             <div className={`absolute inset-[3px] rounded-full bg-gradient-to-b ${card.ringClass} opacity-95`} />
-            <div className="absolute inset-[7px] rounded-full bg-[linear-gradient(180deg,rgba(5,20,47,0.96),rgba(7,24,52,0.94))]" />
-            <div className="relative z-10 flex h-[28px] w-[28px] items-center justify-center rounded-[8px] border border-white/15 bg-[linear-gradient(180deg,rgba(15,58,118,0.7),rgba(8,27,59,0.92))]">
+            <div className="absolute inset-[6px] rounded-full bg-[linear-gradient(180deg,rgba(5,20,47,0.96),rgba(7,24,52,0.94))]" />
+            <div className="relative z-10 flex h-[24px] w-[24px] items-center justify-center rounded-[7px] border border-white/15 bg-[linear-gradient(180deg,rgba(15,58,118,0.7),rgba(8,27,59,0.92))]">
               {card.icon}
             </div>
           </div>
@@ -162,11 +162,11 @@ function HeroStatCard({ card, zh }: { card: HeroCard; zh: boolean }) {
             <span className="text-[0.72rem] font-semibold leading-tight tracking-[0.02em] text-[#f5f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.55)]">
               {zh ? card.labelZh : card.labelEn}
             </span>
-            <div className="mt-1.5 flex items-baseline gap-0.5">
+            <div className="mt-1 flex items-baseline gap-0.5 whitespace-nowrap">
               <span
                 className={`font-bold tabular-nums leading-none ${card.valueClass}`}
                 style={{
-                  fontSize: "clamp(1.45rem, 2vw, 2.05rem)",
+                  fontSize: "clamp(0.95rem, 3vw, 1.7rem)",
                   textShadow: `0 0 16px ${card.softAccent}, 0 2px 8px rgba(0,0,0,0.45)`,
                 }}
               >
@@ -176,14 +176,14 @@ function HeroStatCard({ card, zh }: { card: HeroCard; zh: boolean }) {
                 <span
                   className={`font-bold tabular-nums leading-none ${card.valueClass}`}
                   style={{
-                    fontSize: "clamp(0.86rem, 1.12vw, 1.05rem)",
+                    fontSize: "clamp(0.7rem, 1.8vw, 0.9rem)",
                     textShadow: `0 0 12px ${card.softAccent}, 0 2px 8px rgba(0,0,0,0.45)`,
                   }}
                 >
                   {decimal}
                 </span>
               )}
-              <span className="text-[0.68rem] font-semibold text-[#f4f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.45)]">
+              <span className="text-[0.65rem] font-semibold text-[#f4f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.45)]">
                 {card.unit}
               </span>
             </div>
@@ -242,24 +242,24 @@ function TotalCard({
 }) {
   return (
     <TileFrame accent={accent} softAccent={glow} className="h-full min-h-0">
-      <div className="relative flex h-full min-h-0 flex-col justify-between px-3.5 py-2.5">
-        <div className="text-[0.8rem] font-semibold tracking-[0.02em] text-[#f6f9ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.5)]">
+      <div className="relative flex h-full min-h-[72px] flex-col gap-1 px-3.5 py-2">
+        <div className="text-[0.78rem] font-semibold tracking-[0.02em] text-[#f6f9ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.5)]">
           {zh ? title : labelEn}
         </div>
-        <div className="my-1.5 h-px w-full" style={{ background: `linear-gradient(90deg,transparent,${accent},transparent)` }} />
-        <div className="flex flex-1 items-center">
-          <div className="flex items-baseline gap-1">
-          <span
-            className="font-bold tabular-nums leading-none"
-            style={{
-              fontSize: "clamp(1.7rem, 2.25vw, 2.2rem)",
-              color: accent,
-              textShadow: `0 0 20px ${glow}, 0 2px 8px rgba(0,0,0,0.45)`,
-            }}
-          >
-            {value}
-          </span>
-          <span className="text-[0.74rem] font-semibold text-[#f4f8ff]">{unit}</span>
+        <div className="h-px w-full shrink-0" style={{ background: `linear-gradient(90deg,transparent,${accent},transparent)` }} />
+        <div className="flex min-h-0 flex-1 items-center">
+          <div className="flex items-baseline gap-1 whitespace-nowrap">
+            <span
+              className="font-bold tabular-nums leading-none"
+              style={{
+                fontSize: "clamp(1.05rem, 3.5vw, 1.85rem)",
+                color: accent,
+                textShadow: `0 0 20px ${glow}, 0 2px 8px rgba(0,0,0,0.45)`,
+              }}
+            >
+              {value}
+            </span>
+            <span className="text-[0.72rem] font-semibold text-[#f4f8ff]">{unit}</span>
           </div>
         </div>
       </div>

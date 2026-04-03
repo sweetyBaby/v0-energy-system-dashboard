@@ -17,6 +17,13 @@ import { useLanguage } from "@/components/language-provider"
 
 type RangeKey = "week" | "month" | "year"
 type ViewMode = "chart" | "table"
+type SeriesKey =
+  | "chargeCapacity"
+  | "dischargeCapacity"
+  | "chargeEnergy"
+  | "dischargeEnergy"
+  | "capacityEfficiency"
+  | "energyEfficiency"
 
 type EfficiencyPoint = {
   label: string
@@ -37,8 +44,6 @@ const yearMonthLabels = {
   en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
 } as const
 
-// 75kW/150kWh 系统，V≈1300V → 额定容量≈115Ah
-// 日充约115kWh / 88Ah，日放约96kWh / 74Ah，效率≈83-85%
 const buildLastWeekData = (): EfficiencyPoint[] => {
   const today = new Date()
 
@@ -71,7 +76,7 @@ const buildMonthData = (): EfficiencyPoint[] => {
     const chargeCapacity = 84 + (index % 7) * 2.2 + Math.floor(index / 6) * 0.8
     const dischargeCapacity = chargeCapacity * 0.846 + (index % 3) * 1.5
     const chargeEnergy = 110 + (index % 6) * 4 + Math.floor(index / 5) * 1.5
-    const dischargeEnergy = chargeEnergy * 0.840 + (index % 4) * 2
+    const dischargeEnergy = chargeEnergy * 0.84 + (index % 4) * 2
 
     return {
       label: `${month}/${index + 1}`,
@@ -113,6 +118,7 @@ export function ComprehensiveEfficiencyPanel({
   const { language } = useLanguage()
   const [range, setRange] = useState<RangeKey>("week")
   const [viewMode, setViewMode] = useState<ViewMode>("chart")
+  const [hiddenSeries, setHiddenSeries] = useState<SeriesKey[]>([])
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -144,6 +150,15 @@ export function ComprehensiveEfficiencyPanel({
     energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
   }
 
+  const seriesConfig: Array<{ key: SeriesKey; name: string; color: string }> = [
+    { key: "chargeCapacity", name: legendText.chargeCapacity, color: "#7dd3fc" },
+    { key: "dischargeCapacity", name: legendText.dischargeCapacity, color: "#fda4af" },
+    { key: "chargeEnergy", name: legendText.chargeEnergy, color: "#99f6e4" },
+    { key: "dischargeEnergy", name: legendText.dischargeEnergy, color: "#c4b5fd" },
+    { key: "capacityEfficiency", name: legendText.capacityEfficiency, color: "#ffd60a" },
+    { key: "energyEfficiency", name: legendText.energyEfficiency, color: "#4ade80" },
+  ]
+
   const tableHeaders = {
     period: language === "zh" ? "时间" : "Period",
     chargeCapacity: language === "zh" ? "充电容量 (Ah)" : "Charge Capacity (Ah)",
@@ -152,6 +167,18 @@ export function ComprehensiveEfficiencyPanel({
     chargeEnergy: language === "zh" ? "充电电量 (kWh)" : "Charge Energy (kWh)",
     dischargeEnergy: language === "zh" ? "放电电量 (kWh)" : "Discharge Energy (kWh)",
     energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
+  }
+
+  const toggleSeries = (seriesKey: SeriesKey) => {
+    setHiddenSeries((prev) => {
+      if (prev.includes(seriesKey)) {
+        return prev.filter((key) => key !== seriesKey)
+      }
+      if (prev.length >= seriesConfig.length - 1) {
+        return prev
+      }
+      return [...prev, seriesKey]
+    })
   }
 
   const wrapperClassName = compact
@@ -265,60 +292,96 @@ export function ComprehensiveEfficiencyPanel({
               />
               <Legend
                 wrapperStyle={{ paddingTop: "4px" }}
-                formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>}
+                content={() => (
+                  <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pt-1">
+                    {seriesConfig.map((series) => {
+                      const hidden = hiddenSeries.includes(series.key)
+                      return (
+                        <button
+                          key={series.key}
+                          type="button"
+                          onClick={() => toggleSeries(series.key)}
+                          className="inline-flex items-center gap-1.5 rounded-md bg-transparent px-1 py-0.5 text-[11px]"
+                          style={{ color: hidden ? "#526289" : "#7b8ab8", opacity: hidden ? 0.45 : 1 }}
+                        >
+                          <span
+                            className="block h-2.5 w-2.5 rounded-[2px]"
+                            style={{
+                              backgroundColor: series.color,
+                              boxShadow: hidden ? "none" : `0 0 8px ${series.color}55`,
+                            }}
+                          />
+                          <span>{series.name}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               />
-              <Bar
-                yAxisId="quantity"
-                dataKey="chargeCapacity"
-                name={legendText.chargeCapacity}
-                fill="#7dd3fc"
-                radius={[4, 4, 0, 0]}
-                barSize={10}
-              />
-              <Bar
-                yAxisId="quantity"
-                dataKey="dischargeCapacity"
-                name={legendText.dischargeCapacity}
-                fill="#fda4af"
-                radius={[4, 4, 0, 0]}
-                barSize={10}
-              />
-              <Bar
-                yAxisId="quantity"
-                dataKey="chargeEnergy"
-                name={legendText.chargeEnergy}
-                fill="#99f6e4"
-                radius={[4, 4, 0, 0]}
-                barSize={10}
-              />
-              <Bar
-                yAxisId="quantity"
-                dataKey="dischargeEnergy"
-                name={legendText.dischargeEnergy}
-                fill="#c4b5fd"
-                radius={[4, 4, 0, 0]}
-                barSize={10}
-              />
-              <Line
-                yAxisId="efficiency"
-                type="monotone"
-                dataKey="capacityEfficiency"
-                name={legendText.capacityEfficiency}
-                stroke="#ffd60a"
-                strokeWidth={2.5}
-                dot={{ r: 4, fill: "#0d1233", stroke: "#ffd60a", strokeWidth: 3 }}
-                activeDot={{ r: 5 }}
-              />
-              <Line
-                yAxisId="efficiency"
-                type="monotone"
-                dataKey="energyEfficiency"
-                name={legendText.energyEfficiency}
-                stroke="#4ade80"
-                strokeWidth={2.5}
-                dot={{ r: 4, fill: "#0d1233", stroke: "#4ade80", strokeWidth: 3 }}
-                activeDot={{ r: 5 }}
-              />
+              {!hiddenSeries.includes("chargeCapacity") && (
+                <Bar
+                  yAxisId="quantity"
+                  dataKey="chargeCapacity"
+                  name={legendText.chargeCapacity}
+                  fill="#7dd3fc"
+                  radius={[4, 4, 0, 0]}
+                  barSize={10}
+                />
+              )}
+              {!hiddenSeries.includes("dischargeCapacity") && (
+                <Bar
+                  yAxisId="quantity"
+                  dataKey="dischargeCapacity"
+                  name={legendText.dischargeCapacity}
+                  fill="#fda4af"
+                  radius={[4, 4, 0, 0]}
+                  barSize={10}
+                />
+              )}
+              {!hiddenSeries.includes("chargeEnergy") && (
+                <Bar
+                  yAxisId="quantity"
+                  dataKey="chargeEnergy"
+                  name={legendText.chargeEnergy}
+                  fill="#99f6e4"
+                  radius={[4, 4, 0, 0]}
+                  barSize={10}
+                />
+              )}
+              {!hiddenSeries.includes("dischargeEnergy") && (
+                <Bar
+                  yAxisId="quantity"
+                  dataKey="dischargeEnergy"
+                  name={legendText.dischargeEnergy}
+                  fill="#c4b5fd"
+                  radius={[4, 4, 0, 0]}
+                  barSize={10}
+                />
+              )}
+              {!hiddenSeries.includes("capacityEfficiency") && (
+                <Line
+                  yAxisId="efficiency"
+                  type="monotone"
+                  dataKey="capacityEfficiency"
+                  name={legendText.capacityEfficiency}
+                  stroke="#ffd60a"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: "#0d1233", stroke: "#ffd60a", strokeWidth: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+              )}
+              {!hiddenSeries.includes("energyEfficiency") && (
+                <Line
+                  yAxisId="efficiency"
+                  type="monotone"
+                  dataKey="energyEfficiency"
+                  name={legendText.energyEfficiency}
+                  stroke="#4ade80"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: "#0d1233", stroke: "#4ade80", strokeWidth: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>

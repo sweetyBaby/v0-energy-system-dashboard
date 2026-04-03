@@ -147,7 +147,7 @@ export function RealtimeStatusBoard() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-row gap-1.5 overflow-hidden">
-        <div className="flex w-[72px] shrink-0 flex-col items-center justify-center gap-1.5">
+        <div className="flex w-[78px] shrink-0 flex-col items-center justify-center gap-1.5">
           <div
             className="h-[5px] w-[28px] rounded-t-[3px] transition-all duration-700"
             style={{ background: colors.wave, boxShadow: `0 0 8px ${colors.glow}` }}
@@ -178,9 +178,9 @@ export function RealtimeStatusBoard() {
             {[25, 50, 75].map((pct) => (
               <div key={pct} className="pointer-events-none absolute left-2 right-2 z-40 h-px" style={{ bottom: `${pct}%`, background: "rgba(255,255,255,0.12)" }} />
             ))}
-            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-0.5">
-              <Zap className="h-3.5 w-3.5 text-white/80" fill="currentColor" />
-              <span className="text-[1.15rem] font-extrabold leading-none text-white" style={{ textShadow: "0 0 12px rgba(0,0,0,0.95)" }}>
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-1">
+              <Zap className="h-4 w-4 text-white/90" fill="currentColor" />
+              <span className="text-[1.3rem] font-extrabold leading-none text-white" style={{ textShadow: "0 0 14px rgba(0,0,0,0.95)" }}>
                 {Math.round(snapshot.soc)}%
               </span>
             </div>
@@ -200,45 +200,45 @@ export function RealtimeStatusBoard() {
             return (
               <div
                 key={item.labelEn}
-                className="relative flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-[14px] border border-dashed border-white/40 px-2 py-2"
+                className="relative flex min-h-0 min-w-0 flex-col items-center justify-center gap-2 overflow-hidden rounded-[14px] border border-dashed border-white/40 px-3 py-3"
                 style={{
-                  background: "linear-gradient(180deg,rgba(13,36,78,0.88),rgba(10,26,58,0.94))",
-                  boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.04), inset 0 -16px 28px ${item.glow.replace("0.5", "0.18")}, 0 0 12px rgba(0,0,0,0.15)`,
+                  background: `linear-gradient(160deg,rgba(16,42,92,0.94),rgba(8,22,54,0.98))`,
+                  boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 0 40px ${item.glow.replace(/[\d.]+\)$/, "0.12)")}, 0 0 16px rgba(0,0,0,0.2)`,
                 }}
               >
-                <div className="pointer-events-none absolute bottom-0 left-4 right-4 h-[2px] rounded-full" style={{ background: `linear-gradient(90deg,transparent,${item.accent},transparent)`, boxShadow: `0 0 6px ${item.accent}` }} />
-                <div className="pointer-events-none absolute inset-0 rounded-[14px] bg-[radial-gradient(circle_at_18%_22%,rgba(130,193,255,0.10),transparent_30%)]" />
+                <div className="pointer-events-none absolute bottom-0 left-4 right-4 h-[3px] rounded-full" style={{ background: `linear-gradient(90deg,transparent,${item.accent},transparent)`, boxShadow: `0 0 12px ${item.accent}` }} />
+                <div className="pointer-events-none absolute left-0 top-0 h-full w-full rounded-[14px]" style={{ background: `radial-gradient(ellipse at 50% 0%, ${item.glow.replace(/[\d.]+\)$/, "0.15)")}, transparent 60%)` }} />
 
-                <span className="z-10 text-center text-[0.72rem] font-semibold leading-tight tracking-[0.02em] text-[#f5f8ff]" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.55)" }}>
+                <span className="z-10 text-center text-[0.72rem] font-semibold leading-tight tracking-[0.02em] text-[#f5f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.55)]">
                   {language === "zh" ? item.labelZh : item.labelEn}
                 </span>
 
-                <div className="relative my-1 flex shrink-0 items-center justify-center overflow-hidden self-center" style={{ width: 52, height: 52 }}>
-                  <div className="pointer-events-none absolute inset-0 rounded-full" style={{ border: `1px solid ${item.accent}`, animation: "rsb-sonar 2.4s ease-out infinite" }} />
-                  <div className="pointer-events-none absolute inset-0 rounded-full" style={{ border: `1px solid ${item.accent}`, animation: "rsb-sonar 2.4s ease-out infinite", animationDelay: "0.8s" }} />
-                  <div className="absolute inset-0 rounded-full" style={{ background: `radial-gradient(circle, ${item.glow} 0%, transparent 70%)` }} />
+                <div className="relative flex shrink-0 items-center justify-center" style={{ width: 80, height: 80 }}>
+                  <div className="pointer-events-none absolute inset-0 rounded-full" style={{ border: `1px solid ${item.accent}60`, animation: "rsb-sonar 2.6s ease-out infinite" }} />
+                  <div className="pointer-events-none absolute inset-0 rounded-full" style={{ border: `1px solid ${item.accent}40`, animation: "rsb-sonar 2.6s ease-out infinite", animationDelay: "1s" }} />
+                  <div className="pointer-events-none absolute rounded-full" style={{ inset: 8, background: `radial-gradient(circle, ${item.glow.replace(/[\d.]+\)$/, "0.25)")}, transparent 70%)` }} />
                   <div
                     className="relative flex items-center justify-center rounded-full"
                     style={{
-                      width: 40,
-                      height: 40,
-                      background: `radial-gradient(circle at 35% 35%, ${item.accent}28, ${item.accent}08)`,
-                      border: `1.5px solid ${item.accent}70`,
-                      boxShadow: `0 0 10px ${item.glow}, inset 0 0 8px ${item.accent}14`,
+                      width: 62,
+                      height: 62,
+                      background: `radial-gradient(circle at 30% 30%, ${item.accent}30, ${item.accent}08)`,
+                      border: `1.5px solid ${item.accent}90`,
+                      boxShadow: `0 0 20px ${item.glow}, 0 0 8px ${item.glow}, inset 0 0 16px ${item.accent}18`,
                     }}
                   >
-                    <Icon style={{ width: 16, height: 16, color: item.accent, filter: `drop-shadow(0 0 4px ${item.glow})` }} />
+                    <Icon style={{ width: 26, height: 26, color: item.accent, filter: `drop-shadow(0 0 6px ${item.glow})` }} />
                   </div>
                 </div>
 
-                <div className="z-10 flex shrink-0 items-end justify-center gap-1 leading-none">
+                <div className="z-10 flex shrink-0 items-end justify-center gap-1 whitespace-nowrap leading-none">
                   <span
-                    className="font-bold tabular-nums"
-                    style={{ fontSize: "clamp(1.2rem, 1.65vw, 1.65rem)", color: item.accent, textShadow: `0 0 14px ${item.glow}, 0 1px 6px rgba(0,0,0,0.9)` }}
+                    className="font-extrabold tabular-nums"
+                    style={{ fontSize: "clamp(0.95rem, 3vw, 1.5rem)", color: item.accent, textShadow: `0 0 18px ${item.glow}, 0 1px 6px rgba(0,0,0,0.9)` }}
                   >
                     {item.value}
                   </span>
-                  <span className="pb-0.5 text-[11px] font-medium text-white/55" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.9)" }}>
+                  <span className="pb-0.5 text-[11px] font-semibold text-white/60" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.9)" }}>
                     {item.unit}
                   </span>
                 </div>
