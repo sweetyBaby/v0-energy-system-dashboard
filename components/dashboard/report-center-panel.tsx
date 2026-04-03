@@ -1,7 +1,8 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { CalendarDays, ChevronDown, Download } from "lucide-react"
+import type { DateRange } from "react-day-picker"
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Download } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -13,9 +14,11 @@ type CalendarCell = {
 }
 
 const weekdayLabels = {
-  zh: ["周日", "周一", "周二", "周三", "周四", "周五", "周六"],
+  zh: ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
   en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
 } as const
+
+const weekdayNamesZh = ["一", "二", "三", "四", "五", "六", "日"]
 
 const monthNamesEn = [
   "January",
@@ -48,8 +51,8 @@ const monthNamesZh = [
 ]
 
 const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1)
-
 const endOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0)
+const addMonths = (date: Date, months: number) => new Date(date.getFullYear(), date.getMonth() + months, 1)
 
 const isSameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
@@ -67,10 +70,10 @@ const formatMonthTitle = (date: Date, language: "zh" | "en") =>
     ? `${date.getFullYear()}年${date.getMonth() + 1}月`
     : `${monthNamesEn[date.getMonth()]} ${date.getFullYear()}`
 
-const buildCalendarCells = (viewDate: Date): CalendarCell[] => {
+const buildCalendarCells = (viewDate: Date, language: "zh" | "en"): CalendarCell[] => {
   const firstDay = startOfMonth(viewDate)
   const lastDay = endOfMonth(viewDate)
-  const leading = firstDay.getDay()
+  const leading = language === "zh" ? (firstDay.getDay() + 6) % 7 : firstDay.getDay()
   const totalDays = lastDay.getDate()
   const totalSlots = Math.ceil((leading + totalDays) / 7) * 7
   const firstGridDate = new Date(firstDay)
@@ -95,12 +98,23 @@ export function ReportCenterPanel() {
 
   const labels = language === "zh" ? weekdayLabels.zh : weekdayLabels.en
   const monthTitle = formatMonthTitle(viewDate, language)
-  const calendarCells = useMemo(() => buildCalendarCells(viewDate), [viewDate])
+  const calendarCells = useMemo(() => buildCalendarCells(viewDate, language), [language, viewDate])
   const weekCount = calendarCells.length / 7
+  const monthNames = language === "zh" ? monthNamesZh : monthNamesEn
+  const selectedMonthRange: DateRange = useMemo(
+    () => ({
+      from: startOfMonth(viewDate),
+      to: endOfMonth(viewDate),
+    }),
+    [viewDate],
+  )
   const yearOptions = useMemo(
     () => Array.from({ length: today.getFullYear() + 3 - 2024 }, (_, index) => 2024 + index),
     [today],
   )
+
+  const canGoNextMonth =
+    viewDate.getFullYear() < today.getFullYear() || viewDate.getMonth() < today.getMonth()
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
@@ -125,13 +139,17 @@ export function ReportCenterPanel() {
             align="end"
             className="z-50 w-[320px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]"
           >
+            <div className="border-b border-[#1a2654] px-4 py-3">
+              <div className="text-sm font-semibold text-[#e8f4fc]">
+                {language === "zh" ? "选择月份" : "Select month"}
+              </div>
+            </div>
+
             <div className="border-b border-[#1a2654] p-3">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-2">
                 <Select
                   value={String(viewDate.getFullYear())}
-                  onValueChange={(value) => {
-                    setViewDate(new Date(Number(value), viewDate.getMonth(), 1))
-                  }}
+                  onValueChange={(value) => setViewDate(new Date(Number(value), viewDate.getMonth(), 1))}
                 >
                   <SelectTrigger className="h-9 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]">
                     <SelectValue />
@@ -147,44 +165,73 @@ export function ReportCenterPanel() {
 
                 <Select
                   value={String(viewDate.getMonth())}
-                  onValueChange={(value) => {
-                    setViewDate(new Date(viewDate.getFullYear(), Number(value), 1))
-                  }}
+                  onValueChange={(value) => setViewDate(new Date(viewDate.getFullYear(), Number(value), 1))}
                 >
                   <SelectTrigger className="h-9 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]">
-                    {(language === "zh" ? monthNamesZh : monthNamesEn).map((month, index) => (
-                      <SelectItem key={month} value={String(index)} className="text-[#e8f4fc]">
+                    {monthNames.map((month, index) => (
+                      <SelectItem key={`${month}-${index}`} value={String(index)} className="text-[#e8f4fc]">
                         {month}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+
+                <button
+                  type="button"
+                  onClick={() => setViewDate((prev) => addMonths(prev, -1))}
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-[#26456e] bg-[#101840] text-[#c7d7f5] transition-colors hover:border-[#22d3ee]/50 hover:text-white"
+                  aria-label={language === "zh" ? "上一个月" : "Previous month"}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => canGoNextMonth && setViewDate((prev) => addMonths(prev, 1))}
+                  disabled={!canGoNextMonth}
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-[#26456e] bg-[#101840] text-[#c7d7f5] transition-colors hover:border-[#22d3ee]/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+                  aria-label={language === "zh" ? "下一个月" : "Next month"}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
             </div>
 
             <Calendar
-              mode="single"
-              selected={viewDate}
+              mode="range"
+              selected={selectedMonthRange}
               month={viewDate}
               onMonthChange={(month) => setViewDate(startOfMonth(month))}
-              onSelect={(date) => {
-                if (!date) return
-                setViewDate(startOfMonth(date))
+              onSelect={(range) => {
+                if (!range?.from) return
+                setViewDate(startOfMonth(range.from))
                 setPickerOpen(false)
               }}
               hideNavigation
-              showOutsideDays={false}
+              showOutsideDays
+              weekStartsOn={language === "zh" ? 1 : 0}
+              formatters={
+                language === "zh"
+                  ? {
+                      formatWeekdayName: (date) => weekdayNamesZh[(date.getDay() + 6) % 7],
+                    }
+                  : undefined
+              }
               className="bg-[#0d1233] p-3"
               classNames={{
                 month_caption: "hidden",
                 weekday: "flex-1 rounded-md text-xs text-[#7b8ab8]",
                 day: "relative aspect-square w-full p-0 text-center",
+                selected: "rounded-md bg-[#00d4aa] text-[#041123] font-semibold",
                 today: "rounded-md bg-[#1c315f] text-[#e8f4fc]",
-                outside: "text-[#42557f]",
-                disabled: "text-[#42557f] opacity-40",
+                outside: "text-[#7b8ab8]/70",
+                disabled: "text-[#8d97aa] opacity-55",
+                range_middle: "bg-[#15406d] text-[#dff8ff]",
+                range_start: "rounded-l-md bg-[#00d4aa] text-[#041123]",
+                range_end: "rounded-r-md bg-[#00d4aa] text-[#041123]",
               }}
             />
           </PopoverContent>
