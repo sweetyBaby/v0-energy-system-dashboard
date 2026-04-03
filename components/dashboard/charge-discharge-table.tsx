@@ -279,10 +279,9 @@ export function ChargeDischargeTable() {
   return (
     <div className="relative w-full overflow-hidden rounded-[22px] border border-[#22d3ee]/26 bg-[radial-gradient(circle_at_18%_16%,rgba(64,124,255,0.22),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(0,212,170,0.14),transparent_24%),linear-gradient(180deg,rgba(11,31,67,0.66),rgba(6,20,47,0.74))] p-1.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_16px_32px_rgba(0,0,0,0.16)]">
       <div className="grid h-[290px] w-full grid-cols-2 grid-rows-2 gap-1.5">
-        {/* 左上: 昨日效率 */}
+        <HeroStatCard card={heroCards[1]} zh={zh} />
+        <HeroStatCard card={heroCards[2]} zh={zh} />
         <HeroStatCard card={heroCards[0]} zh={zh} />
-
-        {/* 右上: 累计充电量 + 累计放电量 */}
         <div className="grid h-full grid-rows-2 gap-1.5">
           <TotalCard
             title={totalCards[0].labelZh}
@@ -303,12 +302,6 @@ export function ChargeDischargeTable() {
             zh={zh}
           />
         </div>
-
-        {/* 左下: 今日放电量 */}
-        <HeroStatCard card={heroCards[2]} zh={zh} />
-
-        {/* 右下: 今日充电量 */}
-        <HeroStatCard card={heroCards[1]} zh={zh} />
       </div>
     </div>
   )
