@@ -1,11 +1,22 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { CalendarDays } from "lucide-react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import type { DateRange } from "react-day-picker"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
+import {
+  Area,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  type TooltipProps,
+  XAxis,
+  YAxis,
+} from "recharts"
 import { useLanguage } from "@/components/language-provider"
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
+import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent"
 
 type QueryType = "today" | "yesterday" | "week" | "custom"
 
@@ -15,6 +26,12 @@ type DataPoint = {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const TOOLTIP_SURFACE = {
+  background: "linear-gradient(180deg, rgba(8,18,42,0.98), rgba(9,20,46,0.94))",
+  border: "1px solid rgba(67, 115, 184, 0.42)",
+  borderRadius: "14px",
+  boxShadow: "0 14px 30px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.04)",
+}
 
 const toDayStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
 
@@ -40,25 +57,23 @@ const formatRangeLabel = (range: DateRange | undefined) => {
 
 const formatDayLabel = (date: Date) => `${date.getMonth() + 1}/${date.getDate()}`
 
-// 75kW 系统：充电正值，放电负值，最大±75kW
 const getRealtimePower = (hour: number) => {
   if (hour >= 0 && hour < 6) {
-    return Math.round(62 + Math.random() * 12)   // 深夜低谷充电 62~74kW
+    return Math.round(62 + Math.random() * 12)
   }
 
   if (hour >= 12 && hour < 14) {
-    return Math.round(55 + Math.random() * 18)   // 午间低谷充电 55~73kW
+    return Math.round(55 + Math.random() * 18)
   }
 
   if ((hour >= 8 && hour < 12) || (hour >= 18 && hour < 22)) {
-    return -Math.round(58 + Math.random() * 16)  // 早晚高峰放电 -58~-74kW
+    return -Math.round(58 + Math.random() * 16)
   }
 
   return 0
 }
 
 const getAggregatePower = () => {
-  // 日净充放，单位 kWh，日充~115kWh，日放~96kWh
   const charge = 105 + Math.random() * 20
   const discharge = 88 + Math.random() * 18
   return Math.round(charge - discharge)
@@ -122,6 +137,7 @@ const getInitialData = (): DataPoint[] =>
   }))
 
 export function PowerCurveQuery() {
+  const chartId = useId().replace(/:/g, "")
   const today = useMemo(() => toDayStart(new Date()), [])
   const defaultCustomRange = useMemo<DateRange>(
     () => ({
@@ -142,8 +158,7 @@ export function PowerCurveQuery() {
   const customHint = language === "zh" ? "最多选择 7 天" : "Select up to 7 days"
   const customLabel = language === "zh" ? "自定义" : "Custom"
   const selectRangeLabel = language === "zh" ? "选择日期范围" : "Select range"
-  const maxRangeError =
-    language === "zh" ? "自定义日期范围最多 7 天" : "Custom date range cannot exceed 7 days"
+  const maxRangeError = language === "zh" ? "自定义日期范围最多 7 天" : "Custom date range cannot exceed 7 days"
   const powerSeriesLabel = language === "zh" ? "功率(kW)" : "Power (kW)"
 
   useEffect(() => {
@@ -220,6 +235,61 @@ export function PowerCurveQuery() {
   const xInterval =
     queryType === "today" || queryType === "yesterday" ? Math.max(1, Math.floor(data.length / 8)) : 0
 
+  const renderTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameType>) => {
+    if (!active || !payload?.length) return null
+
+    const point = Number(payload[0]?.value ?? 0)
+    const modeLabel =
+      point > 0
+        ? language === "zh"
+          ? "充电功率"
+          : "Charge Power"
+        : point < 0
+          ? language === "zh"
+            ? "放电功率"
+            : "Discharge Power"
+          : language === "zh"
+            ? "待机功率"
+            : "Idle Power"
+
+    return (
+      <div className="min-w-[220px] overflow-hidden" style={TOOLTIP_SURFACE}>
+        <div className="border-b border-white/8 bg-[linear-gradient(90deg,rgba(17,216,191,0.14),transparent)] px-3 py-2">
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#7da0d8]">
+            {queryType === "today" || queryType === "yesterday"
+              ? language === "zh"
+                ? "时刻"
+                : "Time"
+              : language === "zh"
+                ? "日期"
+                : "Date"}
+          </div>
+          <div className="mt-1 text-sm font-semibold text-[#e9f4ff]">{label}</div>
+        </div>
+
+        <div className="grid gap-2 px-3 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/6 bg-white/[0.03] px-2.5 py-2">
+            <div className="flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{
+                  backgroundColor: point >= 0 ? "#22d3ee" : "#ffd60a",
+                  boxShadow: `0 0 12px ${point >= 0 ? "#22d3ee99" : "#ffd60a88"}`,
+                }}
+              />
+              <span className="text-[12px] text-[#bed3f6]">{modeLabel}</span>
+            </div>
+            <span className="font-mono text-[12px] font-semibold text-[#f2f8ff]">
+              {point > 0 ? "+" : ""}
+              {point}
+              <span className="ml-1 text-[#86a7d4]">kW</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full w-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -227,7 +297,7 @@ export function PowerCurveQuery() {
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
           <h3 className="text-base font-semibold text-[#00d4aa]">{t("powerCurveQuery")}</h3>
           {queryType === "today" && mounted && (
-            <span className="flex items-center gap-1 rounded-md border border-[#1a3a6e] bg-[#0a1940] px-2 py-0.5 text-[11px] text-[#7ab0f0]">
+            <span className="flex items-center gap-1 rounded-full border border-[#1c4273] bg-[linear-gradient(180deg,rgba(8,24,55,0.96),rgba(10,28,62,0.9))] px-2.5 py-1 text-[11px] text-[#9bc6ff] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00d4aa]" />
               {language === "zh" ? "实时" : "Live"} {nowLabel}
             </span>
@@ -267,39 +337,53 @@ export function PowerCurveQuery() {
         </div>
       </div>
 
-      <div className="h-72 flex-1">
+      <div className="relative h-72 flex-1 overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(0,212,170,0.08),transparent_28%),radial-gradient(circle_at_84%_10%,rgba(86,130,255,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]" />
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" />
+            <defs>
+              <linearGradient id={`${chartId}-power-fill`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.34} />
+                <stop offset="55%" stopColor="#22d3ee" stopOpacity={0.1} />
+                <stop offset="100%" stopColor="#22d3ee" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 5" stroke="rgba(45,74,126,0.72)" vertical={false} />
             <XAxis
               dataKey="time"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#7b8ab8", fontSize: 10 }}
+              tick={{ fill: "#88a4d7", fontSize: 10 }}
+              tickMargin={10}
               interval={xInterval}
             />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "#7b8ab8", fontSize: 10 }}
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: "#88a4d7", fontSize: 10 }} tickMargin={8} />
+            <ReferenceLine
+              y={0}
+              stroke="#3f6490"
+              strokeDasharray="4 4"
+              strokeOpacity={0.72}
             />
-            <ReferenceLine y={0} stroke="#3a5d83" strokeDasharray="4 4" strokeOpacity={0.65} />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#0d1233",
-                border: "1px solid #1a2654",
-                borderRadius: "8px",
-              }}
-              labelStyle={{ color: "#7b8ab8" }}
-              formatter={(value: number) => [`${value} kW`, powerSeriesLabel]}
+            <Tooltip cursor={{ stroke: "#2b4f7d", strokeDasharray: "4 4" }} content={renderTooltip} />
+            <Area type="monotone" dataKey="power" stroke="none" fill={`url(#${chartId}-power-fill)`} isAnimationActive={false} />
+            <Line
+              type="monotone"
+              dataKey="power"
+              stroke="#22d3ee"
+              strokeOpacity={0.18}
+              strokeWidth={8}
+              dot={false}
+              activeDot={false}
+              isAnimationActive={false}
             />
             <Line
               type="monotone"
               dataKey="power"
               name={powerSeriesLabel}
               stroke="#22d3ee"
-              strokeWidth={2}
+              strokeWidth={2.4}
               dot={false}
+              activeDot={{ r: 5, fill: "#08122a", stroke: "#22d3ee", strokeWidth: 2.5 }}
               isAnimationActive={false}
             />
           </LineChart>

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useRef, useState } from "react"
 import { BarChart2, ChevronDown, Filter, List } from "lucide-react"
@@ -131,6 +131,68 @@ const RT_POOL: Omit<AlarmEntry, "time" | "duration" | "statusZh" | "statusEn">[]
   { lv:4, group:"current", nameZh:"过流报警", nameEn:"Overcurrent Alarm",   source:"BCU-04", triggerZh:"放电电流超额定",    triggerEn:"Discharge over rated",     ref:"310A",  rref:"300A",  unit:"A"  },
   { lv:5, group:"other",   nameZh:"绝缘故障", nameEn:"Insulation Fault",    source:"BCU-02", triggerZh:"绝缘阻抗骤降",      triggerEn:"Insulation sudden drop",   ref:"45kΩ",  rref:"100kΩ", unit:"kΩ" },
 ]
+
+// ── 历史 mock 生成（确定性 PRNG，按日期 seed，保证刷新稳定）─────────────────
+const HIST_POOL: Omit<AlarmEntry, "time" | "duration" | "statusZh" | "statusEn">[] = [
+  { lv:1, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",    source:"BCU-02", triggerZh:"心跳包短暂丢失",        triggerEn:"Heartbeat briefly lost",   ref:"—",      rref:"—",      unit:"—"   },
+  { lv:1, group:"cell",    nameZh:"欠压告警", nameEn:"Undervolt Alarm",     source:"BCU-08", triggerZh:"单体电压低于提示值",    triggerEn:"Cell below notice level",  ref:"3.20V",  rref:"3.15V",  unit:"V"   },
+  { lv:1, group:"temp",    nameZh:"温度异常", nameEn:"Temp Anomaly",        source:"BCU-01", triggerZh:"温度轻微偏高",          triggerEn:"Temp slightly high",       ref:"36°C",   rref:"35°C",   unit:"°C"  },
+  { lv:2, group:"soc",     nameZh:"SOC过低",  nameEn:"SOC Low",             source:"BCU-05", triggerZh:"SOC 低于警戒值",        triggerEn:"SOC below warning",        ref:"14%",    rref:"15%",    unit:"%"   },
+  { lv:2, group:"temp",    nameZh:"风扇故障", nameEn:"Fan Fault",           source:"BCU-03", triggerZh:"风扇转速偏低",          triggerEn:"Fan speed low",            ref:"—",      rref:"—",      unit:"—"   },
+  { lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",    source:"PCS-01", triggerZh:"通讯链路异常",          triggerEn:"Link error",               ref:"—",      rref:"—",      unit:"—"   },
+  { lv:2, group:"temp",    nameZh:"温度异常", nameEn:"Temp Anomaly",        source:"BCU-03", triggerZh:"温度梯度偏高",          triggerEn:"Temp gradient elevated",   ref:"9°C",    rref:"8°C",    unit:"°C"  },
+  { lv:2, group:"cell",    nameZh:"欠压告警", nameEn:"Undervolt Alarm",     source:"BCU-06", triggerZh:"单体电压低于轻警值",    triggerEn:"Cell below light warn",    ref:"3.12V",  rref:"3.15V",  unit:"V"   },
+  { lv:3, group:"temp",    nameZh:"温度异常", nameEn:"Temp Anomaly",        source:"BCU-05", triggerZh:"温度梯度超限",          triggerEn:"Temp gradient high",       ref:"12°C",   rref:"8°C",    unit:"°C"  },
+  { lv:3, group:"cell",    nameZh:"欠压告警", nameEn:"Undervolt Alarm",     source:"BCU-07", triggerZh:"单体电压低于预警值",    triggerEn:"Cell below warn level",    ref:"3.08V",  rref:"3.15V",  unit:"V"   },
+  { lv:3, group:"current", nameZh:"过流报警", nameEn:"Overcurrent Alarm",   source:"BCU-04", triggerZh:"放电电流超额定",        triggerEn:"Discharge over rated",     ref:"305A",   rref:"300A",   unit:"A"   },
+  { lv:3, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",    source:"EMS",    triggerZh:"EMS 通讯超时",          triggerEn:"EMS comm timeout",         ref:"5s",     rref:"3s",     unit:"s"   },
+  { lv:3, group:"soc",     nameZh:"SOC过低",  nameEn:"SOC Low",             source:"BCU-01", triggerZh:"SOC 低于预警值",        triggerEn:"SOC below alert",          ref:"11%",    rref:"15%",    unit:"%"   },
+  { lv:3, group:"temp",    nameZh:"风扇故障", nameEn:"Fan Fault",           source:"BCU-06", triggerZh:"风扇转速异常",          triggerEn:"Fan speed abnormal",       ref:"—",      rref:"—",      unit:"—"   },
+  { lv:3, group:"other",   nameZh:"绝缘故障", nameEn:"Insulation Fault",    source:"BCU-01", triggerZh:"绝缘阻抗低于预警值",    triggerEn:"Insulation below warn",    ref:"70kΩ",   rref:"100kΩ",  unit:"kΩ"  },
+  { lv:3, group:"cell",    nameZh:"过压保护", nameEn:"Overvolt Protection", source:"BCU-05", triggerZh:"单体电压超预警线",      triggerEn:"Cell above warn level",    ref:"3.70V",  rref:"3.65V",  unit:"V"   },
+  { lv:4, group:"cell",    nameZh:"过压保护", nameEn:"Overvolt Protection", source:"BCU-03", triggerZh:"单体电压超上限",        triggerEn:"Cell above max volt",      ref:"3.78V",  rref:"3.65V",  unit:"V"   },
+  { lv:4, group:"current", nameZh:"过流报警", nameEn:"Overcurrent Alarm",   source:"BCU-04", triggerZh:"放电电流超额定",        triggerEn:"Discharge over rated",     ref:"310A",   rref:"300A",   unit:"A"   },
+  { lv:4, group:"temp",    nameZh:"温度异常", nameEn:"Temp Anomaly",        source:"BCU-07", triggerZh:"单体温度超严重阈值",    triggerEn:"Cell temp over severe",    ref:"52°C",   rref:"48°C",   unit:"°C"  },
+  { lv:4, group:"soc",     nameZh:"SOC过低",  nameEn:"SOC Low",             source:"BCU-03", triggerZh:"SOC 低于保护值",        triggerEn:"SOC below protection",     ref:"8%",     rref:"10%",    unit:"%"   },
+  { lv:4, group:"cell",    nameZh:"欠压告警", nameEn:"Undervolt Alarm",     source:"BCU-04", triggerZh:"单体电压低于保护值",    triggerEn:"Cell below protect level", ref:"2.90V",  rref:"3.00V",  unit:"V"   },
+  { lv:4, group:"other",   nameZh:"绝缘故障", nameEn:"Insulation Fault",    source:"BCU-07", triggerZh:"绝缘阻抗骤降",          triggerEn:"Insulation sudden drop",   ref:"50kΩ",   rref:"100kΩ",  unit:"kΩ"  },
+  { lv:5, group:"cell",    nameZh:"过压保护", nameEn:"Overvolt Protection", source:"BCU-03", triggerZh:"单体电压严重超上限",    triggerEn:"Cell severely over max",   ref:"3.90V",  rref:"3.65V",  unit:"V"   },
+  { lv:5, group:"current", nameZh:"过流报警", nameEn:"Overcurrent Alarm",   source:"BCU-02", triggerZh:"电流严重超限触发断路",  triggerEn:"Severe overcurrent trip",  ref:"380A",   rref:"300A",   unit:"A"   },
+  { lv:5, group:"other",   nameZh:"绝缘故障", nameEn:"Insulation Fault",    source:"BCU-05", triggerZh:"绝缘故障触发断路",      triggerEn:"Insulation fault trip",    ref:"20kΩ",   rref:"100kΩ",  unit:"kΩ"  },
+]
+
+function generateMockAlarms(date: string): AlarmEntry[] {
+  // 确定性 PRNG（mulberry32），seed 来自日期字符串 hash
+  let s = 0
+  for (let i = 0; i < date.length; i++) s = (Math.imul(31, s) + date.charCodeAt(i)) | 0
+  s = s >>> 0
+  const rng = () => {
+    s = (s + 0x6D2B79F5) | 0
+    let t = Math.imul(s ^ (s >>> 15), 1 | s)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+  const ri = (n: number) => Math.floor(rng() * n)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const count = 16 + ri(12) // 16~27 条
+  const statuses: Array<{ zh: AlarmEntry["statusZh"]; en: AlarmEntry["statusEn"] }> = [
+    { zh: "已恢复", en: "Recovered" },
+    { zh: "已恢复", en: "Recovered" },
+    { zh: "已恢复", en: "Recovered" },
+    { zh: "已确认", en: "Acknowledged" },
+  ]
+  return Array.from({ length: count }, () => {
+    const tpl = HIST_POOL[ri(HIST_POOL.length)]
+    const st  = statuses[ri(statuses.length)]
+    return {
+      ...tpl,
+      time:     `${date} ${pad(ri(24))}:${pad(ri(60))}:00`,
+      duration: 15 + ri(56),
+      statusZh: st.zh,
+      statusEn: st.en,
+    }
+  }).sort((a, b) => a.time.localeCompare(b.time))
+}
 
 function makeRTAlarm(offsetSec = 0): AlarmEntry {
   const t   = new Date(Date.now() - offsetSec * 1000)
@@ -432,35 +494,29 @@ function AlarmTypeStats({ alarms, zh }: { alarms: AlarmEntry[]; zh: boolean }) {
                 const intensity = cnt > 0 ? 0.2 + (cnt / lvMax[i]) * 0.42 : 0
                 return (
                   <div key={lv} className="flex-1 flex items-center justify-center" style={{ height: 26 }}>
+                    {cnt > 0 && (
                     <div
                       className="mx-[1px] flex h-[24px] w-full flex-col items-center justify-center rounded-sm"
                       style={{
-                        background: cnt > 0
-                          ? `linear-gradient(135deg, rgba(${hexToRgb(LV_COLOR[lv])}, ${0.22 + intensity * 0.45}), rgba(${hexToRgb(LV_COLOR[lv])}, ${0.12 + intensity * 0.2}))`
-                          : "linear-gradient(180deg, rgba(10,18,40,0.4), rgba(10,18,40,0.24))",
-                        border: cnt > 0 ? `1px solid ${LV_COLOR[lv]}88` : "1px solid #1a2850/30",
-                        boxShadow: cnt > 0 ? `inset 0 0 14px rgba(255,255,255,0.03), 0 0 12px ${LV_COLOR[lv]}18` : "none",
+                        background: `linear-gradient(135deg, rgba(${hexToRgb(LV_COLOR[lv])}, ${0.22 + intensity * 0.45}), rgba(${hexToRgb(LV_COLOR[lv])}, ${0.12 + intensity * 0.2}))`,
+                        border: `1px solid ${LV_COLOR[lv]}88`,
+                        boxShadow: `inset 0 0 14px rgba(255,255,255,0.03), 0 0 12px ${LV_COLOR[lv]}18`,
                       }}
                     >
-                      {cnt > 0 ? (
-                        <>
-                          <span
-                            className="text-[12px] font-bold tabular-nums leading-none"
-                            style={{ color: LV_BRIGHT[lv], textShadow: `0 0 10px ${LV_COLOR[lv]}aa` }}
-                          >
-                            {cnt}
-                          </span>
-                          <span
-                            className="mt-[2px] text-[10px] font-semibold tabular-nums leading-none"
-                            style={{ color: LV_BRIGHT[lv], textShadow: `0 0 8px ${LV_COLOR[lv]}35` }}
-                          >
-                            +{cellPct}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-[11px] text-[#32456f]">·</span>
-                      )}
+                      <span
+                        className="text-[12px] font-bold tabular-nums leading-none"
+                        style={{ color: LV_BRIGHT[lv], textShadow: `0 0 10px ${LV_COLOR[lv]}aa` }}
+                      >
+                        {cnt}
+                      </span>
+                      <span
+                        className="mt-[2px] text-[10px] font-semibold tabular-nums leading-none"
+                        style={{ color: LV_BRIGHT[lv], textShadow: `0 0 8px ${LV_COLOR[lv]}35` }}
+                      >
+                        +{cellPct}
+                      </span>
                     </div>
+                    )}
                   </div>
                 )
               })}
@@ -635,10 +691,10 @@ export function AlarmLogPanel({
     return () => clearInterval(id)
   }, [mode])
 
-  // ── 历史数据（静态过滤） ────────────────────────────────────────────────────
-  const filterDate   = date ?? "2026-03-26"
-  const dateFiltered = ALL_ALARMS
-    .filter(a => a.time.startsWith(filterDate))
+  // ── 历史数据（静态优先，无数据则按日期确定性生成 mock）─────────────────────
+  const filterDate = date ?? "2026-03-26"
+  const staticRows = ALL_ALARMS.filter(a => a.time.startsWith(filterDate))
+  const dateFiltered = (staticRows.length > 0 ? staticRows : generateMockAlarms(filterDate))
     .map(a => a.statusZh === "未恢复"
       ? { ...a, statusZh: "已确认" as const, statusEn: "Acknowledged" as const }
       : a)

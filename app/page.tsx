@@ -140,7 +140,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
               {bcuMode === mode && mode === "realtime" && (
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#021a12]" />
               )}
-              {mode === "realtime" ? (zh ? "瀹炴椂鐩戞帶" : "Live") : (zh ? "鍘嗗彶鏌ヨ" : "History")}
+              {mode === "realtime" ? (zh ? "实时监控" : "Live") : (zh ? "历史查询" : "History")}
             </button>
           ))}
         </div>
@@ -169,7 +169,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                 src={selectedProject.image}
                 alt=""
                 aria-hidden
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[1] brightness-[1.16] saturate-[1.08]"
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[1] brightness-[1.35] saturate-[1.12]"
               />
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(8,20,40,0.02)_0%,rgba(8,20,40,0.00)_32%,rgba(5,12,28,0.12)_72%,rgba(3,8,20,0.24)_100%)]" />
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00d4aa]/50 to-transparent" />

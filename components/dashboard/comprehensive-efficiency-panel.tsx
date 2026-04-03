@@ -1,21 +1,24 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useState } from "react"
 import type { DateRange } from "react-day-picker"
 import {
   Bar,
   CartesianGrid,
   ComposedChart,
   Legend,
+  LegendProps,
   Line,
   ResponsiveContainer,
   Tooltip,
+  TooltipProps,
   XAxis,
   YAxis,
 } from "recharts"
 import { LineChartIcon, Table } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
+import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent"
 
 type RangeKey = "week" | "month" | "year" | "custom"
 type ViewMode = "chart" | "table"
@@ -42,6 +45,12 @@ type ComprehensiveEfficiencyPanelProps = {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const TOOLTIP_SURFACE = {
+  background: "linear-gradient(180deg, rgba(8,18,42,0.98), rgba(9,20,46,0.94))",
+  border: "1px solid rgba(67, 115, 184, 0.42)",
+  borderRadius: "14px",
+  boxShadow: "0 14px 30px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.04)",
+}
 
 const toDayStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
 
@@ -55,6 +64,14 @@ const getDayDiff = (from: Date, to: Date) =>
   Math.round((toDayStart(to).getTime() - toDayStart(from).getTime()) / DAY_MS)
 
 const getRangeLength = (from: Date, to: Date) => getDayDiff(from, to) + 1
+
+function ViewIconChart({ active }: { active: boolean }) {
+  return <LineChartIcon className="h-[16px] w-[16px]" style={{ color: active ? "#07162b" : "#6f86b7" }} />
+}
+
+function ViewIconTable({ active }: { active: boolean }) {
+  return <Table className="h-[16px] w-[16px]" style={{ color: active ? "#07162b" : "#6f86b7" }} />
+}
 
 const yearMonthLabels = {
   zh: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
@@ -155,6 +172,7 @@ export function ComprehensiveEfficiencyPanel({
   compact = false,
 }: ComprehensiveEfficiencyPanelProps) {
   const { language } = useLanguage()
+  const chartId = useId().replace(/:/g, "")
   const today = useMemo(() => toDayStart(new Date()), [])
   const defaultCustomRange = useMemo<DateRange>(
     () => ({
@@ -214,6 +232,25 @@ export function ComprehensiveEfficiencyPanel({
     { key: "energyEfficiency", name: legendText.energyEfficiency, color: "#4ade80" },
   ]
 
+  const seriesMap = useMemo(
+    () =>
+      Object.fromEntries(
+        seriesConfig.map((series) => [
+          series.key,
+          {
+            ...series,
+            unit:
+              series.key === "capacityEfficiency" || series.key === "energyEfficiency"
+                ? "%"
+                : series.key === "chargeCapacity" || series.key === "dischargeCapacity"
+                  ? "Ah"
+                  : "kWh",
+          },
+        ]),
+      ) as Record<SeriesKey, { key: SeriesKey; name: string; color: string; unit: string }>,
+    [seriesConfig],
+  )
+
   const tableHeaders = {
     period: language === "zh" ? "时间" : "Period",
     chargeCapacity: language === "zh" ? "充电容量 (Ah)" : "Charge Capacity (Ah)",
@@ -246,6 +283,88 @@ export function ComprehensiveEfficiencyPanel({
       return [...prev, seriesKey]
     })
   }
+
+  const renderTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameType>) => {
+    if (!active || !payload?.length) return null
+
+    return (
+      <div className="min-w-[220px] overflow-hidden" style={TOOLTIP_SURFACE}>
+        <div className="border-b border-white/8 bg-[linear-gradient(90deg,rgba(17,216,191,0.14),transparent)] px-3 py-2">
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#7da0d8]">
+            {language === "zh" ? "统计时段" : "Period"}
+          </div>
+          <div className="mt-1 text-sm font-semibold text-[#e9f4ff]">{label}</div>
+        </div>
+
+        <div className="grid gap-2 px-3 py-3">
+          {payload.map((entry) => {
+            const key = entry.dataKey as SeriesKey
+            const meta = seriesMap[key]
+            const value = Number(entry.value ?? 0)
+
+            return (
+              <div
+                key={key}
+                className="flex items-center justify-between gap-3 rounded-xl border border-white/6 bg-white/[0.03] px-2.5 py-2"
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: meta.color, boxShadow: `0 0 12px ${meta.color}99` }}
+                  />
+                  <span className="text-[12px] text-[#bed3f6]">{meta.name}</span>
+                </div>
+                <span className="font-mono text-[12px] font-semibold text-[#f2f8ff]">
+                  {value.toFixed(1)}
+                  <span className="ml-1 text-[#86a7d4]">{meta.unit}</span>
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  const renderLegend = (_props: LegendProps) => (
+    <div className="flex flex-wrap items-center justify-center gap-2 px-2 pt-3">
+      {seriesConfig.map((series) => {
+        const hidden = hiddenSeries.includes(series.key)
+
+        return (
+          <button
+            key={series.key}
+            type="button"
+            onClick={() => toggleSeries(series.key)}
+            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] transition-all ${
+              hidden
+                ? "border-white/8 bg-white/[0.02] text-[#6f86b7]"
+                : "border-white/10 bg-[linear-gradient(180deg,rgba(18,34,72,0.92),rgba(11,24,53,0.92))] text-[#dce9ff]"
+            }`}
+            style={{
+              boxShadow: hidden ? "none" : `inset 0 0 0 1px ${series.color}1f, 0 0 14px ${series.color}22`,
+            }}
+          >
+            <span
+              className="block h-2.5 w-2.5 rounded-full"
+              style={{
+                backgroundColor: series.color,
+                boxShadow: hidden ? "none" : `0 0 12px ${series.color}88`,
+              }}
+            />
+            <span
+              style={{
+                textDecoration: hidden ? "line-through" : "none",
+                textDecorationThickness: "1.5px",
+              }}
+            >
+              {series.name}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
 
   const wrapperClassName = compact
     ? "flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#22d3ee]/25 bg-[rgba(5,12,26,0.62)] p-3 backdrop-blur-[3px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset]"
@@ -288,26 +407,30 @@ export function ComprehensiveEfficiencyPanel({
             ))}
           </div>
 
-          <div className="flex gap-1 rounded-xl bg-[#1a2654]/50 p-1">
+          <div className="flex gap-0.5 rounded-lg border border-[#1a2654] bg-[#0a1225] p-0.5">
             <button
               onClick={() => setViewMode("chart")}
-              className={`rounded-md p-1.5 transition-all ${
-                viewMode === "chart" ? "bg-[#3b82f6] text-white" : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+              className={`flex items-center justify-center rounded-md p-1.5 transition-all ${
+                viewMode === "chart"
+                  ? "bg-[#11d8bf] shadow-[0_0_10px_rgba(17,216,191,0.25)]"
+                  : "hover:bg-[#1a2654]/60"
               }`}
               aria-label={language === "zh" ? "图表" : "Chart"}
               title={language === "zh" ? "图表" : "Chart"}
             >
-              <LineChartIcon className="h-[18px] w-[18px]" />
+              <ViewIconChart active={viewMode === "chart"} />
             </button>
             <button
               onClick={() => setViewMode("table")}
-              className={`rounded-md p-1.5 transition-all ${
-                viewMode === "table" ? "bg-[#3b82f6] text-white" : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+              className={`flex items-center justify-center rounded-md p-1.5 transition-all ${
+                viewMode === "table"
+                  ? "bg-[#11d8bf] shadow-[0_0_10px_rgba(17,216,191,0.25)]"
+                  : "hover:bg-[#1a2654]/60"
               }`}
               aria-label={language === "zh" ? "表格" : "Table"}
               title={language === "zh" ? "表格" : "Table"}
             >
-              <Table className="h-[18px] w-[18px]" />
+              <ViewIconTable active={viewMode === "table"} />
             </button>
           </div>
 
@@ -326,80 +449,99 @@ export function ComprehensiveEfficiencyPanel({
       </div>
 
       {viewMode === "chart" ? (
-        <div className="min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(0,212,170,0.08),transparent_28%),radial-gradient(circle_at_84%_10%,rgba(86,130,255,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]" />
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={activeData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="#1a2654" strokeDasharray="3 3" vertical={false} />
+            <ComposedChart data={activeData} margin={{ top: 18, right: 12, left: 0, bottom: 8 }}>
+              <defs>
+                <linearGradient id={`${chartId}-charge-capacity`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8ee7ff" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="#3f8bff" stopOpacity={0.55} />
+                </linearGradient>
+                <linearGradient id={`${chartId}-discharge-capacity`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ffb3c7" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="#ff6f91" stopOpacity={0.55} />
+                </linearGradient>
+                <linearGradient id={`${chartId}-charge-energy`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#a8fff0" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="#42d9b8" stopOpacity={0.55} />
+                </linearGradient>
+                <linearGradient id={`${chartId}-discharge-energy`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#d9c8ff" stopOpacity={0.96} />
+                  <stop offset="100%" stopColor="#8f7cff" stopOpacity={0.58} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="rgba(45,74,126,0.72)" strokeDasharray="3 5" vertical={false} />
               <XAxis
                 dataKey="label"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: "#7b8ab8", fontSize: 10 }}
+                tick={{ fill: "#88a4d7", fontSize: 10 }}
+                tickMargin={10}
                 interval={range === "month" && activeData.length > 16 ? 1 : 0}
               />
-              <YAxis yAxisId="quantity" axisLine={false} tickLine={false} tick={{ fill: "#7b8ab8", fontSize: 10 }} />
+              <YAxis
+                yAxisId="quantity"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: "#88a4d7", fontSize: 10 }}
+                tickMargin={8}
+              />
               <YAxis
                 yAxisId="efficiency"
                 orientation="right"
                 domain={[89, 98]}
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: "#7b8ab8", fontSize: 10 }}
+                tick={{ fill: "#88a4d7", fontSize: 10 }}
+                tickMargin={8}
                 tickFormatter={(value: number) => `${value}%`}
               />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#0d1233",
-                  border: "1px solid #1a2654",
-                  borderRadius: "8px",
-                }}
-                labelStyle={{ color: "#7b8ab8" }}
-                formatter={(value: number, name: string) => {
-                  const unit = name.includes("Efficiency") ? "%" : name.includes("Capacity") ? "Ah" : "kWh"
-                  return [`${value.toFixed(1)} ${unit}`, name]
-                }}
-              />
-              <Legend
-                wrapperStyle={{ paddingTop: "4px" }}
-                content={() => (
-                  <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pt-1">
-                    {seriesConfig.map((series) => {
-                      const hidden = hiddenSeries.includes(series.key)
-                      return (
-                        <button
-                          key={series.key}
-                          type="button"
-                          onClick={() => toggleSeries(series.key)}
-                          className="inline-flex items-center gap-1.5 rounded-md bg-transparent px-1 py-0.5 text-[11px]"
-                          style={{ color: hidden ? "#8ea3c7" : "#7b8ab8", opacity: hidden ? 0.78 : 1 }}
-                        >
-                          <span
-                            className="block h-2.5 w-2.5 rounded-[2px]"
-                            style={{
-                              backgroundColor: series.color,
-                              boxShadow: hidden ? "none" : `0 0 8px ${series.color}55`,
-                            }}
-                          />
-                          <span style={{ textDecoration: hidden ? "line-through" : "none", textDecorationThickness: "1.5px" }}>
-                            {series.name}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              />
+              <Tooltip cursor={{ fill: "rgba(255,255,255,0.03)" }} content={renderTooltip} />
+              <Legend wrapperStyle={{ paddingTop: "4px" }} content={renderLegend} />
               {!hiddenSeries.includes("chargeCapacity") && (
-                <Bar yAxisId="quantity" dataKey="chargeCapacity" name={legendText.chargeCapacity} fill="#7dd3fc" radius={[4, 4, 0, 0]} barSize={10} />
+                <Bar
+                  yAxisId="quantity"
+                  dataKey="chargeCapacity"
+                  name={legendText.chargeCapacity}
+                  fill={`url(#${chartId}-charge-capacity)`}
+                  radius={[0, 0, 0, 0]}
+                  barSize={10}
+                  fillOpacity={0.95}
+                />
               )}
               {!hiddenSeries.includes("dischargeCapacity") && (
-                <Bar yAxisId="quantity" dataKey="dischargeCapacity" name={legendText.dischargeCapacity} fill="#fda4af" radius={[4, 4, 0, 0]} barSize={10} />
+                <Bar
+                  yAxisId="quantity"
+                  dataKey="dischargeCapacity"
+                  name={legendText.dischargeCapacity}
+                  fill={`url(#${chartId}-discharge-capacity)`}
+                  radius={[0, 0, 0, 0]}
+                  barSize={10}
+                  fillOpacity={0.95}
+                />
               )}
               {!hiddenSeries.includes("chargeEnergy") && (
-                <Bar yAxisId="quantity" dataKey="chargeEnergy" name={legendText.chargeEnergy} fill="#99f6e4" radius={[4, 4, 0, 0]} barSize={10} />
+                <Bar
+                  yAxisId="quantity"
+                  dataKey="chargeEnergy"
+                  name={legendText.chargeEnergy}
+                  fill={`url(#${chartId}-charge-energy)`}
+                  radius={[0, 0, 0, 0]}
+                  barSize={10}
+                  fillOpacity={0.95}
+                />
               )}
               {!hiddenSeries.includes("dischargeEnergy") && (
-                <Bar yAxisId="quantity" dataKey="dischargeEnergy" name={legendText.dischargeEnergy} fill="#c4b5fd" radius={[4, 4, 0, 0]} barSize={10} />
+                <Bar
+                  yAxisId="quantity"
+                  dataKey="dischargeEnergy"
+                  name={legendText.dischargeEnergy}
+                  fill={`url(#${chartId}-discharge-energy)`}
+                  radius={[0, 0, 0, 0]}
+                  barSize={10}
+                  fillOpacity={0.95}
+                />
               )}
               {!hiddenSeries.includes("capacityEfficiency") && (
                 <Line
@@ -409,8 +551,8 @@ export function ComprehensiveEfficiencyPanel({
                   name={legendText.capacityEfficiency}
                   stroke="#ffd60a"
                   strokeWidth={2.5}
-                  dot={{ r: 4, fill: "#0d1233", stroke: "#ffd60a", strokeWidth: 3 }}
-                  activeDot={{ r: 5 }}
+                  dot={{ r: 4, fill: "#08122a", stroke: "#ffd60a", strokeWidth: 3 }}
+                  activeDot={{ r: 5, fill: "#08122a", stroke: "#ffd60a", strokeWidth: 3 }}
                 />
               )}
               {!hiddenSeries.includes("energyEfficiency") && (
@@ -421,8 +563,8 @@ export function ComprehensiveEfficiencyPanel({
                   name={legendText.energyEfficiency}
                   stroke="#4ade80"
                   strokeWidth={2.5}
-                  dot={{ r: 4, fill: "#0d1233", stroke: "#4ade80", strokeWidth: 3 }}
-                  activeDot={{ r: 5 }}
+                  dot={{ r: 4, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
+                  activeDot={{ r: 5, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
                 />
               )}
             </ComposedChart>

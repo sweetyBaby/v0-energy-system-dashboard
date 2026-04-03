@@ -5,6 +5,7 @@ import { Activity, ArrowUpDown, ShieldCheck, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 type PackStatus = "offline" | "precharge" | "standby" | "charge" | "discharge" | "fault"
+type DisplayPackStatus = "standby" | "charge" | "discharge"
 
 type LiveSnapshot = {
   soc: number
@@ -26,6 +27,18 @@ const packStatusLabels: Record<PackStatus, { zh: string; en: string }> = {
   fault: { zh: "故障", en: "Fault" },
 }
 
+const displayPackStatusLabels: Record<DisplayPackStatus, { zh: string; en: string }> = {
+  standby: { zh: "静置", en: "Standby" },
+  charge: { zh: "充电", en: "Charging" },
+  discharge: { zh: "放电", en: "Discharging" },
+}
+
+const normalizeDisplayPackStatus = (status: PackStatus): DisplayPackStatus => {
+  if (status === "charge" || status === "precharge") return "charge"
+  if (status === "discharge") return "discharge"
+  return "standby"
+}
+
 const createSnapshot = (phase: number): LiveSnapshot => {
   const packStatus = packStatusCycle[phase % packStatusCycle.length]
   return {
@@ -39,7 +52,7 @@ const createSnapshot = (phase: number): LiveSnapshot => {
 }
 
 const statusColors: Record<
-  PackStatus,
+  DisplayPackStatus,
   { wave: string; fill: string; glow: string; border: string; text: string; pill: string }
 > = {
   charge: {
@@ -66,30 +79,6 @@ const statusColors: Record<
     text: "#7dd3fc",
     pill: "rgba(56,189,248,0.18)",
   },
-  precharge: {
-    wave: "#59b6ff",
-    fill: "linear-gradient(0deg,#0c2a4a,#1a5080,#59b6ff)",
-    glow: "rgba(89,182,255,0.45)",
-    border: "rgba(89,182,255,0.6)",
-    text: "#59b6ff",
-    pill: "rgba(89,182,255,0.18)",
-  },
-  offline: {
-    wave: "#4a6070",
-    fill: "linear-gradient(0deg,#0a1520,#1a2a38,#2a3a48)",
-    glow: "rgba(74,96,112,0.3)",
-    border: "rgba(74,96,112,0.5)",
-    text: "#8ea4be",
-    pill: "rgba(74,96,112,0.18)",
-  },
-  fault: {
-    wave: "#ff6464",
-    fill: "linear-gradient(0deg,#4a0000,#8a0000,#ff3232)",
-    glow: "rgba(255,100,100,0.55)",
-    border: "rgba(255,80,80,0.7)",
-    text: "#ff6464",
-    pill: "rgba(255,60,60,0.22)",
-  },
 }
 
 export function RealtimeStatusBoard() {
@@ -111,8 +100,10 @@ export function RealtimeStatusBoard() {
     return () => window.clearInterval(timer)
   }, [])
 
-  const colors = statusColors[snapshot.packStatus]
-  const packStatusLabel = language === "zh" ? packStatusLabels[snapshot.packStatus].zh : packStatusLabels[snapshot.packStatus].en
+  const displayPackStatus = normalizeDisplayPackStatus(snapshot.packStatus)
+  const colors = statusColors[displayPackStatus]
+  const packStatusLabel =
+    language === "zh" ? displayPackStatusLabels[displayPackStatus].zh : displayPackStatusLabels[displayPackStatus].en
 
   const metricRows = [
     { labelZh: "PACK电压", labelEn: "PACK Voltage", value: snapshot.packVoltage.toFixed(1), unit: "V", Icon: Activity, accent: "#57a8ff", glow: "rgba(87,168,255,0.55)" },
