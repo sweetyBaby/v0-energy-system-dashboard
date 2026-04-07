@@ -3,56 +3,21 @@
 import { useEffect, useState } from "react"
 import { Activity, ArrowUpDown, ShieldCheck, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import { useProject } from "@/components/dashboard/dashboard-header"
 
-type PackStatus = "offline" | "precharge" | "standby" | "charge" | "discharge" | "fault"
-type DisplayPackStatus = "standby" | "charge" | "discharge"
+type RealtimePackStatus = "offline" | "standby" | "charge" | "discharge"
 
-type LiveSnapshot = {
-  soc: number
-  packVoltage: number
-  powerKw: number
-  stringCurrent: number
-  soh: number
-  packStatus: PackStatus
-}
+const PLACEHOLDER = "--"
 
-const packStatusCycle: PackStatus[] = ["standby", "charge", "charge", "discharge", "precharge", "charge"]
-
-const packStatusLabels: Record<PackStatus, { zh: string; en: string }> = {
+const displayPackStatusLabels: Record<RealtimePackStatus, { zh: string; en: string }> = {
   offline: { zh: "离线", en: "Offline" },
-  precharge: { zh: "预充", en: "Precharge" },
-  standby: { zh: "待机", en: "Standby" },
-  charge: { zh: "充电", en: "Charging" },
-  discharge: { zh: "放电", en: "Discharging" },
-  fault: { zh: "故障", en: "Fault" },
-}
-
-const displayPackStatusLabels: Record<DisplayPackStatus, { zh: string; en: string }> = {
   standby: { zh: "静置", en: "Standby" },
   charge: { zh: "充电", en: "Charging" },
   discharge: { zh: "放电", en: "Discharging" },
 }
 
-const normalizeDisplayPackStatus = (status: PackStatus): DisplayPackStatus => {
-  if (status === "charge" || status === "precharge") return "charge"
-  if (status === "discharge") return "discharge"
-  return "standby"
-}
-
-const createSnapshot = (phase: number): LiveSnapshot => {
-  const packStatus = packStatusCycle[phase % packStatusCycle.length]
-  return {
-    soc: 62 + (phase % 5) * 4,
-    packVoltage: 1296.4 + (phase % 4) * 3.8,
-    powerKw: packStatus === "discharge" ? -(58.2 + (phase % 3) * 4.6) : 62.4 + (phase % 3) * 5.2,
-    stringCurrent: packStatus === "discharge" ? -(44.8 + (phase % 3) * 3.5) : 48.1 + (phase % 4) * 2.2,
-    soh: 98.4 + (phase % 3) * 0.1,
-    packStatus,
-  }
-}
-
 const statusColors: Record<
-  DisplayPackStatus,
+  RealtimePackStatus,
   { wave: string; fill: string; glow: string; border: string; text: string; pill: string }
 > = {
   charge: {
@@ -79,37 +44,42 @@ const statusColors: Record<
     text: "#7dd3fc",
     pill: "rgba(56,189,248,0.18)",
   },
+  offline: {
+    wave: "#7c8a9f",
+    fill: "linear-gradient(0deg,#1c2430,#334155,#64748b)",
+    glow: "rgba(148,163,184,0.35)",
+    border: "rgba(148,163,184,0.45)",
+    text: "#cbd5e1",
+    pill: "rgba(100,116,139,0.2)",
+  },
 }
+
+const isPlaceholder = (value: string) => value.trim() === PLACEHOLDER
+const displaySocText = (soc: string, socPercent: number | null) =>
+  isPlaceholder(soc) ? `${PLACEHOLDER}%` : `${Math.round(socPercent ?? 0)}%`
 
 export function RealtimeStatusBoard() {
   const { language } = useLanguage()
-  const [snapshot, setSnapshot] = useState<LiveSnapshot>(() => createSnapshot(0))
+  const { selectedProject } = useProject()
   const [liveBlink, setLiveBlink] = useState(true)
+  const { realtimeSnapshot } = selectedProject
 
   useEffect(() => {
     const t = window.setInterval(() => setLiveBlink((v) => !v), 1200)
     return () => window.clearInterval(t)
   }, [])
 
-  useEffect(() => {
-    let phase = 0
-    const timer = window.setInterval(() => {
-      phase += 1
-      setSnapshot(createSnapshot(phase))
-    }, 4000)
-    return () => window.clearInterval(timer)
-  }, [])
-
-  const displayPackStatus = normalizeDisplayPackStatus(snapshot.packStatus)
-  const colors = statusColors[displayPackStatus]
+  const colors = statusColors[realtimeSnapshot.packStatus]
   const packStatusLabel =
-    language === "zh" ? displayPackStatusLabels[displayPackStatus].zh : displayPackStatusLabels[displayPackStatus].en
+    language === "zh"
+      ? displayPackStatusLabels[realtimeSnapshot.packStatus].zh
+      : displayPackStatusLabels[realtimeSnapshot.packStatus].en
 
   const metricRows = [
-    { labelZh: "PACK电压", labelEn: "PACK Voltage", value: snapshot.packVoltage.toFixed(1), unit: "V", Icon: Activity, accent: "#57a8ff", glow: "rgba(87,168,255,0.55)" },
-    { labelZh: "当前功率", labelEn: "Power", value: snapshot.powerKw.toFixed(1), unit: "kW", Icon: Zap, accent: "#8ef14d", glow: "rgba(142,241,77,0.5)" },
-    { labelZh: "组串电流", labelEn: "String Current", value: snapshot.stringCurrent.toFixed(1), unit: "A", Icon: ArrowUpDown, accent: "#57a8ff", glow: "rgba(87,168,255,0.55)" },
-    { labelZh: "SOH", labelEn: "SOH", value: snapshot.soh.toFixed(1), unit: "%", Icon: ShieldCheck, accent: "#8af7bc", glow: "rgba(138,247,188,0.5)" },
+    { labelZh: "PACK电压", labelEn: "PACK Voltage", value: realtimeSnapshot.packVoltage, unit: "V", Icon: Activity, accent: "#57a8ff", glow: "rgba(87,168,255,0.55)" },
+    { labelZh: "当前功率", labelEn: "Power", value: realtimeSnapshot.powerKw, unit: "kW", Icon: Zap, accent: "#8ef14d", glow: "rgba(142,241,77,0.5)" },
+    { labelZh: "组串电流", labelEn: "String Current", value: realtimeSnapshot.stringCurrent, unit: "A", Icon: ArrowUpDown, accent: "#57a8ff", glow: "rgba(87,168,255,0.55)" },
+    { labelZh: "SOH", labelEn: "SOH", value: realtimeSnapshot.soh, unit: "%", Icon: ShieldCheck, accent: "#8af7bc", glow: "rgba(138,247,188,0.5)" },
   ]
 
   return (
@@ -129,11 +99,18 @@ export function RealtimeStatusBoard() {
 
       <div className="absolute left-2.5 top-2.5 flex items-center gap-1">
         <div
-          className="h-1.5 w-1.5 rounded-full bg-[#00e87a]"
-          style={{ opacity: liveBlink ? 1 : 0.18, transition: "opacity 0.4s ease", boxShadow: "0 0 5px rgba(0,232,122,0.8)" }}
+          className={`h-1.5 w-1.5 rounded-full ${realtimeSnapshot.isOnline ? "bg-[#00e87a]" : "bg-[#94a3b8]"}`}
+          style={{
+            opacity: liveBlink ? 1 : 0.18,
+            transition: "opacity 0.4s ease",
+            boxShadow: realtimeSnapshot.isOnline ? "0 0 5px rgba(0,232,122,0.8)" : "0 0 5px rgba(148,163,184,0.55)",
+          }}
         />
-        <span className="text-[10px] font-bold tracking-[0.04em] text-[#00e87a]" style={{ textShadow: "0 0 6px rgba(0,232,122,0.6)" }}>
-          {language === "zh" ? "在线" : "Online"}
+        <span
+          className={`text-[10px] font-bold tracking-[0.04em] ${realtimeSnapshot.isOnline ? "text-[#00e87a]" : "text-[#cbd5e1]"}`}
+          style={{ textShadow: realtimeSnapshot.isOnline ? "0 0 6px rgba(0,232,122,0.6)" : "0 0 6px rgba(148,163,184,0.45)" }}
+        >
+          {realtimeSnapshot.isOnline ? (language === "zh" ? "在线" : "Online") : (language === "zh" ? "离线" : "Offline")}
         </span>
       </div>
 
@@ -154,13 +131,19 @@ export function RealtimeStatusBoard() {
             }}
           >
             <div className="pointer-events-none absolute inset-[2px] z-10 rounded-[10px] border border-white/[0.07]" />
-            <div className="absolute bottom-0 left-0 right-0 transition-all duration-1000" style={{ height: `${snapshot.soc}%`, background: colors.fill }} />
-            <div className="pointer-events-none absolute left-0 right-0 z-20 overflow-hidden" style={{ bottom: `calc(${snapshot.soc}% - 9px)`, height: "18px", transition: "bottom 1s ease" }}>
+            <div
+              className="absolute bottom-0 left-0 right-0 transition-all duration-1000"
+              style={{
+                height: `${realtimeSnapshot.socPercent ?? 0}%`,
+                background: colors.fill,
+              }}
+            />
+            <div className="pointer-events-none absolute left-0 right-0 z-20 overflow-hidden" style={{ bottom: `calc(${realtimeSnapshot.socPercent ?? 0}% - 9px)`, height: "18px", transition: "bottom 1s ease" }}>
               <svg viewBox="0 0 400 18" preserveAspectRatio="none" style={{ width: "200%", height: "100%", animation: "rsb-wave1 2.4s linear infinite" }}>
                 <path d="M0,9 C50,0 100,18 150,9 C200,0 250,18 300,9 C350,0 400,18 400,9 L400,18 L0,18 Z" style={{ fill: colors.wave, opacity: 0.9 }} />
               </svg>
             </div>
-            <div className="pointer-events-none absolute left-0 right-0 z-20 overflow-hidden" style={{ bottom: `calc(${snapshot.soc}% - 6px)`, height: "14px", transition: "bottom 1s ease" }}>
+            <div className="pointer-events-none absolute left-0 right-0 z-20 overflow-hidden" style={{ bottom: `calc(${realtimeSnapshot.socPercent ?? 0}% - 6px)`, height: "14px", transition: "bottom 1s ease" }}>
               <svg viewBox="0 0 400 14" preserveAspectRatio="none" style={{ width: "200%", height: "100%", animation: "rsb-wave2 1.6s linear infinite" }}>
                 <path d="M0,7 C50,0 100,14 150,7 C200,0 250,14 300,7 C350,0 400,14 400,7 L400,14 L0,14 Z" style={{ fill: colors.wave, opacity: 0.5 }} />
               </svg>
@@ -172,7 +155,7 @@ export function RealtimeStatusBoard() {
             <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-1">
               <Zap className="h-4 w-4 text-white/90" fill="currentColor" />
               <span className="text-[1.3rem] font-extrabold leading-none text-white" style={{ textShadow: "0 0 14px rgba(0,0,0,0.95)" }}>
-                {Math.round(snapshot.soc)}%
+                {displaySocText(realtimeSnapshot.soc, realtimeSnapshot.socPercent)}
               </span>
             </div>
           </div>

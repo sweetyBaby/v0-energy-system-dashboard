@@ -191,8 +191,8 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                             {stat.icon}
                           </div>
                           <span
-                            className="text-[11.5px] font-medium text-[#b8d8f0]"
-                            style={{ textShadow: "0 1px 6px rgba(0,0,0,0.95)" }}
+                            className="text-[13px] font-semibold tracking-[0.08em] text-[#d9f6ff]"
+                            style={{ textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 10px rgba(34,211,238,0.28)" }}
                           >
                             {zh ? stat.labelZh : stat.labelEn}
                           </span>
@@ -241,7 +241,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                   {([
                     {
                       key: "overview",
-                      labelZh: "鎬昏",
+                      labelZh: "总览",
                       labelEn: "Overview",
                       icon: (
                         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -254,7 +254,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                     },
                     {
                       key: "detail",
-                      labelZh: "鏄庣粏",
+                      labelZh: "明细",
                       labelEn: "Detail",
                       icon: (
                         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">

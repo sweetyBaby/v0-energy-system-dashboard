@@ -3,6 +3,9 @@
 import type { ReactNode } from "react"
 import { BatteryCharging, BatteryMedium, Gauge } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import { useProject } from "@/components/dashboard/dashboard-header"
+
+const PLACEHOLDER = "--"
 
 type DetailItem = {
   labelZh: string
@@ -25,84 +28,12 @@ type HeroCard = {
   details: DetailItem[]
 }
 
-const heroCards: HeroCard[] = [
-  {
-    key: "efficiency",
-    labelZh: "昨日效率",
-    labelEn: "Yesterday Efficiency",
-    value: "83.46",
-    unit: "%",
-    accent: "#57a8ff",
-    softAccent: "rgba(87,168,255,0.28)",
-    ringClass: "from-[#4a90ff] to-[#2e6be2]",
-    valueClass: "text-[#f5f9ff]",
-    icon: <Gauge className="h-4 w-4 text-[#73b6ff]" strokeWidth={1.8} />,
-    details: [
-      { labelZh: "本月", labelEn: "Month", value: "82.14", unit: "%" },
-      { labelZh: "本年", labelEn: "Year", value: "83.07", unit: "%" },
-      { labelZh: "累计", labelEn: "Total", value: "83.07", unit: "%" },
-    ],
-  },
-  {
-    key: "charge",
-    labelZh: "今日充电量",
-    labelEn: "Today Charge",
-    value: "108.4",
-    unit: "kWh",
-    accent: "#8ef14d",
-    softAccent: "rgba(142,241,77,0.28)",
-    ringClass: "from-[#a3ff58] to-[#69d936]",
-    valueClass: "text-[#b9ff8b]",
-    icon: <BatteryCharging className="h-4 w-4 text-[#a0ff66]" strokeWidth={1.8} />,
-    details: [
-      { labelZh: "昨日", labelEn: "Yesterday", value: "122.6", unit: "kWh" },
-      { labelZh: "本月", labelEn: "Month", value: "3286.4", unit: "kWh" },
-      { labelZh: "累计", labelEn: "Total", value: "15.24", unit: "MWh" },
-    ],
-  },
-  {
-    key: "discharge",
-    labelZh: "今日放电量",
-    labelEn: "Today Discharge",
-    value: "90.5",
-    unit: "kWh",
-    accent: "#58a7ff",
-    softAccent: "rgba(88,167,255,0.28)",
-    ringClass: "from-[#5ca9ff] to-[#3575eb]",
-    valueClass: "text-[#f5f9ff]",
-    icon: <BatteryMedium className="h-4 w-4 text-[#6fb5ff]" strokeWidth={1.8} />,
-    details: [
-      { labelZh: "昨日", labelEn: "Yesterday", value: "102.3", unit: "kWh" },
-      { labelZh: "本月", labelEn: "Month", value: "2741.8", unit: "kWh" },
-      { labelZh: "累计", labelEn: "Total", value: "12.68", unit: "MWh" },
-    ],
-  },
-]
+const isPlaceholder = (value: string) => value.trim() === PLACEHOLDER
 
-const totalCards = [
-  {
-    key: "charge-total",
-    labelZh: "累计充电量",
-    labelEn: "Total Charge",
-    value: "15.24",
-    unit: "MWh",
-    accent: "#8af7bc",
-    glow: "rgba(92,247,191,0.35)",
-  },
-  {
-    key: "discharge-total",
-    labelZh: "累计放电量",
-    labelEn: "Total Discharge",
-    value: "12.68",
-    unit: "MWh",
-    accent: "#ffb347",
-    glow: "rgba(255,179,71,0.35)",
-  },
-] as const
-
-function splitNumber(value: string) {
+const splitNumber = (value: string) => {
   const dotIndex = value.lastIndexOf(".")
-  if (dotIndex === -1) return { integer: value, decimal: "" }
+  if (dotIndex === -1 || isPlaceholder(value)) return { integer: value, decimal: "" }
+
   return {
     integer: value.slice(0, dotIndex),
     decimal: value.slice(dotIndex),
@@ -269,7 +200,83 @@ function TotalCard({
 
 export function ChargeDischargeTable() {
   const { language } = useLanguage()
+  const { selectedProject } = useProject()
   const zh = language === "zh"
+
+  const heroCards: HeroCard[] = [
+    {
+      key: "efficiency",
+      labelZh: "昨日能量效率",
+      labelEn: "Yesterday Energy Efficiency",
+      value: selectedProject.overviewMetrics.efficiency.current,
+      unit: "%",
+      accent: "#57a8ff",
+      softAccent: "rgba(87,168,255,0.28)",
+      ringClass: "from-[#4a90ff] to-[#2e6be2]",
+      valueClass: "text-[#f5f9ff]",
+      icon: <Gauge className="h-4 w-4 text-[#73b6ff]" strokeWidth={1.8} />,
+      details: [
+        { labelZh: "本月", labelEn: "Month", value: selectedProject.overviewMetrics.efficiency.month, unit: "%" },
+        { labelZh: "本年", labelEn: "Year", value: selectedProject.overviewMetrics.efficiency.year, unit: "%" },
+        { labelZh: "累计", labelEn: "Total", value: selectedProject.overviewMetrics.efficiency.total, unit: "%" },
+      ],
+    },
+    {
+      key: "charge",
+      labelZh: "今日充电量",
+      labelEn: "Today Charge",
+      value: selectedProject.overviewMetrics.charge.current,
+      unit: "kWh",
+      accent: "#8ef14d",
+      softAccent: "rgba(142,241,77,0.28)",
+      ringClass: "from-[#a3ff58] to-[#69d936]",
+      valueClass: "text-[#b9ff8b]",
+      icon: <BatteryCharging className="h-4 w-4 text-[#a0ff66]" strokeWidth={1.8} />,
+      details: [
+        { labelZh: "昨日", labelEn: "Yesterday", value: selectedProject.overviewMetrics.charge.yesterday, unit: "kWh" },
+        { labelZh: "本月", labelEn: "Month", value: selectedProject.overviewMetrics.charge.month, unit: "kWh" },
+        { labelZh: "累计", labelEn: "Total", value: selectedProject.overviewMetrics.charge.total, unit: "MWh" },
+      ],
+    },
+    {
+      key: "discharge",
+      labelZh: "今日放电量",
+      labelEn: "Today Discharge",
+      value: selectedProject.overviewMetrics.discharge.current,
+      unit: "kWh",
+      accent: "#58a7ff",
+      softAccent: "rgba(88,167,255,0.28)",
+      ringClass: "from-[#5ca9ff] to-[#3575eb]",
+      valueClass: "text-[#f5f9ff]",
+      icon: <BatteryMedium className="h-4 w-4 text-[#6fb5ff]" strokeWidth={1.8} />,
+      details: [
+        { labelZh: "昨日", labelEn: "Yesterday", value: selectedProject.overviewMetrics.discharge.yesterday, unit: "kWh" },
+        { labelZh: "本月", labelEn: "Month", value: selectedProject.overviewMetrics.discharge.month, unit: "kWh" },
+        { labelZh: "累计", labelEn: "Total", value: selectedProject.overviewMetrics.discharge.total, unit: "MWh" },
+      ],
+    },
+  ]
+
+  const totalCards = [
+    {
+      key: "charge-total",
+      labelZh: "累计充电量",
+      labelEn: "Total Charge",
+      value: selectedProject.overviewMetrics.totalCharge,
+      unit: "MWh",
+      accent: "#8af7bc",
+      glow: "rgba(92,247,191,0.35)",
+    },
+    {
+      key: "discharge-total",
+      labelZh: "累计放电量",
+      labelEn: "Total Discharge",
+      value: selectedProject.overviewMetrics.totalDischarge,
+      unit: "MWh",
+      accent: "#ffb347",
+      glow: "rgba(255,179,71,0.35)",
+    },
+  ] as const
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[22px] border border-[#22d3ee]/26 bg-[radial-gradient(circle_at_18%_16%,rgba(64,124,255,0.22),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(0,212,170,0.14),transparent_24%),linear-gradient(180deg,rgba(11,31,67,0.66),rgba(6,20,47,0.74))] p-1.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_16px_32px_rgba(0,0,0,0.16)]">

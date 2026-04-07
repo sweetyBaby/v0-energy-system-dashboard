@@ -2,30 +2,18 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { Check, ChevronDown, Globe, Zap } from "lucide-react"
+import {
+  fetchProjectDetail,
+  fetchProjectRealtime,
+  normalizeOverviewMetricsFromRealtime,
+  normalizeProjectDetail,
+  normalizeRealtimeSnapshot,
+  type OverviewMetrics,
+  type RawProjectDetail,
+  type RawProjectRealtime,
+  type RealtimeSnapshotView,
+} from "@/lib/api/project"
 import { useLanguage } from "@/components/language-provider"
-
-export const projects = [
-  {
-    id: "jintan",
-    name: "金坛储能中心",
-    nameEn: "Jintan Energy Storage Center",
-    ratedPower: "75 kW",
-    ratedCapacity: "150 kWh",
-    commissioningDate: "2025-11-15",
-    image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
-  },
-  {
-    id: "ordos",
-    name: "鄂尔多斯储能中心",
-    nameEn: "Ordos Energy Storage Center",
-    ratedPower: "75 kW",
-    ratedCapacity: "150 kWh",
-    commissioningDate: "2025-11-20",
-    image: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
-  },
-]
-
-export type Project = typeof projects[number]
 
 type DashboardHeaderTab = {
   key: string
@@ -35,20 +23,182 @@ type DashboardHeaderTab = {
   }
 }
 
+type ProjectOption = {
+  id: string
+  projectId: string
+  name: string
+  nameEn: string
+  image: string
+}
+
+export type Project = ProjectOption & {
+  projectName: string
+  region: string
+  company: string
+  ratedPower: string
+  ratedCapacity: string
+  commissioningDate: string
+  tariffInfo: string
+  status: string
+  overviewMetrics: OverviewMetrics
+  realtimeSnapshot: RealtimeSnapshotView
+}
+
+export const projects: ProjectOption[] = [
+  {
+    id: "jintan",
+    projectId: "360c0347c09c4735900b9df32f3b8ff7",
+    name: "金坛储能中心",
+    nameEn: "Jintan Energy Storage Center",
+    image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
+  },
+  {
+    id: "ordos",
+    projectId: "9964201b369549b4b04c29bfe3863daa",
+    name: "鄂尔多斯储能中心",
+    nameEn: "Ordos Energy Storage Center",
+    image: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
+  },
+]
+
+const buildProjectView = (
+  project: ProjectOption,
+  detail: RawProjectDetail | null,
+  realtime: RawProjectRealtime | null,
+  realtimeRequestSucceeded: boolean
+): Project => ({
+  ...project,
+  ...normalizeProjectDetail(detail, project.image),
+  projectName: detail?.projectName ? String(detail.projectName) : project.name,
+  overviewMetrics: realtime ? normalizeOverviewMetricsFromRealtime(realtime) : normalizeOverviewMetricsFromRealtime(null),
+  realtimeSnapshot: normalizeRealtimeSnapshot(realtime, realtimeRequestSucceeded),
+})
+
 const ProjectContext = createContext<{
   selectedProject: Project
-  setSelectedProject: (project: Project) => void
+  setSelectedProject: (project: ProjectOption) => void
+  projectDetail: RawProjectDetail | null
+  isProjectLoading: boolean
 }>({
-  selectedProject: projects[0],
+  selectedProject: buildProjectView(projects[0], null),
   setSelectedProject: () => {},
+  projectDetail: null,
+  isProjectLoading: false,
 })
 
 export const useProject = () => useContext(ProjectContext)
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
-  const [selectedProject, setSelectedProject] = useState(projects[0])
+  const [selectedProjectId, setSelectedProjectId] = useState(projects[0].id)
+  const [projectDetails, setProjectDetails] = useState<Record<string, RawProjectDetail | null>>({})
+  const [projectRealtime, setProjectRealtime] = useState<Record<string, RawProjectRealtime | null>>({})
+  const [projectRealtimeSuccess, setProjectRealtimeSuccess] = useState<Record<string, boolean>>({})
+  const [isProjectLoading, setIsProjectLoading] = useState(false)
 
-  return <ProjectContext.Provider value={{ selectedProject, setSelectedProject }}>{children}</ProjectContext.Provider>
+  const projectOption = projects.find((project) => project.id === selectedProjectId) ?? projects[0]
+  const projectDetail = projectDetails[projectOption.id] ?? null
+  const selectedRealtime = projectRealtime[projectOption.id] ?? null
+  const selectedRealtimeSuccess = projectRealtimeSuccess[projectOption.id] ?? false
+  const selectedProject = buildProjectView(projectOption, projectDetail, selectedRealtime, selectedRealtimeSuccess)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadProjectDetail = async () => {
+      setIsProjectLoading(true)
+
+      try {
+        const response = await fetchProjectDetail(projectOption.projectId)
+
+        if (!cancelled) {
+          setProjectDetails((current) => ({
+            ...current,
+            [projectOption.id]: response,
+          }))
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setProjectDetails((current) => ({
+            ...current,
+            [projectOption.id]: current[projectOption.id] ?? null,
+          }))
+        }
+
+        console.error(`Failed to load project detail for ${projectOption.projectId}`, error)
+      } finally {
+        if (!cancelled) {
+          setIsProjectLoading(false)
+        }
+      }
+    }
+
+    void loadProjectDetail()
+
+    return () => {
+      cancelled = true
+    }
+  }, [projectOption.id, projectOption.projectId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadRealtime = async () => {
+      try {
+        const response = await fetchProjectRealtime(projectOption.projectId)
+
+        if (!cancelled) {
+          setProjectRealtime((current) => ({
+            ...current,
+            [projectOption.id]: response,
+          }))
+          setProjectRealtimeSuccess((current) => ({
+            ...current,
+            [projectOption.id]: true,
+          }))
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setProjectRealtime((current) => ({
+            ...current,
+            [projectOption.id]: current[projectOption.id] ?? null,
+          }))
+          setProjectRealtimeSuccess((current) => ({
+            ...current,
+            [projectOption.id]: false,
+          }))
+        }
+
+        console.error(`Failed to load realtime overview for ${projectOption.projectId}`, error)
+      }
+    }
+
+    void loadRealtime()
+    const timer = window.setInterval(() => {
+      void loadRealtime()
+    }, 10000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [projectOption.id, projectOption.projectId])
+
+  const setSelectedProject = (project: ProjectOption) => {
+    setSelectedProjectId(project.id)
+  }
+
+  return (
+    <ProjectContext.Provider
+      value={{
+        selectedProject,
+        setSelectedProject,
+        projectDetail,
+        isProjectLoading,
+      }}
+    >
+      {children}
+    </ProjectContext.Provider>
+  )
 }
 
 export function DashboardHeader({
@@ -131,12 +281,10 @@ export function DashboardHeader({
       <div className="pointer-events-none absolute inset-x-[18%] top-0 h-full bg-[linear-gradient(90deg,transparent,rgba(74,228,255,0.18),transparent)]" style={{ animation: "hdr-scan 5.2s linear infinite" }} />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#68e6ff] to-transparent shadow-[0_0_20px_rgba(104,230,255,0.9),0_0_40px_rgba(104,230,255,0.4)]" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#1ce1c2]/80 to-transparent shadow-[0_0_8px_rgba(28,225,194,0.5)]" />
-      {/* 四角装饰 */}
       <div className="pointer-events-none absolute left-0 top-0 h-10 w-10 border-l-2 border-t-2 border-[#29e4d4]/70" />
       <div className="pointer-events-none absolute right-0 top-0 h-10 w-10 border-r-2 border-t-2 border-[#29e4d4]/70" />
       <div className="pointer-events-none absolute left-0 bottom-0 h-10 w-10 border-l-2 border-b-2 border-[#1ce1c2]/50" />
       <div className="pointer-events-none absolute right-0 bottom-0 h-10 w-10 border-r-2 border-b-2 border-[#1ce1c2]/50" />
-      {/* 角点高亮 */}
       <div className="pointer-events-none absolute left-0 top-0 h-1 w-1 bg-[#68e6ff] shadow-[0_0_8px_rgba(104,230,255,1)]" />
       <div className="pointer-events-none absolute right-0 top-0 h-1 w-1 bg-[#68e6ff] shadow-[0_0_8px_rgba(104,230,255,1)]" />
 
@@ -171,7 +319,6 @@ export function DashboardHeader({
             <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#7de9ff]/70 to-transparent" />
             <span className="pointer-events-none absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-[#20e1c4]/40 to-transparent" />
             <div className="flex min-w-0 flex-col items-start">
-             
               <h1
                 className={`relative mt-0.5 whitespace-nowrap font-bold ${
                   zh
