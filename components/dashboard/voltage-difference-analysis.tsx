@@ -21,6 +21,8 @@ function buildData(days: number) {
 }
 
 const TS = { backgroundColor: "#0d1233", border: "1px solid #1a2654", borderRadius: "8px", fontSize: 11 }
+const TABLE_SCROLLBAR =
+  "h-full overflow-auto rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.95),rgba(11,18,44,0.92))] [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]"
 
 export function VoltageDifferenceAnalysis({ range }: { range: number }) {
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
@@ -104,7 +106,7 @@ export function VoltageDifferenceAnalysis({ range }: { range: number }) {
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <div className="h-full overflow-auto">
+          <div className={TABLE_SCROLLBAR}>
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-[#0d1233]">
                 <tr className="border-b border-[#1a2654] text-[#7b8ab8]">

@@ -315,7 +315,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
             >
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
               <span className="text-[11px] font-medium tracking-[0.06em] text-[#4a7090]">
-                {zh ? "鏃堕棿鑼冨洿" : "TIME RANGE"}
+                {zh ? "时间范围" : "TIME RANGE"}
               </span>
               <div className="h-3 w-px bg-[#22d3ee]/25" />
               <div className="flex gap-1">

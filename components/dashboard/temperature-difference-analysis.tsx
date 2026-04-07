@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts"
+import { useMemo, useState } from "react"
+import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Table, LineChart as LineChartIcon } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
@@ -11,94 +11,104 @@ function buildData(days: number) {
     const d = new Date(today)
     d.setDate(today.getDate() - (days - 1 - i))
     return {
-      day: `${d.getMonth()+1}/${d.getDate()}`,
+      day: `${d.getMonth() + 1}/${d.getDate()}`,
       maxTemp: +(35 + Math.random() * 10).toFixed(1),
       minTemp: +(20 + Math.random() * 8).toFixed(1),
-      tempDiff: +(8  + Math.random() * 7).toFixed(1),
+      tempDiff: +(8 + Math.random() * 7).toFixed(1),
     }
   })
 }
 
-const TS = { backgroundColor:"#0d1233", border:"1px solid #1a2654", borderRadius:"8px", fontSize:11 }
+const TS = { backgroundColor: "#0d1233", border: "1px solid #1a2654", borderRadius: "8px", fontSize: 11 }
+const TABLE_SCROLLBAR =
+  "h-full overflow-auto rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.95),rgba(11,18,44,0.92))] [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]"
 
 export function TemperatureDifferenceAnalysis({ range }: { range: number }) {
-  const [viewMode, setViewMode] = useState<"chart"|"table">("chart")
+  const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
   const { t, language } = useLanguage()
   const zh = language === "zh"
 
   const data = useMemo(() => buildData(range), [range])
 
-  const stats = useMemo(() => ({
-    maxTemp: Math.max(...data.map(d => d.maxTemp)),
-    minTemp: Math.min(...data.map(d => d.minTemp)),
-    maxDiff: Math.max(...data.map(d => d.tempDiff)),
-    avgDiff: (data.reduce((s,d) => s + d.tempDiff, 0) / data.length).toFixed(1),
-  }), [data])
+  const stats = useMemo(
+    () => ({
+      maxTemp: Math.max(...data.map((d) => d.maxTemp)),
+      minTemp: Math.min(...data.map((d) => d.minTemp)),
+      maxDiff: Math.max(...data.map((d) => d.tempDiff)),
+      avgDiff: (data.reduce((s, d) => s + d.tempDiff, 0) / data.length).toFixed(1),
+    }),
+    [data],
+  )
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
-      {/* Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#f97316]" />
           <h3 className="text-sm font-semibold text-[#f97316]">{t("tempDiffAnalysis")}</h3>
         </div>
         <div className="flex gap-1 rounded-lg bg-[#1a2654]/50 p-1">
-          <button onClick={() => setViewMode("chart")}
-            className={`rounded-md p-1.5 transition-all ${viewMode==="chart"?"bg-[#f97316] text-[#0a0e27]":"text-[#7b8ab8]"}`}>
+          <button
+            onClick={() => setViewMode("chart")}
+            className={`rounded-md p-1.5 transition-all ${viewMode === "chart" ? "bg-[#f97316] text-[#0a0e27]" : "text-[#7b8ab8]"}`}
+          >
             <LineChartIcon className="h-3.5 w-3.5" />
           </button>
-          <button onClick={() => setViewMode("table")}
-            className={`rounded-md p-1.5 transition-all ${viewMode==="table"?"bg-[#f97316] text-[#0a0e27]":"text-[#7b8ab8]"}`}>
+          <button
+            onClick={() => setViewMode("table")}
+            className={`rounded-md p-1.5 transition-all ${viewMode === "table" ? "bg-[#f97316] text-[#0a0e27]" : "text-[#7b8ab8]"}`}
+          >
             <Table className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Stats */}
       <div className="mb-3 grid grid-cols-4 gap-2">
         {[
-          { label: zh?"最高温度":"Max Temp", value:`${stats.maxTemp.toFixed(1)} °C`, color:"#ef4444" },
-          { label: zh?"最低温度":"Min Temp", value:`${stats.minTemp.toFixed(1)} °C`, color:"#22d3ee" },
-          { label: zh?"最大温差":"Max Diff", value:`${stats.maxDiff.toFixed(1)} °C`, color:"#f97316" },
-          { label: zh?"平均温差":"Avg Diff", value:`${stats.avgDiff} °C`,            color:"#fbbf24" },
-        ].map(s => (
+          { label: zh ? "最高温度" : "Max Temp", value: `${stats.maxTemp.toFixed(1)} °C`, color: "#ef4444" },
+          { label: zh ? "最低温度" : "Min Temp", value: `${stats.minTemp.toFixed(1)} °C`, color: "#22d3ee" },
+          { label: zh ? "最大温差" : "Max Diff", value: `${stats.maxDiff.toFixed(1)} °C`, color: "#f97316" },
+          { label: zh ? "平均温差" : "Avg Diff", value: `${stats.avgDiff} °C`, color: "#fbbf24" },
+        ].map((s) => (
           <div key={s.label} className="rounded-lg border border-[#1a2654]/60 bg-[#101840]/80 px-2 py-2 text-center">
             <div className="text-xs font-medium text-[#7b8ab8]">{s.label}</div>
-            <div className="mt-0.5 font-mono text-[0.95rem] font-bold" style={{color:s.color}}>{s.value}</div>
+            <div className="mt-0.5 font-mono text-[0.95rem] font-bold" style={{ color: s.color }}>
+              {s.value}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Chart / Table */}
       <div className="min-h-0 flex-1">
         {viewMode === "chart" ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{top:8,right:16,left:-8,bottom:0}}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" vertical={false}/>
-              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill:"#7b8ab8",fontSize:10}}
-                interval={range > 15 ? 4 : range > 7 ? 1 : 0}/>
-              <YAxis axisLine={false} tickLine={false} tick={{fill:"#7b8ab8",fontSize:10}} unit="°C"/>
-              <Tooltip contentStyle={TS} labelStyle={{color:"#7b8ab8"}}
-                formatter={(v:number, name:string) => [`${v.toFixed(1)} °C`, name]}/>
-              <Legend wrapperStyle={{paddingTop:"6px"}}
-                formatter={v => <span style={{color:"#7b8ab8",fontSize:"11px"}}>{v}</span>}/>
-              <ReferenceLine y={45} stroke="#ef4444" strokeDasharray="4 4" strokeOpacity={0.7}
-                label={{value:zh?"⚠ 高温 45°C":"⚠ High 45°C", fill:"#ef4444", fontSize:11, fontWeight:600, position:"insideTopRight"}}/>
-              <Line type="monotone" dataKey="maxTemp" name={zh?"最高温度":"Max Temp"} stroke="#ef4444" strokeWidth={2} dot={{r:2}} activeDot={{r:4}}/>
-              <Line type="monotone" dataKey="minTemp" name={zh?"最低温度":"Min Temp"} stroke="#22d3ee" strokeWidth={2} dot={{r:2}} activeDot={{r:4}}/>
-              <Line type="monotone" dataKey="tempDiff" name={zh?"温差":"Temp Diff"} stroke="#f97316" strokeWidth={2} dot={{r:2}} activeDot={{r:4}} strokeDasharray="5 3"/>
+            <LineChart data={data} margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" vertical={false} />
+              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#7b8ab8", fontSize: 10 }} interval={range > 15 ? 4 : range > 7 ? 1 : 0} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#7b8ab8", fontSize: 10 }} unit="°C" />
+              <Tooltip contentStyle={TS} labelStyle={{ color: "#7b8ab8" }} formatter={(v: number, name: string) => [`${v.toFixed(1)} °C`, name]} />
+              <Legend wrapperStyle={{ paddingTop: "6px" }} formatter={(v) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{v}</span>} />
+              <ReferenceLine
+                y={45}
+                stroke="#ef4444"
+                strokeDasharray="4 4"
+                strokeOpacity={0.7}
+                label={{ value: zh ? "高温 45°C" : "High 45°C", fill: "#ef4444", fontSize: 11, fontWeight: 600, position: "insideTopRight" }}
+              />
+              <Line type="monotone" dataKey="maxTemp" name={zh ? "最高温度" : "Max Temp"} stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="minTemp" name={zh ? "最低温度" : "Min Temp"} stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="tempDiff" name={zh ? "温差" : "Temp Diff"} stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} strokeDasharray="5 3" />
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <div className="h-full overflow-auto">
+          <div className={TABLE_SCROLLBAR}>
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-[#0d1233]">
                 <tr className="border-b border-[#1a2654] text-[#7b8ab8]">
                   <th className="px-2 py-2 text-left">{t("date")}</th>
-                  <th className="px-2 py-2 text-right">{zh?"最高(°C)":"Max (°C)"}</th>
-                  <th className="px-2 py-2 text-right">{zh?"最低(°C)":"Min (°C)"}</th>
-                  <th className="px-2 py-2 text-right">{zh?"温差(°C)":"Diff (°C)"}</th>
+                  <th className="px-2 py-2 text-right">{zh ? "最高(°C)" : "Max (°C)"}</th>
+                  <th className="px-2 py-2 text-right">{zh ? "最低(°C)" : "Min (°C)"}</th>
+                  <th className="px-2 py-2 text-right">{zh ? "温差(°C)" : "Diff (°C)"}</th>
                 </tr>
               </thead>
               <tbody>
