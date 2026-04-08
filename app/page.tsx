@@ -253,7 +253,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                   </div>
                 </div>
 
-                <div className="col-span-3 flex min-h-0 h-full items-stretch justify-end">
+                <div className="col-span-3 min-h-0 h-full w-full" style={{ containerType: "inline-size" }}>
                   <ChargeDischargeTable />
                 </div>
               </div>
