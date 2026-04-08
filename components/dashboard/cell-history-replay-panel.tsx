@@ -5,8 +5,10 @@ import { Check, ChevronsUpDown } from "lucide-react"
 import { CartesianGrid, Customized, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { useLanguage } from "@/components/language-provider"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
+import { useProject } from "@/components/dashboard/dashboard-header"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { fetchDailyCellHistory, type DailyCellHistoryBundle } from "@/lib/api/cell-history"
 
 type HistoryPoint = {
   time: string
@@ -83,6 +85,27 @@ const CELL_COUNT = 50
 const STEP_MINUTES = 15
 const TOTAL_POINTS = (24 * 60) / STEP_MINUTES
 const DAY_END_TIME_LABEL = "23:59:59"
+const EMPTY_HISTORY_DATA: HistoryPoint[] = []
+const EMPTY_OVERVIEW_DATA: OverviewPoint[] = []
+const EMPTY_CELL_METRICS: CellMetric[] = []
+const EMPTY_EXTREME_CURVE_TREND: Array<{
+  time: string
+  max: number
+  min: number
+  maxCell: number
+  minCell: number
+}> = []
+const EMPTY_TEMPERATURE_EXTREME_TRENDS: Record<TemperatureChannelKey, Array<{
+  time: string
+  max: number
+  min: number
+  maxCell: number
+  minCell: number
+}>> = {
+  t1: [],
+  t2: [],
+  t3: [],
+}
 const mutedText = "text-[#94bbd6]"
 const edgeGlow = "shadow-[0_0_0_1px_rgba(88,181,255,0.08),0_18px_42px_rgba(1,7,19,0.42),inset_0_0_28px_rgba(44,126,198,0.06)]"
 const pickerScrollbarClass =
@@ -94,6 +117,35 @@ const formatTimeLabel = (index: number) =>
   `${String(Math.floor((index * STEP_MINUTES) / 60)).padStart(2, "0")}:${String((index * STEP_MINUTES) % 60).padStart(2, "0")}`
 
 const toTrendTimeLabel = (time: string) => `${time}:00`
+const formatAxisTimeLabel = (time: string) => {
+  const trimmed = time.trim()
+  const timeMatch = trimmed.match(/^(\d{2}:\d{2})(?::\d{2})?$/)
+  if (timeMatch) {
+    return timeMatch[1]
+  }
+
+  const dateValue = new Date(trimmed)
+  if (!Number.isNaN(dateValue.getTime())) {
+    return `${String(dateValue.getHours()).padStart(2, "0")}:${String(dateValue.getMinutes()).padStart(2, "0")}`
+  }
+
+  return trimmed
+}
+
+const buildDynamicTimeTicks = (times: string[], visibleTickCount: number) => {
+  if (times.length <= 2) {
+    return Array.from(new Set(times))
+  }
+
+  if (times.length <= visibleTickCount) {
+    return Array.from(new Set(times))
+  }
+
+  const step = Math.max(1, Math.ceil((times.length - 1) / Math.max(visibleTickCount - 1, 1)))
+  return Array.from(
+    new Set(times.filter((time, index) => index === 0 || index === times.length - 1 || index % step === 0)),
+  )
+}
 
 const extendTrendToDayEnd = <T extends { time: string }>(rows: T[], resetFields: Partial<T> = {}): T[] => {
   if (!rows.length || rows[rows.length - 1]?.time === DAY_END_TIME_LABEL) return rows
@@ -341,6 +393,306 @@ function LegendItem({ label, color, dashed = false, compact = false }: { label: 
       <span>{label}</span>
     </div>
   )
+}
+
+function ChartPlaceholder({ text }: { text: string }) {
+  return (
+    <div className="flex h-full min-h-0 items-center justify-center px-4 text-center text-[12px] text-[#7b8ab8]">
+      {text}
+    </div>
+  )
+}
+
+function SkeletonBlock({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-[12px] border border-[#214260]/80 bg-[linear-gradient(180deg,rgba(17,35,68,0.92),rgba(11,24,49,0.98))] shadow-[inset_0_0_18px_rgba(63,231,255,0.04)] ${className}`}
+    />
+  )
+}
+
+function SkeletonPanel({ className = "", children }: { className?: string; children: ReactNode }) {
+  return (
+    <div
+      className={`overflow-hidden rounded-[20px] border border-[#254873]/80 bg-[radial-gradient(circle_at_top_right,rgba(38,109,178,0.12),transparent_28%),linear-gradient(180deg,rgba(10,19,44,0.97),rgba(6,12,29,0.98))] p-3 shadow-[0_0_0_1px_rgba(88,181,255,0.08),0_18px_42px_rgba(1,7,19,0.32),inset_0_0_28px_rgba(44,126,198,0.05)] ${className}`}
+    >
+      {children}
+    </div>
+  )
+}
+
+function HistorySkeletonBadge({ text }: { text: string }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-[#29547f]/75 bg-[rgba(9,21,47,0.92)] px-3 py-1 text-[11px] font-semibold tracking-[0.08em] text-[#dffbff]">
+      <span className="h-2 w-2 animate-pulse rounded-full bg-[#6ee7ff] shadow-[0_0_10px_rgba(110,231,255,0.95)]" />
+      <span>{text}</span>
+    </div>
+  )
+}
+
+function MetricTileSkeleton({ compact = false }: { compact?: boolean }) {
+  return (
+    <div
+      className={`flex h-full min-h-0 flex-col justify-between rounded-[12px] border border-[#1e3d60] bg-[linear-gradient(180deg,rgba(14,30,62,0.95),rgba(10,20,46,0.98))] ${
+        compact ? "px-1.5 py-1" : "px-2 py-1.5"
+      }`}
+    >
+      <div className="flex items-end gap-1">
+        <SkeletonBlock className={`${compact ? "h-5 w-14" : "h-6 w-16"} rounded-[10px]`} />
+        <SkeletonBlock className={`${compact ? "mb-0.5 h-3 w-7" : "mb-1 h-3.5 w-8"} rounded-full`} />
+      </div>
+      <SkeletonBlock className={`${compact ? "h-3 w-12" : "h-3.5 w-14"} rounded-full`} />
+    </div>
+  )
+}
+
+function ChartSkeleton({
+  lineColors,
+  withXAxis = false,
+  withRightAxis = false,
+}: {
+  lineColors: string[]
+  withXAxis?: boolean
+  withRightAxis?: boolean
+}) {
+  const lines = [
+    "M 0 72 C 34 52, 64 80, 96 60 S 158 28, 206 46 S 278 70, 336 34",
+    "M 0 94 C 28 86, 62 52, 108 72 S 186 104, 236 76 S 298 40, 336 56",
+    "M 0 118 C 42 88, 84 112, 124 84 S 200 52, 256 78 S 308 118, 336 96",
+  ]
+
+  return (
+    <div className="relative h-full min-h-0 overflow-hidden rounded-[12px] border border-[#1c3b62]/85 bg-[linear-gradient(180deg,rgba(12,25,50,0.88),rgba(8,17,36,0.96))]">
+      <div className="absolute inset-x-0 top-0 h-10 bg-[linear-gradient(180deg,rgba(110,231,255,0.05),transparent)]" />
+      <div className="absolute left-0 top-0 flex h-full w-11 flex-col justify-between px-2 py-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <SkeletonBlock key={`chart-left-axis-${index}`} className="h-2.5 w-6 rounded-full border-0" />
+        ))}
+      </div>
+      {withRightAxis ? (
+        <div className="absolute right-0 top-0 flex h-full w-11 flex-col justify-between px-2 py-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <SkeletonBlock key={`chart-right-axis-${index}`} className="ml-auto h-2.5 w-6 rounded-full border-0" />
+          ))}
+        </div>
+      ) : null}
+      <div className={`absolute inset-y-0 ${withRightAxis ? "right-11" : "right-0"} left-11 ${withXAxis ? "bottom-6" : "bottom-0"} top-0`}>
+        <div className="absolute inset-0">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={`chart-grid-row-${index}`}
+              className="absolute inset-x-0 border-t border-dashed border-[#274a72]/60"
+              style={{ top: `${18 + index * 22}%` }}
+            />
+          ))}
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div
+              key={`chart-grid-col-${index}`}
+              className="absolute inset-y-0 border-l border-dashed border-[#1f3b5e]/55"
+              style={{ left: `${14 + index * 16}%` }}
+            />
+          ))}
+        </div>
+        <svg viewBox="0 0 336 140" preserveAspectRatio="none" className="absolute inset-0 h-full w-full opacity-95">
+          {lineColors.map((color, index) => (
+            <path
+              key={`chart-line-${color}-${index}`}
+              d={lines[index % lines.length]}
+              fill="none"
+              stroke={color}
+              strokeWidth={index === 0 ? 3 : 2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.95 - index * 0.14}
+            />
+          ))}
+          {lineColors.slice(0, 2).map((color, index) => (
+            <circle
+              key={`chart-dot-${color}-${index}`}
+              cx={index === 0 ? 244 : 292}
+              cy={index === 0 ? 42 : 54}
+              r="4"
+              fill={color}
+              stroke="#f8fbff"
+              strokeWidth="1.2"
+            />
+          ))}
+        </svg>
+      </div>
+      {withXAxis ? (
+        <div className={`absolute inset-x-0 bottom-0 ${withRightAxis ? "right-11" : ""} left-11 flex h-6 items-center justify-between px-2`}>
+          {Array.from({ length: 6 }).map((_, index) => (
+            <SkeletonBlock key={`chart-x-axis-${index}`} className="h-2.5 w-8 rounded-full border-0" />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function TrendSummarySkeleton({ tight = false }: { tight?: boolean }) {
+  return (
+    <div className="h-full p-3">
+      <SkeletonBlock className="mb-3 h-4 w-24 rounded-full" />
+      <div className={`grid ${tight ? "gap-2" : "gap-2.5"}`}>
+        <SkeletonBlock className="h-4 w-full rounded-full" />
+        <SkeletonBlock className="h-4 w-4/5 rounded-full" />
+        <SkeletonBlock className="h-4 w-3/4 rounded-full" />
+      </div>
+    </div>
+  )
+}
+
+function OverviewHistorySkeleton({
+  compact,
+  tight,
+  loadingText,
+}: {
+  compact: boolean
+  tight: boolean
+  loadingText: string
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-20 rounded-[24px] bg-[rgba(5,12,29,0.64)] p-2 backdrop-blur-[3px]">
+      <div className="absolute right-5 top-4">
+        <HistorySkeletonBadge text={loadingText} />
+      </div>
+      <div className={`grid h-full min-h-0 ${compact ? "grid-cols-[1.04fr_1.26fr] gap-2" : "grid-cols-[0.94fr_1.36fr] gap-2.5"}`}>
+        <div className={`grid min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1.4fr)] ${compact ? "gap-1.5" : "gap-2"}`}>
+          <SkeletonPanel className="px-1.5 pt-2.5 pb-1">
+            <div className={`grid h-full min-h-0 grid-cols-3 ${compact ? "gap-1" : "gap-1.5"}`}>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={`overview-skeleton-card-${index}`}
+                  className={`flex h-full min-h-0 flex-col rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] ${compact ? "p-1.5" : "p-2"}`}
+                >
+                  <SkeletonBlock className={`${compact ? "mb-1 h-3.5 w-14" : "mb-1.5 h-4 w-16"} rounded-full`} />
+                  <div className="grid h-full min-h-0 grid-rows-3 gap-1">
+                    {Array.from({ length: 3 }).map((__, innerIndex) => (
+                      <MetricTileSkeleton key={`overview-skeleton-item-${index}-${innerIndex}`} compact={compact} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SkeletonPanel>
+
+          <SkeletonPanel className="p-3">
+            <ChartSkeleton lineColors={["#f472b6", "#4ade80", "#22d3ee"]} withXAxis />
+          </SkeletonPanel>
+        </div>
+
+        <SkeletonPanel className="h-full px-1.5 pt-2.5 pb-1">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <div className="flex min-h-0 flex-1 overflow-hidden rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] p-2">
+              <div className="flex min-h-0 flex-1 items-stretch gap-2">
+                <div className="grid min-h-0 flex-1 grid-rows-[1.28fr_repeat(3,minmax(0,1fr))] overflow-hidden">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div key={`trend-skeleton-chart-${index}`} className={`min-h-0 ${index < 3 ? "border-b border-[#214260]/90" : ""}`}>
+                      <ChartSkeleton
+                        lineColors={index === 0 ? ["#ffd36b", "#6ee7ff"] : ["#ffd36b", "#6ee7ff"]}
+                        withXAxis={index === 3}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="grid w-[172px] shrink-0 grid-rows-[1.28fr_repeat(3,minmax(0,1fr))] overflow-hidden rounded-[12px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))]">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div key={`trend-skeleton-summary-${index}`} className={`p-3 ${index < 3 ? "border-b border-[#214260]/90" : ""}`}>
+                      <TrendSummarySkeleton tight={tight} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </SkeletonPanel>
+      </div>
+    </div>
+  )
+}
+
+function DetailHistorySkeleton({
+  rows,
+  loadingText,
+}: {
+  rows: number
+  loadingText: string
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-20 rounded-[24px] bg-[rgba(5,12,29,0.64)] p-2 backdrop-blur-[3px]">
+      <div className="absolute right-5 top-4">
+        <HistorySkeletonBadge text={loadingText} />
+      </div>
+      <SkeletonPanel className="h-full px-1.5 pt-2.5 pb-1">
+        <div className="grid h-full min-h-0 gap-1" style={{ gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` }}>
+          {Array.from({ length: rows }).map((_, index) => (
+            <div
+              key={`detail-skeleton-row-${index}`}
+              className="flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))] px-0.5 pb-0.5"
+            >
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#214260]/90 px-3 py-1.5">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                  {Array.from({ length: 6 }).map((__, chipIndex) => (
+                    <SkeletonBlock key={`detail-skeleton-chip-${index}-${chipIndex}`} className="h-7 w-24 rounded-[8px]" />
+                  ))}
+                </div>
+                <div className="flex shrink-0 items-center gap-2 px-1 py-1">
+                  <SkeletonBlock className="h-2.5 w-2.5 rounded-full" />
+                  <SkeletonBlock className="h-4 w-18 rounded-full" />
+                </div>
+              </div>
+              <div className="min-h-0 flex-1">
+                <ChartSkeleton lineColors={["#49e6ff", "#ffd36b", "#ff9f5f", "#ff6b88"]} withXAxis withRightAxis />
+              </div>
+            </div>
+          ))}
+        </div>
+      </SkeletonPanel>
+    </div>
+  )
+}
+
+function HistoryLoadingOverlay({ text, dimmed = false }: { text: string; dimmed?: boolean }) {
+  return (
+    <div
+      className={`absolute inset-0 z-20 flex items-center justify-center rounded-[24px] border border-[#8feaff]/10 ${
+        dimmed
+          ? "bg-[rgba(6,13,31,0.56)] backdrop-blur-[2px]"
+          : "bg-[linear-gradient(180deg,rgba(5,12,29,0.92),rgba(7,17,36,0.95))] backdrop-blur-sm"
+      }`}
+    >
+      <div className="flex min-w-[220px] flex-col items-center gap-4 rounded-[18px] border border-[#29547f]/70 bg-[linear-gradient(180deg,rgba(12,28,60,0.94),rgba(8,19,42,0.97))] px-6 py-5 shadow-[0_18px_40px_rgba(0,0,0,0.28),inset_0_0_24px_rgba(63,231,255,0.05)]">
+        <div className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#6ee7ff] shadow-[0_0_12px_rgba(110,231,255,0.95)]" />
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#ffd36b] shadow-[0_0_12px_rgba(255,211,107,0.8)] [animation-delay:150ms]" />
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#1bd9c5] shadow-[0_0_12px_rgba(27,217,197,0.8)] [animation-delay:300ms]" />
+        </div>
+        <div className="space-y-2 text-center">
+          <div className="text-[12px] font-semibold tracking-[0.08em] text-[#dffbff]">{text}</div>
+          <div className="mx-auto h-1.5 w-36 overflow-hidden rounded-full bg-[#102346]">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-[linear-gradient(90deg,#3fe7ff,#ffd36b)]" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const renderTrendHighlightDot = (
+  props: any,
+  activeFlag: "isMaxHighlight" | "isMinHighlight",
+  fill: string,
+  stroke: string,
+  radius: number,
+  strokeWidth: number,
+) => {
+  if (!props?.payload?.[activeFlag]) {
+    return null
+  }
+
+  const key = `${String(props.dataKey ?? activeFlag)}-${String(props.payload?.time ?? props.index ?? "dot")}`
+  return <circle key={key} cx={props.cx} cy={props.cy} r={radius} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
 }
 
 function ExtremeTrendTooltip({
@@ -702,21 +1054,81 @@ export function CellHistoryReplayPanel({
   onOverviewStats?: (stats: CellHistoryOverviewStats) => void
 }) {
   const { language } = useLanguage()
+  const { selectedProject } = useProject()
   const zh = language === "zh"
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [availableSize, setAvailableSize] = useState({ width: 0, height: 0 })
+  const [historyBundle, setHistoryBundle] = useState<DailyCellHistoryBundle | null>(null)
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true)
+  const [historyError, setHistoryError] = useState<string | null>(null)
   const [detailVisibleMetrics, setDetailVisibleMetrics] = useState<Record<DetailMetricKey, boolean>>({
     voltage: true,
     t1: true,
     t2: true,
     t3: true,
   })
+  const effectiveDetailCells = useMemo(() => {
+    const limitedCells = detailCells.slice(0, 3)
+    if (limitedCells.length > 0) return limitedCells
+    if (selectedCell != null) return [selectedCell]
+    return [1]
+  }, [detailCells, selectedCell])
 
-  const historyData = useMemo(() => createHistoryData(date), [date])
-  const overviewData = useMemo(() => buildOverview(historyData), [historyData])
-  const cellMetrics = useMemo(() => buildCellMetrics(historyData), [historyData])
+  useEffect(() => {
+    let cancelled = false
+    const abortController = new AbortController()
+
+    const loadHistory = async () => {
+      setIsHistoryLoading(true)
+      setHistoryError(null)
+
+      try {
+        const nextBundle = await fetchDailyCellHistory(selectedProject.projectId, date, {
+          detailCellIndexes:
+            viewMode === "detail" ? effectiveDetailCells : Array.from({ length: CELL_COUNT }, (_, index) => index + 1),
+          signal: abortController.signal,
+        })
+
+        if (cancelled) {
+          return
+        }
+
+        setHistoryBundle(nextBundle)
+      } catch (error) {
+        if (abortController.signal.aborted || cancelled) {
+          return
+        }
+
+        console.error(`Failed to load cell history for ${selectedProject.projectId} on ${date}`, error)
+        setHistoryError(zh ? "电芯历史接口加载失败" : "Failed to load cell history")
+      } finally {
+        if (!cancelled) {
+          setIsHistoryLoading(false)
+        }
+      }
+    }
+
+    void loadHistory()
+
+    return () => {
+      cancelled = true
+      abortController.abort()
+    }
+  }, [date, effectiveDetailCells, selectedProject.projectId, viewMode, zh])
+
+  const historyData = historyBundle?.historyData ?? EMPTY_HISTORY_DATA
+  const overviewData = historyBundle?.overviewData ?? EMPTY_OVERVIEW_DATA
+  const cellMetrics = historyBundle?.cellMetrics ?? EMPTY_CELL_METRICS
+  const bcuHistoryData = historyBundle?.bcuHistory ?? []
+  const extremeSummary = historyBundle?.extremeSummary
+  const voltageExtremeTrend = historyBundle?.voltageExtremeTrend ?? EMPTY_EXTREME_CURVE_TREND
+  const temperatureExtremeTrends = historyBundle?.temperatureExtremeTrends ?? EMPTY_TEMPERATURE_EXTREME_TRENDS
 
   const voltageStats = useMemo(() => {
+    if (overviewData.length === 0) {
+      return { maxVoltage: 0, minVoltage: 0, avgVoltage: 0, voltageDelta: 0 }
+    }
+
     const maxVoltage = Math.max(...overviewData.map((item) => item.maxVoltage))
     const minVoltage = Math.min(...overviewData.map((item) => item.minVoltage))
     const avgVoltage = average(overviewData.map((item) => item.avgVoltage))
@@ -724,6 +1136,10 @@ export function CellHistoryReplayPanel({
   }, [overviewData])
 
   const temperatureStats = useMemo(() => {
+    if (overviewData.length === 0) {
+      return { maxTemp: 0, minTemp: 0, avgTemp: 0, tempDelta: 0 }
+    }
+
     const maxTemp = Math.max(...overviewData.map((item) => item.maxTemp))
     const minTemp = Math.min(...overviewData.map((item) => item.minTemp))
     const avgTemp = average(overviewData.map((item) => item.avgTemp))
@@ -738,13 +1154,31 @@ export function CellHistoryReplayPanel({
     return { chargeEnergy, dischargeEnergy, roundTripEfficiency }
   }, [overviewData])
 
-  const topHighVoltage = useMemo(() => cellMetrics.slice().sort((a, b) => b.voltageMax - a.voltageMax).slice(0, 3), [cellMetrics])
-  const topLowVoltage = useMemo(() => cellMetrics.slice().sort((a, b) => a.voltageMin - b.voltageMin).slice(0, 3), [cellMetrics])
+  const topHighVoltage = useMemo(() => {
+    if ((extremeSummary?.topMaxVoltages.length ?? 0) > 0) {
+      return extremeSummary!.topMaxVoltages.map((item) => ({ cell: item.cell, voltageMax: item.value }))
+    }
+
+    return cellMetrics.slice().sort((a, b) => b.voltageMax - a.voltageMax).slice(0, 3)
+  }, [cellMetrics, extremeSummary])
+  const topLowVoltage = useMemo(() => {
+    if ((extremeSummary?.topMinVoltages.length ?? 0) > 0) {
+      return extremeSummary!.topMinVoltages.map((item) => ({ cell: item.cell, voltageMin: item.value }))
+    }
+
+    return cellMetrics.slice().sort((a, b) => a.voltageMin - b.voltageMin).slice(0, 3)
+  }, [cellMetrics, extremeSummary])
   const topVoltageDeviationCells = useMemo(() => cellMetrics.slice().sort((a, b) => b.voltageDeviation - a.voltageDeviation).slice(0, 3), [cellMetrics])
-  const topHotCells = useMemo(() => cellMetrics.slice().sort((a, b) => b.tempMax - a.tempMax).slice(0, 3), [cellMetrics])
+  const topHotCells = useMemo(() => {
+    if ((extremeSummary?.topMaxTemperatures.length ?? 0) > 0) {
+      return extremeSummary!.topMaxTemperatures.map((item) => ({ cell: item.cell, tempMax: item.value }))
+    }
+
+    return cellMetrics.slice().sort((a, b) => b.tempMax - a.tempMax).slice(0, 3)
+  }, [cellMetrics, extremeSummary])
   const topColdCells = useMemo(() => cellMetrics.slice().sort((a, b) => a.tempMin - b.tempMin).slice(0, 1), [cellMetrics])
-  useEffect(() => {
-    onOverviewStats?.({
+  const overviewStatsPayload = useMemo(
+    () => ({
       maxVoltage: voltageStats.maxVoltage,
       maxVoltageCell: topHighVoltage[0]?.cell ?? null,
       minVoltage: voltageStats.minVoltage,
@@ -758,11 +1192,45 @@ export function CellHistoryReplayPanel({
       chargeEnergy: dailyEnergyStats.chargeEnergy,
       dischargeEnergy: dailyEnergyStats.dischargeEnergy,
       roundTripEfficiency: dailyEnergyStats.roundTripEfficiency,
-    })
-  }, [voltageStats, temperatureStats, dailyEnergyStats, topHighVoltage, topLowVoltage, topHotCells, topColdCells, onOverviewStats])
+    }),
+    [voltageStats, temperatureStats, dailyEnergyStats, topHighVoltage, topLowVoltage, topHotCells, topColdCells],
+  )
+
+  useEffect(() => {
+    if (overviewData.length === 0) {
+      return
+    }
+
+    onOverviewStats?.(overviewStatsPayload)
+  }, [overviewData.length, overviewStatsPayload, onOverviewStats])
 
   const voltageTrendData = useMemo(
     () => {
+      if (voltageExtremeTrend.length > 0) {
+        const maxIndex = voltageExtremeTrend.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)
+        const minIndex = voltageExtremeTrend.reduce((best, current, index, rows) => (current.min < rows[best].min ? index : best), 0)
+
+        return extendTrendToDayEnd(
+          voltageExtremeTrend.map((item, index) => ({
+            time: toTrendTimeLabel(item.time),
+            max: Number(item.max.toFixed(3)),
+            min: Number(item.min.toFixed(3)),
+            maxCell: item.maxCell,
+            minCell: item.minCell,
+            isMaxHighlight: index === maxIndex,
+            isMinHighlight: index === minIndex,
+          })),
+          {
+            isMaxHighlight: false,
+            isMinHighlight: false,
+          }
+        )
+      }
+
+      if (historyData.length === 0) {
+        return []
+      }
+
       const baseData = historyData.map((point) => {
         const values = Array.from({ length: CELL_COUNT }, (_, index) => ({ cell: index + 1, value: point[`v${index + 1}`] }))
         const maxEntry = values.reduce((best, current) => (current.value > best.value ? current : best), values[0])
@@ -791,7 +1259,7 @@ export function CellHistoryReplayPanel({
         }
       )
     },
-    [historyData]
+    [historyData, voltageExtremeTrend]
   )
 
   const voltagePhaseRegions = useMemo(
@@ -816,6 +1284,33 @@ export function CellHistoryReplayPanel({
         { key: "t2", title: "T2", label: zh ? "中部探头" : "Middle Probe" },
         { key: "t3", title: "T3", label: zh ? "后端探头" : "Rear Probe" },
       ] as const).map(({ key, title, label }) => {
+        const extremeTrend = temperatureExtremeTrends?.[key] ?? []
+        if (extremeTrend.length > 0) {
+          const maxIndex = extremeTrend.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)
+          const minIndex = extremeTrend.reduce((best, current, index, rows) => (current.min < rows[best].min ? index : best), 0)
+          const data = extendTrendToDayEnd(
+            extremeTrend.map((item, index) => ({
+              time: toTrendTimeLabel(item.time),
+              max: Number(item.max.toFixed(1)),
+              min: Number(item.min.toFixed(1)),
+              maxCell: item.maxCell,
+              minCell: item.minCell,
+              isMaxHighlight: index === maxIndex,
+              isMinHighlight: index === minIndex,
+            })),
+            {
+              isMaxHighlight: false,
+              isMinHighlight: false,
+            }
+          )
+
+          return { key, title, label, data }
+        }
+
+        if (historyData.length === 0) {
+          return { key, title, label, data: [] }
+        }
+
         const baseData = historyData.map((point) => {
           const values = Array.from({ length: CELL_COUNT }, (_, index) => ({ cell: index + 1, value: point[`${key}_${index + 1}` as const] }))
           const maxEntry = values.reduce((best, current) => (current.value > best.value ? current : best), values[0])
@@ -845,27 +1340,33 @@ export function CellHistoryReplayPanel({
 
         return { key, title, label, data }
       }),
-    [historyData, zh]
+    [historyData, temperatureExtremeTrends, zh]
   )
 
   const isCompactCanvas = availableSize.width > 0 && (availableSize.width < 1280 || availableSize.height < 760)
   const isTightCanvas = availableSize.width > 0 && (availableSize.width < 1120 || availableSize.height < 700)
-  const trendXAxisInterval = isTightCanvas ? 11 : isCompactCanvas ? 7 : 5
-  const trendTickStep = isTightCanvas ? 24 : isCompactCanvas ? 16 : 12
+  const trendPaneFraction = isCompactCanvas ? 1.26 / (1.04 + 1.26) : 1.36 / (0.94 + 1.36)
+  const trendAxisLabelWidth = isTightCanvas ? 72 : isCompactCanvas ? 82 : 92
+  const trendAxisReservedWidth = isTightCanvas ? 320 : isCompactCanvas ? 346 : 370
+  const trendChartUsableWidth = Math.max(availableSize.width * trendPaneFraction - trendAxisReservedWidth, 320)
+  const trendVisibleTickCount = Math.max(2, Math.floor(trendChartUsableWidth / trendAxisLabelWidth))
   const trendSyncId = "cell-history-extreme-trend"
   const trendXAxisTicks = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          voltageTrendData
-            .map((item, index) => ({ time: item.time, index }))
-            .filter(({ index }) => index === 0 || index === voltageTrendData.length - 1 || index % trendTickStep === 0)
-            .map(({ time }) => time)
-        )
-      ),
-    [voltageTrendData, trendTickStep]
+    () => buildDynamicTimeTicks(voltageTrendData.map((item) => item.time), trendVisibleTickCount),
+    [voltageTrendData, trendVisibleTickCount]
   )
+  const trendXAxisInterval = Math.max(trendXAxisTicks.length - 1, 0)
   const voltageTrendSummary = useMemo(() => {
+    if (voltageTrendData.length === 0) {
+      return {
+        title: zh ? "电压趋势" : "Voltage",
+        subtitle: zh ? "电芯极值" : "Cell Extremes",
+        header: zh ? "电压趋势（电芯极值）" : "Voltage (Cell Extremes)",
+        maxText: zh ? "暂无数据" : "No data",
+        minText: zh ? "暂无数据" : "No data",
+      }
+    }
+
     const highest = voltageTrendData.reduce((best, current) => (current.max > best.max ? current : best), voltageTrendData[0])
     const lowest = voltageTrendData.reduce((best, current) => (current.min < best.min ? current : best), voltageTrendData[0])
     return {
@@ -879,6 +1380,17 @@ export function CellHistoryReplayPanel({
   const temperatureTrendSummaries = useMemo(
     () =>
       temperatureTrendCharts.map((chart) => {
+        if (chart.data.length === 0) {
+          return {
+            key: chart.key,
+            title: chart.title,
+            subtitle: chart.label,
+            header: zh ? `${chart.title}（${chart.label}）` : `${chart.title} (${chart.label})`,
+            maxText: zh ? "暂无数据" : "No data",
+            minText: zh ? "暂无数据" : "No data",
+          }
+        }
+
         const highest = chart.data.reduce((best, current) => (current.max > best.max ? current : best), chart.data[0])
         const lowest = chart.data.reduce((best, current) => (current.min < best.min ? current : best), chart.data[0])
         return {
@@ -916,13 +1428,6 @@ export function CellHistoryReplayPanel({
     return () => observer.disconnect()
   }, [])
 
-  const effectiveDetailCells = useMemo(() => {
-    const limitedCells = detailCells.slice(0, 3)
-    if (limitedCells.length > 0) return limitedCells
-    if (selectedCell != null) return [selectedCell]
-    return [1]
-  }, [detailCells, selectedCell])
-
   const detailSeries = useMemo(
     () =>
       effectiveDetailCells.map((cell, index) => ({
@@ -940,7 +1445,7 @@ export function CellHistoryReplayPanel({
     () =>
       extendTrendToDayEnd(
         historyData.map((point) => {
-          const row: DetailReplayPoint = { time: toTrendTimeLabel(point.time) }
+          const row: DetailReplayPoint = { time: formatAxisTimeLabel(point.time) }
           detailSeries.forEach((series) => {
             row[series.voltageKey] = point[series.voltageKey as keyof HistoryPoint] as number
             row[series.temp1Key] = point[series.temp1Key as keyof HistoryPoint] as number
@@ -959,17 +1464,27 @@ export function CellHistoryReplayPanel({
       return {
         cell: series.cell,
         color: series.color,
-        voltageMax: metrics?.voltageMax ?? 0,
-        voltageMin: metrics?.voltageMin ?? 0,
-        voltageSpread: metrics?.voltageSpread ?? 0,
-        tempMax: metrics?.tempMax ?? 0,
-        tempMin: metrics?.tempMin ?? 0,
-        tempSpread: metrics?.tempSpread ?? 0,
+        voltageMax: metrics?.voltageMax ?? null,
+        voltageMin: metrics?.voltageMin ?? null,
+        voltageSpread: metrics?.voltageSpread ?? null,
+        tempMax: metrics?.tempMax ?? null,
+        tempMin: metrics?.tempMin ?? null,
+        tempSpread: metrics?.tempSpread ?? null,
       }
     })
   }, [cellMetrics, detailSeries])
 
-  const detailTickStep = 4
+  const detailAxisLabelWidth = isTightCanvas ? 72 : isCompactCanvas ? 82 : 94
+  const detailAxisReservedWidth = isTightCanvas ? 220 : isCompactCanvas ? 248 : 276
+  const detailChartUsableWidth = Math.max(availableSize.width - detailAxisReservedWidth, 320)
+  const detailVisibleTickCount = Math.max(2, Math.floor(detailChartUsableWidth / detailAxisLabelWidth))
+  const detailTickStep = useMemo(() => {
+    if (detailReplayData.length <= 2 || detailReplayData.length <= detailVisibleTickCount) {
+      return 1
+    }
+
+    return Math.max(1, Math.ceil((detailReplayData.length - 1) / Math.max(detailVisibleTickCount - 1, 1)))
+  }, [detailReplayData.length, detailVisibleTickCount])
   const detailXAxisTicks = useMemo(
     () =>
       Array.from(
@@ -982,6 +1497,27 @@ export function CellHistoryReplayPanel({
       ),
     [detailReplayData, detailTickStep]
   )
+
+  const hasHistoryData = historyData.length > 0 && overviewData.length > 0 && cellMetrics.length > 0
+  const hasOverviewData = overviewData.length > 0
+  const hasDetailData = historyData.length > 0 && cellMetrics.length > 0
+  const hasVoltageTrendData = voltageTrendData.length > 0
+  const hasTemperatureTrendData = temperatureTrendCharts.some((chart) => chart.data.length > 0)
+  const historyPlaceholderText = isHistoryLoading
+    ? zh
+      ? "加载电芯历史数据..."
+      : "Loading cell history..."
+    : historyError
+      ? historyError
+      : zh
+        ? "暂无电芯历史数据"
+        : "No cell history data"
+  const trendPlaceholderText = hasHistoryData ? (zh ? "暂无趋势数据" : "No trend data") : historyPlaceholderText
+  const formatDisplayValue = (value: number | null | undefined, digits: number, suffix = "") =>
+    value == null ? "--" : `${value.toFixed(digits)}${suffix}`
+  const historyLoadingText = zh ? "电芯历史数据加载中..." : "Loading cell history..."
+  const showInitialHistoryLoading = isHistoryLoading && historyBundle === null
+  const showHistoryRefreshOverlay = isHistoryLoading && historyBundle !== null
 
   if (viewMode === "detail") {
     const detailMetricLegend = [
@@ -1046,12 +1582,12 @@ export function CellHistoryReplayPanel({
                   <div className="flex shrink-0 flex-wrap items-center justify-between gap-1.5 border-b border-[#214260]/90 px-3 py-1.5">
                         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
                           {[
-                            { label: zh ? "最高电压" : "Max V", value: `${cell.voltageMax.toFixed(2)}V`, color: "text-[#aef8ff]" },
-                            { label: zh ? "最低电压" : "Min V", value: `${cell.voltageMin.toFixed(2)}V`, color: "text-[#aef8ff]" },
-                            { label: zh ? "最大ΔV" : "Max ΔV", value: `${cell.voltageSpread.toFixed(2)}V`, color: "text-[#ffd892]" },
-                            { label: zh ? "最高温度" : "Max T", value: `${cell.tempMax.toFixed(1)}°C`, color: "text-[#aef8ff]" },
-                            { label: zh ? "最低温度" : "Min T", value: `${cell.tempMin.toFixed(1)}°C`, color: "text-[#aef8ff]" },
-                            { label: zh ? "最大ΔT" : "Max ΔT", value: `${cell.tempSpread.toFixed(1)}°C`, color: "text-[#ffd892]" },
+                            { label: zh ? "最高电压" : "Max V", value: formatDisplayValue(cell.voltageMax, 2, "V"), color: "text-[#aef8ff]" },
+                            { label: zh ? "最低电压" : "Min V", value: formatDisplayValue(cell.voltageMin, 2, "V"), color: "text-[#aef8ff]" },
+                            { label: zh ? "最大ΔV" : "Max ΔV", value: formatDisplayValue(cell.voltageSpread, 2, "V"), color: "text-[#ffd892]" },
+                            { label: zh ? "最高温度" : "Max T", value: formatDisplayValue(cell.tempMax, 1, "°C"), color: "text-[#aef8ff]" },
+                            { label: zh ? "最低温度" : "Min T", value: formatDisplayValue(cell.tempMin, 1, "°C"), color: "text-[#aef8ff]" },
+                            { label: zh ? "最大ΔT" : "Max ΔT", value: formatDisplayValue(cell.tempSpread, 1, "°C"), color: "text-[#ffd892]" },
                           ].map((item) => (
                             <div
                               key={`${cell.cell}-${item.label}`}
@@ -1068,95 +1604,103 @@ export function CellHistoryReplayPanel({
                         </div>
                   </div>
                   <div className="min-h-0 flex-1">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={detailReplayData} syncId="cell-history-detail-replay" syncMethod="value" margin={{ top: 12, right: 14, left: 0, bottom: isLast ? 6 : 0 }}>
-                            <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
-                            <XAxis
-                              dataKey="time"
-                              tick={isLast ? { fill: "#88a8be", fontSize: 9 } : false}
-                              axisLine={false}
-                              tickLine={false}
-                              tickFormatter={(value) => String(value).slice(0, 5)}
-                              ticks={isLast ? detailXAxisTicks : undefined}
-                              interval={isLast ? 0 : trendXAxisInterval}
-                              height={isLast ? 22 : 0}
-                            />
-                            <YAxis
-                              yAxisId="voltage"
-                              tick={{ fill: "#88a8be", fontSize: 9 }}
-                              axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
-                              tickLine={false}
-                              tickFormatter={(value) => `${Number(value).toFixed(2)}V`}
-                              domain={["dataMin - 0.2", "dataMax + 0.2"]}
-                              width={54}
-                            />
-                            <YAxis
-                              yAxisId="temp"
-                              orientation="right"
-                              tick={{ fill: "#88a8be", fontSize: 9 }}
-                              axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
-                              tickLine={false}
-                              tickFormatter={(value) => `${Number(value).toFixed(0)}°C`}
-                              domain={["dataMin - 1", "dataMax + 1"]}
-                              width={54}
-                            />
-                            <Tooltip content={<DetailReplayTooltip zh={zh} />} />
-                            {detailVisibleMetrics.voltage && (
-                              <Line
+                    {hasDetailData ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={detailReplayData} syncId="cell-history-detail-replay" syncMethod="index" margin={{ top: 12, right: 14, left: 0, bottom: isLast ? 6 : 0 }}>
+                              <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
+                              <XAxis
+                                dataKey="time"
+                                tick={isLast ? { fill: "#88a8be", fontSize: 9 } : false}
+                                axisLine={false}
+                                tickLine={false}
+                                tickFormatter={(value) => formatAxisTimeLabel(String(value))}
+                                ticks={isLast ? detailXAxisTicks : undefined}
+                                interval={isLast ? 0 : trendXAxisInterval}
+                                height={isLast ? 22 : 0}
+                              />
+                              <YAxis
                                 yAxisId="voltage"
-                                type="monotone"
-                                dataKey={series.voltageKey}
-                                stroke="#49e6ff"
-                                strokeWidth={2}
-                                dot={false}
-                                activeDot={{ r: 4, fill: "#49e6ff", stroke: "#f8fbff", strokeWidth: 1.2 }}
-                                isAnimationActive={false}
+                                tick={{ fill: "#88a8be", fontSize: 9 }}
+                                axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
+                                tickLine={false}
+                                tickFormatter={(value) => `${Number(value).toFixed(2)}V`}
+                                domain={["dataMin - 0.2", "dataMax + 0.2"]}
+                                width={54}
                               />
-                            )}
-                            {detailVisibleMetrics.t1 && (
-                              <Line
+                              <YAxis
                                 yAxisId="temp"
-                                type="monotone"
-                                dataKey={series.temp1Key}
-                                stroke="#ffd36b"
-                                strokeWidth={1.9}
-                                dot={false}
-                                activeDot={{ r: 4, fill: "#ffd36b", stroke: "#f8fbff", strokeWidth: 1.2 }}
-                                isAnimationActive={false}
+                                orientation="right"
+                                tick={{ fill: "#88a8be", fontSize: 9 }}
+                                axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
+                                tickLine={false}
+                                tickFormatter={(value) => `${Number(value).toFixed(0)}°C`}
+                                domain={["dataMin - 1", "dataMax + 1"]}
+                                width={54}
                               />
-                            )}
-                            {detailVisibleMetrics.t2 && (
-                              <Line
-                                yAxisId="temp"
-                                type="monotone"
-                                dataKey={series.temp2Key}
-                                stroke="#ff9f5f"
-                                strokeWidth={1.9}
-                                dot={false}
-                                activeDot={{ r: 4, fill: "#ff9f5f", stroke: "#f8fbff", strokeWidth: 1.2 }}
-                                isAnimationActive={false}
-                              />
-                            )}
-                            {detailVisibleMetrics.t3 && (
-                              <Line
-                                yAxisId="temp"
-                                type="monotone"
-                                dataKey={series.temp3Key}
-                                stroke="#ff6b88"
-                                strokeWidth={1.9}
-                                dot={false}
-                                activeDot={{ r: 4, fill: "#ff6b88", stroke: "#f8fbff", strokeWidth: 1.2 }}
-                                isAnimationActive={false}
-                              />
-                            )}
-                      </LineChart>
-                    </ResponsiveContainer>
+                              <Tooltip content={<DetailReplayTooltip zh={zh} />} />
+                              {detailVisibleMetrics.voltage && (
+                                <Line
+                                  yAxisId="voltage"
+                                  type="monotone"
+                                  dataKey={series.voltageKey}
+                                  stroke="#49e6ff"
+                                  strokeWidth={2}
+                                  dot={false}
+                                  activeDot={{ r: 4, fill: "#49e6ff", stroke: "#f8fbff", strokeWidth: 1.2 }}
+                                  isAnimationActive={false}
+                                />
+                              )}
+                              {detailVisibleMetrics.t1 && (
+                                <Line
+                                  yAxisId="temp"
+                                  type="monotone"
+                                  dataKey={series.temp1Key}
+                                  stroke="#ffd36b"
+                                  strokeWidth={1.9}
+                                  dot={false}
+                                  activeDot={{ r: 4, fill: "#ffd36b", stroke: "#f8fbff", strokeWidth: 1.2 }}
+                                  isAnimationActive={false}
+                                />
+                              )}
+                              {detailVisibleMetrics.t2 && (
+                                <Line
+                                  yAxisId="temp"
+                                  type="monotone"
+                                  dataKey={series.temp2Key}
+                                  stroke="#ff9f5f"
+                                  strokeWidth={1.9}
+                                  dot={false}
+                                  activeDot={{ r: 4, fill: "#ff9f5f", stroke: "#f8fbff", strokeWidth: 1.2 }}
+                                  isAnimationActive={false}
+                                />
+                              )}
+                              {detailVisibleMetrics.t3 && (
+                                <Line
+                                  yAxisId="temp"
+                                  type="monotone"
+                                  dataKey={series.temp3Key}
+                                  stroke="#ff6b88"
+                                  strokeWidth={1.9}
+                                  dot={false}
+                                  activeDot={{ r: 4, fill: "#ff6b88", stroke: "#f8fbff", strokeWidth: 1.2 }}
+                                  isAnimationActive={false}
+                                />
+                              )}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <ChartPlaceholder text={historyPlaceholderText} />
+                    )}
                   </div>
                 </div>
               )
             })}
           </div>
         </NeonSection>
+        {showInitialHistoryLoading ? (
+          <DetailHistorySkeleton rows={Math.max(1, Math.min(effectiveDetailCells.length, 3))} loadingText={historyLoadingText} />
+        ) : null}
+        {showHistoryRefreshOverlay ? <HistoryLoadingOverlay text={historyLoadingText} dimmed /> : null}
       </div>
     )
   }
@@ -1180,27 +1724,27 @@ export function CellHistoryReplayPanel({
                   title: zh ? "电压" : "Voltage",
                   accent: "#6ee7ff",
                   items: [
-                    { label: zh ? "最高电压" : "Max V", value: `${voltageStats.maxVoltage.toFixed(2)}V`, sub: `#${topHighVoltage[0]?.cell ?? "-"}`, subColor: "#ffd36b", tone: "text-[#ffd36b]" },
-                    { label: zh ? "最低电压" : "Min V", value: `${voltageStats.minVoltage.toFixed(2)}V`, sub: `#${topLowVoltage[0]?.cell ?? "-"}`, subColor: "#6ee7ff", tone: "text-[#6ee7ff]" },
-                    { label: zh ? "最大ΔV" : "Max ΔV", value: `${voltageStats.voltageDelta.toFixed(2)}V`, sub: "", subColor: "", tone: "text-[#a8f0ff]" },
+                    { label: zh ? "最高电压" : "Max V", value: hasOverviewData ? formatDisplayValue(voltageStats.maxVoltage, 2, "V") : "--", sub: hasOverviewData ? `#${topHighVoltage[0]?.cell ?? "-"}` : "--", subColor: "#ffd36b", tone: "text-[#ffd36b]" },
+                    { label: zh ? "最低电压" : "Min V", value: hasOverviewData ? formatDisplayValue(voltageStats.minVoltage, 2, "V") : "--", sub: hasOverviewData ? `#${topLowVoltage[0]?.cell ?? "-"}` : "--", subColor: "#6ee7ff", tone: "text-[#6ee7ff]" },
+                    { label: zh ? "最大ΔV" : "Max ΔV", value: hasOverviewData ? formatDisplayValue(voltageStats.voltageDelta, 2, "V") : "--", sub: "", subColor: "", tone: "text-[#a8f0ff]" },
                   ],
                 },
                 {
                   title: zh ? "温度" : "Temperature",
                   accent: "#ffb676",
                   items: [
-                    { label: zh ? "最高温度" : "Max T", value: `${temperatureStats.maxTemp.toFixed(1)}°C`, sub: `#${topHotCells[0]?.cell ?? "-"}`, subColor: "#ffb47a", tone: "text-[#ff9f6b]" },
-                    { label: zh ? "最低温度" : "Min T", value: `${temperatureStats.minTemp.toFixed(1)}°C`, sub: `#${topColdCells[0]?.cell ?? "-"}`, subColor: "#86d8ff", tone: "text-[#86d8ff]" },
-                    { label: zh ? "最大ΔT" : "Max ΔT", value: `${temperatureStats.tempDelta.toFixed(1)}°C`, sub: "", subColor: "", tone: "text-[#ffd6a5]" },
+                    { label: zh ? "最高温度" : "Max T", value: hasOverviewData ? formatDisplayValue(temperatureStats.maxTemp, 1, "°C") : "--", sub: hasOverviewData ? `#${topHotCells[0]?.cell ?? "-"}` : "--", subColor: "#ffb47a", tone: "text-[#ff9f6b]" },
+                    { label: zh ? "最低温度" : "Min T", value: hasOverviewData ? formatDisplayValue(temperatureStats.minTemp, 1, "°C") : "--", sub: hasOverviewData ? `#${topColdCells[0]?.cell ?? "-"}` : "--", subColor: "#86d8ff", tone: "text-[#86d8ff]" },
+                    { label: zh ? "最大ΔT" : "Max ΔT", value: hasOverviewData ? formatDisplayValue(temperatureStats.tempDelta, 1, "°C") : "--", sub: "", subColor: "", tone: "text-[#ffd6a5]" },
                   ],
                 },
                 {
                   title: zh ? "电量" : "Energy",
                   accent: "#8ef14d",
                   items: [
-                    { label: zh ? "日充电量" : "Charge", value: `${dailyEnergyStats.chargeEnergy.toFixed(1)}`, sub: "kWh", subColor: "#b0d8a0", tone: "text-[#8ef14d]" },
-                    { label: zh ? "日放电量" : "Discharge", value: `${dailyEnergyStats.dischargeEnergy.toFixed(1)}`, sub: "kWh", subColor: "#8ec8ff", tone: "text-[#57a8ff]" },
-                    { label: zh ? "综合效率" : "Efficiency", value: `${dailyEnergyStats.roundTripEfficiency.toFixed(1)}%`, sub: "", subColor: "", tone: "text-[#8af7bc]" },
+                    { label: zh ? "日充电量" : "Charge", value: hasOverviewData ? formatDisplayValue(dailyEnergyStats.chargeEnergy, 1) : "--", sub: hasOverviewData ? "kWh" : "", subColor: "#b0d8a0", tone: "text-[#8ef14d]" },
+                    { label: zh ? "日放电量" : "Discharge", value: hasOverviewData ? formatDisplayValue(dailyEnergyStats.dischargeEnergy, 1) : "--", sub: hasOverviewData ? "kWh" : "", subColor: "#8ec8ff", tone: "text-[#57a8ff]" },
+                    { label: zh ? "综合效率" : "Efficiency", value: hasOverviewData ? formatDisplayValue(dailyEnergyStats.roundTripEfficiency, 1, "%") : "--", sub: "", subColor: "", tone: "text-[#8af7bc]" },
                   ],
                 },
               ].map((group) => (
@@ -1233,7 +1777,7 @@ export function CellHistoryReplayPanel({
           </NeonSection>
 
           <div className="min-h-0 overflow-hidden">
-            <BCUStatusQuery mode="history" date={date} hideCellSeries panelVariant="overview" />
+            <BCUStatusQuery mode="history" date={date} hideCellSeries panelVariant="overview" historyData={bcuHistoryData} />
           </div>
         </div>
 
@@ -1256,51 +1800,43 @@ export function CellHistoryReplayPanel({
                   <div className="grid min-h-0 flex-1 grid-rows-[1.28fr_repeat(3,minmax(0,1fr))] overflow-hidden">
                   <div className="relative min-h-0 flex-[1.28] border-b border-[#214260]/90">
                     <div className="h-full min-h-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={voltageTrendData} syncId={trendSyncId} syncMethod="value" margin={{ top: 8, right: 18, left: 0, bottom: 0 }}>
-                          <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="time" tick={false} axisLine={false} tickLine={false} interval={trendXAxisInterval} height={0} />
-                          <YAxis
-                            tick={{ fill: "#88a8be", fontSize: 9 }}
-                            axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
-                            tickLine={false}
-                            width={52}
-                            tickFormatter={(value) => `${Number(value).toFixed(2)}V`}
-                            domain={["dataMin - 0.4", "dataMax + 0.4"]}
-                          />
-                          <Tooltip content={<ExtremeTrendTooltip unit="V" digits={3} zh={zh} />} />
-                          <Line
-                            type="monotone"
-                            dataKey="max"
-                            name={zh ? "最大值" : "Max"}
-                            stroke="#ffd36b"
-                            strokeWidth={2.2}
-                            dot={(props: any) =>
-                              props?.payload?.isMaxHighlight ? (
-                                <circle cx={props.cx} cy={props.cy} r={4.5} fill="#ffd36b" stroke="#fff4cf" strokeWidth={1.5} />
-                              ) : (
-                                <></>
-                              )
-                            }
-                            isAnimationActive={false}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="min"
-                            name={zh ? "最小值" : "Min"}
-                            stroke="#6ee7ff"
-                            strokeWidth={2.2}
-                            dot={(props: any) =>
-                              props?.payload?.isMinHighlight ? (
-                                <circle cx={props.cx} cy={props.cy} r={4.5} fill="#6ee7ff" stroke="#d6fbff" strokeWidth={1.5} />
-                              ) : (
-                                <></>
-                              )
-                            }
-                            isAnimationActive={false}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
+                      {hasVoltageTrendData ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={voltageTrendData} syncId={trendSyncId} syncMethod="index" margin={{ top: 8, right: 18, left: 0, bottom: 0 }}>
+                            <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="time" tick={false} axisLine={false} tickLine={false} interval={trendXAxisInterval} height={0} />
+                            <YAxis
+                              tick={{ fill: "#88a8be", fontSize: 9 }}
+                              axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
+                              tickLine={false}
+                              width={52}
+                              tickFormatter={(value) => `${Number(value).toFixed(2)}V`}
+                              domain={["dataMin - 0.4", "dataMax + 0.4"]}
+                            />
+                            <Tooltip content={<ExtremeTrendTooltip unit="V" digits={3} zh={zh} />} />
+                            <Line
+                              type="monotone"
+                              dataKey="max"
+                              name={zh ? "最大值" : "Max"}
+                              stroke="#ffd36b"
+                              strokeWidth={2.2}
+                              dot={(props: any) => renderTrendHighlightDot(props, "isMaxHighlight", "#ffd36b", "#fff4cf", 4.5, 1.5)}
+                              isAnimationActive={false}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="min"
+                              name={zh ? "最小值" : "Min"}
+                              stroke="#6ee7ff"
+                              strokeWidth={2.2}
+                              dot={(props: any) => renderTrendHighlightDot(props, "isMinHighlight", "#6ee7ff", "#d6fbff", 4.5, 1.5)}
+                              isAnimationActive={false}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <ChartPlaceholder text={trendPlaceholderText} />
+                      )}
                     </div>
                   </div>
 
@@ -1309,59 +1845,51 @@ export function CellHistoryReplayPanel({
                     return (
                       <div key={chart.key} className={`relative min-h-0 flex-1 ${!isLast ? "border-b border-[#214260]/90" : ""}`}>
                         <div className="h-full min-h-0">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={chart.data} syncId={trendSyncId} syncMethod="value" margin={{ top: 8, right: 18, left: 0, bottom: isLast ? 6 : 0 }}>
-                              <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
-                              <XAxis
-                                dataKey="time"
-                                tick={isLast ? { fill: "#88a8be", fontSize: 9 } : false}
-                                axisLine={false}
-                                tickLine={false}
-                                ticks={isLast ? trendXAxisTicks : undefined}
-                                interval={isLast ? 0 : trendXAxisInterval}
-                                height={isLast ? 22 : 0}
-                              />
-                              <YAxis
-                                tick={{ fill: "#88a8be", fontSize: 9 }}
-                                axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
-                                tickLine={false}
-                                tickFormatter={(value) => `${Number(value).toFixed(0)}°C`}
-                                domain={["dataMin - 1", "dataMax + 1"]}
-                                width={52}
-                              />
-                              <Tooltip content={<ExtremeTrendTooltip unit="°C" digits={1} zh={zh} />} />
-                              <Line
-                                type="monotone"
-                                dataKey="max"
-                                name={zh ? "最大值" : "Max"}
-                                stroke="#ffd36b"
-                                strokeWidth={1.9}
-                                dot={(props: any) =>
-                                  props?.payload?.isMaxHighlight ? (
-                                    <circle cx={props.cx} cy={props.cy} r={4} fill="#ffd36b" stroke="#fff4cf" strokeWidth={1.4} />
-                                  ) : (
-                                    <></>
-                                  )
-                                }
-                                isAnimationActive={false}
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="min"
-                                name={zh ? "最小值" : "Min"}
-                                stroke="#6ee7ff"
-                                strokeWidth={1.9}
-                                dot={(props: any) =>
-                                  props?.payload?.isMinHighlight ? (
-                                    <circle cx={props.cx} cy={props.cy} r={4} fill="#6ee7ff" stroke="#d6fbff" strokeWidth={1.4} />
-                                  ) : (
-                                    <></>
-                                  )
-                                }
-                                isAnimationActive={false}
-                              />
-                            </LineChart>
-                          </ResponsiveContainer>
+                          {chart.data.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={chart.data} syncId={trendSyncId} syncMethod="index" margin={{ top: 8, right: 18, left: 0, bottom: isLast ? 6 : 0 }}>
+                                <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
+                                <XAxis
+                                  dataKey="time"
+                                  tick={isLast ? { fill: "#88a8be", fontSize: 9 } : false}
+                                  axisLine={false}
+                                  tickLine={false}
+                                  ticks={isLast ? trendXAxisTicks : undefined}
+                                  interval={isLast ? 0 : trendXAxisInterval}
+                                  height={isLast ? 22 : 0}
+                                />
+                                <YAxis
+                                  tick={{ fill: "#88a8be", fontSize: 9 }}
+                                  axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
+                                  tickLine={false}
+                                  tickFormatter={(value) => `${Number(value).toFixed(0)}°C`}
+                                  domain={["dataMin - 1", "dataMax + 1"]}
+                                  width={52}
+                                />
+                                <Tooltip content={<ExtremeTrendTooltip unit="°C" digits={1} zh={zh} />} />
+                                <Line
+                                  type="monotone"
+                                  dataKey="max"
+                                  name={zh ? "最大值" : "Max"}
+                                  stroke="#ffd36b"
+                                  strokeWidth={1.9}
+                                  dot={(props: any) => renderTrendHighlightDot(props, "isMaxHighlight", "#ffd36b", "#fff4cf", 4, 1.4)}
+                                  isAnimationActive={false}
+                                />
+                                <Line
+                                  type="monotone"
+                                  dataKey="min"
+                                  name={zh ? "最小值" : "Min"}
+                                  stroke="#6ee7ff"
+                                  strokeWidth={1.9}
+                                  dot={(props: any) => renderTrendHighlightDot(props, "isMinHighlight", "#6ee7ff", "#d6fbff", 4, 1.4)}
+                                  isAnimationActive={false}
+                                />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          ) : (
+                            <ChartPlaceholder text={trendPlaceholderText} />
+                          )}
                         </div>
                       </div>
                     )
@@ -1398,7 +1926,11 @@ export function CellHistoryReplayPanel({
             </div>
           </NeonSection>
         </div>
-        </div>
+        {showInitialHistoryLoading ? (
+          <OverviewHistorySkeleton compact={isCompactCanvas} tight={isTightCanvas} loadingText={historyLoadingText} />
+        ) : null}
+        {showHistoryRefreshOverlay ? <HistoryLoadingOverlay text={historyLoadingText} dimmed /> : null}
+      </div>
     </div>
   )
 }

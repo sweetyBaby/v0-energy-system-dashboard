@@ -67,4 +67,41 @@ export const apiEndpoints = {
      */
     cellLatest: "/ems/cell/latest",
   },
+  cellHistory: {
+    /**
+     * BCU daily history for current / voltage / power / SOC.
+     * Query: measurement = projectId, date = YYYY-MM-DD
+     */
+    bcuDaily: "/ems/bcu/history/daily",
+    /**
+     * Cell daily detail metrics.
+     * Query: measurement = projectId, date = YYYY-MM-DD
+     */
+    detailDaily: "/ems/cell/detail/daily",
+    /**
+     * Cell voltage / temperature extreme statistics.
+     * Query: measurement = projectId, date = YYYY-MM-DD
+     */
+    extremeDaily: "/ems/cell/extreme/daily",
+    /**
+     * Cell daily voltage curve.
+     * Query: measurement = projectId, date = YYYY-MM-DD
+     */
+    voltageDaily: "/ems/cell/history/voltage",
+    /**
+     * Cell daily T1 curve.
+     * Query: measurement = projectId, date = YYYY-MM-DD
+     */
+    temp1Daily: "/ems/cell/history/temp1",
+    /**
+     * Cell daily T2 curve.
+     * Query: measurement = projectId, date = YYYY-MM-DD
+     */
+    temp2Daily: "/ems/cell/history/temp2",
+    /**
+     * Cell daily T3 curve.
+     * Query: measurement = projectId, date = YYYY-MM-DD
+     */
+    temp3Daily: "/ems/cell/history/temp3",
+  },
 } as const

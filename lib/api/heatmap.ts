@@ -26,6 +26,15 @@ const CELL_COUNT = 50
 const SUCCESS_CODE = 200
 const SYNC_SUFFIX = "_sync"
 
+const isAbortError = (error: unknown) =>
+  error instanceof DOMException
+    ? error.name === "AbortError"
+    : typeof error === "object" &&
+      error !== null &&
+      "name" in error &&
+      typeof error.name === "string" &&
+      error.name === "AbortError"
+
 const buildQueryPath = (path: string, params: Record<string, string | number | undefined>) => {
   const search = new URLSearchParams()
 
@@ -129,7 +138,15 @@ export const fetchLatestHeatmap = async (projectId: string, options: RequestOpti
   const succeededCount = settled.filter((result) => result.status === "fulfilled").length
 
   if (succeededCount === 0) {
-    throw new Error(`Failed to load heatmap snapshots for ${projectId}`)
+    const rejectedResults = settled.filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    )
+
+    if (rejectedResults.every((result) => isAbortError(result.reason)) || options.signal?.aborted) {
+      throw rejectedResults[0]?.reason ?? new DOMException("Aborted", "AbortError")
+    }
+
+    return createEmptyHeatmapCells()
   }
 
   const temp1Payload = temp1Result.status === "fulfilled" ? temp1Result.value : null

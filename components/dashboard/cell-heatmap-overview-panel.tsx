@@ -8,6 +8,7 @@ import {
   hasAnyHeatmapValue,
   type HeatmapCellMetrics,
 } from "@/lib/api/heatmap"
+import { AlertCircle, DatabaseZap, WifiOff } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 
 type TempSensorKey = "temp1" | "temp2" | "temp3"
@@ -325,26 +326,96 @@ export function CellHeatmapOverviewPanel() {
     [cells],
   )
 
-  const placeholderText = isLoading
-    ? zh
-      ? "热力图数据加载中..."
-      : "Loading heatmap..."
-    : error
-      ? error
-      : zh
-        ? "暂无热力图数据"
-        : "No heatmap data"
+  type StatusToast = { type: "info" | "error"; text: string } | null
+  const [toast, setToast] = useState<StatusToast>(null)
+  const [toastVisible, setToastVisible] = useState(false)
 
-  if (!hasData) {
-    return (
-      <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-[#1a2654] bg-[#0d1233] p-3 text-sm text-[#7b8ab8]">
-        {placeholderText}
-      </div>
-    )
-  }
+  useEffect(() => {
+    let fadeTimer: ReturnType<typeof setTimeout>
+    let hideTimer: ReturnType<typeof setTimeout>
+
+    if (!isLoading && !error && !hasData) {
+      const msg = { type: "info" as const, text: zh ? "暂无热力图数据" : "No heatmap data" }
+      setToast(msg)
+      setToastVisible(true)
+      fadeTimer = setTimeout(() => setToastVisible(false), 2800)
+      hideTimer = setTimeout(() => setToast(null), 3300)
+    } else if (!isLoading && error) {
+      const msg = { type: "error" as const, text: error }
+      setToast(msg)
+      setToastVisible(true)
+      fadeTimer = setTimeout(() => setToastVisible(false), 3800)
+      hideTimer = setTimeout(() => setToast(null), 4300)
+    } else {
+      setToastVisible(false)
+      hideTimer = setTimeout(() => setToast(null), 500)
+    }
+
+    return () => {
+      clearTimeout(fadeTimer)
+      clearTimeout(hideTimer)
+    }
+  }, [isLoading, error, hasData, zh])
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-1.5">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-1.5">
+      {/* Status toast overlay */}
+      {toast && (
+        <div
+          className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center transition-opacity duration-500"
+          style={{ opacity: toastVisible ? 1 : 0 }}
+        >
+          <div
+            className="flex flex-col items-center gap-3 rounded-2xl px-8 py-6"
+            style={{
+              background: toast.type === "error"
+                ? "linear-gradient(135deg, rgba(30,10,10,0.97) 0%, rgba(40,14,14,0.94) 100%)"
+                : "linear-gradient(135deg, rgba(10,20,50,0.97) 0%, rgba(13,26,60,0.94) 100%)",
+              border: toast.type === "error" ? "1px solid rgba(220,53,34,0.35)" : "1px solid rgba(59,130,246,0.25)",
+              boxShadow: toast.type === "error"
+                ? "0 0 32px rgba(220,53,34,0.18), 0 8px 32px rgba(0,0,0,0.5)"
+                : "0 0 32px rgba(59,130,246,0.12), 0 8px 32px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-full"
+              style={{
+                background: toast.type === "error"
+                  ? "radial-gradient(circle, rgba(220,53,34,0.22) 0%, rgba(220,53,34,0.06) 100%)"
+                  : "radial-gradient(circle, rgba(59,130,246,0.22) 0%, rgba(59,130,246,0.06) 100%)",
+                border: toast.type === "error" ? "1px solid rgba(220,53,34,0.3)" : "1px solid rgba(59,130,246,0.25)",
+              }}
+            >
+              {toast.type === "error"
+                ? <WifiOff className="h-6 w-6" style={{ color: "rgb(248,113,113)" }} />
+                : <DatabaseZap className="h-6 w-6" style={{ color: "rgb(99,179,237)" }} />}
+            </div>
+            <span
+              className="text-base font-bold tracking-wide"
+              style={{ color: toast.type === "error" ? "rgb(252,165,165)" : "rgb(186,230,253)" }}
+            >
+              {toast.type === "error"
+                ? (zh ? "热力图数据加载失败" : "Heatmap load failed")
+                : (zh ? "暂无热力图数据" : "No heatmap data")}
+            </span>
+            {toast.type === "error" && (
+              <div className="flex items-center gap-1.5 text-[11px] text-[#4a5f8a]">
+                <AlertCircle className="h-3 w-3" />
+                <span>{zh ? "将在下次轮询时自动重试" : "Will retry on next poll"}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#1a2654] border-t-[#3b82f6]" />
+            <span className="text-xs text-[#4a5f8a]">{zh ? "热力图数据加载中..." : "Loading heatmap..."}</span>
+          </div>
+        </div>
+      )}
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-1 md:grid-cols-2 md:grid-rows-2">
         <HeatmapCard title={zh ? "电压热力图" : "Voltage Heatmap"} accentColor="#7dd3fc">
           <div className="flex h-full min-h-0 items-stretch gap-1.5 overflow-hidden">

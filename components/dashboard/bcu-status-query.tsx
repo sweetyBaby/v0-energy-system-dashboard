@@ -1,5 +1,6 @@
 "use client"
 
+import { AlertCircle, DatabaseZap, WifiOff } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
   CartesianGrid,
@@ -106,6 +107,21 @@ const formatFiveMin = (slot: number) => {
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
+}
+
+const buildDynamicTimeTicks = (times: string[], visibleTickCount: number) => {
+  if (times.length <= 2) {
+    return Array.from(new Set(times))
+  }
+
+  if (times.length <= visibleTickCount) {
+    return Array.from(new Set(times))
+  }
+
+  const step = Math.max(1, Math.ceil((times.length - 1) / Math.max(visibleTickCount - 1, 1)))
+  return Array.from(
+    new Set(times.filter((time, index) => index === 0 || index === times.length - 1 || index % step === 0)),
+  )
 }
 
 const getDailyLoadFactor = (hour: number) => {
@@ -277,9 +293,40 @@ function TrendStackedChart({
   const sections = createSections(zh)
   const visibleSections = hideCellSeries ? sections.filter((section) => section.kind !== "pair") : sections
   const syncId = history ? "history-bcu" : "realtime-bcu"
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [chartWidth, setChartWidth] = useState(0)
+
+  useEffect(() => {
+    const node = containerRef.current
+    if (!node) return
+
+    const updateWidth = (width: number) => {
+      setChartWidth(Math.max(width, 320))
+    }
+
+    updateWidth(node.clientWidth)
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      updateWidth(entry.contentRect.width)
+    })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  const timeAxisLabelWidth = history ? (chartWidth < 980 ? 76 : 88) : chartWidth < 980 ? 64 : 76
+  const timeAxisReservedWidth = hideCellSeries ? 92 : 108
+  const timeAxisUsableWidth = Math.max(chartWidth - timeAxisReservedWidth, 320)
+  const visibleTickCount = Math.max(2, Math.floor(timeAxisUsableWidth / timeAxisLabelWidth))
+  const xAxisTicks = useMemo(
+    () => buildDynamicTimeTicks(data.map((item) => item.time), visibleTickCount),
+    [data, visibleTickCount],
+  )
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={containerRef} className="flex h-full min-h-0 flex-col">
       {visibleSections.map((section, index) => {
         const isLast = index === visibleSections.length - 1
         const chartTop = section.kind === "pair" ? 24 : 8
@@ -310,7 +357,8 @@ function TrendStackedChart({
                   axisLine={isLast ? { stroke: "#1a2654", strokeOpacity: 0.4 } : false}
                   tickLine={false}
                   height={isLast ? 18 : 0}
-                  interval={history ? 11 : 9}
+                  ticks={isLast ? xAxisTicks : undefined}
+                  interval={isLast ? 0 : Math.max(xAxisTicks.length - 1, 0)}
                   minTickGap={6}
                 />
                 <YAxis
@@ -389,11 +437,13 @@ export function BCUStatusQuery({
   date,
   hideCellSeries = false,
   panelVariant = "default",
+  historyData,
 }: {
   mode?: BCUStatusMode
   date?: string
   hideCellSeries?: boolean
   panelVariant?: "default" | "overview"
+  historyData?: OperationTrendPoint[]
 }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
@@ -403,9 +453,39 @@ export function BCUStatusQuery({
   const [realtimeError, setRealtimeError] = useState<string | null>(null)
   const cursorRef = useRef<OperationsCursor>({})
   const histData = useMemo(() => createHistorySeries(date), [date])
+  const effectiveHistoryData = historyData ?? histData
   const liveTimeLabel = rtOverview[rtOverview.length - 1]?.time.slice(0, 5) ?? "--:--"
   const isOverviewVariant = panelVariant === "overview"
-  const emptyRealtimeText = zh ? "暂无实时数据" : "No realtime data"
+
+  type StatusToast = { type: "info" | "error"; text: string } | null
+  const [toast, setToast] = useState<StatusToast>(null)
+  const [toastVisible, setToastVisible] = useState(false)
+
+  useEffect(() => {
+    if (mode !== "realtime") return
+    let fadeTimer: ReturnType<typeof setTimeout>
+    let hideTimer: ReturnType<typeof setTimeout>
+
+    if (!isRealtimeLoading && realtimeError && rtOverview.length === 0) {
+      setToast({ type: "error", text: realtimeError })
+      setToastVisible(true)
+      fadeTimer = setTimeout(() => setToastVisible(false), 3800)
+      hideTimer = setTimeout(() => setToast(null), 4300)
+    } else if (!isRealtimeLoading && !realtimeError && rtOverview.length === 0) {
+      setToast({ type: "info", text: zh ? "暂无实时运行数据" : "No realtime data" })
+      setToastVisible(true)
+      fadeTimer = setTimeout(() => setToastVisible(false), 2800)
+      hideTimer = setTimeout(() => setToast(null), 3300)
+    } else {
+      setToastVisible(false)
+      hideTimer = setTimeout(() => setToast(null), 500)
+    }
+
+    return () => {
+      clearTimeout(fadeTimer)
+      clearTimeout(hideTimer)
+    }
+  }, [isRealtimeLoading, realtimeError, rtOverview.length, zh, mode])
 
   useEffect(() => {
     if (mode !== "realtime") {
@@ -510,22 +590,71 @@ export function BCUStatusQuery({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1">
-        {mode === "realtime" ? (
-          isRealtimeLoading && rtOverview.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-[#7b8ab8]">
-              {zh ? "加载运行状态数据..." : "Loading running status..."}
+      <div className="relative min-h-0 flex-1">
+        {/* Status toast overlay */}
+        {toast && (
+          <div
+            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center transition-opacity duration-500"
+            style={{ opacity: toastVisible ? 1 : 0 }}
+          >
+            <div
+              className="flex flex-col items-center gap-3 rounded-2xl px-8 py-6"
+              style={{
+                background: toast.type === "error"
+                  ? "linear-gradient(135deg, rgba(30,10,10,0.97) 0%, rgba(40,14,14,0.94) 100%)"
+                  : "linear-gradient(135deg, rgba(10,20,50,0.97) 0%, rgba(13,26,60,0.94) 100%)",
+                border: toast.type === "error" ? "1px solid rgba(220,53,34,0.35)" : "1px solid rgba(59,130,246,0.25)",
+                boxShadow: toast.type === "error"
+                  ? "0 0 32px rgba(220,53,34,0.18), 0 8px 32px rgba(0,0,0,0.5)"
+                  : "0 0 32px rgba(59,130,246,0.12), 0 8px 32px rgba(0,0,0,0.5)",
+              }}
+            >
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-full"
+                style={{
+                  background: toast.type === "error"
+                    ? "radial-gradient(circle, rgba(220,53,34,0.22) 0%, rgba(220,53,34,0.06) 100%)"
+                    : "radial-gradient(circle, rgba(59,130,246,0.22) 0%, rgba(59,130,246,0.06) 100%)",
+                  border: toast.type === "error" ? "1px solid rgba(220,53,34,0.3)" : "1px solid rgba(59,130,246,0.25)",
+                }}
+              >
+                {toast.type === "error"
+                  ? <WifiOff className="h-6 w-6" style={{ color: "rgb(248,113,113)" }} />
+                  : <DatabaseZap className="h-6 w-6" style={{ color: "rgb(99,179,237)" }} />}
+              </div>
+              <span
+                className="text-base font-bold tracking-wide"
+                style={{ color: toast.type === "error" ? "rgb(252,165,165)" : "rgb(186,230,253)" }}
+              >
+                {toast.type === "error"
+                  ? (zh ? "运行状态加载失败" : "Load failed")
+                  : (zh ? "暂无实时运行数据" : "No realtime data")}
+              </span>
+              {toast.type === "error" && (
+                <div className="flex items-center gap-1.5 text-[11px] text-[#4a5f8a]">
+                  <AlertCircle className="h-3 w-3" />
+                  <span>{zh ? "将在下次轮询时自动重试" : "Will retry on next poll"}</span>
+                </div>
+              )}
             </div>
-          ) : realtimeError && rtOverview.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-[#7b8ab8]">{realtimeError}</div>
-          ) : rtOverview.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-[#7b8ab8]">{emptyRealtimeText}</div>
-          ) : (
-            <TrendStackedChart data={rtOverview} zh={zh} history={false} hideCellSeries={hideCellSeries} />
-          )
-        ) : (
-          <TrendStackedChart data={histData} zh={zh} history hideCellSeries={hideCellSeries} />
+          </div>
         )}
+        {/* Loading spinner */}
+        {isRealtimeLoading && mode === "realtime" && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#1a2654] border-t-[#3b82f6]" />
+              <span className="text-xs text-[#4a5f8a]">{zh ? "加载运行状态数据..." : "Loading running status..."}</span>
+            </div>
+          </div>
+        )}
+        {/* Always render chart skeleton */}
+        <TrendStackedChart
+          data={mode === "realtime" ? rtOverview : effectiveHistoryData}
+          zh={zh}
+          history={mode !== "realtime"}
+          hideCellSeries={hideCellSeries}
+        />
       </div>
     </div>
   )
