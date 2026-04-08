@@ -50,6 +50,7 @@ export function CustomRangePicker({
   buttonLabel,
   hint,
   maxRangeError,
+  quickSelectLabel,
   align = "end",
 }: {
   value: DateRange | undefined
@@ -59,6 +60,7 @@ export function CustomRangePicker({
   buttonLabel?: string
   hint: string
   maxRangeError: string
+  quickSelectLabel?: string
   align?: "start" | "center" | "end"
 }) {
   const { language } = useLanguage()
@@ -243,7 +245,7 @@ export function CustomRangePicker({
             className="mx-auto flex items-center gap-1.5 text-sm text-[#e8f4fc] transition-colors hover:text-[#22d3ee]"
           >
             <Crosshair className="h-4 w-4" />
-            <span>{zh ? "今天" : "Today"}</span>
+            <span>{quickSelectLabel ?? (zh ? "今天" : "Today")}</span>
           </button>
         </div>
       </PopoverContent>

@@ -14,5 +14,10 @@ export const apiEndpoints = {
      * 用于获取 SOC、PACK 电压、电流、功率、SOH，以及昨日/本月/累计统计值。
      */
     realtime: (projectId: string) => `/ems/dashboard/realtime/${projectId}`,
+    /**
+     * 综合能效统计。
+     * 根据项目和时间范围返回日报列表，用于总览页下方综合能效图表/表格。
+     */
+    dailyList: "/ems/daily/list",
   },
 } as const

@@ -11,10 +11,10 @@ export interface ApiResponse<T = unknown> {
   data: T
 }
 
-async function request<T>(
+async function requestRaw<T>(
   path: string,
   options: RequestInit = {}
-): Promise<ApiResponse<T>> {
+): Promise<T> {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`
   const normalizedBase = BASE_URL.endsWith("/")
     ? BASE_URL.slice(0, -1)
@@ -36,12 +36,29 @@ async function request<T>(
   return res.json()
 }
 
+async function request<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<ApiResponse<T>> {
+  return requestRaw<ApiResponse<T>>(path, options)
+}
+
 export const apiClient = {
   get: <T>(path: string, options?: RequestInit) =>
     request<T>(path, { method: "GET", ...options }),
 
+  getRaw: <T>(path: string, options?: RequestInit) =>
+    requestRaw<T>(path, { method: "GET", ...options }),
+
   post: <T>(path: string, body: unknown, options?: RequestInit) =>
     request<T>(path, {
+      method: "POST",
+      body: JSON.stringify(body),
+      ...options,
+    }),
+
+  postRaw: <T>(path: string, body: unknown, options?: RequestInit) =>
+    requestRaw<T>(path, {
       method: "POST",
       body: JSON.stringify(body),
       ...options,
