@@ -156,12 +156,15 @@ export function PowerCurveQuery() {
     }
 
     let cancelled = false
+    const abortController = new AbortController()
 
     const loadHistorical = async (start: string, end: string) => {
       const data = await fetchPowerRange({
         projectId: selectedProject.projectId,
         start,
         end,
+      }, {
+        signal: abortController.signal,
       })
 
       if (!cancelled) {
@@ -170,7 +173,9 @@ export function PowerCurveQuery() {
     }
 
     const loadToday = async () => {
-      const initialData = await fetchTodayPowerDaily(selectedProject.projectId)
+      const initialData = await fetchTodayPowerDaily(selectedProject.projectId, {
+        signal: abortController.signal,
+      })
 
       if (cancelled) {
         return
@@ -184,6 +189,9 @@ export function PowerCurveQuery() {
           const incremental = await fetchTodayPowerIncremental(
             selectedProject.projectId,
             latestTimestampRef.current ? toSeconds(latestTimestampRef.current) : undefined,
+            {
+              signal: abortController.signal,
+            },
           )
 
           if (cancelled || incremental.length === 0) {
@@ -196,6 +204,10 @@ export function PowerCurveQuery() {
             return merged
           })
         } catch (error) {
+          if (abortController.signal.aborted) {
+            return
+          }
+
           console.error(`Failed to poll incremental power for ${selectedProject.projectId}`, error)
         }
       }, TODAY_POLL_MS)
@@ -218,6 +230,10 @@ export function PowerCurveQuery() {
           setPoints([])
         }
       } catch (error) {
+        if (abortController.signal.aborted) {
+          return
+        }
+
         if (!cancelled) {
           setPoints([])
         }
@@ -234,6 +250,7 @@ export function PowerCurveQuery() {
 
     return () => {
       cancelled = true
+      abortController.abort()
 
       if (intervalRef.current) {
         clearInterval(intervalRef.current)

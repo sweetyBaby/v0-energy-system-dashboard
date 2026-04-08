@@ -24,6 +24,10 @@ export type PowerRangeQuery = {
   end: string
 }
 
+type PowerRequestOptions = {
+  signal?: AbortSignal
+}
+
 const SYNC_SUFFIX = "_sync"
 
 const buildQueryPath = (path: string, params: Record<string, string | number | undefined>) => {
@@ -87,28 +91,34 @@ export const mergePowerPoints = (base: PowerPoint[], incoming: PowerPoint[]) =>
  * 获取今日首次加载时的全量功率数据。
  * 后端约定 measurement 需要传 `${projectId}_sync`。
  */
-export const fetchTodayPowerDaily = async (projectId: string) => {
+export const fetchTodayPowerDaily = async (projectId: string, options: PowerRequestOptions = {}) => {
   const path = buildQueryPath(apiEndpoints.power.daily, {
     measurement: toRealtimeMeasurement(projectId),
   })
 
-  const response = await apiClient.getRaw<PowerApiResponse<RawPowerPoint[]>>(path)
+  const response = await apiClient.getRaw<PowerApiResponse<RawPowerPoint[]>>(path, {
+    signal: options.signal,
+  })
   return normalizePowerPoints(response.data)
 }
 
 /**
  * 获取今日增量功率数据。
  * from 使用秒级 Unix 时间戳；未传时返回最近 6 秒内最新数据。
- * 文档要求带 deviceId，这里按当前项目维度传 projectId。
  */
-export const fetchTodayPowerIncremental = async (projectId: string, fromSeconds?: number) => {
+export const fetchTodayPowerIncremental = async (
+  projectId: string,
+  fromSeconds?: number,
+  options: PowerRequestOptions = {},
+) => {
   const path = buildQueryPath(apiEndpoints.power.incremental, {
     measurement: toRealtimeMeasurement(projectId),
-    deviceId: projectId,
     from: fromSeconds,
   })
 
-  const response = await apiClient.getRaw<PowerApiResponse<RawPowerPoint[]>>(path)
+  const response = await apiClient.getRaw<PowerApiResponse<RawPowerPoint[]>>(path, {
+    signal: options.signal,
+  })
   return normalizePowerPoints(response.data)
 }
 
@@ -117,14 +127,15 @@ export const fetchTodayPowerIncremental = async (projectId: string, fromSeconds?
  * 当前页面统一用它处理昨日、近 7 日和自定义日期查询。
  * 按用户联调约定，measurement 传 projectId，start/end 传 `YYYY-MM-DD`。
  */
-export const fetchPowerRange = async ({ projectId, start, end }: PowerRangeQuery) => {
+export const fetchPowerRange = async ({ projectId, start, end }: PowerRangeQuery, options: PowerRequestOptions = {}) => {
   const path = buildQueryPath(apiEndpoints.power.range, {
     measurement: toMeasurement(projectId),
-    deviceId: projectId,
     start,
     end,
   })
 
-  const response = await apiClient.getRaw<PowerApiResponse<RawPowerPoint[]>>(path)
+  const response = await apiClient.getRaw<PowerApiResponse<RawPowerPoint[]>>(path, {
+    signal: options.signal,
+  })
   return normalizePowerPoints(response.data)
 }

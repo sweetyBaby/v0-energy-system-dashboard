@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useRef, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { Check, ChevronDown, Globe, Zap } from "lucide-react"
 import {
   fetchProjectDetail,
@@ -79,11 +79,17 @@ const ProjectContext = createContext<{
   setSelectedProject: (project: ProjectOption) => void
   projectDetail: RawProjectDetail | null
   isProjectLoading: boolean
+  loadCurrentProjectDetail: () => Promise<void>
+  loadCurrentProjectRealtime: () => Promise<void>
+  clearCurrentProjectOverviewData: () => void
 }>({
   selectedProject: buildProjectView(projects[0], null),
   setSelectedProject: () => {},
   projectDetail: null,
   isProjectLoading: false,
+  loadCurrentProjectDetail: async () => {},
+  loadCurrentProjectRealtime: async () => {},
+  clearCurrentProjectOverviewData: () => {},
 })
 
 export const useProject = () => useContext(ProjectContext)
@@ -101,91 +107,72 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const selectedRealtimeSuccess = projectRealtimeSuccess[projectOption.id] ?? false
   const selectedProject = buildProjectView(projectOption, projectDetail, selectedRealtime, selectedRealtimeSuccess)
 
-  useEffect(() => {
-    let cancelled = false
+  const loadCurrentProjectDetail = useCallback(async () => {
+    setIsProjectLoading(true)
 
-    const loadProjectDetail = async () => {
-      setIsProjectLoading(true)
+    try {
+      const response = await fetchProjectDetail(projectOption.projectId)
+      setProjectDetails((current) => ({
+        ...current,
+        [projectOption.id]: response,
+      }))
+    } catch (error) {
+      setProjectDetails((current) => ({
+        ...current,
+        [projectOption.id]: current[projectOption.id] ?? null,
+      }))
 
-      try {
-        const response = await fetchProjectDetail(projectOption.projectId)
-
-        if (!cancelled) {
-          setProjectDetails((current) => ({
-            ...current,
-            [projectOption.id]: response,
-          }))
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setProjectDetails((current) => ({
-            ...current,
-            [projectOption.id]: current[projectOption.id] ?? null,
-          }))
-        }
-
-        console.error(`Failed to load project detail for ${projectOption.projectId}`, error)
-      } finally {
-        if (!cancelled) {
-          setIsProjectLoading(false)
-        }
-      }
-    }
-
-    void loadProjectDetail()
-
-    return () => {
-      cancelled = true
+      console.error(`Failed to load project detail for ${projectOption.projectId}`, error)
+    } finally {
+      setIsProjectLoading(false)
     }
   }, [projectOption.id, projectOption.projectId])
 
-  useEffect(() => {
-    let cancelled = false
+  const loadCurrentProjectRealtime = useCallback(async () => {
+    try {
+      const response = await fetchProjectRealtime(projectOption.projectId)
 
-    const loadRealtime = async () => {
-      try {
-        const response = await fetchProjectRealtime(projectOption.projectId)
+      setProjectRealtime((current) => ({
+        ...current,
+        [projectOption.id]: response,
+      }))
+      setProjectRealtimeSuccess((current) => ({
+        ...current,
+        [projectOption.id]: true,
+      }))
+    } catch (error) {
+      setProjectRealtime((current) => ({
+        ...current,
+        [projectOption.id]: current[projectOption.id] ?? null,
+      }))
+      setProjectRealtimeSuccess((current) => ({
+        ...current,
+        [projectOption.id]: false,
+      }))
 
-        if (!cancelled) {
-          setProjectRealtime((current) => ({
-            ...current,
-            [projectOption.id]: response,
-          }))
-          setProjectRealtimeSuccess((current) => ({
-            ...current,
-            [projectOption.id]: true,
-          }))
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setProjectRealtime((current) => ({
-            ...current,
-            [projectOption.id]: current[projectOption.id] ?? null,
-          }))
-          setProjectRealtimeSuccess((current) => ({
-            ...current,
-            [projectOption.id]: false,
-          }))
-        }
-
-        console.error(`Failed to load realtime overview for ${projectOption.projectId}`, error)
-      }
-    }
-
-    void loadRealtime()
-    const timer = window.setInterval(() => {
-      void loadRealtime()
-    }, 10000)
-
-    return () => {
-      cancelled = true
-      window.clearInterval(timer)
+      console.error(`Failed to load realtime overview for ${projectOption.projectId}`, error)
     }
   }, [projectOption.id, projectOption.projectId])
 
-  const setSelectedProject = (project: ProjectOption) => {
+  const clearCurrentProjectOverviewData = useCallback(() => {
+    setProjectDetails((current) => ({
+      ...current,
+      [projectOption.id]: null,
+    }))
+    setProjectRealtime((current) => ({
+      ...current,
+      [projectOption.id]: null,
+    }))
+    setProjectRealtimeSuccess((current) => ({
+      ...current,
+      [projectOption.id]: false,
+    }))
+    setIsProjectLoading(false)
+  }, [projectOption.id])
+
+  const setSelectedProject = useCallback((project: ProjectOption) => {
     setSelectedProjectId(project.id)
-  }
+  }, [])
 
   return (
     <ProjectContext.Provider
@@ -194,6 +181,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         setSelectedProject,
         projectDetail,
         isProjectLoading,
+        loadCurrentProjectDetail,
+        loadCurrentProjectRealtime,
+        clearCurrentProjectOverviewData,
       }}
     >
       {children}

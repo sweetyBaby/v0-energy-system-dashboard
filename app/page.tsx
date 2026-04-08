@@ -1,6 +1,6 @@
 ﻿"use client"
 
-import { useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { Battery, Calendar, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
@@ -54,6 +54,50 @@ const TAB_META: Record<DashboardTab, { zh: string; en: string }> = {
   "cell-history": { zh: "电芯历史", en: "Cell History" },
   analysis: { zh: "数据分析", en: "Analysis" },
   reports: { zh: "报表信息", en: "Reports" },
+}
+
+function OverviewDataLoader() {
+  const {
+    selectedProject,
+    loadCurrentProjectDetail,
+    loadCurrentProjectRealtime,
+    clearCurrentProjectOverviewData,
+  } = useProject()
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadOverview = async () => {
+      try {
+        await loadCurrentProjectDetail()
+        await loadCurrentProjectRealtime()
+      } catch (error) {
+        if (!cancelled) {
+          console.error(`Failed to initialize overview data for ${selectedProject.projectId}`, error)
+        }
+      }
+    }
+
+    void loadOverview()
+
+    const timer = window.setInterval(() => {
+      void loadCurrentProjectRealtime()
+    }, 10000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+      clearCurrentProjectOverviewData()
+    }
+  }, [
+    clearCurrentProjectOverviewData,
+    loadCurrentProjectDetail,
+    loadCurrentProjectRealtime,
+    selectedProject.id,
+    selectedProject.projectId,
+  ])
+
+  return null
 }
 
 function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
@@ -164,6 +208,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
       <div className={activeTab === "realtime" ? "min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-0" : "min-h-0 flex-1 overflow-hidden p-3"}>
         {activeTab === "realtime" && (
           <div className="grid h-full grid-cols-12 grid-rows-[minmax(240px,1fr)_minmax(0,1fr)] gap-3">
+            <OverviewDataLoader />
             <div className="relative col-span-12 min-h-0 overflow-hidden rounded-b-xl border border-[#22d3ee]/30 border-t-0">
               <img
                 src={selectedProject.image}
