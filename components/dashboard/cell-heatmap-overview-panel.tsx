@@ -1,20 +1,25 @@
 "use client"
 
-import { type ReactNode, useEffect, useMemo, useState } from "react"
+import { useProject } from "@/components/dashboard/dashboard-header"
 import { useLanguage } from "@/components/language-provider"
-
-type CellMetrics = {
-  id: number
-  voltage: number
-  temp1: number
-  temp2: number
-  temp3: number
-}
+import {
+  createEmptyHeatmapCells,
+  fetchLatestHeatmap,
+  hasAnyHeatmapValue,
+  type HeatmapCellMetrics,
+} from "@/lib/api/heatmap"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 
 type TempSensorKey = "temp1" | "temp2" | "temp3"
 type HeatmapMode = "voltage" | "temperature"
+type HeatmapStat = {
+  min: number | null
+  max: number | null
+  avg: number | null
+}
 
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+const REALTIME_POLL_MS = 10_000
+const EMPTY_CELL_COLOR = "rgba(23, 34, 72, 0.92)"
 
 const RACK_LAYOUT: (number | null)[][] = [
   [50, 49, 18, 17, 16, 15],
@@ -39,22 +44,45 @@ const VOLTAGE_GRADIENT =
 const TEMPERATURE_GRADIENT =
   "linear-gradient(to bottom,rgb(136,19,19),rgb(220,53,34),rgb(249,115,22),rgb(250,204,21),rgb(167,224,50),rgb(101,205,90))"
 
-const buildCells = (): CellMetrics[] =>
-  Array.from({ length: 50 }, (_, index) => {
-    const id = index + 1
-    const baseVoltage = 25.9 + Math.sin(id * 0.71) * 1.15 + (id % 7 === 0 ? 1.85 : 0) + (id % 13 === 0 ? -2.1 : 0)
-    const baseTemp = 29.5 + Math.sin(id * 0.43) * 2.8 + (id % 11 === 0 ? 2.4 : 0) + (id % 17 === 0 ? -1.8 : 0)
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 
-    return {
-      id,
-      voltage: +clamp(baseVoltage, 21, 29).toFixed(2),
-      temp1: +(baseTemp + (((id * 3) % 10) - 5) * 0.22).toFixed(1),
-      temp2: +(baseTemp + 0.6 + (((id * 7) % 10) - 5) * 0.18).toFixed(1),
-      temp3: +(baseTemp - 0.4 + (((id * 11) % 10) - 5) * 0.26).toFixed(1),
-    }
+const toCellMap = (cells: HeatmapCellMetrics[]) => {
+  const map: Record<number, HeatmapCellMetrics> = {}
+  cells.forEach((cell) => {
+    map[cell.id] = cell
   })
+  return map
+}
 
-function tempColor(temperature: number): string {
+const buildStat = (values: Array<number | null>): HeatmapStat => {
+  const numericValues = values.filter((value): value is number => value != null && Number.isFinite(value))
+
+  if (numericValues.length === 0) {
+    return {
+      min: null,
+      max: null,
+      avg: null,
+    }
+  }
+
+  const min = Math.min(...numericValues)
+  const max = Math.max(...numericValues)
+  const avg = numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length
+
+  return { min, max, avg }
+}
+
+const formatLegendValue = (value: number | null, digits: number, suffix: string) =>
+  value == null ? `--${suffix}` : `${value.toFixed(digits)}${suffix}`
+
+const formatCellValue = (value: number | null, digits: number, suffix = "") =>
+  value == null ? "--" : `${value.toFixed(digits)}${suffix}`
+
+function tempColor(temperature: number | null): string {
+  if (temperature == null) {
+    return EMPTY_CELL_COLOR
+  }
+
   const stops = [
     { t: 22, r: 101, g: 205, b: 90 },
     { t: 26, r: 167, g: 224, b: 50 },
@@ -74,12 +102,17 @@ function tempColor(temperature: number): string {
     }
   }
 
-  return `rgb(${stops[stops.length - 1].r},${stops[stops.length - 1].g},${stops[stops.length - 1].b})`
+  const last = stops[stops.length - 1]
+  return `rgb(${last.r},${last.g},${last.b})`
 }
 
-function voltColor(voltage: number, min: number, max: number, avg: number): string {
-  const delta = voltage - avg
-  const maxDelta = Math.max(max - avg, avg - min, 0.001)
+function voltColor(voltage: number | null, stat: HeatmapStat): string {
+  if (voltage == null || stat.min == null || stat.max == null || stat.avg == null) {
+    return EMPTY_CELL_COLOR
+  }
+
+  const delta = voltage - stat.avg
+  const maxDelta = Math.max(stat.max - stat.avg, stat.avg - stat.min, 0.001)
   const ratio = Math.max(-1, Math.min(1, delta / maxDelta))
 
   if (ratio < 0) {
@@ -97,17 +130,10 @@ function voltColor(voltage: number, min: number, max: number, avg: number): stri
 
 function foregroundColor(background: string) {
   const match = background.match(/\d+/g)
-  if (!match) return "#000000"
+  if (!match) return "#f5fbff"
 
   const [r, g, b] = match.map(Number)
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.48 ? "rgba(0,0,0,0.82)" : "rgba(255,255,255,0.94)"
-}
-
-function buildStat(values: number[]) {
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const avg = values.reduce((sum, value) => sum + value, 0) / values.length
-  return { min, max, avg }
 }
 
 function HeatmapCard({
@@ -145,9 +171,9 @@ function HeatmapGrid({
   getColor,
   getValue,
 }: {
-  cellMap: Record<number, CellMetrics>
-  getColor: (cell: CellMetrics) => string
-  getValue: (cell: CellMetrics) => string
+  cellMap: Record<number, HeatmapCellMetrics>
+  getColor: (cell: HeatmapCellMetrics) => string
+  getValue: (cell: HeatmapCellMetrics) => string
 }) {
   const idFontSize = 10.4
   const valueFontSize = 13.8
@@ -199,8 +225,6 @@ function HeatmapLegend({
   zh: boolean
 }) {
   const gradient = mode === "voltage" ? VOLTAGE_GRADIENT : TEMPERATURE_GRADIENT
-  const highLabel = zh ? "高" : "H"
-  const lowLabel = zh ? "低" : "L"
 
   return (
     <div className="flex h-full shrink-0 items-center gap-1 py-0.5 pr-0">
@@ -210,11 +234,11 @@ function HeatmapLegend({
       />
       <div className="flex h-full flex-col justify-between text-right tracking-[0.02em]">
         <div className="flex items-center justify-end gap-1 whitespace-nowrap text-[8.5px] leading-none">
-          <span className="font-semibold text-[#8ca4cd]">{highLabel}</span>
+          <span className="font-semibold text-[#8ca4cd]">{zh ? "高" : "H"}</span>
           <span className="tabular-nums text-[#6f89b8]">{maxLabel}</span>
         </div>
         <div className="flex items-center justify-end gap-1 whitespace-nowrap text-[8.5px] leading-none">
-          <span className="font-semibold text-[#8ca4cd]">{lowLabel}</span>
+          <span className="font-semibold text-[#8ca4cd]">{zh ? "低" : "L"}</span>
           <span className="tabular-nums text-[#6f89b8]">{minLabel}</span>
         </div>
       </div>
@@ -224,44 +248,73 @@ function HeatmapLegend({
 
 export function CellHeatmapOverviewPanel() {
   const { language } = useLanguage()
+  const { selectedProject } = useProject()
   const zh = language === "zh"
 
-  const [tick, setTick] = useState(0)
-  const baseCells = useMemo(() => buildCells(), [])
+  const [cells, setCells] = useState<HeatmapCellMetrics[]>(() => createEmptyHeatmapCells())
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setTick((current) => current + 1)
-    }, 2000)
+    let cancelled = false
+    let currentController: AbortController | null = null
+    let timer: ReturnType<typeof setInterval> | null = null
 
-    return () => window.clearInterval(timer)
-  }, [])
+    const loadHeatmap = async (initialLoad: boolean) => {
+      if (initialLoad) {
+        setIsLoading(true)
+      }
 
-  const cells = useMemo(
-    () =>
-      baseCells.map((cell) => {
-        const voltageOffset = Math.sin(tick * 0.7 + cell.id * 0.31) * 0.08 + Math.sin(tick * 0.4 + cell.id * 0.17) * 0.04
-        const tempOffset = Math.sin(tick * 0.5 + cell.id * 0.29) * 0.15
+      currentController?.abort()
+      currentController = new AbortController()
 
-        return {
-          ...cell,
-          voltage: +clamp(cell.voltage + voltageOffset, 21, 29).toFixed(2),
-          temp1: +(cell.temp1 + tempOffset + Math.sin(tick * 0.9 + cell.id) * 0.08).toFixed(1),
-          temp2: +(cell.temp2 + tempOffset + Math.sin(tick * 0.8 + cell.id * 1.1) * 0.08).toFixed(1),
-          temp3: +(cell.temp3 + tempOffset + Math.sin(tick * 1.1 + cell.id * 0.9) * 0.08).toFixed(1),
+      try {
+        const nextCells = await fetchLatestHeatmap(selectedProject.projectId, {
+          signal: currentController.signal,
+        })
+
+        if (cancelled || currentController.signal.aborted) {
+          return
         }
-      }),
-    [baseCells, tick],
-  )
 
-  const cellMap = useMemo(() => {
-    const map: Record<number, CellMetrics> = {}
-    cells.forEach((cell) => {
-      map[cell.id] = cell
-    })
-    return map
-  }, [cells])
+        setCells(nextCells)
+        setError(null)
+      } catch (loadError) {
+        if (cancelled || currentController.signal.aborted) {
+          return
+        }
 
+        console.error(`Failed to load heatmap for ${selectedProject.projectId}`, loadError)
+        setError(zh ? "热力图实时接口加载失败" : "Failed to load heatmap")
+
+        if (initialLoad) {
+          setCells(createEmptyHeatmapCells())
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadHeatmap(true)
+
+    timer = setInterval(() => {
+      void loadHeatmap(false)
+    }, REALTIME_POLL_MS)
+
+    return () => {
+      cancelled = true
+      currentController?.abort()
+
+      if (timer) {
+        clearInterval(timer)
+      }
+    }
+  }, [selectedProject.projectId, zh])
+
+  const hasData = useMemo(() => hasAnyHeatmapValue(cells), [cells])
+  const cellMap = useMemo(() => toCellMap(cells), [cells])
   const voltageStats = useMemo(() => buildStat(cells.map((cell) => cell.voltage)), [cells])
   const temperatureStats = useMemo(
     () => ({
@@ -272,6 +325,24 @@ export function CellHeatmapOverviewPanel() {
     [cells],
   )
 
+  const placeholderText = isLoading
+    ? zh
+      ? "热力图数据加载中..."
+      : "Loading heatmap..."
+    : error
+      ? error
+      : zh
+        ? "暂无热力图数据"
+        : "No heatmap data"
+
+  if (!hasData) {
+    return (
+      <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-[#1a2654] bg-[#0d1233] p-3 text-sm text-[#7b8ab8]">
+        {placeholderText}
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-1.5">
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-1 md:grid-cols-2 md:grid-rows-2">
@@ -279,13 +350,13 @@ export function CellHeatmapOverviewPanel() {
           <div className="flex h-full min-h-0 items-stretch gap-1.5 overflow-hidden">
             <HeatmapGrid
               cellMap={cellMap}
-              getColor={(cell) => voltColor(cell.voltage, voltageStats.min, voltageStats.max, voltageStats.avg)}
-              getValue={(cell) => cell.voltage.toFixed(2)}
+              getColor={(cell) => voltColor(cell.voltage, voltageStats)}
+              getValue={(cell) => formatCellValue(cell.voltage, 2)}
             />
             <HeatmapLegend
               mode="voltage"
-              maxLabel={`${voltageStats.max.toFixed(2)}V`}
-              minLabel={`${voltageStats.min.toFixed(2)}V`}
+              maxLabel={formatLegendValue(voltageStats.max, 2, "V")}
+              minLabel={formatLegendValue(voltageStats.min, 2, "V")}
               zh={zh}
             />
           </div>
@@ -301,12 +372,12 @@ export function CellHeatmapOverviewPanel() {
                 <HeatmapGrid
                   cellMap={cellMap}
                   getColor={(cell) => tempColor(cell[sensorKey])}
-                  getValue={(cell) => `${cell[sensorKey].toFixed(1)}°`}
+                  getValue={(cell) => formatCellValue(cell[sensorKey], 1, "°")}
                 />
                 <HeatmapLegend
                   mode="temperature"
-                  maxLabel={`${stats.max.toFixed(1)}°C`}
-                  minLabel={`${stats.min.toFixed(1)}°C`}
+                  maxLabel={formatLegendValue(stats.max, 1, "°C")}
+                  minLabel={formatLegendValue(stats.min, 1, "°C")}
                   zh={zh}
                 />
               </div>
