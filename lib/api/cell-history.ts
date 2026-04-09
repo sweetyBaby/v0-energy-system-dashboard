@@ -70,6 +70,12 @@ type TemperatureExtremeTrendMap = {
   t3: ExtremeCurveTrendPoint[]
 }
 
+type DailyEnergySummary = {
+  chargeAh: number | null
+  dischargeAh: number | null
+  chargeEfficiencyCe: number | null
+}
+
 type DailyCellHistoryBundle = {
   historyData: HistoryPoint[]
   overviewData: OverviewPoint[]
@@ -78,6 +84,7 @@ type DailyCellHistoryBundle = {
   extremeSummary: ExtremeSummary
   voltageExtremeTrend: ExtremeCurveTrendPoint[]
   temperatureExtremeTrends: TemperatureExtremeTrendMap
+  dailyEnergySummary: DailyEnergySummary
 }
 
 type CurveSeriesPoint = {
@@ -130,6 +137,11 @@ const EMPTY_TEMPERATURE_EXTREME_TRENDS: TemperatureExtremeTrendMap = {
   t2: [],
   t3: [],
 }
+const EMPTY_DAILY_ENERGY_SUMMARY: DailyEnergySummary = {
+  chargeAh: null,
+  dischargeAh: null,
+  chargeEfficiencyCe: null,
+}
 const EMPTY_DAILY_CELL_HISTORY_BUNDLE: DailyCellHistoryBundle = {
   historyData: [],
   overviewData: [],
@@ -138,6 +150,7 @@ const EMPTY_DAILY_CELL_HISTORY_BUNDLE: DailyCellHistoryBundle = {
   extremeSummary: EMPTY_EXTREME_SUMMARY,
   voltageExtremeTrend: [],
   temperatureExtremeTrends: EMPTY_TEMPERATURE_EXTREME_TRENDS,
+  dailyEnergySummary: EMPTY_DAILY_ENERGY_SUMMARY,
 }
 
 const buildQueryPath = (path: string, params: Record<string, string | number | undefined>) => {
@@ -1120,6 +1133,40 @@ const parseVoltageExtremeTrend = (data: unknown, date: string) =>
 const parseTemperatureExtremeTrend = (data: unknown, date: string) =>
   parseExtremeCurveTrend(data, date, toFiniteNumber)
 
+const parseDailyEnergySummary = (data: unknown): DailyEnergySummary => {
+  if (!data || typeof data !== "object") {
+    return EMPTY_DAILY_ENERGY_SUMMARY
+  }
+
+  const record = data as Record<string, unknown>
+  const candidates: Record<string, unknown>[] = [record]
+
+  ;["summary", "statistics", "stats", "overview", "data"].forEach((key) => {
+    const nested = record[key]
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      candidates.push(nested as Record<string, unknown>)
+    }
+  })
+
+  for (const candidate of candidates) {
+    const chargeAh = toFiniteNumber(getFieldValue(candidate, ["chargeAh", "chargeCapacity"]))
+    const dischargeAh = toFiniteNumber(getFieldValue(candidate, ["dischargeAh", "dischargeCapacity"]))
+    const chargeEfficiencyCe = toFiniteNumber(
+      getFieldValue(candidate, ["chargeEfficiencyCe", "capacityEfficiency", "ceEfficiency"]),
+    )
+
+    if (chargeAh != null || dischargeAh != null || chargeEfficiencyCe != null) {
+      return {
+        chargeAh: chargeAh == null ? null : Number(chargeAh.toFixed(3)),
+        dischargeAh: dischargeAh == null ? null : Number(dischargeAh.toFixed(3)),
+        chargeEfficiencyCe: chargeEfficiencyCe == null ? null : Number(chargeEfficiencyCe.toFixed(2)),
+      }
+    }
+  }
+
+  return EMPTY_DAILY_ENERGY_SUMMARY
+}
+
 export const fetchDailyCellHistory = async (
   projectId: string,
   date: string,
@@ -1198,6 +1245,16 @@ export const fetchDailyCellHistory = async (
     t2: isFullPackRequest && temp2Result.status === "fulfilled" ? parseTemperatureExtremeTrend(temp2Result.value, date) : [],
     t3: isFullPackRequest && temp3Result.status === "fulfilled" ? parseTemperatureExtremeTrend(temp3Result.value, date) : [],
   }
+  const dailyEnergySummarySources = [
+    bcuResult.status === "fulfilled" ? bcuResult.value : null,
+    detailResult.status === "fulfilled" ? detailResult.value : null,
+    extremeResult.status === "fulfilled" ? extremeResult.value : null,
+  ]
+  const dailyEnergySummary =
+    dailyEnergySummarySources
+      .map((source) => parseDailyEnergySummary(source))
+      .find((summary) => summary.chargeAh != null || summary.dischargeAh != null || summary.chargeEfficiencyCe != null) ??
+    EMPTY_DAILY_ENERGY_SUMMARY
 
   return {
     historyData,
@@ -1207,7 +1264,8 @@ export const fetchDailyCellHistory = async (
     extremeSummary,
     voltageExtremeTrend,
     temperatureExtremeTrends,
+    dailyEnergySummary,
   }
 }
 
-export type { CellMetric, DailyCellHistoryBundle, HistoryPoint, OverviewPoint }
+export type { CellMetric, DailyCellHistoryBundle, DailyEnergySummary, HistoryPoint, OverviewPoint }

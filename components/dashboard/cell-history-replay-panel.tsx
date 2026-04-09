@@ -289,32 +289,6 @@ const buildCellMetrics = (historyData: HistoryPoint[]): CellMetric[] =>
     }
   })
 
-const getDailyCurrentProfile = (index: number) => {
-  if (index >= 8 && index <= 26) return 82 + ((index - 8) / 18) * 46
-  if (index >= 48 && index <= 64) return 76 + ((index - 48) / 16) * 42
-  if (index >= 30 && index <= 39) return -(98 + ((index - 30) / 9) * 26)
-  if (index >= 65 && index <= 76) return -(92 + ((index - 65) / 11) * 30)
-  return 0
-}
-
-const buildDailyEnergySummary = (overviewData: OverviewPoint[]) => {
-  const stepHours = STEP_MINUTES / 60
-
-  return overviewData.reduce(
-    (acc, point, index) => {
-      const packVoltage = point.avgVoltage * CELL_COUNT
-      const current = getDailyCurrentProfile(index)
-      const energy = (packVoltage * Math.abs(current) * stepHours) / 1000
-
-      if (current > 0) acc.chargeEnergy += energy
-      if (current < 0) acc.dischargeEnergy += energy
-
-      return acc
-    },
-    { chargeEnergy: 0, dischargeEnergy: 0 }
-  )
-}
-
 function NeonSection({
   title,
   subtitle,
@@ -1032,9 +1006,9 @@ export type CellHistoryOverviewStats = {
   minTemp: number
   minTempCell: number | null
   tempDelta: number
-  chargeEnergy: number
-  dischargeEnergy: number
-  roundTripEfficiency: number
+  chargeEnergy: number | null
+  dischargeEnergy: number | null
+  roundTripEfficiency: number | null
 }
 
 export function CellHistoryReplayPanel({
@@ -1122,6 +1096,7 @@ export function CellHistoryReplayPanel({
   const extremeSummary = historyBundle?.extremeSummary
   const voltageExtremeTrend = historyBundle?.voltageExtremeTrend ?? EMPTY_EXTREME_CURVE_TREND
   const temperatureExtremeTrends = historyBundle?.temperatureExtremeTrends ?? EMPTY_TEMPERATURE_EXTREME_TRENDS
+  const dailyEnergySummary = historyBundle?.dailyEnergySummary ?? null
 
   const voltageStats = useMemo(() => {
     if (overviewData.length === 0) {
@@ -1146,12 +1121,12 @@ export function CellHistoryReplayPanel({
   }, [overviewData])
 
   const dailyEnergyStats = useMemo(() => {
-    const summary = buildDailyEnergySummary(overviewData)
-    const chargeEnergy = Number(summary.chargeEnergy.toFixed(1))
-    const dischargeEnergy = Number(summary.dischargeEnergy.toFixed(1))
-    const roundTripEfficiency = chargeEnergy > 0 ? Number(((dischargeEnergy / chargeEnergy) * 100).toFixed(1)) : 0
-    return { chargeEnergy, dischargeEnergy, roundTripEfficiency }
-  }, [overviewData])
+    return {
+      chargeEnergy: dailyEnergySummary?.chargeAh ?? null,
+      dischargeEnergy: dailyEnergySummary?.dischargeAh ?? null,
+      roundTripEfficiency: dailyEnergySummary?.chargeEfficiencyCe ?? null,
+    }
+  }, [dailyEnergySummary])
 
   const topHighVoltage = useMemo(() => {
     if ((extremeSummary?.topMaxVoltages.length ?? 0) > 0) {
@@ -1518,6 +1493,8 @@ export function CellHistoryReplayPanel({
 
   const hasHistoryData = historyData.length > 0 && overviewData.length > 0 && cellMetrics.length > 0
   const hasOverviewData = overviewData.length > 0
+  const hasDailyEnergyStats =
+    dailyEnergyStats.chargeEnergy != null || dailyEnergyStats.dischargeEnergy != null || dailyEnergyStats.roundTripEfficiency != null
   const hasVoltageTrendData = voltageTrendData.length > 0
   const hasTemperatureTrendData = temperatureTrendCharts.some((chart) => chart.data.length > 0)
   const historyPlaceholderText = isHistoryLoading
@@ -1775,9 +1752,9 @@ export function CellHistoryReplayPanel({
                   title: zh ? "电量" : "Energy",
                   accent: "#8ef14d",
                   items: [
-                    { label: zh ? "日充电量" : "Charge", value: hasOverviewData ? formatDisplayValue(dailyEnergyStats.chargeEnergy, 1) : "--", sub: hasOverviewData ? "kWh" : "", subColor: "#b0d8a0", tone: "text-[#8ef14d]" },
-                    { label: zh ? "日放电量" : "Discharge", value: hasOverviewData ? formatDisplayValue(dailyEnergyStats.dischargeEnergy, 1) : "--", sub: hasOverviewData ? "kWh" : "", subColor: "#8ec8ff", tone: "text-[#57a8ff]" },
-                    { label: zh ? "综合效率" : "Efficiency", value: hasOverviewData ? formatDisplayValue(dailyEnergyStats.roundTripEfficiency, 1, "%") : "--", sub: "", subColor: "", tone: "text-[#8af7bc]" },
+                    { label: zh ? "日充电量" : "Charge", value: hasDailyEnergyStats ? formatDisplayValue(dailyEnergyStats.chargeEnergy, 1) : "--", sub: dailyEnergyStats.chargeEnergy != null ? "Ah" : "", subColor: "#b0d8a0", tone: "text-[#8ef14d]" },
+                    { label: zh ? "日放电量" : "Discharge", value: hasDailyEnergyStats ? formatDisplayValue(dailyEnergyStats.dischargeEnergy, 1) : "--", sub: dailyEnergyStats.dischargeEnergy != null ? "Ah" : "", subColor: "#8ec8ff", tone: "text-[#57a8ff]" },
+                    { label: zh ? "容量效率" : "Capacity Efficiency", value: hasDailyEnergyStats ? formatDisplayValue(dailyEnergyStats.roundTripEfficiency, 1, "%") : "--", sub: "", subColor: "", tone: "text-[#8af7bc]" },
                   ],
                 },
               ].map((group) => (
