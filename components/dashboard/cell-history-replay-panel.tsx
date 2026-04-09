@@ -112,6 +112,19 @@ const pickerScrollbarClass =
   "[scrollbar-width:thin] [scrollbar-color:rgba(137,170,230,0.85)_rgba(8,18,42,0.96)] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[#0b1431] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-[2px] [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-[#0b1431] [&::-webkit-scrollbar-thumb]:bg-[#809dd6] hover:[&::-webkit-scrollbar-thumb]:bg-[#a9c4ff]"
 
 const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1)
+const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value)
+
+const getCellExtremes = (values: Array<{ cell: number; value: number | null | undefined }>) => {
+  const validValues = values.filter((item): item is { cell: number; value: number } => isFiniteNumber(item.value))
+  if (validValues.length === 0) {
+    return null
+  }
+
+  return {
+    maxEntry: validValues.reduce((best, current) => (current.value > best.value ? current : best), validValues[0]),
+    minEntry: validValues.reduce((best, current) => (current.value < best.value ? current : best), validValues[0]),
+  }
+}
 
 const formatTimeLabel = (index: number) =>
   `${String(Math.floor((index * STEP_MINUTES) / 60)).padStart(2, "0")}:${String((index * STEP_MINUTES) % 60).padStart(2, "0")}`
@@ -421,11 +434,39 @@ function SkeletonPanel({ className = "", children }: { className?: string; child
   )
 }
 
-function HistorySkeletonBadge({ text }: { text: string }) {
+function HistoryLoadingIndicator({
+  text,
+  variant = "skeleton",
+}: {
+  text: string
+  variant?: "skeleton" | "overlay"
+}) {
+  const isOverlay = variant === "overlay"
+
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-[#29547f]/75 bg-[rgba(9,21,47,0.92)] px-3 py-1 text-[11px] font-semibold tracking-[0.08em] text-[#dffbff]">
-      <span className="h-2 w-2 animate-pulse rounded-full bg-[#6ee7ff] shadow-[0_0_10px_rgba(110,231,255,0.95)]" />
-      <span>{text}</span>
+    <div
+      className={`relative overflow-hidden rounded-[20px] border border-[#29547f]/80 bg-[linear-gradient(180deg,rgba(12,27,58,0.9),rgba(8,18,40,0.96))] shadow-[0_18px_40px_rgba(0,0,0,0.24),inset_0_0_24px_rgba(63,231,255,0.05)] ${
+        isOverlay ? "min-w-[240px] px-6 py-5" : "min-w-[220px] px-5 py-4"
+      }`}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(110,231,255,0.14),transparent_42%),linear-gradient(90deg,transparent,rgba(255,211,107,0.05),transparent)]" />
+      <div className="relative flex flex-col items-center gap-3 text-center">
+        <div className="relative flex h-11 w-11 items-center justify-center rounded-full border border-[#4ba7d7]/45 bg-[radial-gradient(circle,rgba(110,231,255,0.18),rgba(17,35,68,0.1)_65%,transparent)]">
+          <span className="absolute h-11 w-11 animate-ping rounded-full border border-[#6ee7ff]/30" />
+          <span className="h-3 w-3 animate-pulse rounded-full bg-[#6ee7ff] shadow-[0_0_14px_rgba(110,231,255,0.95)]" />
+        </div>
+        <div className="text-[12px] font-semibold tracking-[0.08em] text-[#dffbff]">{text}</div>
+        <div className="w-full max-w-[188px] space-y-2">
+          <div className="h-1.5 overflow-hidden rounded-full bg-[#102346]">
+            <div className="h-full w-2/3 animate-pulse rounded-full bg-[linear-gradient(90deg,rgba(63,231,255,0.42),rgba(255,211,107,0.78),rgba(63,231,255,0.42))]" />
+          </div>
+          <div className="flex items-center justify-center gap-1.5">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#6ee7ff]/90" />
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ffd36b]/80 [animation-delay:160ms]" />
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#6ee7ff]/70 [animation-delay:320ms]" />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -464,6 +505,7 @@ function ChartSkeleton({
   return (
     <div className="relative h-full min-h-0 overflow-hidden rounded-[12px] border border-[#1c3b62]/85 bg-[linear-gradient(180deg,rgba(12,25,50,0.88),rgba(8,17,36,0.96))]">
       <div className="absolute inset-x-0 top-0 h-10 bg-[linear-gradient(180deg,rgba(110,231,255,0.05),transparent)]" />
+      <div className="pointer-events-none absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_50%_22%,rgba(110,231,255,0.04),transparent_34%),linear-gradient(180deg,rgba(255,211,107,0.02),transparent_44%,rgba(110,231,255,0.03)_100%)]" />
       <div className="absolute left-0 top-0 flex h-full w-11 flex-col justify-between px-2 py-3">
         {Array.from({ length: 4 }).map((_, index) => (
           <SkeletonBlock key={`chart-left-axis-${index}`} className="h-2.5 w-6 rounded-full border-0" />
@@ -493,17 +535,24 @@ function ChartSkeleton({
             />
           ))}
         </div>
-        <svg viewBox="0 0 336 140" preserveAspectRatio="none" className="absolute inset-0 h-full w-full opacity-95">
+        <svg viewBox="0 0 336 140" preserveAspectRatio="none" className="absolute inset-0 h-full w-full animate-pulse opacity-60 [animation-duration:2.6s]">
+          <defs>
+            <linearGradient id={`chart-skeleton-gradient-${lineColors.length}-${withXAxis ? "x" : "n"}-${withRightAxis ? "r" : "l"}`} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="rgba(148,187,214,0.18)" />
+              <stop offset="45%" stopColor="rgba(255,211,107,0.42)" />
+              <stop offset="100%" stopColor="rgba(110,231,255,0.24)" />
+            </linearGradient>
+          </defs>
           {lineColors.map((color, index) => (
             <path
               key={`chart-line-${color}-${index}`}
               d={lines[index % lines.length]}
               fill="none"
-              stroke={color}
-              strokeWidth={index === 0 ? 3 : 2.2}
+              stroke={`url(#chart-skeleton-gradient-${lineColors.length}-${withXAxis ? "x" : "n"}-${withRightAxis ? "r" : "l"})`}
+              strokeWidth={index === 0 ? 2.2 : 1.6}
               strokeLinecap="round"
               strokeLinejoin="round"
-              opacity={0.95 - index * 0.14}
+              opacity={0.42 - index * 0.08}
             />
           ))}
           {lineColors.slice(0, 2).map((color, index) => (
@@ -511,10 +560,11 @@ function ChartSkeleton({
               key={`chart-dot-${color}-${index}`}
               cx={index === 0 ? 244 : 292}
               cy={index === 0 ? 42 : 54}
-              r="4"
+              r="3"
               fill={color}
               stroke="#f8fbff"
-              strokeWidth="1.2"
+              strokeWidth="0.8"
+              opacity="0.5"
             />
           ))}
         </svg>
@@ -554,8 +604,8 @@ function OverviewHistorySkeleton({
 }) {
   return (
     <div className="pointer-events-none absolute inset-0 z-20 rounded-[24px] bg-[rgba(5,12,29,0.64)] p-2 backdrop-blur-[3px]">
-      <div className="absolute right-5 top-4">
-        <HistorySkeletonBadge text={loadingText} />
+      <div className="absolute inset-0 z-10 flex items-center justify-center">
+        <HistoryLoadingIndicator text={loadingText} />
       </div>
       <div className={`grid h-full min-h-0 ${compact ? "grid-cols-[1.04fr_1.26fr] gap-2" : "grid-cols-[0.94fr_1.36fr] gap-2.5"}`}>
         <div className={`grid min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1.4fr)] ${compact ? "gap-1.5" : "gap-2"}`}>
@@ -621,8 +671,8 @@ function DetailHistorySkeleton({
 }) {
   return (
     <div className="pointer-events-none absolute inset-0 z-20 rounded-[24px] bg-[rgba(5,12,29,0.64)] p-2 backdrop-blur-[3px]">
-      <div className="absolute right-5 top-4">
-        <HistorySkeletonBadge text={loadingText} />
+      <div className="absolute inset-0 z-10 flex items-center justify-center">
+        <HistoryLoadingIndicator text={loadingText} />
       </div>
       <SkeletonPanel className="h-full px-1.5 pt-2.5 pb-1">
         <div className="grid h-full min-h-0 gap-1" style={{ gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` }}>
@@ -662,19 +712,7 @@ function HistoryLoadingOverlay({ text, dimmed = false }: { text: string; dimmed?
           : "bg-[linear-gradient(180deg,rgba(5,12,29,0.92),rgba(7,17,36,0.95))] backdrop-blur-sm"
       }`}
     >
-      <div className="flex min-w-[220px] flex-col items-center gap-4 rounded-[18px] border border-[#29547f]/70 bg-[linear-gradient(180deg,rgba(12,28,60,0.94),rgba(8,19,42,0.97))] px-6 py-5 shadow-[0_18px_40px_rgba(0,0,0,0.28),inset_0_0_24px_rgba(63,231,255,0.05)]">
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#6ee7ff] shadow-[0_0_12px_rgba(110,231,255,0.95)]" />
-          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#ffd36b] shadow-[0_0_12px_rgba(255,211,107,0.8)] [animation-delay:150ms]" />
-          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#1bd9c5] shadow-[0_0_12px_rgba(27,217,197,0.8)] [animation-delay:300ms]" />
-        </div>
-        <div className="space-y-2 text-center">
-          <div className="text-[12px] font-semibold tracking-[0.08em] text-[#dffbff]">{text}</div>
-          <div className="mx-auto h-1.5 w-36 overflow-hidden rounded-full bg-[#102346]">
-            <div className="h-full w-1/2 animate-pulse rounded-full bg-[linear-gradient(90deg,#3fe7ff,#ffd36b)]" />
-          </div>
-        </div>
-      </div>
+      <HistoryLoadingIndicator text={text} variant="overlay" />
     </div>
   )
 }
@@ -1206,12 +1244,16 @@ export function CellHistoryReplayPanel({
 
   const voltageTrendData = useMemo(
     () => {
-      if (voltageExtremeTrend.length > 0) {
-        const maxIndex = voltageExtremeTrend.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)
-        const minIndex = voltageExtremeTrend.reduce((best, current, index, rows) => (current.min < rows[best].min ? index : best), 0)
+      const safeVoltageExtremeTrend = voltageExtremeTrend.filter(
+        (item) => isFiniteNumber(item.max) && isFiniteNumber(item.min)
+      )
+
+      if (safeVoltageExtremeTrend.length > 0) {
+        const maxIndex = safeVoltageExtremeTrend.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)
+        const minIndex = safeVoltageExtremeTrend.reduce((best, current, index, rows) => (current.min < rows[best].min ? index : best), 0)
 
         return extendTrendToDayEnd(
-          voltageExtremeTrend.map((item, index) => ({
+          safeVoltageExtremeTrend.map((item, index) => ({
             time: toTrendTimeLabel(item.time),
             max: Number(item.max.toFixed(3)),
             min: Number(item.min.toFixed(3)),
@@ -1231,18 +1273,25 @@ export function CellHistoryReplayPanel({
         return []
       }
 
-      const baseData = historyData.map((point) => {
+      const baseData = historyData.flatMap((point) => {
         const values = Array.from({ length: CELL_COUNT }, (_, index) => ({ cell: index + 1, value: point[`v${index + 1}`] }))
-        const maxEntry = values.reduce((best, current) => (current.value > best.value ? current : best), values[0])
-        const minEntry = values.reduce((best, current) => (current.value < best.value ? current : best), values[0])
-      return {
-          time: toTrendTimeLabel(point.time),
-          max: Number(maxEntry.value.toFixed(3)),
-          min: Number(minEntry.value.toFixed(3)),
-          maxCell: maxEntry.cell,
-          minCell: minEntry.cell,
+        const extremes = getCellExtremes(values)
+        if (!extremes) {
+          return []
         }
+
+        return [{
+          time: toTrendTimeLabel(point.time),
+          max: Number(extremes.maxEntry.value.toFixed(3)),
+          min: Number(extremes.minEntry.value.toFixed(3)),
+          maxCell: extremes.maxEntry.cell,
+          minCell: extremes.minEntry.cell,
+        }]
       })
+
+      if (baseData.length === 0) {
+        return []
+      }
 
       const maxIndex = baseData.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)
       const minIndex = baseData.reduce((best, current, index, rows) => (current.min < rows[best].min ? index : best), 0)
@@ -1285,11 +1334,12 @@ export function CellHistoryReplayPanel({
         { key: "t3", title: "T3", label: zh ? "后端探头" : "Rear Probe" },
       ] as const).map(({ key, title, label }) => {
         const extremeTrend = temperatureExtremeTrends?.[key] ?? []
-        if (extremeTrend.length > 0) {
-          const maxIndex = extremeTrend.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)
-          const minIndex = extremeTrend.reduce((best, current, index, rows) => (current.min < rows[best].min ? index : best), 0)
+        const safeExtremeTrend = extremeTrend.filter((item) => isFiniteNumber(item.max) && isFiniteNumber(item.min))
+        if (safeExtremeTrend.length > 0) {
+          const maxIndex = safeExtremeTrend.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)
+          const minIndex = safeExtremeTrend.reduce((best, current, index, rows) => (current.min < rows[best].min ? index : best), 0)
           const data = extendTrendToDayEnd(
-            extremeTrend.map((item, index) => ({
+            safeExtremeTrend.map((item, index) => ({
               time: toTrendTimeLabel(item.time),
               max: Number(item.max.toFixed(1)),
               min: Number(item.min.toFixed(1)),
@@ -1311,18 +1361,25 @@ export function CellHistoryReplayPanel({
           return { key, title, label, data: [] }
         }
 
-        const baseData = historyData.map((point) => {
+        const baseData = historyData.flatMap((point) => {
           const values = Array.from({ length: CELL_COUNT }, (_, index) => ({ cell: index + 1, value: point[`${key}_${index + 1}` as const] }))
-          const maxEntry = values.reduce((best, current) => (current.value > best.value ? current : best), values[0])
-          const minEntry = values.reduce((best, current) => (current.value < best.value ? current : best), values[0])
-          return {
-            time: toTrendTimeLabel(point.time),
-            max: Number(maxEntry.value.toFixed(1)),
-            min: Number(minEntry.value.toFixed(1)),
-            maxCell: maxEntry.cell,
-            minCell: minEntry.cell,
+          const extremes = getCellExtremes(values)
+          if (!extremes) {
+            return []
           }
+
+          return [{
+            time: toTrendTimeLabel(point.time),
+            max: Number(extremes.maxEntry.value.toFixed(1)),
+            min: Number(extremes.minEntry.value.toFixed(1)),
+            maxCell: extremes.maxEntry.cell,
+            minCell: extremes.minEntry.cell,
+          }]
         })
+
+        if (baseData.length === 0) {
+          return { key, title, label, data: [] }
+        }
 
         const maxIndex = baseData.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)
         const minIndex = baseData.reduce((best, current, index, rows) => (current.min < rows[best].min ? index : best), 0)
