@@ -1533,10 +1533,11 @@ export function CellHistoryReplayPanel({
   const formatDisplayValue = (value: number | null | undefined, digits: number, suffix = "") =>
     value == null ? "--" : `${value.toFixed(digits)}${suffix}`
   const historyLoadingText = zh ? "电芯历史数据加载中..." : "Loading cell history..."
+  const detailHistoryLoadingText = zh ? "电芯历史明细加载中..." : "Loading cell detail history..."
   const showInitialHistoryLoading = isHistoryLoading && historyBundle === null
   const showHistoryRefreshOverlay = isHistoryLoading && historyBundle !== null
   const detailChartPlaceholderText = isHistoryLoading
-    ? historyLoadingText
+    ? detailHistoryLoadingText
     : historyError
       ? historyError
       : zh
@@ -1719,6 +1720,10 @@ export function CellHistoryReplayPanel({
                               )}
                         </LineChart>
                       </ResponsiveContainer>
+                    ) : isHistoryLoading ? (
+                      <div className="flex h-full min-h-0 items-center justify-center px-4">
+                        <HistoryLoadingIndicator text={detailHistoryLoadingText} />
+                      </div>
                     ) : (
                       <ChartPlaceholder text={detailChartPlaceholderText} />
                     )}
@@ -1728,7 +1733,7 @@ export function CellHistoryReplayPanel({
             })}
           </div>
         </NeonSection>
-        {showHistoryRefreshOverlay ? <HistoryLoadingOverlay text={historyLoadingText} dimmed /> : null}
+        {showHistoryRefreshOverlay ? <HistoryLoadingOverlay text={detailHistoryLoadingText} dimmed /> : null}
       </div>
     )
   }
