@@ -13,7 +13,7 @@ export const apiEndpoints = {
      * Overview realtime snapshot.
      * Used for SOC, PACK voltage/current, power, SOH and overview cards.
      */
-    realtime: (projectId: string) => `/ems/dashboard/realtime/${projectId}`,
+    realtime: (projectId: string) => `/ems/dashboard/realtime/${projectId}_sync`,
     /**
      * Comprehensive efficiency daily statistics.
      */
