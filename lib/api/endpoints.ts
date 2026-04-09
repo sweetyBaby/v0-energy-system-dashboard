@@ -104,4 +104,11 @@ export const apiEndpoints = {
      */
     temp3Daily: "/ems/cell/history/temp3",
   },
+  analysis: {
+    /**
+     * Daily trend data within a date range for voltage diff / temp diff / cell voltage analysis.
+     * Query: projectId, startDate = yyyyMMdd, endDate = yyyyMMdd
+     */
+    dailyTrendRange: "/ems/daily/trend/range",
+  },
 } as const

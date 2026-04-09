@@ -1,6 +1,6 @@
 ﻿"use client"
 
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { Battery, Calendar, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
@@ -19,6 +19,7 @@ import { ReportCenterPanel } from "@/components/dashboard/report-center-panel"
 import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { LanguageProvider } from "@/components/language-provider"
+import { fetchDailyTrendRange, getAnalysisRangeDates, type DailyTrendRangeResult } from "@/lib/api/daily-trend-range"
 
 type DashboardTab =
   | "realtime"
@@ -110,9 +111,13 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const [selectedHistoryCell, setSelectedHistoryCell] = useState<number | null>(null)
   const [selectedHistoryCells, setSelectedHistoryCells] = useState<number[]>([1])
   const [cellHistoryStats, setCellHistoryStats] = useState<CellHistoryOverviewStats | null>(null)
+  const [analysisTrendData, setAnalysisTrendData] = useState<DailyTrendRangeResult | null>(null)
+  const [isAnalysisLoading, setIsAnalysisLoading] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const zh = language === "zh"
+  const analysisDateRange = useMemo(() => getAnalysisRangeDates(analysisRange), [analysisRange])
 
   const getDefaultDetailCells = () => {
     const prioritizedCells = [
@@ -127,6 +132,58 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     if (selectedHistoryCell != null) return [selectedHistoryCell]
     return [1]
   }
+
+  useEffect(() => {
+    if (activeTab !== "analysis") {
+      return
+    }
+
+    let cancelled = false
+    const abortController = new AbortController()
+
+    const loadAnalysisTrend = async () => {
+      setIsAnalysisLoading(true)
+      setAnalysisError(null)
+      setAnalysisTrendData(null)
+
+      try {
+        const nextData = await fetchDailyTrendRange(
+          selectedProject.projectId,
+          analysisDateRange.startDate,
+          analysisDateRange.endDate,
+          { signal: abortController.signal }
+        )
+
+        if (cancelled) {
+          return
+        }
+
+        setAnalysisTrendData(nextData)
+      } catch (error) {
+        if (cancelled || abortController.signal.aborted) {
+          return
+        }
+
+        console.error(
+          `Failed to load analysis trend for ${selectedProject.projectId} from ${analysisDateRange.startDate} to ${analysisDateRange.endDate}`,
+          error
+        )
+        setAnalysisError(zh ? "数据分析接口加载失败" : "Failed to load analysis trend")
+        setAnalysisTrendData(null)
+      } finally {
+        if (!cancelled) {
+          setIsAnalysisLoading(false)
+        }
+      }
+    }
+
+    void loadAnalysisTrend()
+
+    return () => {
+      cancelled = true
+      abortController.abort()
+    }
+  }, [activeTab, analysisDateRange.endDate, analysisDateRange.startDate, selectedProject.projectId, zh])
 
   const projectStats = [
     {
@@ -381,13 +438,31 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
             </div>
             <div className="grid min-h-0 flex-1 grid-cols-12 gap-4">
               <div className="col-span-12 min-h-0 xl:col-span-4">
-                <VoltageDifferenceAnalysis range={analysisRange} />
+                <VoltageDifferenceAnalysis
+                  range={analysisRange}
+                  summary={analysisTrendData?.summary ?? null}
+                  trendData={analysisTrendData?.dailyTrend ?? []}
+                  loading={isAnalysisLoading}
+                  error={analysisError}
+                />
               </div>
               <div className="col-span-12 min-h-0 xl:col-span-4">
-                <TemperatureDifferenceAnalysis range={analysisRange} />
+                <TemperatureDifferenceAnalysis
+                  range={analysisRange}
+                  summary={analysisTrendData?.summary ?? null}
+                  trendData={analysisTrendData?.dailyTrend ?? []}
+                  loading={isAnalysisLoading}
+                  error={analysisError}
+                />
               </div>
               <div className="col-span-12 min-h-0 xl:col-span-4">
-                <CellVoltageAnalysis range={analysisRange} />
+                <CellVoltageAnalysis
+                  range={analysisRange}
+                  summary={analysisTrendData?.summary ?? null}
+                  trendData={analysisTrendData?.dailyTrend ?? []}
+                  loading={isAnalysisLoading}
+                  error={analysisError}
+                />
               </div>
             </div>
           </div>

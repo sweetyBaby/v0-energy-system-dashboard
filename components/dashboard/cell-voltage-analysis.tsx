@@ -1,42 +1,73 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts"
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Table, LineChart as LineChartIcon } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
-
-function buildData(days: number) {
-  const today = new Date()
-  return Array.from({ length: days }, (_, i) => {
-    const d = new Date(today)
-    d.setDate(today.getDate() - (days - 1 - i))
-    const base = 3.2 + Math.random() * 0.4
-    return {
-      day: `${d.getMonth() + 1}/${d.getDate()}`,
-      maxVoltage: +(base + 0.15 + Math.random() * 0.1).toFixed(3),
-      minVoltage: +(base - 0.05 - Math.random() * 0.1).toFixed(3),
-      avgVoltage: +base.toFixed(3),
-    }
-  })
-}
+import type { DailyTrendRangePoint, DailyTrendRangeSummary } from "@/lib/api/daily-trend-range"
 
 const TS = { backgroundColor: "#0d1233", border: "1px solid #1a2654", borderRadius: "8px", fontSize: 11 }
 const TABLE_SCROLLBAR =
   "h-full overflow-auto rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.95),rgba(11,18,44,0.92))] [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]"
 
-export function CellVoltageAnalysis({ range }: { range: number }) {
+const formatMetric = (value: number | null | undefined, digits = 3, suffix = "") => {
+  if (value == null || Number.isNaN(value)) return "--"
+  return `${value.toFixed(digits)}${suffix}`
+}
+
+const formatTableMetric = (value: number | null | undefined, digits = 3) => {
+  if (value == null || Number.isNaN(value)) return "--"
+  return value.toFixed(digits)
+}
+
+function AnalysisPlaceholder({ text }: { text: string }) {
+  return (
+    <div className="flex h-full items-center justify-center rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.72),rgba(11,18,44,0.78))] px-4 text-center text-sm text-[#7b8ab8]">
+      {text}
+    </div>
+  )
+}
+
+export function CellVoltageAnalysis({
+  range,
+  summary,
+  trendData,
+  loading,
+  error,
+}: {
+  range: number
+  summary: DailyTrendRangeSummary | null
+  trendData: DailyTrendRangePoint[]
+  loading: boolean
+  error: string | null
+}) {
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
   const { t, language } = useLanguage()
   const zh = language === "zh"
 
-  const data = useMemo(() => buildData(range), [range])
+  const data = useMemo(
+    () =>
+      trendData.map((item) => ({
+        day: item.label,
+        maxVoltage: item.maxVoltage,
+        avgVoltage: item.avgVoltage,
+        minVoltage: item.minVoltage,
+      })),
+    [trendData]
+  )
 
-  const stats = useMemo(() => {
-    const maxV = Math.max(...data.map((d) => d.maxVoltage))
-    const minV = Math.min(...data.map((d) => d.minVoltage))
-    const avgV = (data.reduce((s, d) => s + d.avgVoltage, 0) / data.length).toFixed(3)
-    return { maxV, minV, avgV, range: (maxV - minV).toFixed(3) }
-  }, [data])
+  const stats = summary ?? {
+    maxVoltage: null,
+    avgVoltage: null,
+    minVoltage: null,
+    voltageRange: null,
+  }
+
+  const placeholderText = loading
+    ? (zh ? "加载单体电压分析..." : "Loading cell voltage analysis...")
+    : error
+      ? error
+      : (zh ? "暂无单体电压分析数据" : "No cell voltage analysis data")
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
@@ -63,15 +94,15 @@ export function CellVoltageAnalysis({ range }: { range: number }) {
 
       <div className="mb-3 grid grid-cols-4 gap-2">
         {[
-          { label: zh ? "最高电压" : "Max", value: `${stats.maxV.toFixed(3)} V`, color: "#ef4444" },
-          { label: zh ? "平均电压" : "Avg", value: `${stats.avgV} V`, color: "#00d4aa" },
-          { label: zh ? "最低电压" : "Min", value: `${stats.minV.toFixed(3)} V`, color: "#22d3ee" },
-          { label: zh ? "极差" : "Range", value: `${stats.range} V`, color: "#fbbf24" },
-        ].map((s) => (
-          <div key={s.label} className="rounded-lg border border-[#1a2654]/60 bg-[#101840]/80 px-2 py-2 text-center">
-            <div className="text-xs font-medium text-[#7b8ab8]">{s.label}</div>
-            <div className="mt-0.5 font-mono text-[0.95rem] font-bold" style={{ color: s.color }}>
-              {s.value}
+          { label: zh ? "最高电压" : "Max", value: formatMetric(stats.maxVoltage, 3, " V"), color: "#ef4444" },
+          { label: zh ? "平均电压" : "Avg", value: formatMetric(stats.avgVoltage, 3, " V"), color: "#00d4aa" },
+          { label: zh ? "最低电压" : "Min", value: formatMetric(stats.minVoltage, 3, " V"), color: "#22d3ee" },
+          { label: zh ? "压差区间" : "Range", value: formatMetric(stats.voltageRange, 3, " V"), color: "#fbbf24" },
+        ].map((item) => (
+          <div key={item.label} className="rounded-lg border border-[#1a2654]/60 bg-[#101840]/80 px-2 py-2 text-center">
+            <div className="text-xs font-medium text-[#7b8ab8]">{item.label}</div>
+            <div className="mt-0.5 font-mono text-[0.95rem] font-bold" style={{ color: item.color }}>
+              {item.value}
             </div>
           </div>
         ))}
@@ -79,33 +110,23 @@ export function CellVoltageAnalysis({ range }: { range: number }) {
 
       <div className="min-h-0 flex-1">
         {viewMode === "chart" ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 28, right: 16, left: -8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" vertical={false} />
-              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#7b8ab8", fontSize: 10 }} interval={range > 15 ? 4 : range > 7 ? 1 : 0} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#7b8ab8", fontSize: 10 }} domain={[2.4, 3.7]} tickFormatter={(v) => v.toFixed(2)} unit="V" />
-              <Tooltip contentStyle={TS} labelStyle={{ color: "#7b8ab8" }} formatter={(v: number, name: string) => [`${v.toFixed(3)} V`, name]} />
-              <Legend wrapperStyle={{ paddingTop: "6px" }} layout="horizontal" verticalAlign="bottom" formatter={(v) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{v}</span>} />
-              <ReferenceLine
-                y={3.65}
-                stroke="#ef4444"
-                strokeDasharray="4 4"
-                strokeOpacity={0.8}
-                label={{ value: zh ? "上限 3.65V" : "Max 3.65V", fill: "#ef4444", fontSize: 11, fontWeight: 600, position: "insideTopLeft" }}
-              />
-              <ReferenceLine
-                y={2.5}
-                stroke="#22d3ee"
-                strokeDasharray="4 4"
-                strokeOpacity={0.8}
-                label={{ value: zh ? "下限 2.50V" : "Min 2.50V", fill: "#22d3ee", fontSize: 11, fontWeight: 600, position: "insideBottomRight" }}
-              />
-              <Line type="monotone" dataKey="maxVoltage" name={zh ? "最高电压" : "Max Voltage"} stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-              <Line type="monotone" dataKey="avgVoltage" name={zh ? "平均电压" : "Avg Voltage"} stroke="#00d4aa" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} strokeDasharray="5 3" />
-              <Line type="monotone" dataKey="minVoltage" name={zh ? "最低电压" : "Min Voltage"} stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
+          data.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 28, right: 16, left: -8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" vertical={false} />
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#7b8ab8", fontSize: 10 }} interval={range > 15 ? 4 : range > 7 ? 1 : 0} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#7b8ab8", fontSize: 10 }} tickFormatter={(value) => Number(value).toFixed(2)} unit="V" />
+                <Tooltip contentStyle={TS} labelStyle={{ color: "#7b8ab8" }} formatter={(value: number | null, name: string) => [formatMetric(value, 3, " V"), name]} />
+                <Legend wrapperStyle={{ paddingTop: "6px" }} layout="horizontal" verticalAlign="bottom" formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>} />
+                <Line type="monotone" connectNulls={false} dataKey="maxVoltage" name={zh ? "最高电压" : "Max Voltage"} stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" connectNulls={false} dataKey="avgVoltage" name={zh ? "平均电压" : "Avg Voltage"} stroke="#00d4aa" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} strokeDasharray="5 3" />
+                <Line type="monotone" connectNulls={false} dataKey="minVoltage" name={zh ? "最低电压" : "Min Voltage"} stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <AnalysisPlaceholder text={placeholderText} />
+          )
+        ) : data.length > 0 ? (
           <div className={TABLE_SCROLLBAR}>
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-[#0d1233]">
@@ -117,17 +138,19 @@ export function CellVoltageAnalysis({ range }: { range: number }) {
                 </tr>
               </thead>
               <tbody>
-                {data.map((item, i) => (
-                  <tr key={i} className="border-b border-[#1a2654]/50 hover:bg-[#1a2654]/30">
+                {data.map((item, index) => (
+                  <tr key={`${item.day}-${index}`} className="border-b border-[#1a2654]/50 hover:bg-[#1a2654]/30">
                     <td className="px-2 py-1.5">{item.day}</td>
-                    <td className="px-2 py-1.5 text-right font-mono text-[#ef4444]">{item.maxVoltage.toFixed(3)}</td>
-                    <td className="px-2 py-1.5 text-right font-mono text-[#00d4aa]">{item.avgVoltage.toFixed(3)}</td>
-                    <td className="px-2 py-1.5 text-right font-mono text-[#22d3ee]">{item.minVoltage.toFixed(3)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono text-[#ef4444]">{formatTableMetric(item.maxVoltage, 3)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono text-[#00d4aa]">{formatTableMetric(item.avgVoltage, 3)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono text-[#22d3ee]">{formatTableMetric(item.minVoltage, 3)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        ) : (
+          <AnalysisPlaceholder text={placeholderText} />
         )}
       </div>
     </div>

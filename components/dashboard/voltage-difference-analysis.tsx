@@ -1,42 +1,70 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { LineChart as LineChartIcon, Table } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
-
-function buildData(days: number) {
-  const today = new Date()
-
-  return Array.from({ length: days }, (_, i) => {
-    const d = new Date(today)
-    d.setDate(today.getDate() - (days - 1 - i))
-
-    return {
-      day: `${d.getMonth() + 1}/${d.getDate()}`,
-      maxDiff: +(20 + Math.random() * 30).toFixed(1),
-      minDiff: +(5 + Math.random() * 8).toFixed(1),
-    }
-  })
-}
+import type { DailyTrendRangePoint, DailyTrendRangeSummary } from "@/lib/api/daily-trend-range"
 
 const TS = { backgroundColor: "#0d1233", border: "1px solid #1a2654", borderRadius: "8px", fontSize: 11 }
 const TABLE_SCROLLBAR =
   "h-full overflow-auto rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.95),rgba(11,18,44,0.92))] [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]"
 
-export function VoltageDifferenceAnalysis({ range }: { range: number }) {
+const formatMetric = (value: number | null | undefined, digits = 3, suffix = "") => {
+  if (value == null || Number.isNaN(value)) return "--"
+  return `${value.toFixed(digits)}${suffix}`
+}
+
+const formatTableMetric = (value: number | null | undefined, digits = 3) => {
+  if (value == null || Number.isNaN(value)) return "--"
+  return value.toFixed(digits)
+}
+
+function AnalysisPlaceholder({ text }: { text: string }) {
+  return (
+    <div className="flex h-full items-center justify-center rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.72),rgba(11,18,44,0.78))] px-4 text-center text-sm text-[#7b8ab8]">
+      {text}
+    </div>
+  )
+}
+
+export function VoltageDifferenceAnalysis({
+  range,
+  summary,
+  trendData,
+  loading,
+  error,
+}: {
+  range: number
+  summary: DailyTrendRangeSummary | null
+  trendData: DailyTrendRangePoint[]
+  loading: boolean
+  error: string | null
+}) {
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
   const { t, language } = useLanguage()
   const zh = language === "zh"
 
-  const data = useMemo(() => buildData(range), [range])
-  const stats = useMemo(
-    () => ({
-      max: Math.max(...data.map((d) => d.maxDiff)),
-      min: Math.min(...data.map((d) => d.minDiff)),
-    }),
-    [data],
+  const data = useMemo(
+    () =>
+      trendData.map((item) => ({
+        day: item.label,
+        maxDiff: item.maxVoltageDiff,
+        minDiff: item.minVoltageDiff,
+      })),
+    [trendData]
   )
+
+  const stats = summary ?? {
+    maxVoltageDiff: null,
+    minVoltageDiff: null,
+  }
+
+  const placeholderText = loading
+    ? (zh ? "加载压差分析..." : "Loading voltage diff analysis...")
+    : error
+      ? error
+      : (zh ? "暂无压差分析数据" : "No voltage diff analysis data")
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
@@ -63,13 +91,13 @@ export function VoltageDifferenceAnalysis({ range }: { range: number }) {
 
       <div className="mb-3 grid grid-cols-2 gap-2">
         {[
-          { label: zh ? "最大压差" : "Max Diff", value: `${stats.max.toFixed(1)} mV`, color: "#ef4444" },
-          { label: zh ? "最小压差" : "Min Diff", value: `${stats.min.toFixed(1)} mV`, color: "#22d3ee" },
-        ].map((s) => (
-          <div key={s.label} className="rounded-lg border border-[#1a2654]/60 bg-[#101840]/80 px-2 py-2 text-center">
-            <div className="text-xs font-medium text-[#7b8ab8]">{s.label}</div>
-            <div className="mt-0.5 font-mono text-[0.95rem] font-bold" style={{ color: s.color }}>
-              {s.value}
+          { label: zh ? "最大压差" : "Max Diff", value: formatMetric(stats.maxVoltageDiff, 3, " V"), color: "#ef4444" },
+          { label: zh ? "最小压差" : "Min Diff", value: formatMetric(stats.minVoltageDiff, 3, " V"), color: "#22d3ee" },
+        ].map((item) => (
+          <div key={item.label} className="rounded-lg border border-[#1a2654]/60 bg-[#101840]/80 px-2 py-2 text-center">
+            <div className="text-xs font-medium text-[#7b8ab8]">{item.label}</div>
+            <div className="mt-0.5 font-mono text-[0.95rem] font-bold" style={{ color: item.color }}>
+              {item.value}
             </div>
           </div>
         ))}
@@ -77,55 +105,54 @@ export function VoltageDifferenceAnalysis({ range }: { range: number }) {
 
       <div className="min-h-0 flex-1">
         {viewMode === "chart" ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" vertical={false} />
-              <XAxis
-                dataKey="day"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#7b8ab8", fontSize: 10 }}
-                interval={range > 15 ? 4 : range > 7 ? 1 : 0}
-              />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#7b8ab8", fontSize: 10 }} unit="mV" domain={[0, "dataMax + 10"]} />
-              <Tooltip
-                contentStyle={TS}
-                labelStyle={{ color: "#7b8ab8" }}
-                formatter={(v: number, name: string) => [`${v.toFixed(1)} mV`, name]}
-              />
-              <Legend wrapperStyle={{ paddingTop: "6px" }} formatter={(v) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{v}</span>} />
-              <ReferenceLine
-                y={50}
-                stroke="#ef4444"
-                strokeDasharray="4 4"
-                strokeOpacity={0.7}
-                label={{ value: zh ? "警戒 50mV" : "Alert 50mV", fill: "#ef4444", fontSize: 11, fontWeight: 600, position: "insideTopRight" }}
-              />
-              <Line type="monotone" dataKey="maxDiff" name={zh ? "最大压差" : "Max Diff"} stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-              <Line type="monotone" dataKey="minDiff" name={zh ? "最小压差" : "Min Diff"} stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
+          data.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" vertical={false} />
+                <XAxis
+                  dataKey="day"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#7b8ab8", fontSize: 10 }}
+                  interval={range > 15 ? 4 : range > 7 ? 1 : 0}
+                />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#7b8ab8", fontSize: 10 }} unit="V" />
+                <Tooltip
+                  contentStyle={TS}
+                  labelStyle={{ color: "#7b8ab8" }}
+                  formatter={(value: number | null, name: string) => [formatMetric(value, 3, " V"), name]}
+                />
+                <Legend wrapperStyle={{ paddingTop: "6px" }} formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>} />
+                <Line type="monotone" connectNulls={false} dataKey="maxDiff" name={zh ? "最大压差" : "Max Diff"} stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                <Line type="monotone" connectNulls={false} dataKey="minDiff" name={zh ? "最小压差" : "Min Diff"} stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <AnalysisPlaceholder text={placeholderText} />
+          )
+        ) : data.length > 0 ? (
           <div className={TABLE_SCROLLBAR}>
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-[#0d1233]">
                 <tr className="border-b border-[#1a2654] text-[#7b8ab8]">
                   <th className="px-2 py-2 text-left">{t("date")}</th>
-                  <th className="px-2 py-2 text-right">{zh ? "最大压差(mV)" : "Max (mV)"}</th>
-                  <th className="px-2 py-2 text-right">{zh ? "最小压差(mV)" : "Min (mV)"}</th>
+                  <th className="px-2 py-2 text-right">{zh ? "最大压差(V)" : "Max (V)"}</th>
+                  <th className="px-2 py-2 text-right">{zh ? "最小压差(V)" : "Min (V)"}</th>
                 </tr>
               </thead>
               <tbody>
-                {data.map((item, i) => (
-                  <tr key={i} className="border-b border-[#1a2654]/50 hover:bg-[#1a2654]/30">
+                {data.map((item, index) => (
+                  <tr key={`${item.day}-${index}`} className="border-b border-[#1a2654]/50 hover:bg-[#1a2654]/30">
                     <td className="px-2 py-1.5">{item.day}</td>
-                    <td className="px-2 py-1.5 text-right font-mono text-[#ef4444]">{item.maxDiff.toFixed(1)}</td>
-                    <td className="px-2 py-1.5 text-right font-mono text-[#22d3ee]">{item.minDiff.toFixed(1)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono text-[#ef4444]">{formatTableMetric(item.maxDiff, 3)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono text-[#22d3ee]">{formatTableMetric(item.minDiff, 3)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        ) : (
+          <AnalysisPlaceholder text={placeholderText} />
         )}
       </div>
     </div>
