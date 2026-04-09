@@ -410,8 +410,10 @@ function LegendItem({ label, color, dashed = false, compact = false }: { label: 
 
 function ChartPlaceholder({ text }: { text: string }) {
   return (
-    <div className="flex h-full min-h-0 items-center justify-center px-4 text-center text-[12px] text-[#7b8ab8]">
-      {text}
+    <div className="flex h-full min-h-0 items-center justify-center px-4">
+      <div className="rounded-[12px] border border-[#214260]/70 bg-[rgba(8,18,40,0.52)] px-4 py-2.5 text-center text-[12px] text-[#7b8ab8] shadow-[inset_0_0_18px_rgba(63,231,255,0.03)]">
+        {text}
+      </div>
     </div>
   )
 }
@@ -658,47 +660,6 @@ function OverviewHistorySkeleton({
           </div>
         </SkeletonPanel>
       </div>
-    </div>
-  )
-}
-
-function DetailHistorySkeleton({
-  rows,
-  loadingText,
-}: {
-  rows: number
-  loadingText: string
-}) {
-  return (
-    <div className="pointer-events-none absolute inset-0 z-20 rounded-[24px] bg-[rgba(5,12,29,0.64)] p-2 backdrop-blur-[3px]">
-      <div className="absolute inset-0 z-10 flex items-center justify-center">
-        <HistoryLoadingIndicator text={loadingText} />
-      </div>
-      <SkeletonPanel className="h-full px-1.5 pt-2.5 pb-1">
-        <div className="grid h-full min-h-0 gap-1" style={{ gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` }}>
-          {Array.from({ length: rows }).map((_, index) => (
-            <div
-              key={`detail-skeleton-row-${index}`}
-              className="flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))] px-0.5 pb-0.5"
-            >
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#214260]/90 px-3 py-1.5">
-                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-                  {Array.from({ length: 6 }).map((__, chipIndex) => (
-                    <SkeletonBlock key={`detail-skeleton-chip-${index}-${chipIndex}`} className="h-7 w-24 rounded-[8px]" />
-                  ))}
-                </div>
-                <div className="flex shrink-0 items-center gap-2 px-1 py-1">
-                  <SkeletonBlock className="h-2.5 w-2.5 rounded-full" />
-                  <SkeletonBlock className="h-4 w-18 rounded-full" />
-                </div>
-              </div>
-              <div className="min-h-0 flex-1">
-                <ChartSkeleton lineColors={["#49e6ff", "#ffd36b", "#ff9f5f", "#ff6b88"]} withXAxis withRightAxis />
-              </div>
-            </div>
-          ))}
-        </div>
-      </SkeletonPanel>
     </div>
   )
 }
@@ -1557,7 +1518,6 @@ export function CellHistoryReplayPanel({
 
   const hasHistoryData = historyData.length > 0 && overviewData.length > 0 && cellMetrics.length > 0
   const hasOverviewData = overviewData.length > 0
-  const hasDetailData = historyData.length > 0 && cellMetrics.length > 0
   const hasVoltageTrendData = voltageTrendData.length > 0
   const hasTemperatureTrendData = temperatureTrendCharts.some((chart) => chart.data.length > 0)
   const historyPlaceholderText = isHistoryLoading
@@ -1575,6 +1535,13 @@ export function CellHistoryReplayPanel({
   const historyLoadingText = zh ? "电芯历史数据加载中..." : "Loading cell history..."
   const showInitialHistoryLoading = isHistoryLoading && historyBundle === null
   const showHistoryRefreshOverlay = isHistoryLoading && historyBundle !== null
+  const detailChartPlaceholderText = isHistoryLoading
+    ? historyLoadingText
+    : historyError
+      ? historyError
+      : zh
+        ? "该电芯暂无趋势数据"
+        : "No trend data for this cell"
 
   if (viewMode === "detail") {
     const detailMetricLegend = [
@@ -1630,6 +1597,13 @@ export function CellHistoryReplayPanel({
               const isLast = index === detailCellSummaries.length - 1
               const series = detailSeries.find((item) => item.cell === cell.cell)
               if (!series) return null
+              const hasCellTrendData = detailReplayData.some(
+                (point) =>
+                  isFiniteNumber(point[series.voltageKey]) ||
+                  isFiniteNumber(point[series.temp1Key]) ||
+                  isFiniteNumber(point[series.temp2Key]) ||
+                  isFiniteNumber(point[series.temp3Key])
+              )
 
               return (
                 <div
@@ -1661,7 +1635,7 @@ export function CellHistoryReplayPanel({
                         </div>
                   </div>
                   <div className="min-h-0 flex-1">
-                    {hasDetailData ? (
+                    {hasCellTrendData ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={detailReplayData} syncId="cell-history-detail-replay" syncMethod="index" margin={{ top: 12, right: 14, left: 0, bottom: isLast ? 6 : 0 }}>
                               <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
@@ -1746,7 +1720,7 @@ export function CellHistoryReplayPanel({
                         </LineChart>
                       </ResponsiveContainer>
                     ) : (
-                      <ChartPlaceholder text={historyPlaceholderText} />
+                      <ChartPlaceholder text={detailChartPlaceholderText} />
                     )}
                   </div>
                 </div>
@@ -1754,9 +1728,6 @@ export function CellHistoryReplayPanel({
             })}
           </div>
         </NeonSection>
-        {showInitialHistoryLoading ? (
-          <DetailHistorySkeleton rows={Math.max(1, Math.min(effectiveDetailCells.length, 3))} loadingText={historyLoadingText} />
-        ) : null}
         {showHistoryRefreshOverlay ? <HistoryLoadingOverlay text={historyLoadingText} dimmed /> : null}
       </div>
     )
