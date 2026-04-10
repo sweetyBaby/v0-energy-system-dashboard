@@ -19,6 +19,7 @@ import { LineChartIcon, Table } from "lucide-react"
 import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
+import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
 import {
   fetchOverviewDailyList,
@@ -353,11 +354,11 @@ export function ComprehensiveEfficiencyPanel({
     ? "flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#22d3ee]/25 bg-[rgba(5,12,26,0.62)] p-3 backdrop-blur-[3px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset]"
     : "flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-3"
 
-  if (loading) {
+  if (loading && activeData.length < 0) {
     return (
       <div className={wrapperClassName}>
-        <div className="flex h-full items-center justify-center text-sm text-[#7b8ab8]">
-          {language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."}
+        <div className="flex h-full items-center justify-center">
+          <HistoryStyleLoadingIndicator text={language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."} />
         </div>
       </div>
     )
@@ -435,7 +436,11 @@ export function ComprehensiveEfficiencyPanel({
       {viewMode === "chart" ? (
         <div className="relative min-h-0 flex-1 overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(0,212,170,0.08),transparent_28%),radial-gradient(circle_at_84%_10%,rgba(86,130,255,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]" />
-          {activeData.length === 0 ? (
+          {loading ? (
+            <div className="flex h-full items-center justify-center">
+              <HistoryStyleLoadingIndicator text={language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."} />
+            </div>
+          ) : activeData.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-[#7b8ab8]">{emptyStateText}</div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
@@ -561,7 +566,11 @@ export function ComprehensiveEfficiencyPanel({
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.95),rgba(11,18,44,0.92))] p-2 [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]">
-          {activeData.length === 0 ? (
+          {loading ? (
+            <div className="flex h-full min-h-[240px] items-center justify-center">
+              <HistoryStyleLoadingIndicator text={language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."} />
+            </div>
+          ) : activeData.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-[#7b8ab8]">{emptyStateText}</div>
           ) : (
             <table className="w-full table-fixed border-separate border-spacing-y-1.5 text-[13px]">

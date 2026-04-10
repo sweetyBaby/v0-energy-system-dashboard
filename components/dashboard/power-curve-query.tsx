@@ -16,6 +16,7 @@ import {
 } from "recharts"
 import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent"
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
+import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { useLanguage } from "@/components/language-provider"
 import {
@@ -360,8 +361,8 @@ export function PowerCurveQuery() {
       <div className="relative h-72 flex-1 overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(0,212,170,0.08),transparent_28%),radial-gradient(circle_at_84%_10%,rgba(86,130,255,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]" />
         {loading ? (
-          <div className="flex h-full items-center justify-center text-sm text-[#7b8ab8]">
-            {language === "zh" ? "加载功率曲线数据..." : "Loading power data..."}
+          <div className="flex h-full items-center justify-center">
+            <HistoryStyleLoadingIndicator text={language === "zh" ? "加载功率曲线数据..." : "Loading power data..."} />
           </div>
         ) : chartData.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-[#7b8ab8]">{emptyStateText}</div>

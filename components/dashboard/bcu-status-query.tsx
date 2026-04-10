@@ -14,6 +14,7 @@ import {
 } from "recharts"
 import { useLanguage } from "@/components/language-provider"
 import { useProject } from "@/components/dashboard/dashboard-header"
+import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import {
   fetchOperationsIncrementalBundle,
   fetchOperationsRecentBundle,
@@ -641,11 +642,8 @@ export function BCUStatusQuery({
         )}
         {/* Loading spinner */}
         {isRealtimeLoading && mode === "realtime" && (
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-2">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#1a2654] border-t-[#3b82f6]" />
-              <span className="text-xs text-[#4a5f8a]">{zh ? "加载运行状态数据..." : "Loading running status..."}</span>
-            </div>
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[rgba(5,12,29,0.24)] backdrop-blur-[1px]">
+            <HistoryStyleLoadingIndicator text={zh ? "加载运行状态数据..." : "Loading running status..."} variant="overlay" />
           </div>
         )}
         {/* Always render chart skeleton */}

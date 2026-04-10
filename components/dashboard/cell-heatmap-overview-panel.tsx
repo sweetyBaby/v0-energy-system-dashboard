@@ -1,6 +1,7 @@
 "use client"
 
 import { useProject } from "@/components/dashboard/dashboard-header"
+import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
 import {
   createEmptyHeatmapCells,
@@ -409,11 +410,8 @@ export function CellHeatmapOverviewPanel() {
       )}
       {/* Loading indicator */}
       {isLoading && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#1a2654] border-t-[#3b82f6]" />
-            <span className="text-xs text-[#4a5f8a]">{zh ? "热力图数据加载中..." : "Loading heatmap..."}</span>
-          </div>
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[rgba(5,12,29,0.24)] backdrop-blur-[1px]">
+          <HistoryStyleLoadingIndicator text={zh ? "加载热力图数据..." : "Loading heatmap..."} variant="overlay" />
         </div>
       )}
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-1 md:grid-cols-2 md:grid-rows-2">
