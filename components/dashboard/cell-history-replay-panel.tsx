@@ -1057,8 +1057,8 @@ export function CellHistoryReplayPanel({
 
       try {
         const nextBundle = await fetchDailyCellHistory(selectedProject.projectId, date, {
-          detailCellIndexes:
-            viewMode === "detail" ? effectiveDetailCells : Array.from({ length: CELL_COUNT }, (_, index) => index + 1),
+          includeBcuHistory: viewMode !== "detail",
+          ...(viewMode === "detail" ? { detailCellIndexes: effectiveDetailCells } : {}),
           signal: abortController.signal,
         })
 
@@ -1093,32 +1093,60 @@ export function CellHistoryReplayPanel({
   const overviewData = historyBundle?.overviewData ?? EMPTY_OVERVIEW_DATA
   const cellMetrics = historyBundle?.cellMetrics ?? EMPTY_CELL_METRICS
   const bcuHistoryData = historyBundle?.bcuHistory ?? []
-  const extremeSummary = historyBundle?.extremeSummary
   const voltageExtremeTrend = historyBundle?.voltageExtremeTrend ?? EMPTY_EXTREME_CURVE_TREND
   const temperatureExtremeTrends = historyBundle?.temperatureExtremeTrends ?? EMPTY_TEMPERATURE_EXTREME_TRENDS
   const dailyEnergySummary = historyBundle?.dailyEnergySummary ?? null
 
-  const voltageStats = useMemo(() => {
-    if (overviewData.length === 0) {
-      return { maxVoltage: 0, minVoltage: 0, avgVoltage: 0, voltageDelta: 0 }
+  const voltageTrendFallback = useMemo(() => {
+    const safeVoltageTrend = voltageExtremeTrend.filter((item) => isFiniteNumber(item.max) && isFiniteNumber(item.min))
+    if (safeVoltageTrend.length === 0) {
+      return null
     }
 
-    const maxVoltage = Math.max(...overviewData.map((item) => item.maxVoltage))
-    const minVoltage = Math.min(...overviewData.map((item) => item.minVoltage))
-    const avgVoltage = average(overviewData.map((item) => item.avgVoltage))
-    return { maxVoltage, minVoltage, avgVoltage, voltageDelta: maxVoltage - minVoltage }
-  }, [overviewData])
+    const highest = safeVoltageTrend.reduce((best, current) => (current.max > best.max ? current : best), safeVoltageTrend[0])
+    const lowest = safeVoltageTrend.reduce((best, current) => (current.min < best.min ? current : best), safeVoltageTrend[0])
 
-  const temperatureStats = useMemo(() => {
-    if (overviewData.length === 0) {
-      return { maxTemp: 0, minTemp: 0, avgTemp: 0, tempDelta: 0 }
+    return {
+      maxVoltage: highest.max,
+      maxVoltageCell: highest.maxCell,
+      minVoltage: lowest.min,
+      minVoltageCell: lowest.minCell,
+      avgVoltage: average(safeVoltageTrend.map((item) => (item.max + item.min) / 2)),
+      voltageDelta: highest.max - lowest.min,
+    }
+  }, [voltageExtremeTrend])
+
+  const temperatureTrendFallback = useMemo(() => {
+    const safeTemperatureTrend = Object.values(temperatureExtremeTrends)
+      .flat()
+      .filter((item) => isFiniteNumber(item.max) && isFiniteNumber(item.min))
+
+    if (safeTemperatureTrend.length === 0) {
+      return null
     }
 
-    const maxTemp = Math.max(...overviewData.map((item) => item.maxTemp))
-    const minTemp = Math.min(...overviewData.map((item) => item.minTemp))
-    const avgTemp = average(overviewData.map((item) => item.avgTemp))
-    return { maxTemp, minTemp, avgTemp, tempDelta: maxTemp - minTemp }
-  }, [overviewData])
+    const highest = safeTemperatureTrend.reduce((best, current) => (current.max > best.max ? current : best), safeTemperatureTrend[0])
+    const lowest = safeTemperatureTrend.reduce((best, current) => (current.min < best.min ? current : best), safeTemperatureTrend[0])
+
+    return {
+      maxTemp: highest.max,
+      maxTempCell: highest.maxCell,
+      minTemp: lowest.min,
+      minTempCell: lowest.minCell,
+      avgTemp: average(safeTemperatureTrend.map((item) => (item.max + item.min) / 2)),
+      tempDelta: highest.max - lowest.min,
+    }
+  }, [temperatureExtremeTrends])
+
+  const voltageStats = useMemo(
+    () => voltageTrendFallback ?? { maxVoltage: 0, minVoltage: 0, avgVoltage: 0, voltageDelta: 0 },
+    [voltageTrendFallback]
+  )
+
+  const temperatureStats = useMemo(
+    () => temperatureTrendFallback ?? { maxTemp: 0, minTemp: 0, avgTemp: 0, tempDelta: 0 },
+    [temperatureTrendFallback]
+  )
 
   const dailyEnergyStats = useMemo(() => {
     return {
@@ -1128,29 +1156,23 @@ export function CellHistoryReplayPanel({
     }
   }, [dailyEnergySummary])
 
-  const topHighVoltage = useMemo(() => {
-    if ((extremeSummary?.topMaxVoltages.length ?? 0) > 0) {
-      return extremeSummary!.topMaxVoltages.map((item) => ({ cell: item.cell, voltageMax: item.value }))
-    }
-
-    return cellMetrics.slice().sort((a, b) => b.voltageMax - a.voltageMax).slice(0, 3)
-  }, [cellMetrics, extremeSummary])
-  const topLowVoltage = useMemo(() => {
-    if ((extremeSummary?.topMinVoltages.length ?? 0) > 0) {
-      return extremeSummary!.topMinVoltages.map((item) => ({ cell: item.cell, voltageMin: item.value }))
-    }
-
-    return cellMetrics.slice().sort((a, b) => a.voltageMin - b.voltageMin).slice(0, 3)
-  }, [cellMetrics, extremeSummary])
+  const topHighVoltage = useMemo(
+    () => (voltageTrendFallback ? [{ cell: voltageTrendFallback.maxVoltageCell, voltageMax: voltageTrendFallback.maxVoltage }] : []),
+    [voltageTrendFallback]
+  )
+  const topLowVoltage = useMemo(
+    () => (voltageTrendFallback ? [{ cell: voltageTrendFallback.minVoltageCell, voltageMin: voltageTrendFallback.minVoltage }] : []),
+    [voltageTrendFallback]
+  )
   const topVoltageDeviationCells = useMemo(() => cellMetrics.slice().sort((a, b) => b.voltageDeviation - a.voltageDeviation).slice(0, 3), [cellMetrics])
-  const topHotCells = useMemo(() => {
-    if ((extremeSummary?.topMaxTemperatures.length ?? 0) > 0) {
-      return extremeSummary!.topMaxTemperatures.map((item) => ({ cell: item.cell, tempMax: item.value }))
-    }
-
-    return cellMetrics.slice().sort((a, b) => b.tempMax - a.tempMax).slice(0, 3)
-  }, [cellMetrics, extremeSummary])
-  const topColdCells = useMemo(() => cellMetrics.slice().sort((a, b) => a.tempMin - b.tempMin).slice(0, 1), [cellMetrics])
+  const topHotCells = useMemo(
+    () => (temperatureTrendFallback ? [{ cell: temperatureTrendFallback.maxTempCell, tempMax: temperatureTrendFallback.maxTemp }] : []),
+    [temperatureTrendFallback]
+  )
+  const topColdCells = useMemo(
+    () => (temperatureTrendFallback ? [{ cell: temperatureTrendFallback.minTempCell, tempMin: temperatureTrendFallback.minTemp }] : []),
+    [temperatureTrendFallback]
+  )
   const overviewStatsPayload = useMemo(
     () => ({
       maxVoltage: voltageStats.maxVoltage,
@@ -1171,12 +1193,12 @@ export function CellHistoryReplayPanel({
   )
 
   useEffect(() => {
-    if (overviewData.length === 0) {
+    if (!voltageTrendFallback && !temperatureTrendFallback) {
       return
     }
 
     onOverviewStats?.(overviewStatsPayload)
-  }, [overviewData.length, overviewStatsPayload, onOverviewStats])
+  }, [overviewStatsPayload, onOverviewStats, temperatureTrendFallback, voltageTrendFallback])
 
   const voltageTrendData = useMemo(
     () => {
@@ -1355,8 +1377,8 @@ export function CellHistoryReplayPanel({
         title: zh ? "电压趋势" : "Voltage",
         subtitle: zh ? "电芯极值" : "Cell Extremes",
         header: zh ? "电压趋势（电芯极值）" : "Voltage (Cell Extremes)",
-        maxText: zh ? "暂无数据" : "No data",
-        minText: zh ? "暂无数据" : "No data",
+        maxText: "--",
+        minText: "--",
       }
     }
 
@@ -1379,8 +1401,8 @@ export function CellHistoryReplayPanel({
             title: chart.title,
             subtitle: chart.label,
             header: zh ? `${chart.title}（${chart.label}）` : `${chart.title} (${chart.label})`,
-            maxText: zh ? "暂无数据" : "No data",
-            minText: zh ? "暂无数据" : "No data",
+            maxText: "--",
+            minText: "--",
           }
         }
 
@@ -1492,11 +1514,15 @@ export function CellHistoryReplayPanel({
   )
 
   const hasHistoryData = historyData.length > 0 && overviewData.length > 0 && cellMetrics.length > 0
-  const hasOverviewData = overviewData.length > 0
+  const hasVoltageOverviewData = voltageTrendFallback != null
+  const hasTemperatureOverviewData = temperatureTrendFallback != null
+  const hasOverviewData = hasVoltageOverviewData || hasTemperatureOverviewData
   const hasDailyEnergyStats =
     dailyEnergyStats.chargeEnergy != null || dailyEnergyStats.dischargeEnergy != null || dailyEnergyStats.roundTripEfficiency != null
   const hasVoltageTrendData = voltageTrendData.length > 0
   const hasTemperatureTrendData = temperatureTrendCharts.some((chart) => chart.data.length > 0)
+  const hasAnyOverviewSignal =
+    hasOverviewData || hasDailyEnergyStats || hasVoltageTrendData || hasTemperatureTrendData || bcuHistoryData.length > 0
   const historyPlaceholderText = isHistoryLoading
     ? zh
       ? "加载电芯历史数据..."
@@ -1506,7 +1532,7 @@ export function CellHistoryReplayPanel({
       : zh
         ? "暂无电芯历史数据"
         : "No cell history data"
-  const trendPlaceholderText = hasHistoryData ? (zh ? "暂无趋势数据" : "No trend data") : historyPlaceholderText
+  const trendPlaceholderText = hasAnyOverviewSignal ? (zh ? "暂无趋势数据" : "No trend data") : historyPlaceholderText
   const formatDisplayValue = (value: number | null | undefined, digits: number, suffix = "") =>
     value == null ? "--" : `${value.toFixed(digits)}${suffix}`
   const historyLoadingText = zh ? "电芯历史数据加载中..." : "Loading cell history..."
@@ -1734,18 +1760,18 @@ export function CellHistoryReplayPanel({
                   title: zh ? "电压" : "Voltage",
                   accent: "#6ee7ff",
                   items: [
-                    { label: zh ? "最高电压" : "Max V", value: hasOverviewData ? formatDisplayValue(voltageStats.maxVoltage, 2, "V") : "--", sub: hasOverviewData ? `#${topHighVoltage[0]?.cell ?? "-"}` : "--", subColor: "#ffd36b", tone: "text-[#ffd36b]" },
-                    { label: zh ? "最低电压" : "Min V", value: hasOverviewData ? formatDisplayValue(voltageStats.minVoltage, 2, "V") : "--", sub: hasOverviewData ? `#${topLowVoltage[0]?.cell ?? "-"}` : "--", subColor: "#6ee7ff", tone: "text-[#6ee7ff]" },
-                    { label: zh ? "最大ΔV" : "Max ΔV", value: hasOverviewData ? formatDisplayValue(voltageStats.voltageDelta, 2, "V") : "--", sub: "", subColor: "", tone: "text-[#a8f0ff]" },
+                    { label: zh ? "最高电压" : "Max V", value: hasVoltageOverviewData ? formatDisplayValue(voltageStats.maxVoltage, 2, "V") : "--", sub: hasVoltageOverviewData ? `#${topHighVoltage[0]?.cell ?? "-"}` : "--", subColor: "#ffd36b", tone: "text-[#ffd36b]" },
+                    { label: zh ? "最低电压" : "Min V", value: hasVoltageOverviewData ? formatDisplayValue(voltageStats.minVoltage, 2, "V") : "--", sub: hasVoltageOverviewData ? `#${topLowVoltage[0]?.cell ?? "-"}` : "--", subColor: "#6ee7ff", tone: "text-[#6ee7ff]" },
+                    { label: zh ? "最大ΔV" : "Max ΔV", value: hasVoltageOverviewData ? formatDisplayValue(voltageStats.voltageDelta, 2, "V") : "--", sub: "", subColor: "", tone: "text-[#a8f0ff]" },
                   ],
                 },
                 {
                   title: zh ? "温度" : "Temperature",
                   accent: "#ffb676",
                   items: [
-                    { label: zh ? "最高温度" : "Max T", value: hasOverviewData ? formatDisplayValue(temperatureStats.maxTemp, 1, "°C") : "--", sub: hasOverviewData ? `#${topHotCells[0]?.cell ?? "-"}` : "--", subColor: "#ffb47a", tone: "text-[#ff9f6b]" },
-                    { label: zh ? "最低温度" : "Min T", value: hasOverviewData ? formatDisplayValue(temperatureStats.minTemp, 1, "°C") : "--", sub: hasOverviewData ? `#${topColdCells[0]?.cell ?? "-"}` : "--", subColor: "#86d8ff", tone: "text-[#86d8ff]" },
-                    { label: zh ? "最大ΔT" : "Max ΔT", value: hasOverviewData ? formatDisplayValue(temperatureStats.tempDelta, 1, "°C") : "--", sub: "", subColor: "", tone: "text-[#ffd6a5]" },
+                    { label: zh ? "最高温度" : "Max T", value: hasTemperatureOverviewData ? formatDisplayValue(temperatureStats.maxTemp, 1, "°C") : "--", sub: hasTemperatureOverviewData ? `#${topHotCells[0]?.cell ?? "-"}` : "--", subColor: "#ffb47a", tone: "text-[#ff9f6b]" },
+                    { label: zh ? "最低温度" : "Min T", value: hasTemperatureOverviewData ? formatDisplayValue(temperatureStats.minTemp, 1, "°C") : "--", sub: hasTemperatureOverviewData ? `#${topColdCells[0]?.cell ?? "-"}` : "--", subColor: "#86d8ff", tone: "text-[#86d8ff]" },
+                    { label: zh ? "最大ΔT" : "Max ΔT", value: hasTemperatureOverviewData ? formatDisplayValue(temperatureStats.tempDelta, 1, "°C") : "--", sub: "", subColor: "", tone: "text-[#ffd6a5]" },
                   ],
                 },
                 {

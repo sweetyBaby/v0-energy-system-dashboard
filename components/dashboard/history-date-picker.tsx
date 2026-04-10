@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Crosshair } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { Calendar } from "@/components/ui/calendar"
@@ -8,14 +8,21 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const monthNamesEn = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ]
 
-const monthNamesZh = [
-  "1月", "2月", "3月", "4月", "5月", "6月",
-  "7月", "8月", "9月", "10月", "11月", "12月",
-]
+const monthNamesZh = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
 
 const weekdayNamesZh = ["一", "二", "三", "四", "五", "六", "日"]
 
@@ -25,12 +32,10 @@ const parseLocalDate = (value: string) => {
 }
 
 const toDayStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
-
 const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1)
-
 const addMonths = (date: Date, months: number) => new Date(date.getFullYear(), date.getMonth() + months, 1)
-
 const isFuture = (date: Date, max: Date) => toDayStart(date) > toDayStart(max)
+const clampToMax = (date: Date, max: Date) => (isFuture(date, max) ? toDayStart(max) : toDayStart(date))
 
 export function HistoryDatePicker({
   value,
@@ -47,9 +52,13 @@ export function HistoryDatePicker({
   const zh = language === "zh"
 
   const maxDate = useMemo(() => parseLocalDate(max), [max])
-  const selected = useMemo(() => (value ? parseLocalDate(value) : maxDate), [value, maxDate])
+  const selected = useMemo(() => clampToMax(value ? parseLocalDate(value) : maxDate, maxDate), [value, maxDate])
   const [viewDate, setViewDate] = useState(() => startOfMonth(selected))
   const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    setViewDate(startOfMonth(selected))
+  }, [selected])
 
   const monthNames = zh ? monthNamesZh : monthNamesEn
 
@@ -66,17 +75,14 @@ export function HistoryDatePicker({
     : `${monthNamesEn[selected.getMonth()].slice(0, 3)} ${selected.getDate()}, ${selected.getFullYear()}`
 
   const canGoNextMonth =
-    viewDate.getFullYear() < maxDate.getFullYear() ||
-    viewDate.getMonth() < maxDate.getMonth()
+    viewDate.getFullYear() < maxDate.getFullYear() || viewDate.getMonth() < maxDate.getMonth()
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           className={`flex shrink-0 items-center whitespace-nowrap border border-[#26456e] bg-[#101840] text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60 ${
-            compact
-              ? "h-8 gap-1.5 rounded-[11px] px-2.5 text-[11px]"
-              : "h-9 gap-2 rounded-xl px-3 text-xs"
+            compact ? "h-8 gap-1.5 rounded-[11px] px-2.5 text-[11px]" : "h-9 gap-2 rounded-xl px-3 text-xs"
           }`}
         >
           <CalendarDays className="h-3.5 w-3.5 text-[#8db7ff]" />
@@ -90,16 +96,16 @@ export function HistoryDatePicker({
         className="z-50 w-[320px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]"
       >
         <div className="border-b border-[#1a2654] px-4 py-3">
-          <div className="text-sm font-semibold text-[#e8f4fc]">
-            {zh ? "选择日期" : "Select date"}
-          </div>
+          <div className="text-sm font-semibold text-[#e8f4fc]">{zh ? "选择日期" : "Select date"}</div>
         </div>
 
         <div className="border-b border-[#1a2654] p-3">
           <div className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-2">
             <Select
               value={String(viewDate.getFullYear())}
-              onValueChange={(nextYear) => setViewDate(new Date(Number(nextYear), viewDate.getMonth(), 1))}
+              onValueChange={(nextYear) =>
+                setViewDate(startOfMonth(clampToMax(new Date(Number(nextYear), viewDate.getMonth(), 1), maxDate)))
+              }
             >
               <SelectTrigger className="h-9 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]">
                 <SelectValue />
@@ -115,7 +121,11 @@ export function HistoryDatePicker({
 
             <Select
               value={String(viewDate.getMonth())}
-              onValueChange={(nextMonth) => setViewDate(new Date(viewDate.getFullYear(), Number(nextMonth), 1))}
+              onValueChange={(nextMonth) =>
+                setViewDate(
+                  startOfMonth(clampToMax(new Date(viewDate.getFullYear(), Number(nextMonth), 1), maxDate))
+                )
+              }
             >
               <SelectTrigger className="h-9 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]">
                 <SelectValue />
@@ -154,7 +164,7 @@ export function HistoryDatePicker({
           mode="single"
           selected={selected}
           month={viewDate}
-          onMonthChange={(month) => setViewDate(startOfMonth(month))}
+          onMonthChange={(month) => setViewDate(startOfMonth(clampToMax(month, maxDate)))}
           disabled={(date) => isFuture(date, maxDate)}
           onSelect={(date) => {
             if (!date) return
@@ -200,7 +210,7 @@ export function HistoryDatePicker({
             className="mx-auto flex items-center gap-1.5 text-sm text-[#e8f4fc] transition-colors hover:text-[#22d3ee]"
           >
             <Crosshair className="h-4 w-4" />
-            <span>{zh ? "今天" : "Today"}</span>
+            <span>{zh ? "最新可用日期" : "Latest available"}</span>
           </button>
         </div>
       </PopoverContent>

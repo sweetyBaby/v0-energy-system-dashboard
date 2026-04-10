@@ -128,9 +128,9 @@ function OverviewDataLoader() {
 function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const [analysisRange, setAnalysisRange] = useState<AnalysisRange>(15)
   const [bcuMode, setBcuMode] = useState<BcuMode>("realtime")
-  const today = formatDateInputValue(new Date())
-  const [historyDate, setHistoryDate] = useState(today)
-  const [cellHistoryDate, setCellHistoryDate] = useState(today)
+  const yesterday = formatDateInputValue(addDays(new Date(), -1))
+  const [historyDate, setHistoryDate] = useState(yesterday)
+  const [cellHistoryDate, setCellHistoryDate] = useState(yesterday)
   const [cellHistoryViewMode, setCellHistoryViewMode] = useState<CellHistoryViewMode>("overview")
   const [selectedHistoryCell, setSelectedHistoryCell] = useState<number | null>(null)
   const [selectedHistoryCells, setSelectedHistoryCells] = useState<number[]>([1])
@@ -317,7 +317,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           ))}
         </div>
         {bcuMode === "history" && (
-          <HistoryDatePicker value={historyDate} onChange={setHistoryDate} max={today} />
+          <HistoryDatePicker value={historyDate} onChange={setHistoryDate} max={yesterday} />
         )}
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-12 gap-4">
@@ -409,7 +409,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                 {cellHistoryViewMode === "detail" && (
                   <CellHistoryMultiPicker value={selectedHistoryCells} onChange={setSelectedHistoryCells} />
                 )}
-                <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={today} compact />
+                <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={yesterday} compact />
                 <div className="flex h-8 shrink-0 items-center gap-1 rounded-[12px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]">
                   {([
                     {

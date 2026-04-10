@@ -12,6 +12,7 @@ type CellHistoryApiResponse<T> = {
 type RequestOptions = {
   detailCellIndexes?: number[]
   deviceId?: string
+  includeBcuHistory?: boolean
   measurement?: string
   signal?: AbortSignal
 }
@@ -1172,7 +1173,7 @@ export const fetchDailyCellHistory = async (
   date: string,
   options: RequestOptions = {},
 ): Promise<DailyCellHistoryBundle> => {
-  const { detailCellIndexes, ...sharedOptions } = options
+  const { detailCellIndexes, includeBcuHistory = true, ...sharedOptions } = options
   const shouldFetchDetail = (detailCellIndexes?.length ?? 0) > 0
   const requiredCells =
     detailCellIndexes?.length
@@ -1180,7 +1181,7 @@ export const fetchDailyCellHistory = async (
       : ALL_CELL_INDEXES
   const isFullPackRequest = requiredCells.length === CELL_COUNT
   const settled = await Promise.allSettled([
-    requestDaily(apiEndpoints.cellHistory.bcuDaily, projectId, date, sharedOptions),
+    includeBcuHistory ? requestDaily(apiEndpoints.cellHistory.bcuDaily, projectId, date, sharedOptions) : Promise.resolve(null),
     shouldFetchDetail
       ? requestDaily(apiEndpoints.cellHistory.detailDaily, projectId, date, {
           ...sharedOptions,
@@ -1196,6 +1197,7 @@ export const fetchDailyCellHistory = async (
 
   const [bcuResult, detailResult, extremeResult, voltageResult, temp1Result, temp2Result, temp3Result] = settled
   const detailHistoryPatches = detailResult.status === "fulfilled" ? parseDetailHistoryPatches(detailResult.value, date) : []
+  const detailMetricPatches = detailResult.status === "fulfilled" ? parseDetailMetricPatches(detailResult.value) : []
 
   const voltageRows =
     voltageResult.status === "fulfilled"
@@ -1220,23 +1222,13 @@ export const fetchDailyCellHistory = async (
       ? mergeDetailHistoryPatches(curveHistoryData, detailHistoryPatches)
       : buildHistoryDataFromDetailPatches(detailHistoryPatches, requiredCells)
 
-  if (historyData.length === 0) {
-    return EMPTY_DAILY_CELL_HISTORY_BUNDLE
-  }
+  const overviewData = isFullPackRequest && historyData.length > 0 ? buildOverview(historyData, requiredCells) : []
+  const extremeSummary = EMPTY_EXTREME_SUMMARY
 
-  const overviewData = isFullPackRequest
-    ? mergeOverviewPatches(
-        buildOverview(historyData, requiredCells),
-        extremeResult.status === "fulfilled" ? parseOverviewPatches(extremeResult.value, date) : [],
-      )
-    : []
-  const extremeSummary =
-    isFullPackRequest && extremeResult.status === "fulfilled" ? parseExtremeSummary(extremeResult.value) : EMPTY_EXTREME_SUMMARY
-
-  const cellMetrics = mergeCellMetricPatches(
-    buildCellMetrics(historyData, requiredCells),
-    detailResult.status === "fulfilled" ? parseDetailMetricPatches(detailResult.value) : [],
-  )
+  const cellMetrics =
+    historyData.length > 0 || detailMetricPatches.length > 0
+      ? mergeCellMetricPatches(buildCellMetrics(historyData, requiredCells), detailMetricPatches)
+      : []
   const voltageExtremeTrend =
     isFullPackRequest && voltageResult.status === "fulfilled" ? parseVoltageExtremeTrend(voltageResult.value, date) : []
   const temperatureExtremeTrends: TemperatureExtremeTrendMap = {
@@ -1246,9 +1238,9 @@ export const fetchDailyCellHistory = async (
     t3: isFullPackRequest && temp3Result.status === "fulfilled" ? parseTemperatureExtremeTrend(temp3Result.value, date) : [],
   }
   const dailyEnergySummarySources = [
+    extremeResult.status === "fulfilled" ? extremeResult.value : null,
     bcuResult.status === "fulfilled" ? bcuResult.value : null,
     detailResult.status === "fulfilled" ? detailResult.value : null,
-    extremeResult.status === "fulfilled" ? extremeResult.value : null,
   ]
   const dailyEnergySummary =
     dailyEnergySummarySources
