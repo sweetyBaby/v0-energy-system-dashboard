@@ -68,7 +68,7 @@ export const translations: Translations = {
   "tempRange": { zh: "温差区间", en: "Temp Range" },
 
   // Cell Voltage
-  "cellVoltageAnalysis": { zh: "单体电芯电压分析", en: "Cell Voltage Analysis" },
+  "cellVoltageAnalysis": { zh: "单体电压分析", en: "Cell Voltage Analysis" },
   "voltageDistribution": { zh: "电压分布", en: "Voltage Distribution" },
   "cellCount": { zh: "单体数量", en: "Cell Count" },
 

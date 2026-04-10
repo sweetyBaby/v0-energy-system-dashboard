@@ -1,8 +1,9 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Table, LineChart as LineChartIcon } from "lucide-react"
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
 import type { DailyTrendRangePoint, DailyTrendRangeSummary } from "@/lib/api/daily-trend-range"
 
@@ -63,11 +64,8 @@ export function CellVoltageAnalysis({
     voltageRange: null,
   }
 
-  const placeholderText = loading
-    ? (zh ? "加载单体电压分析..." : "Loading cell voltage analysis...")
-    : error
-      ? error
-      : (zh ? "暂无单体电压分析数据" : "No cell voltage analysis data")
+  const loadingText = zh ? "加载单体电压分析..." : "Loading cell voltage analysis..."
+  const placeholderText = error ? error : zh ? "暂无单体电压分析数据" : "No cell voltage analysis data"
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
@@ -109,7 +107,11 @@ export function CellVoltageAnalysis({
       </div>
 
       <div className="min-h-0 flex-1">
-        {viewMode === "chart" ? (
+        {loading ? (
+          <div className="flex h-full min-h-0 items-center justify-center px-4">
+            <HistoryStyleLoadingIndicator text={loadingText} />
+          </div>
+        ) : viewMode === "chart" ? (
           data.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 28, right: 16, left: -8, bottom: 0 }}>

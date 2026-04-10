@@ -1,8 +1,9 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { LineChart as LineChartIcon, Table } from "lucide-react"
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
 import type { DailyTrendRangePoint, DailyTrendRangeSummary } from "@/lib/api/daily-trend-range"
 
@@ -60,11 +61,8 @@ export function VoltageDifferenceAnalysis({
     minVoltageDiff: null,
   }
 
-  const placeholderText = loading
-    ? (zh ? "加载压差分析..." : "Loading voltage diff analysis...")
-    : error
-      ? error
-      : (zh ? "暂无压差分析数据" : "No voltage diff analysis data")
+  const loadingText = zh ? "加载压差分析..." : "Loading voltage diff analysis..."
+  const placeholderText = error ? error : zh ? "暂无压差分析数据" : "No voltage diff analysis data"
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
@@ -104,7 +102,11 @@ export function VoltageDifferenceAnalysis({
       </div>
 
       <div className="min-h-0 flex-1">
-        {viewMode === "chart" ? (
+        {loading ? (
+          <div className="flex h-full min-h-0 items-center justify-center px-4">
+            <HistoryStyleLoadingIndicator text={loadingText} />
+          </div>
+        ) : viewMode === "chart" ? (
           data.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
@@ -136,8 +138,8 @@ export function VoltageDifferenceAnalysis({
               <thead className="sticky top-0 bg-[#0d1233]">
                 <tr className="border-b border-[#1a2654] text-[#7b8ab8]">
                   <th className="px-2 py-2 text-left">{t("date")}</th>
-                  <th className="px-2 py-2 text-right">{zh ? "最大压差(V)" : "Max (V)"}</th>
-                  <th className="px-2 py-2 text-right">{zh ? "最小压差(V)" : "Min (V)"}</th>
+                  <th className="px-2 py-2 text-right">{zh ? "最大(V)" : "Max (V)"}</th>
+                  <th className="px-2 py-2 text-right">{zh ? "最小(V)" : "Min (V)"}</th>
                 </tr>
               </thead>
               <tbody>

@@ -1,8 +1,9 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Table, LineChart as LineChartIcon } from "lucide-react"
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
 import type { DailyTrendRangePoint, DailyTrendRangeSummary } from "@/lib/api/daily-trend-range"
 
@@ -63,11 +64,8 @@ export function TemperatureDifferenceAnalysis({
     avgTempDiff: null,
   }
 
-  const placeholderText = loading
-    ? (zh ? "加载温差分析..." : "Loading temperature diff analysis...")
-    : error
-      ? error
-      : (zh ? "暂无温差分析数据" : "No temperature diff analysis data")
+  const loadingText = zh ? "加载温差分析..." : "Loading temperature diff analysis..."
+  const placeholderText = error ? error : zh ? "暂无温差分析数据" : "No temperature diff analysis data"
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
@@ -109,7 +107,11 @@ export function TemperatureDifferenceAnalysis({
       </div>
 
       <div className="min-h-0 flex-1">
-        {viewMode === "chart" ? (
+        {loading ? (
+          <div className="flex h-full min-h-0 items-center justify-center px-4">
+            <HistoryStyleLoadingIndicator text={loadingText} />
+          </div>
+        ) : viewMode === "chart" ? (
           data.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
@@ -134,7 +136,7 @@ export function TemperatureDifferenceAnalysis({
                   <th className="px-2 py-2 text-left">{t("date")}</th>
                   <th className="px-2 py-2 text-right">{zh ? "最高(°C)" : "Max (°C)"}</th>
                   <th className="px-2 py-2 text-right">{zh ? "最低(°C)" : "Min (°C)"}</th>
-                  <th className="px-2 py-2 text-right">{zh ? "最大温差(°C)" : "Diff (°C)"}</th>
+                  <th className="px-2 py-2 text-right">{zh ? "温差(°C)" : "Diff (°C)"}</th>
                 </tr>
               </thead>
               <tbody>

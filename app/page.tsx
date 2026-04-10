@@ -1,6 +1,7 @@
 ﻿"use client"
 
 import { useEffect, useMemo, useState, type ReactNode } from "react"
+import type { DateRange } from "react-day-picker"
 import { Battery, Calendar, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
@@ -11,6 +12,7 @@ import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysi
 import { ChargeDischargeTable } from "@/components/dashboard/charge-discharge-table"
 import { CellMatrixPanel } from "@/components/dashboard/cell-matrix-panel"
 import { ComprehensiveEfficiencyPanel } from "@/components/dashboard/comprehensive-efficiency-panel"
+import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
 import { DashboardHeader, ProjectProvider, useProject } from "@/components/dashboard/dashboard-header"
 import { HistoryDatePicker } from "@/components/dashboard/history-date-picker"
 import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
@@ -19,7 +21,12 @@ import { ReportCenterPanel } from "@/components/dashboard/report-center-panel"
 import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { LanguageProvider } from "@/components/language-provider"
-import { fetchDailyTrendRange, getAnalysisRangeDates, type DailyTrendRangeResult } from "@/lib/api/daily-trend-range"
+import {
+  fetchDailyTrendRange,
+  formatAnalysisRangeDate,
+  getAnalysisRangeDates,
+  type DailyTrendRangeResult,
+} from "@/lib/api/daily-trend-range"
 
 type DashboardTab =
   | "realtime"
@@ -31,8 +38,11 @@ type DashboardTab =
   | "reports"
 
 type BcuMode = "realtime" | "history"
-type AnalysisRange = 7 | 15 | 30
+type AnalysisPresetRange = 7 | 15 | 30
+type AnalysisRange = AnalysisPresetRange | "custom"
 type CellHistoryViewMode = "overview" | "detail"
+
+const DAY_MS = 24 * 60 * 60 * 1000
 
 const formatDateInputValue = (date: Date) => {
   const year = date.getFullYear()
@@ -41,10 +51,24 @@ const formatDateInputValue = (date: Date) => {
   return `${year}-${month}-${day}`
 }
 
+const toDayStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return toDayStart(next)
+}
+
+const getRangeLength = (range: DateRange | undefined) => {
+  if (!range?.from || !range.to) return null
+  return Math.round((toDayStart(range.to).getTime() - toDayStart(range.from).getTime()) / DAY_MS) + 1
+}
+
 const ANALYSIS_RANGES: { key: AnalysisRange; zh: string; en: string }[] = [
   { key: 7, zh: "近7天", en: "Last 7d" },
   { key: 15, zh: "近15天", en: "Last 15d" },
   { key: 30, zh: "近30天", en: "Last 30d" },
+  { key: "custom", zh: "自定义", en: "Custom" },
 ]
 
 const TAB_META: Record<DashboardTab, { zh: string; en: string }> = {
@@ -117,7 +141,47 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const zh = language === "zh"
-  const analysisDateRange = useMemo(() => getAnalysisRangeDates(analysisRange), [analysisRange])
+  const analysisCurrentDay = useMemo(() => toDayStart(new Date()), [])
+  const analysisMaxDate = useMemo(() => addDays(analysisCurrentDay, -1), [analysisCurrentDay])
+  const defaultAnalysisCustomRange = useMemo<DateRange>(
+    () => ({
+      from: addDays(analysisMaxDate, -30),
+      to: analysisMaxDate,
+    }),
+    [analysisMaxDate]
+  )
+  const [analysisCustomRange, setAnalysisCustomRange] = useState<DateRange | undefined>(defaultAnalysisCustomRange)
+  const analysisDateRange = useMemo(() => {
+    if (analysisRange === "custom") {
+      if (!analysisCustomRange?.from || !analysisCustomRange.to) {
+        return null
+      }
+
+      return {
+        startDate: formatAnalysisRangeDate(analysisCustomRange.from),
+        endDate: formatAnalysisRangeDate(analysisCustomRange.to),
+      }
+    }
+
+    return getAnalysisRangeDates(analysisRange, analysisMaxDate)
+  }, [analysisCustomRange, analysisMaxDate, analysisRange])
+  const analysisRangeDays = useMemo(
+    () => (analysisRange === "custom" ? getRangeLength(analysisCustomRange) ?? 0 : analysisRange),
+    [analysisCustomRange, analysisRange]
+  )
+
+  const formatAnalysisRangeLabel = (range: DateRange | undefined) => {
+    if (!range?.from) {
+      return zh ? "选择日期范围" : "Select range"
+    }
+
+    const formatDate = (date: Date) => `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
+    if (!range.to) {
+      return formatDate(range.from)
+    }
+
+    return `${formatDate(range.from)} - ${formatDate(range.to)}`
+  }
 
   const getDefaultDetailCells = () => {
     const prioritizedCells = [
@@ -135,6 +199,13 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
 
   useEffect(() => {
     if (activeTab !== "analysis") {
+      return
+    }
+
+    if (!analysisDateRange) {
+      setIsAnalysisLoading(false)
+      setAnalysisTrendData(null)
+      setAnalysisError(zh ? "请选择完整的日期范围" : "Please select complete date range")
       return
     }
 
@@ -183,7 +254,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
       cancelled = true
       abortController.abort()
     }
-  }, [activeTab, analysisDateRange.endDate, analysisDateRange.startDate, selectedProject.projectId, zh])
+  }, [activeTab, analysisDateRange, selectedProject.projectId, zh])
 
   const projectStats = [
     {
@@ -412,7 +483,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         {activeTab === "analysis" && (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
             <div
-              className="relative flex shrink-0 items-center gap-3 overflow-hidden border border-[#22d3ee]/20 bg-[#020810] px-4 py-2"
+              className="relative flex shrink-0 flex-wrap items-center gap-3 overflow-visible border border-[#22d3ee]/20 bg-[#020810] px-4 py-2"
               style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 100%, 0 100%)" }}
             >
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
@@ -420,7 +491,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                 {zh ? "时间范围" : "TIME RANGE"}
               </span>
               <div className="h-3 w-px bg-[#22d3ee]/25" />
-              <div className="flex gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 {ANALYSIS_RANGES.map((range) => (
                   <button
                     key={range.key}
@@ -435,11 +506,27 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                   </button>
                 ))}
               </div>
+              {analysisRange === "custom" && (
+                <CustomRangePicker
+                  value={analysisCustomRange}
+                  onChange={setAnalysisCustomRange}
+                  maxDate={analysisMaxDate}
+                  maxDays={31}
+                  buttonLabel={formatAnalysisRangeLabel(analysisCustomRange)}
+                  hint={zh ? "最多选择 31 天，结束日期不能超过昨天" : "Select up to 31 days, ending no later than yesterday"}
+                  maxRangeError={
+                    zh
+                      ? "自定义日期范围最多 31 天，且结束日期不能超过昨天"
+                      : "Custom date range cannot exceed 31 days or go beyond yesterday"
+                  }
+                  quickSelectLabel={zh ? "昨天" : "Yesterday"}
+                />
+              )}
             </div>
             <div className="grid min-h-0 flex-1 grid-cols-12 gap-4">
               <div className="col-span-12 min-h-0 xl:col-span-4">
                 <VoltageDifferenceAnalysis
-                  range={analysisRange}
+                  range={analysisRangeDays}
                   summary={analysisTrendData?.summary ?? null}
                   trendData={analysisTrendData?.dailyTrend ?? []}
                   loading={isAnalysisLoading}
@@ -448,7 +535,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
               </div>
               <div className="col-span-12 min-h-0 xl:col-span-4">
                 <TemperatureDifferenceAnalysis
-                  range={analysisRange}
+                  range={analysisRangeDays}
                   summary={analysisTrendData?.summary ?? null}
                   trendData={analysisTrendData?.dailyTrend ?? []}
                   loading={isAnalysisLoading}
@@ -457,7 +544,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
               </div>
               <div className="col-span-12 min-h-0 xl:col-span-4">
                 <CellVoltageAnalysis
-                  range={analysisRange}
+                  range={analysisRangeDays}
                   summary={analysisTrendData?.summary ?? null}
                   trendData={analysisTrendData?.dailyTrend ?? []}
                   loading={isAnalysisLoading}
