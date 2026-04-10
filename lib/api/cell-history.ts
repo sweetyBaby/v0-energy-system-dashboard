@@ -88,6 +88,11 @@ type DailyCellHistoryBundle = {
   dailyEnergySummary: DailyEnergySummary
 }
 
+type DailyCellHistoryTrendBundle = {
+  voltageExtremeTrend: ExtremeCurveTrendPoint[]
+  temperatureExtremeTrends: TemperatureExtremeTrendMap
+}
+
 type CurveSeriesPoint = {
   time: string
   timestamp: number
@@ -1168,6 +1173,56 @@ const parseDailyEnergySummary = (data: unknown): DailyEnergySummary => {
   return EMPTY_DAILY_ENERGY_SUMMARY
 }
 
+export const fetchDailyCellHistoryBcu = async (
+  projectId: string,
+  date: string,
+  options: RequestOptions = {},
+): Promise<OperationTrendPoint[]> => {
+  const data = await requestDaily(apiEndpoints.cellHistory.bcuDaily, projectId, date, options)
+  return parseBcuHistory(data, date)
+}
+
+export const fetchDailyCellHistoryTrendBundle = async (
+  projectId: string,
+  date: string,
+  options: RequestOptions = {},
+): Promise<DailyCellHistoryTrendBundle> => {
+  const settled = await Promise.allSettled([
+    requestDaily(apiEndpoints.cellHistory.voltageDaily, projectId, date, options),
+    requestDaily(apiEndpoints.cellHistory.temp1Daily, projectId, date, options),
+    requestDaily(apiEndpoints.cellHistory.temp2Daily, projectId, date, options),
+    requestDaily(apiEndpoints.cellHistory.temp3Daily, projectId, date, options),
+  ])
+
+  const [voltageResult, temp1Result, temp2Result, temp3Result] = settled
+  const hasAnySuccess = settled.some((result) => result.status === "fulfilled")
+
+  if (!hasAnySuccess) {
+    const firstFailure = settled.find((result) => result.status === "rejected")
+    throw firstFailure?.status === "rejected" ? firstFailure.reason : new Error("Failed to load cell history trends")
+  }
+
+  return {
+    voltageExtremeTrend:
+      voltageResult.status === "fulfilled" ? parseVoltageExtremeTrend(voltageResult.value, date) : [],
+    temperatureExtremeTrends: {
+      ...EMPTY_TEMPERATURE_EXTREME_TRENDS,
+      t1: temp1Result.status === "fulfilled" ? parseTemperatureExtremeTrend(temp1Result.value, date) : [],
+      t2: temp2Result.status === "fulfilled" ? parseTemperatureExtremeTrend(temp2Result.value, date) : [],
+      t3: temp3Result.status === "fulfilled" ? parseTemperatureExtremeTrend(temp3Result.value, date) : [],
+    },
+  }
+}
+
+export const fetchDailyCellHistoryEnergySummary = async (
+  projectId: string,
+  date: string,
+  options: RequestOptions = {},
+): Promise<DailyEnergySummary> => {
+  const data = await requestDaily(apiEndpoints.cellHistory.extremeDaily, projectId, date, options)
+  return parseDailyEnergySummary(data)
+}
+
 export const fetchDailyCellHistory = async (
   projectId: string,
   date: string,
@@ -1260,4 +1315,11 @@ export const fetchDailyCellHistory = async (
   }
 }
 
-export type { CellMetric, DailyCellHistoryBundle, DailyEnergySummary, HistoryPoint, OverviewPoint }
+export type {
+  CellMetric,
+  DailyCellHistoryBundle,
+  DailyCellHistoryTrendBundle,
+  DailyEnergySummary,
+  HistoryPoint,
+  OverviewPoint,
+}

@@ -8,7 +8,16 @@ import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { fetchDailyCellHistory, type DailyCellHistoryBundle } from "@/lib/api/cell-history"
+import {
+  fetchDailyCellHistory,
+  fetchDailyCellHistoryBcu,
+  fetchDailyCellHistoryEnergySummary,
+  fetchDailyCellHistoryTrendBundle,
+  type DailyCellHistoryBundle,
+  type DailyCellHistoryTrendBundle,
+  type DailyEnergySummary,
+} from "@/lib/api/cell-history"
+import type { OperationTrendPoint } from "@/lib/api/operations"
 
 type HistoryPoint = {
   time: string
@@ -78,6 +87,11 @@ type TemperatureFleetChart = {
 type VoltageHighlightSeries = {
   cell: number
   color: string
+}
+
+type CachedHistoryBundle = {
+  requestKey: string
+  bundle: DailyCellHistoryBundle
 }
 
 
@@ -638,13 +652,25 @@ function OverviewHistorySkeleton({
   )
 }
 
-function HistoryLoadingOverlay({ text, dimmed = false }: { text: string; dimmed?: boolean }) {
+function HistoryLoadingOverlay({
+  text,
+  dimmed = false,
+  backdrop = true,
+}: {
+  text: string
+  dimmed?: boolean
+  backdrop?: boolean
+}) {
   return (
     <div
-      className={`absolute inset-0 z-20 flex items-center justify-center rounded-[24px] border border-[#8feaff]/10 ${
-        dimmed
-          ? "bg-[rgba(6,13,31,0.56)] backdrop-blur-[2px]"
-          : "bg-[linear-gradient(180deg,rgba(5,12,29,0.92),rgba(7,17,36,0.95))] backdrop-blur-sm"
+      className={`pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[24px] ${
+        backdrop
+          ? `border border-[#8feaff]/10 ${
+              dimmed
+                ? "bg-[rgba(6,13,31,0.56)] backdrop-blur-[2px]"
+                : "bg-[linear-gradient(180deg,rgba(5,12,29,0.92),rgba(7,17,36,0.95))] backdrop-blur-sm"
+            }`
+          : ""
       }`}
     >
       <HistoryLoadingIndicator text={text} variant="overlay" />
@@ -1031,9 +1057,18 @@ export function CellHistoryReplayPanel({
   const zh = language === "zh"
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [availableSize, setAvailableSize] = useState({ width: 0, height: 0 })
-  const [historyBundle, setHistoryBundle] = useState<DailyCellHistoryBundle | null>(null)
+  const [historyBundle, setHistoryBundle] = useState<CachedHistoryBundle | null>(null)
   const [isHistoryLoading, setIsHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState<string | null>(null)
+  const [overviewTrendBundle, setOverviewTrendBundle] = useState<DailyCellHistoryTrendBundle | null>(null)
+  const [overviewDailyEnergySummary, setOverviewDailyEnergySummary] = useState<DailyEnergySummary | null>(null)
+  const [overviewBcuHistory, setOverviewBcuHistory] = useState<OperationTrendPoint[]>([])
+  const [isOverviewTrendLoading, setIsOverviewTrendLoading] = useState(true)
+  const [isOverviewEnergyLoading, setIsOverviewEnergyLoading] = useState(true)
+  const [isOverviewBcuLoading, setIsOverviewBcuLoading] = useState(true)
+  const [overviewTrendError, setOverviewTrendError] = useState<string | null>(null)
+  const [overviewEnergyError, setOverviewEnergyError] = useState<string | null>(null)
+  const [overviewBcuError, setOverviewBcuError] = useState<string | null>(null)
   const [detailVisibleMetrics, setDetailVisibleMetrics] = useState<Record<DetailMetricKey, boolean>>({
     voltage: true,
     t1: true,
@@ -1046,8 +1081,23 @@ export function CellHistoryReplayPanel({
     if (selectedCell != null) return [selectedCell]
     return [1]
   }, [detailCells, selectedCell])
+  const detailRequestKey = useMemo(
+    () => `${selectedProject.projectId}::${date}::${effectiveDetailCells.join(",")}`,
+    [date, effectiveDetailCells, selectedProject.projectId]
+  )
+  const hasMatchingHistoryBundle = historyBundle !== null && historyBundle.requestKey === detailRequestKey
 
   useEffect(() => {
+    if (viewMode !== "detail") {
+      return
+    }
+
+    if (hasMatchingHistoryBundle) {
+      setIsHistoryLoading(false)
+      setHistoryError(null)
+      return
+    }
+
     let cancelled = false
     const abortController = new AbortController()
 
@@ -1066,7 +1116,10 @@ export function CellHistoryReplayPanel({
           return
         }
 
-        setHistoryBundle(nextBundle)
+        setHistoryBundle({
+          requestKey: detailRequestKey,
+          bundle: nextBundle,
+        })
       } catch (error) {
         if (abortController.signal.aborted || cancelled) {
           return
@@ -1087,15 +1140,155 @@ export function CellHistoryReplayPanel({
       cancelled = true
       abortController.abort()
     }
-  }, [date, effectiveDetailCells, selectedProject.projectId, viewMode, zh])
+  }, [detailRequestKey, effectiveDetailCells, hasMatchingHistoryBundle, selectedProject.projectId, date, viewMode, zh])
 
-  const historyData = historyBundle?.historyData ?? EMPTY_HISTORY_DATA
-  const overviewData = historyBundle?.overviewData ?? EMPTY_OVERVIEW_DATA
-  const cellMetrics = historyBundle?.cellMetrics ?? EMPTY_CELL_METRICS
-  const bcuHistoryData = historyBundle?.bcuHistory ?? []
-  const voltageExtremeTrend = historyBundle?.voltageExtremeTrend ?? EMPTY_EXTREME_CURVE_TREND
-  const temperatureExtremeTrends = historyBundle?.temperatureExtremeTrends ?? EMPTY_TEMPERATURE_EXTREME_TRENDS
-  const dailyEnergySummary = historyBundle?.dailyEnergySummary ?? null
+  useEffect(() => {
+    if (viewMode !== "overview") {
+      setIsOverviewTrendLoading(false)
+      return
+    }
+
+    let cancelled = false
+    const abortController = new AbortController()
+
+    const loadOverviewTrend = async () => {
+      setIsOverviewTrendLoading(true)
+      setOverviewTrendError(null)
+
+      try {
+        const nextTrendBundle = await fetchDailyCellHistoryTrendBundle(selectedProject.projectId, date, {
+          signal: abortController.signal,
+        })
+
+        if (cancelled) {
+          return
+        }
+
+        setOverviewTrendBundle(nextTrendBundle)
+      } catch (error) {
+        if (abortController.signal.aborted || cancelled) {
+          return
+        }
+
+        console.error(`Failed to load cell history trend bundle for ${selectedProject.projectId} on ${date}`, error)
+        setOverviewTrendError(zh ? "电压/温度趋势接口加载失败" : "Failed to load voltage/temperature trends")
+      } finally {
+        if (!cancelled) {
+          setIsOverviewTrendLoading(false)
+        }
+      }
+    }
+
+    void loadOverviewTrend()
+
+    return () => {
+      cancelled = true
+      abortController.abort()
+    }
+  }, [date, selectedProject.projectId, viewMode, zh])
+
+  useEffect(() => {
+    if (viewMode !== "overview") {
+      setIsOverviewEnergyLoading(false)
+      return
+    }
+
+    let cancelled = false
+    const abortController = new AbortController()
+
+    const loadOverviewEnergy = async () => {
+      setIsOverviewEnergyLoading(true)
+      setOverviewEnergyError(null)
+
+      try {
+        const nextDailyEnergySummary = await fetchDailyCellHistoryEnergySummary(selectedProject.projectId, date, {
+          signal: abortController.signal,
+        })
+
+        if (cancelled) {
+          return
+        }
+
+        setOverviewDailyEnergySummary(nextDailyEnergySummary)
+      } catch (error) {
+        if (abortController.signal.aborted || cancelled) {
+          return
+        }
+
+        console.error(`Failed to load cell history energy summary for ${selectedProject.projectId} on ${date}`, error)
+        setOverviewEnergyError(zh ? "日电量接口加载失败" : "Failed to load daily energy summary")
+      } finally {
+        if (!cancelled) {
+          setIsOverviewEnergyLoading(false)
+        }
+      }
+    }
+
+    void loadOverviewEnergy()
+
+    return () => {
+      cancelled = true
+      abortController.abort()
+    }
+  }, [date, selectedProject.projectId, viewMode, zh])
+
+  useEffect(() => {
+    if (viewMode !== "overview") {
+      setIsOverviewBcuLoading(false)
+      return
+    }
+
+    let cancelled = false
+    const abortController = new AbortController()
+
+    const loadOverviewBcu = async () => {
+      setIsOverviewBcuLoading(true)
+      setOverviewBcuError(null)
+
+      try {
+        const nextBcuHistory = await fetchDailyCellHistoryBcu(selectedProject.projectId, date, {
+          signal: abortController.signal,
+        })
+
+        if (cancelled) {
+          return
+        }
+
+        setOverviewBcuHistory(nextBcuHistory)
+      } catch (error) {
+        if (abortController.signal.aborted || cancelled) {
+          return
+        }
+
+        console.error(`Failed to load BCU history for ${selectedProject.projectId} on ${date}`, error)
+        setOverviewBcuError(zh ? "BCU运行状态接口加载失败" : "Failed to load BCU history")
+      } finally {
+        if (!cancelled) {
+          setIsOverviewBcuLoading(false)
+        }
+      }
+    }
+
+    void loadOverviewBcu()
+
+    return () => {
+      cancelled = true
+      abortController.abort()
+    }
+  }, [date, selectedProject.projectId, viewMode, zh])
+
+  const activeHistoryBundle = hasMatchingHistoryBundle ? historyBundle.bundle : null
+  const historyData = activeHistoryBundle?.historyData ?? EMPTY_HISTORY_DATA
+  const overviewData = activeHistoryBundle?.overviewData ?? EMPTY_OVERVIEW_DATA
+  const cellMetrics = activeHistoryBundle?.cellMetrics ?? EMPTY_CELL_METRICS
+  const bcuHistoryData = viewMode === "overview" ? overviewBcuHistory : activeHistoryBundle?.bcuHistory ?? []
+  const voltageExtremeTrend =
+    viewMode === "overview" ? overviewTrendBundle?.voltageExtremeTrend ?? EMPTY_EXTREME_CURVE_TREND : activeHistoryBundle?.voltageExtremeTrend ?? EMPTY_EXTREME_CURVE_TREND
+  const temperatureExtremeTrends =
+    viewMode === "overview"
+      ? overviewTrendBundle?.temperatureExtremeTrends ?? EMPTY_TEMPERATURE_EXTREME_TRENDS
+      : activeHistoryBundle?.temperatureExtremeTrends ?? EMPTY_TEMPERATURE_EXTREME_TRENDS
+  const dailyEnergySummary = viewMode === "overview" ? overviewDailyEnergySummary : activeHistoryBundle?.dailyEnergySummary ?? null
 
   const voltageTrendFallback = useMemo(() => {
     const safeVoltageTrend = voltageExtremeTrend.filter((item) => isFiniteNumber(item.max) && isFiniteNumber(item.min))
@@ -1193,12 +1386,16 @@ export function CellHistoryReplayPanel({
   )
 
   useEffect(() => {
+    if (viewMode !== "overview") {
+      return
+    }
+
     if (!voltageTrendFallback && !temperatureTrendFallback) {
       return
     }
 
     onOverviewStats?.(overviewStatsPayload)
-  }, [overviewStatsPayload, onOverviewStats, temperatureTrendFallback, voltageTrendFallback])
+  }, [onOverviewStats, overviewStatsPayload, temperatureTrendFallback, viewMode, voltageTrendFallback])
 
   const voltageTrendData = useMemo(
     () => {
@@ -1227,7 +1424,7 @@ export function CellHistoryReplayPanel({
         )
       }
 
-      if (historyData.length === 0) {
+      if (viewMode === "overview" || historyData.length === 0) {
         return []
       }
 
@@ -1266,7 +1463,7 @@ export function CellHistoryReplayPanel({
         }
       )
     },
-    [historyData, voltageExtremeTrend]
+    [historyData, viewMode, voltageExtremeTrend]
   )
 
   const voltagePhaseRegions = useMemo(
@@ -1315,7 +1512,7 @@ export function CellHistoryReplayPanel({
           return { key, title, label, data }
         }
 
-        if (historyData.length === 0) {
+        if (viewMode === "overview" || historyData.length === 0) {
           return { key, title, label, data: [] }
         }
 
@@ -1355,7 +1552,7 @@ export function CellHistoryReplayPanel({
 
         return { key, title, label, data }
       }),
-    [historyData, temperatureExtremeTrends, zh]
+    [historyData, temperatureExtremeTrends, viewMode, zh]
   )
 
   const isCompactCanvas = availableSize.width > 0 && (availableSize.width < 1280 || availableSize.height < 760)
@@ -1521,9 +1718,12 @@ export function CellHistoryReplayPanel({
     dailyEnergyStats.chargeEnergy != null || dailyEnergyStats.dischargeEnergy != null || dailyEnergyStats.roundTripEfficiency != null
   const hasVoltageTrendData = voltageTrendData.length > 0
   const hasTemperatureTrendData = temperatureTrendCharts.some((chart) => chart.data.length > 0)
-  const hasAnyOverviewSignal =
-    hasOverviewData || hasDailyEnergyStats || hasVoltageTrendData || hasTemperatureTrendData || bcuHistoryData.length > 0
-  const historyPlaceholderText = isHistoryLoading
+  const isOverviewCardLoading = isOverviewTrendLoading || isOverviewEnergyLoading
+  const overviewCardLoadingText = zh ? "概览数据加载中..." : "Loading overview..."
+  const bcuLoadingText = zh ? "BCU运行状态加载中..." : "Loading BCU history..."
+  const trendLoadingText = zh ? "电压/温度趋势加载中..." : "Loading voltage/temperature trends..."
+  const trendPlaceholderText = overviewTrendError ? overviewTrendError : zh ? "暂无趋势数据" : "No trend data"
+  const detailHistoryPlaceholderText = isHistoryLoading
     ? zh
       ? "加载电芯历史数据..."
       : "Loading cell history..."
@@ -1532,13 +1732,10 @@ export function CellHistoryReplayPanel({
       : zh
         ? "暂无电芯历史数据"
         : "No cell history data"
-  const trendPlaceholderText = hasAnyOverviewSignal ? (zh ? "暂无趋势数据" : "No trend data") : historyPlaceholderText
   const formatDisplayValue = (value: number | null | undefined, digits: number, suffix = "") =>
     value == null ? "--" : `${value.toFixed(digits)}${suffix}`
-  const historyLoadingText = zh ? "电芯历史数据加载中..." : "Loading cell history..."
   const detailHistoryLoadingText = zh ? "电芯历史明细加载中..." : "Loading cell detail history..."
-  const showInitialHistoryLoading = isHistoryLoading && historyBundle === null
-  const showHistoryRefreshOverlay = isHistoryLoading && historyBundle !== null
+  const showHistoryRefreshOverlay = isHistoryLoading && hasMatchingHistoryBundle
   const detailChartPlaceholderText = isHistoryLoading
     ? detailHistoryLoadingText
     : historyError
@@ -1754,66 +1951,74 @@ export function CellHistoryReplayPanel({
             className="px-1.5 pt-2.5 pb-1"
             headerVariant="bcu"
           >
-            <div className={`grid h-full min-h-0 grid-cols-3 ${isCompactCanvas ? "gap-1" : "gap-1.5"}`}>
-              {[
-                {
-                  title: zh ? "电压" : "Voltage",
-                  accent: "#6ee7ff",
-                  items: [
-                    { label: zh ? "最高电压" : "Max V", value: hasVoltageOverviewData ? formatDisplayValue(voltageStats.maxVoltage, 2, "V") : "--", sub: hasVoltageOverviewData ? `#${topHighVoltage[0]?.cell ?? "-"}` : "--", subColor: "#ffd36b", tone: "text-[#ffd36b]" },
-                    { label: zh ? "最低电压" : "Min V", value: hasVoltageOverviewData ? formatDisplayValue(voltageStats.minVoltage, 2, "V") : "--", sub: hasVoltageOverviewData ? `#${topLowVoltage[0]?.cell ?? "-"}` : "--", subColor: "#6ee7ff", tone: "text-[#6ee7ff]" },
-                    { label: zh ? "最大ΔV" : "Max ΔV", value: hasVoltageOverviewData ? formatDisplayValue(voltageStats.voltageDelta, 2, "V") : "--", sub: "", subColor: "", tone: "text-[#a8f0ff]" },
-                  ],
-                },
-                {
-                  title: zh ? "温度" : "Temperature",
-                  accent: "#ffb676",
-                  items: [
-                    { label: zh ? "最高温度" : "Max T", value: hasTemperatureOverviewData ? formatDisplayValue(temperatureStats.maxTemp, 1, "°C") : "--", sub: hasTemperatureOverviewData ? `#${topHotCells[0]?.cell ?? "-"}` : "--", subColor: "#ffb47a", tone: "text-[#ff9f6b]" },
-                    { label: zh ? "最低温度" : "Min T", value: hasTemperatureOverviewData ? formatDisplayValue(temperatureStats.minTemp, 1, "°C") : "--", sub: hasTemperatureOverviewData ? `#${topColdCells[0]?.cell ?? "-"}` : "--", subColor: "#86d8ff", tone: "text-[#86d8ff]" },
-                    { label: zh ? "最大ΔT" : "Max ΔT", value: hasTemperatureOverviewData ? formatDisplayValue(temperatureStats.tempDelta, 1, "°C") : "--", sub: "", subColor: "", tone: "text-[#ffd6a5]" },
-                  ],
-                },
-                {
-                  title: zh ? "电量" : "Energy",
-                  accent: "#8ef14d",
-                  items: [
-                    { label: zh ? "日充电量" : "Charge", value: hasDailyEnergyStats ? formatDisplayValue(dailyEnergyStats.chargeEnergy, 1) : "--", sub: dailyEnergyStats.chargeEnergy != null ? "Ah" : "", subColor: "#b0d8a0", tone: "text-[#8ef14d]" },
-                    { label: zh ? "日放电量" : "Discharge", value: hasDailyEnergyStats ? formatDisplayValue(dailyEnergyStats.dischargeEnergy, 1) : "--", sub: dailyEnergyStats.dischargeEnergy != null ? "Ah" : "", subColor: "#8ec8ff", tone: "text-[#57a8ff]" },
-                    { label: zh ? "容量效率" : "Capacity Efficiency", value: hasDailyEnergyStats ? formatDisplayValue(dailyEnergyStats.roundTripEfficiency, 1, "%") : "--", sub: "", subColor: "", tone: "text-[#8af7bc]" },
-                  ],
-                },
-              ].map((group) => (
-                <InnerFrame key={group.title} title={group.title} accent={group.accent} compact={isCompactCanvas}>
-                  <div className="grid h-full min-h-0 grid-rows-3 gap-0.5">
-                    {group.items.map((item) => (
-                      <div
-                        key={item.label}
-                        className={`flex h-full flex-col items-center justify-center rounded-[12px] border border-[#1e3d60] bg-[linear-gradient(180deg,rgba(14,30,62,0.95),rgba(10,20,46,0.98))] ${isTightCanvas ? "gap-1 px-1 py-0.5" : isCompactCanvas ? "gap-1.5 px-1.5 py-1" : "gap-2 px-2 py-1.5"}`}
-                        style={{ boxShadow: "inset 0 0 12px rgba(25,80,148,0.12)" }}
-                      >
-                        <div className={`flex items-baseline gap-0.5 font-mono font-bold leading-none tracking-wide ${isTightCanvas ? "text-[0.96rem]" : isCompactCanvas ? "text-[1.08rem]" : "text-[1.22rem]"} ${item.tone}`}>
-                          {item.value}
-                          {item.sub ? (
-                            <span
-                              className={`font-sans font-semibold ${isTightCanvas ? "text-[0.68rem]" : isCompactCanvas ? "text-[0.74rem]" : "text-[0.78rem]"}`}
-                              style={{ color: item.subColor }}
-                            >
-                              {item.sub}
-                            </span>
-                          ) : null}
+            <div className="relative h-full min-h-0">
+              <div className={`grid h-full min-h-0 grid-cols-3 ${isCompactCanvas ? "gap-1" : "gap-1.5"}`}>
+                {[
+                  {
+                    title: zh ? "电压" : "Voltage",
+                    accent: "#6ee7ff",
+                    items: [
+                      { label: zh ? "最高电压" : "Max V", value: hasVoltageOverviewData ? formatDisplayValue(voltageStats.maxVoltage, 2, "V") : "--", sub: hasVoltageOverviewData ? `#${topHighVoltage[0]?.cell ?? "-"}` : "--", subColor: "#ffd36b", tone: "text-[#ffd36b]" },
+                      { label: zh ? "最低电压" : "Min V", value: hasVoltageOverviewData ? formatDisplayValue(voltageStats.minVoltage, 2, "V") : "--", sub: hasVoltageOverviewData ? `#${topLowVoltage[0]?.cell ?? "-"}` : "--", subColor: "#6ee7ff", tone: "text-[#6ee7ff]" },
+                      { label: zh ? "最大ΔV" : "Max ΔV", value: hasVoltageOverviewData ? formatDisplayValue(voltageStats.voltageDelta, 2, "V") : "--", sub: "", subColor: "", tone: "text-[#a8f0ff]" },
+                    ],
+                  },
+                  {
+                    title: zh ? "温度" : "Temperature",
+                    accent: "#ffb676",
+                    items: [
+                      { label: zh ? "最高温度" : "Max T", value: hasTemperatureOverviewData ? formatDisplayValue(temperatureStats.maxTemp, 1, "°C") : "--", sub: hasTemperatureOverviewData ? `#${topHotCells[0]?.cell ?? "-"}` : "--", subColor: "#ffb47a", tone: "text-[#ff9f6b]" },
+                      { label: zh ? "最低温度" : "Min T", value: hasTemperatureOverviewData ? formatDisplayValue(temperatureStats.minTemp, 1, "°C") : "--", sub: hasTemperatureOverviewData ? `#${topColdCells[0]?.cell ?? "-"}` : "--", subColor: "#86d8ff", tone: "text-[#86d8ff]" },
+                      { label: zh ? "最大ΔT" : "Max ΔT", value: hasTemperatureOverviewData ? formatDisplayValue(temperatureStats.tempDelta, 1, "°C") : "--", sub: "", subColor: "", tone: "text-[#ffd6a5]" },
+                    ],
+                  },
+                  {
+                    title: zh ? "电量" : "Energy",
+                    accent: "#8ef14d",
+                    items: [
+                      { label: zh ? "日充电量" : "Charge", value: hasDailyEnergyStats ? formatDisplayValue(dailyEnergyStats.chargeEnergy, 1) : "--", sub: dailyEnergyStats.chargeEnergy != null ? "Ah" : "", subColor: "#b0d8a0", tone: "text-[#8ef14d]" },
+                      { label: zh ? "日放电量" : "Discharge", value: hasDailyEnergyStats ? formatDisplayValue(dailyEnergyStats.dischargeEnergy, 1) : "--", sub: dailyEnergyStats.dischargeEnergy != null ? "Ah" : "", subColor: "#8ec8ff", tone: "text-[#57a8ff]" },
+                      { label: zh ? "容量效率" : "Capacity Efficiency", value: hasDailyEnergyStats ? formatDisplayValue(dailyEnergyStats.roundTripEfficiency, 1, "%") : "--", sub: "", subColor: "", tone: "text-[#8af7bc]" },
+                    ],
+                  },
+                ].map((group) => (
+                  <InnerFrame key={group.title} title={group.title} accent={group.accent} compact={isCompactCanvas}>
+                    <div className="grid h-full min-h-0 grid-rows-3 gap-0.5">
+                      {group.items.map((item) => (
+                        <div
+                          key={item.label}
+                          className={`flex h-full flex-col items-center justify-center rounded-[12px] border border-[#1e3d60] bg-[linear-gradient(180deg,rgba(14,30,62,0.95),rgba(10,20,46,0.98))] ${isTightCanvas ? "gap-1 px-1 py-0.5" : isCompactCanvas ? "gap-1.5 px-1.5 py-1" : "gap-2 px-2 py-1.5"}`}
+                          style={{ boxShadow: "inset 0 0 12px rgba(25,80,148,0.12)" }}
+                        >
+                          <div className={`flex items-baseline gap-0.5 font-mono font-bold leading-none tracking-wide ${isTightCanvas ? "text-[0.96rem]" : isCompactCanvas ? "text-[1.08rem]" : "text-[1.22rem]"} ${item.tone}`}>
+                            {item.value}
+                            {item.sub ? (
+                              <span
+                                className={`font-sans font-semibold ${isTightCanvas ? "text-[0.68rem]" : isCompactCanvas ? "text-[0.74rem]" : "text-[0.78rem]"}`}
+                                style={{ color: item.subColor }}
+                              >
+                                {item.sub}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className={`w-full truncate text-center font-medium leading-tight tracking-wide text-[#c2dcf2] ${isTightCanvas ? "text-[0.68rem]" : isCompactCanvas ? "text-[0.72rem]" : "text-[0.76rem]"}`}>{item.label}</div>
                         </div>
-                        <div className={`w-full truncate text-center font-medium leading-tight tracking-wide text-[#c2dcf2] ${isTightCanvas ? "text-[0.68rem]" : isCompactCanvas ? "text-[0.72rem]" : "text-[0.76rem]"}`}>{item.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                </InnerFrame>
-              ))}
+                      ))}
+                    </div>
+                  </InnerFrame>
+                ))}
+              </div>
+              {isOverviewCardLoading && !hasOverviewData && !hasDailyEnergyStats ? (
+                <HistoryLoadingOverlay text={overviewCardLoadingText} backdrop={false} />
+              ) : null}
             </div>
           </NeonSection>
 
-          <div className="min-h-0 overflow-hidden">
+          <div className="relative min-h-0 overflow-hidden">
             <BCUStatusQuery mode="history" date={date} hideCellSeries panelVariant="overview" historyData={bcuHistoryData} />
+            {isOverviewBcuLoading && bcuHistoryData.length === 0 ? (
+              <HistoryLoadingOverlay text={bcuLoadingText} backdrop={false} />
+            ) : null}
           </div>
         </div>
 
@@ -1830,7 +2035,7 @@ export function CellHistoryReplayPanel({
               </div>
             }
           >
-            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
               <div className="flex min-h-0 flex-1 overflow-hidden rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] p-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
                 <div className="flex min-h-0 flex-1 items-stretch gap-2">
                   <div className="grid min-h-0 flex-1 grid-rows-[1.28fr_repeat(3,minmax(0,1fr))] overflow-hidden">
@@ -1959,13 +2164,12 @@ export function CellHistoryReplayPanel({
                   </div>
                 </div>
               </div>
+              {isOverviewTrendLoading && !hasVoltageTrendData && !hasTemperatureTrendData ? (
+                <HistoryLoadingOverlay text={trendLoadingText} backdrop={false} />
+              ) : null}
             </div>
           </NeonSection>
         </div>
-        {showInitialHistoryLoading ? (
-          <OverviewHistorySkeleton compact={isCompactCanvas} tight={isTightCanvas} loadingText={historyLoadingText} />
-        ) : null}
-        {showHistoryRefreshOverlay ? <HistoryLoadingOverlay text={historyLoadingText} dimmed /> : null}
       </div>
     </div>
   )
