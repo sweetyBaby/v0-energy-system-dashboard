@@ -177,8 +177,9 @@ function HeatmapGrid({
   getColor: (cell: HeatmapCellMetrics) => string
   getValue: (cell: HeatmapCellMetrics) => string
 }) {
-  const idFontSize = 10.4
-  const valueFontSize = 13.8
+  const idFontSize = "clamp(7px, min(0.58vw, 1.02vh), 10.4px)"
+  const valueFontSize = "clamp(9.6px, min(0.92vw, 1.5vh), 13.8px)"
+  const valueMarginTop = "clamp(1px, 0.12vw, 4px)"
 
   return (
     <div
@@ -198,13 +199,13 @@ function HeatmapGrid({
           return (
             <div
               key={cellId}
-              className="flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center rounded-[10px]"
+              className="flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center rounded-[10px] px-[2px] py-[1px]"
               style={{ backgroundColor }}
             >
-              <div className="leading-none" style={{ color, opacity: 0.72, fontSize: idFontSize }}>
+              <div className="leading-none tabular-nums" style={{ color, opacity: 0.72, fontSize: idFontSize }}>
                 #{cellId}
               </div>
-              <div className="mt-1 font-semibold leading-none" style={{ color, fontSize: valueFontSize }}>
+              <div className="font-semibold leading-none tabular-nums" style={{ color, fontSize: valueFontSize, marginTop: valueMarginTop }}>
                 {getValue(cell)}
               </div>
             </div>
