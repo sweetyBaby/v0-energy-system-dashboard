@@ -229,7 +229,7 @@ export const normalizeOverviewMetricsFromRealtime = (
   efficiency: {
     current: formatFixedValue(realtime?.yesterday?.cumulativeEE, 2),
     month: formatFixedValue(realtime?.month?.cumulativeEE, 2),
-    year: API_PLACEHOLDER,
+    year: formatFixedValue(realtime?.year?.cumulativeEE, 2),
     total: formatFixedValue(realtime?.all?.cumulativeEE, 2),
   },
   totalCharge: formatEnergyFromWh(realtime?.all?.totalChargeWh, "MWh"),

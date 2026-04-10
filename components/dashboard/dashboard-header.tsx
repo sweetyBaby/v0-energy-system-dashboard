@@ -353,12 +353,14 @@ export function DashboardHeader({
                   <button
                     key={tab.key}
                     onClick={() => onTabChange(tab.key)}
-                    className={`group relative h-[28px] shrink-0 whitespace-nowrap px-2.5 text-[11px] font-semibold tracking-[0.06em] transition-all sm:h-[30px] sm:px-3 sm:text-[12px] ${
+                    className={`group relative h-[28px] shrink-0 whitespace-nowrap px-2.5 font-semibold transition-all sm:h-[30px] sm:px-3 xl:h-[32px] xl:px-3.5 ${
                       isActive
                         ? "border border-[#2cead7]/60 bg-[linear-gradient(180deg,rgba(12,102,122,0.96),rgba(7,48,67,0.94))] text-[#e8ffff] shadow-[0_0_18px_rgba(44,234,215,0.2),inset_0_0_0_1px_rgba(139,255,247,0.12)]"
                         : "border border-[#163d59]/55 bg-[linear-gradient(180deg,rgba(8,24,39,0.86),rgba(4,14,26,0.88))] text-[#8fb7cb] hover:border-[#2a88ad]/55 hover:text-[#d9f7ff]"
                     }`}
                     style={{
+                      fontSize: zh ? "clamp(11px, 0.36vw + 9px, 15px)" : "clamp(10px, 0.34vw + 8.5px, 14px)",
+                      letterSpacing: zh ? "0.08em" : "0.04em",
                       clipPath: isActive
                         ? "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)"
                         : "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)",
