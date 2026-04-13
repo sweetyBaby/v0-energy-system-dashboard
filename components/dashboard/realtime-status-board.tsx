@@ -65,7 +65,7 @@ const displaySocText = (soc: string, socPercent: number | null) =>
   isPlaceholder(soc) ? `${PLACEHOLDER}%` : `${Math.round(socPercent ?? 0)}%`
 
 // ResizeObserver 监听容器，返回基准字号
-function useContainerBase(ref: React.RefObject<HTMLDivElement>) {
+function useContainerBase(ref: React.RefObject<HTMLDivElement | null>) {
   const [base, setBase] = useState(12)
   useEffect(() => {
     if (!ref.current) return
@@ -94,6 +94,8 @@ export function RealtimeStatusBoard() {
   const { realtimeSnapshot } = selectedProject
   const containerRef = useRef<HTMLDivElement>(null)
   const B = useContainerBase(containerRef)
+  const clampText = (minRem: number, multiple: number, maxRem: number) =>
+    `clamp(${minRem}rem, calc(var(--overview-root-size, 15px) * ${multiple}), ${maxRem}rem)`
 
   useEffect(() => {
     const t = window.setInterval(() => setLiveBlink(v => !v), 1200)
@@ -164,7 +166,7 @@ export function RealtimeStatusBoard() {
         <span
           className={`font-bold tracking-[0.04em] ${realtimeSnapshot.isOnline ? "text-[#00e87a]" : "text-[#cbd5e1]"}`}
           style={{
-            fontSize: `${B * 0.75}px`,
+            fontSize: clampText(0.72, 0.84, 1.18),
             textShadow: realtimeSnapshot.isOnline ? "0 0 6px rgba(0,232,122,0.6)" : "0 0 6px rgba(148,163,184,0.45)",
           }}
         >
@@ -196,7 +198,7 @@ export function RealtimeStatusBoard() {
           <span
             className="font-semibold tracking-[0.03em] text-[#55d9ff]"
             style={{
-              fontSize: `${B * 0.72}px`,
+              fontSize: clampText(0.68, 0.8, 1.02),
               textShadow: "0 0 8px rgba(34,211,238,0.22)",
             }}
           >
@@ -205,7 +207,7 @@ export function RealtimeStatusBoard() {
           <span
             className="font-semibold tabular-nums tracking-[0.03em] text-[#d8f2ff]"
             style={{
-              fontSize: `${B * 0.72}px`,
+              fontSize: clampText(0.7, 0.84, 1.08),
               textShadow: "0 0 10px rgba(125,211,252,0.16)",
             }}
           >
@@ -215,7 +217,10 @@ export function RealtimeStatusBoard() {
       </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-row overflow-hidden" style={{ gap, paddingTop: `${B * 1.2}px` }}>
+      <div
+        className="flex min-h-0 flex-1 flex-row overflow-hidden"
+        style={{ gap, paddingTop: `max(${B * 1.2}px, calc(var(--overview-root-size, 15px) * 2.1))` }}
+      >
 
         {/* ── 左列：SOC 液位柱 ── */}
         <div className="flex shrink-0 flex-col items-center justify-center" style={{ width: `${socBarW}px`, gap: `${B * 0.5}px` }}>
@@ -275,7 +280,10 @@ export function RealtimeStatusBoard() {
               <Zap style={{ width: `${B * 1.2}px`, height: `${B * 1.2}px`, color: "rgba(255,255,255,0.9)" }} fill="currentColor" />
               <span
                 className="font-extrabold leading-none text-white"
-                style={{ fontSize: `${B * 1.5}px`, textShadow: "0 0 14px rgba(0,0,0,0.95)" }}
+                style={{
+                  fontSize: clampText(1.45, 1.75, 2.45),
+                  textShadow: "0 0 14px rgba(0,0,0,0.95)",
+                }}
               >
                 {displaySocText(realtimeSnapshot.soc, realtimeSnapshot.socPercent)}
               </span>
@@ -286,7 +294,7 @@ export function RealtimeStatusBoard() {
           <div
             className="shrink-0 rounded-full font-bold tracking-[0.03em] transition-all duration-700"
             style={{
-              fontSize: `${B * 0.75}px`,
+              fontSize: clampText(0.72, 0.84, 1.05),
               padding: `${B * 0.2}px ${B * 0.7}px`,
               color: colors.text,
               background: colors.pill,
@@ -306,10 +314,10 @@ export function RealtimeStatusBoard() {
             return (
               <div
                 key={item.labelEn}
-                className="relative flex min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden rounded-[14px] border border-dashed border-white/40"
+                className="relative flex min-h-0 min-w-0 flex-col items-center justify-between overflow-hidden rounded-[14px] border border-dashed border-white/40"
                 style={{
-                  gap: `${B * 0.35}px`,
-                  padding: `${B * 0.9}px ${B * 0.6}px`,
+                  gap: `${B * 0.14}px`,
+                  padding: `${B * 0.46}px ${B * 0.48}px ${B * 0.32}px`,
                   background: "linear-gradient(160deg,rgba(16,42,92,0.94),rgba(8,22,54,0.98))",
                   boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 0 40px ${item.glow.replace(/[\d.]+\)$/, "0.12)")}, 0 0 16px rgba(0,0,0,0.2)`,
                 }}
@@ -328,27 +336,27 @@ export function RealtimeStatusBoard() {
                 {/* 标签 */}
                 <span
                   className="z-10 text-center font-semibold leading-tight tracking-[0.02em] text-[#f5f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.55)]"
-                  style={{ fontSize: `${B * 0.85}px` }}
+                  style={{ fontSize: clampText(0.64, 0.76, 1.02) }}
                 >
                   {language === "zh" ? item.labelZh : item.labelEn}
                 </span>
 
                 {/* 图标圆圈 */}
-                <div className="relative flex shrink-0 items-center justify-center" style={{ width: `${circleOuter}px`, height: `${circleOuter}px` }}>
+                <div className="relative flex shrink-0 items-center justify-center" style={{ width: `${circleOuter * 0.86}px`, height: `${circleOuter * 0.86}px`, marginTop: `${B * 0.04}px` }}>
                   <div className="pointer-events-none absolute inset-0 rounded-full" style={{ border: `1px solid ${item.accent}60`, animation: "rsb-sonar 2.6s ease-out infinite" }} />
                   <div className="pointer-events-none absolute inset-0 rounded-full" style={{ border: `1px solid ${item.accent}40`, animation: "rsb-sonar 2.6s ease-out infinite", animationDelay: "1s" }} />
                   <div className="pointer-events-none absolute rounded-full" style={{ inset: `${B * 0.6}px`, background: `radial-gradient(circle, ${item.glow.replace(/[\d.]+\)$/, "0.25)")}, transparent 70%)` }} />
                   <div
                     className="relative flex items-center justify-center rounded-full"
                     style={{
-                      width: `${circleInner}px`,
-                      height: `${circleInner}px`,
+                      width: `${circleInner * 0.86}px`,
+                      height: `${circleInner * 0.86}px`,
                       background: `radial-gradient(circle at 30% 30%, ${item.accent}30, ${item.accent}08)`,
                       border: `1.5px solid ${item.accent}90`,
                       boxShadow: `0 0 20px ${item.glow}, 0 0 8px ${item.glow}, inset 0 0 16px ${item.accent}18`,
                     }}
                   >
-                    <Icon style={{ width: `${iconSize}px`, height: `${iconSize}px`, color: item.accent, filter: `drop-shadow(0 0 6px ${item.glow})` }} />
+                    <Icon style={{ width: `${iconSize * 0.84}px`, height: `${iconSize * 0.84}px`, color: item.accent, filter: `drop-shadow(0 0 6px ${item.glow})` }} />
                   </div>
                 </div>
 
@@ -357,7 +365,7 @@ export function RealtimeStatusBoard() {
                   <span
                     className="font-extrabold tabular-nums"
                     style={{
-                      fontSize: `${B * 1.5}px`,
+                      fontSize: clampText(1.12, 1.42, 2.02),
                       color: item.accent,
                       textShadow: `0 0 18px ${item.glow}, 0 1px 6px rgba(0,0,0,0.9)`,
                     }}
@@ -366,7 +374,11 @@ export function RealtimeStatusBoard() {
                   </span>
                   <span
                     className="font-semibold text-white/60"
-                    style={{ fontSize: `${B * 0.95}px`, paddingBottom: `${B * 0.1}px`, textShadow: "0 1px 4px rgba(0,0,0,0.9)" }}
+                    style={{
+                      fontSize: clampText(0.58, 0.68, 0.94),
+                      paddingBottom: `${B * 0.1}px`,
+                      textShadow: "0 1px 4px rgba(0,0,0,0.9)",
+                    }}
                   >
                     {item.unit}
                   </span>

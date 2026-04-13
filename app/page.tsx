@@ -21,6 +21,7 @@ import { ReportCenterPanel } from "@/components/dashboard/report-center-panel"
 import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { LanguageProvider } from "@/components/language-provider"
+import { useFluidScale } from "@/hooks/use-fluid-scale"
 import {
   fetchDailyTrendRange,
   formatAnalysisRangeDate,
@@ -140,6 +141,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const [analysisError, setAnalysisError] = useState<string | null>(null)
   const { language } = useLanguage()
   const { selectedProject } = useProject()
+  const overviewScale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18.5 })
   const zh = language === "zh"
   const analysisCurrentDay = useMemo(() => toDayStart(new Date()), [])
   const analysisMaxDate = useMemo(() => addDays(analysisCurrentDay, -1), [analysisCurrentDay])
@@ -335,7 +337,11 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className={activeTab === "realtime" ? "min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-0" : "min-h-0 flex-1 overflow-hidden p-3"}>
         {activeTab === "realtime" && (
-          <div className="grid h-full grid-cols-12 grid-rows-[minmax(240px,1fr)_minmax(0,1fr)] gap-3">
+          <div
+            ref={overviewScale.ref}
+            className="grid h-full grid-cols-12 grid-rows-[minmax(240px,1fr)_minmax(0,1fr)] gap-3"
+            style={overviewScale.rootStyle}
+          >
             <OverviewDataLoader />
             <div className="relative col-span-12 min-h-0 overflow-hidden rounded-b-xl border border-[#22d3ee]/30 border-t-0">
               <img
@@ -364,14 +370,20 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                             {stat.icon}
                           </div>
                           <span
-                            className="text-[13px] font-semibold tracking-[0.08em] text-[#d9f6ff]"
-                            style={{ textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 10px rgba(34,211,238,0.28)" }}
+                            className="font-semibold tracking-[0.08em] text-[#d9f6ff]"
+                            style={{
+                              fontSize: "clamp(0.8rem, calc(var(--overview-root-size, 15px) * 0.82), 1.08rem)",
+                              textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 10px rgba(34,211,238,0.28)",
+                            }}
                           >
                             {zh ? stat.labelZh : stat.labelEn}
                           </span>
                           <span
-                            className="text-[1.05rem] font-bold tabular-nums tracking-[0.04em] text-[#e8f8ff]"
-                            style={{ textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 14px rgba(34,211,238,0.45)" }}
+                            className="font-bold tabular-nums tracking-[0.04em] text-[#e8f8ff]"
+                            style={{
+                              fontSize: "clamp(1.1rem, calc(var(--overview-root-size, 15px) * 1.22), 1.75rem)",
+                              textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 14px rgba(34,211,238,0.45)",
+                            }}
                           >
                             {stat.value}
                           </span>

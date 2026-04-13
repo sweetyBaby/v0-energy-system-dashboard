@@ -36,8 +36,11 @@ const splitNumber = (value: string) => {
   return { integer: value.slice(0, dotIndex), decimal: value.slice(dotIndex) }
 }
 
+const overviewClampText = (minRem: number, multiple: number, maxRem: number) =>
+  `clamp(${minRem}rem, calc(var(--overview-root-size, 15px) * ${multiple}), ${maxRem}rem)`
+
 // 用 ResizeObserver 监听容器尺寸，返回动态基准字号
-function useContainerFontBase(ref: React.RefObject<HTMLDivElement>) {
+function useContainerFontBase(ref: React.RefObject<HTMLDivElement | null>) {
   const [base, setBase] = useState(13)
 
   useEffect(() => {
@@ -132,7 +135,7 @@ function HeroStatCard({ card, zh, base }: { card: HeroCard; zh: boolean; base: n
           <div className="flex min-w-0 flex-1 flex-col" style={{ gap: `${B * 0.2}px` }}>
             <span
               className="whitespace-nowrap font-semibold leading-tight tracking-[0.02em] text-[#f5f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.55)]"
-              style={{ fontSize: `${B * 1.05}px` }}
+              style={{ fontSize: overviewClampText(0.8, 0.92, 1.18) }}
             >
               {zh ? card.labelZh : card.labelEn}
             </span>
@@ -140,7 +143,7 @@ function HeroStatCard({ card, zh, base }: { card: HeroCard; zh: boolean; base: n
               <span
                 className={`font-bold tabular-nums leading-none ${card.valueClass}`}
                 style={{
-                  fontSize: `${B * 1.85}px`,
+                  fontSize: overviewClampText(1.4, 1.8, 2.45),
                   textShadow: `0 0 16px ${card.softAccent}, 0 2px 8px rgba(0,0,0,0.45)`,
                 }}
               >
@@ -150,7 +153,7 @@ function HeroStatCard({ card, zh, base }: { card: HeroCard; zh: boolean; base: n
                 <span
                   className={`font-bold tabular-nums leading-none ${card.valueClass}`}
                   style={{
-                    fontSize: `${B * 1.05}px`,
+                    fontSize: overviewClampText(0.76, 0.9, 1.2),
                     textShadow: `0 0 12px ${card.softAccent}, 0 2px 8px rgba(0,0,0,0.45)`,
                   }}
                 >
@@ -159,7 +162,7 @@ function HeroStatCard({ card, zh, base }: { card: HeroCard; zh: boolean; base: n
               )}
               <span
                 className="font-semibold text-[#f4f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.45)]"
-                style={{ fontSize: `${B * 1.05}px` }}
+                style={{ fontSize: overviewClampText(0.74, 0.9, 1.2) }}
               >
                 {card.unit}
               </span>
@@ -175,7 +178,7 @@ function HeroStatCard({ card, zh, base }: { card: HeroCard; zh: boolean; base: n
             <div key={detail.labelEn} className="flex items-center justify-between" style={{ gap: "4px" }}>
               <span
                 className="shrink-0 font-medium leading-none text-[#b8d4f8]/88"
-                style={{ fontSize: `${B * 0.88}px` }}
+                style={{ fontSize: overviewClampText(0.66, 0.78, 0.94) }}
               >
                 {zh ? detail.labelZh : detail.labelEn}
               </span>
@@ -188,13 +191,13 @@ function HeroStatCard({ card, zh, base }: { card: HeroCard; zh: boolean; base: n
                 <span
                   className="font-semibold tabular-nums leading-none text-[#f2f8ff]"
                   style={{
-                    fontSize: `${B * 1.05}px`,
+                    fontSize: overviewClampText(0.78, 0.92, 1.14),
                     textShadow: `0 0 8px ${card.accent}33, 0 2px 6px rgba(0,0,0,0.4)`,
                   }}
                 >
                   {detail.value}
                 </span>
-                <span className="leading-none text-[#d8eeff]/85" style={{ fontSize: `${B * 0.85}px` }}>
+                <span className="leading-none text-[#d8eeff]/85" style={{ fontSize: overviewClampText(0.62, 0.72, 0.86) }}>
                   {detail.unit}
                 </span>
               </div>
@@ -221,7 +224,7 @@ function TotalCard({
       >
         <div
           className="whitespace-nowrap font-semibold tracking-[0.02em] text-[#f6f9ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.5)]"
-          style={{ fontSize: `${B * 1.05}px` }}
+          style={{ fontSize: overviewClampText(0.78, 0.92, 1.16) }}
         >
           {zh ? title : labelEn}
         </div>
@@ -231,14 +234,14 @@ function TotalCard({
             <span
               className="font-bold tabular-nums leading-none"
               style={{
-                fontSize: `${B * 2.2}px`,
+                fontSize: overviewClampText(1.5, 1.95, 2.7),
                 color: accent,
                 textShadow: `0 0 20px ${glow}, 0 2px 8px rgba(0,0,0,0.45)`,
               }}
             >
               {value}
             </span>
-            <span className="shrink-0 font-semibold text-[#f4f8ff]" style={{ fontSize: `${B * 1.3}px` }}>
+            <span className="shrink-0 font-semibold text-[#f4f8ff]" style={{ fontSize: overviewClampText(0.78, 0.96, 1.28) }}>
               {unit}
             </span>
           </div>

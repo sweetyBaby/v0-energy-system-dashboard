@@ -21,6 +21,7 @@ import { useProject } from "@/components/dashboard/dashboard-header"
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
+import { useFluidScale } from "@/hooks/use-fluid-scale"
 import {
   fetchOverviewDailyList,
   formatNullableMetric,
@@ -97,6 +98,7 @@ export function ComprehensiveEfficiencyPanel({
   const [customRange, setCustomRange] = useState<DateRange | undefined>(defaultCustomRange)
   const [activeData, setActiveData] = useState<EfficiencyPoint[]>([])
   const [loading, setLoading] = useState(true)
+  const panelScale = useFluidScale<HTMLDivElement>(620, 1120, { minRootPx: 13.5, maxRootPx: 17.5 })
 
   const activeRequestRange = useMemo(() => {
     if (range === "week") {
@@ -310,7 +312,7 @@ export function ComprehensiveEfficiencyPanel({
     )
   }
 
-  const renderLegend = (_props: LegendProps) => (
+  const renderLegend = () => (
     <div className="flex flex-wrap items-center justify-center gap-2 px-2 pt-3">
       {seriesConfig.map((series) => {
         const hidden = hiddenSeries.includes(series.key)
@@ -320,12 +322,13 @@ export function ComprehensiveEfficiencyPanel({
             key={series.key}
             type="button"
             onClick={() => toggleSeries(series.key)}
-            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] transition-all ${
+            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 transition-all ${
               hidden
                 ? "border-white/8 bg-white/[0.02] text-[#6f86b7]"
                 : "border-white/10 bg-[linear-gradient(180deg,rgba(18,34,72,0.92),rgba(11,24,53,0.92))] text-[#dce9ff]"
             }`}
             style={{
+              fontSize: `${controlFontSize}px`,
               boxShadow: hidden ? "none" : `inset 0 0 0 1px ${series.color}1f, 0 0 14px ${series.color}22`,
             }}
           >
@@ -353,10 +356,17 @@ export function ComprehensiveEfficiencyPanel({
   const wrapperClassName = compact
     ? "flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#22d3ee]/25 bg-[rgba(5,12,26,0.62)] p-3 backdrop-blur-[3px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset]"
     : "flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-3"
+  const titleFontSize = panelScale.fluid(compact ? 14 : 16, compact ? 18 : 22)
+  const controlFontSize = panelScale.fluid(12, 14.5)
+  const axisFontSize = panelScale.chart(10, 12.5)
+  const emptyFontSize = panelScale.fluid(14, 17)
+  const tableHeadFontSize = panelScale.fluid(11.5, 13.2)
+  const tableCellFontSize = panelScale.fluid(12.5, 14.2)
+  const tableValueFontSize = panelScale.fluid(12, 13.8)
 
   if (loading && activeData.length < 0) {
     return (
-      <div className={wrapperClassName}>
+      <div ref={panelScale.ref} className={wrapperClassName}>
         <div className="flex h-full items-center justify-center">
           <HistoryStyleLoadingIndicator text={language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."} />
         </div>
@@ -365,11 +375,11 @@ export function ComprehensiveEfficiencyPanel({
   }
 
   return (
-    <div className={wrapperClassName}>
+    <div ref={panelScale.ref} className={wrapperClassName}>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
-          <h3 className={compact ? "text-sm font-semibold text-[#00d4aa]" : "text-base font-semibold text-[#00d4aa]"}>
+          <h3 className="font-semibold text-[#00d4aa]" style={{ fontSize: `${titleFontSize}px` }}>
             {language === "zh" ? "综合能效统计" : "Efficiency Analytics"}
           </h3>
         </div>
@@ -380,11 +390,12 @@ export function ComprehensiveEfficiencyPanel({
               <button
                 key={item.key}
                 onClick={() => setRange(item.key)}
-                className={`rounded-lg px-3 py-1.5 text-[12px] transition-all ${
+                className={`rounded-lg px-3 py-1.5 transition-all ${
                   range === item.key
                     ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
                     : "text-[#7b8ab8] hover:text-[#e8f4fc]"
                 }`}
+                style={{ fontSize: `${controlFontSize}px` }}
               >
                 {item.label}
               </button>
@@ -441,7 +452,7 @@ export function ComprehensiveEfficiencyPanel({
               <HistoryStyleLoadingIndicator text={language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."} />
             </div>
           ) : activeData.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-[#7b8ab8]">{emptyStateText}</div>
+            <div className="flex h-full items-center justify-center text-[#7b8ab8]" style={{ fontSize: `${emptyFontSize}px` }}>{emptyStateText}</div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={activeData} margin={{ top: 18, right: 12, left: 0, bottom: 8 }}>
@@ -468,7 +479,7 @@ export function ComprehensiveEfficiencyPanel({
                   dataKey="label"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "#88a4d7", fontSize: 10 }}
+                  tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
                   tickMargin={10}
                   interval={range === "month" && activeData.length > 16 ? 1 : 0}
                 />
@@ -476,7 +487,7 @@ export function ComprehensiveEfficiencyPanel({
                   yAxisId="quantity"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "#88a4d7", fontSize: 10 }}
+                  tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
                   tickMargin={8}
                 />
                 <YAxis
@@ -484,7 +495,7 @@ export function ComprehensiveEfficiencyPanel({
                   orientation="right"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "#88a4d7", fontSize: 10 }}
+                  tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
                   tickMargin={8}
                   tickFormatter={(value: number) => `${value}%`}
                 />
@@ -571,9 +582,9 @@ export function ComprehensiveEfficiencyPanel({
               <HistoryStyleLoadingIndicator text={language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."} />
             </div>
           ) : activeData.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-[#7b8ab8]">{emptyStateText}</div>
+            <div className="flex h-full items-center justify-center text-[#7b8ab8]" style={{ fontSize: `${emptyFontSize}px` }}>{emptyStateText}</div>
           ) : (
-            <table className="w-full table-fixed border-separate border-spacing-y-1.5 text-[13px]">
+            <table className="w-full table-fixed border-separate border-spacing-y-1.5" style={{ fontSize: `${tableCellFontSize}px` }}>
               <colgroup>
                 <col className="w-[12%]" />
                 <col className="w-[16%]" />
@@ -585,37 +596,37 @@ export function ComprehensiveEfficiencyPanel({
               </colgroup>
               <thead>
                 <tr className="text-[#7b8ab8]">
-                  <th className="rounded-l-lg bg-[#121a40] px-2 py-3 text-left text-[12px] font-medium leading-tight">{tableHeaders.period}</th>
-                  <th className="bg-[#121a40] px-2 py-3 text-right text-[12px] font-medium leading-tight">{tableHeaders.chargeCapacity}</th>
-                  <th className="bg-[#121a40] px-2 py-3 text-right text-[12px] font-medium leading-tight">{tableHeaders.dischargeCapacity}</th>
-                  <th className="bg-[#121a40] px-2 py-3 text-right text-[12px] font-medium leading-tight">{tableHeaders.capacityEfficiency}</th>
-                  <th className="bg-[#121a40] px-2 py-3 text-right text-[12px] font-medium leading-tight">{tableHeaders.chargeEnergy}</th>
-                  <th className="bg-[#121a40] px-2 py-3 text-right text-[12px] font-medium leading-tight">{tableHeaders.dischargeEnergy}</th>
-                  <th className="rounded-r-lg bg-[#121a40] px-2 py-3 text-right text-[12px] font-medium leading-tight">{tableHeaders.energyEfficiency}</th>
+                  <th className="rounded-l-lg bg-[#121a40] px-2 py-3 text-left font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.period}</th>
+                  <th className="bg-[#121a40] px-2 py-3 text-right font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.chargeCapacity}</th>
+                  <th className="bg-[#121a40] px-2 py-3 text-right font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.dischargeCapacity}</th>
+                  <th className="bg-[#121a40] px-2 py-3 text-right font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.capacityEfficiency}</th>
+                  <th className="bg-[#121a40] px-2 py-3 text-right font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.chargeEnergy}</th>
+                  <th className="bg-[#121a40] px-2 py-3 text-right font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.dischargeEnergy}</th>
+                  <th className="rounded-r-lg bg-[#121a40] px-2 py-3 text-right font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.energyEfficiency}</th>
                 </tr>
               </thead>
               <tbody>
                 {activeData.map((item) => (
                   <tr key={item.label} className="group">
-                    <td className="truncate rounded-l-lg border-y border-l border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-[13px] text-[#dce7ff] transition-colors group-hover:bg-[#162252]">
+                    <td className="truncate rounded-l-lg border-y border-l border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-[#dce7ff] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableCellFontSize}px` }}>
                       {item.label}
                     </td>
-                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[12px] text-[#8ee7ff] transition-colors group-hover:bg-[#162252]">
+                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[#8ee7ff] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableValueFontSize}px` }}>
                       {formatNullableMetric(item.chargeCapacity)}
                     </td>
-                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[12px] text-[#ffb7c2] transition-colors group-hover:bg-[#162252]">
+                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[#ffb7c2] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableValueFontSize}px` }}>
                       {formatNullableMetric(item.dischargeCapacity)}
                     </td>
-                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[12px] text-[#ffd36b] transition-colors group-hover:bg-[#162252]">
+                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[#ffd36b] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableValueFontSize}px` }}>
                       {formatNullableMetric(item.capacityEfficiency, 2, "%")}
                     </td>
-                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[12px] text-[#9af7df] transition-colors group-hover:bg-[#162252]">
+                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[#9af7df] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableValueFontSize}px` }}>
                       {formatNullableMetric(item.chargeEnergy)}
                     </td>
-                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[12px] text-[#d6c2ff] transition-colors group-hover:bg-[#162252]">
+                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[#d6c2ff] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableValueFontSize}px` }}>
                       {formatNullableMetric(item.dischargeEnergy)}
                     </td>
-                    <td className="rounded-r-lg border-y border-r border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[12px] text-[#4ade80] transition-colors group-hover:bg-[#162252]">
+                    <td className="rounded-r-lg border-y border-r border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[#4ade80] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableValueFontSize}px` }}>
                       {formatNullableMetric(item.energyEfficiency, 2, "%")}
                     </td>
                   </tr>

@@ -19,6 +19,7 @@ import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { useLanguage } from "@/components/language-provider"
+import { useFluidScale } from "@/hooks/use-fluid-scale"
 import {
   fetchPowerRange,
   fetchTodayPowerDaily,
@@ -116,6 +117,7 @@ export function PowerCurveQuery() {
   const [latestTimeLabel, setLatestTimeLabel] = useState("--")
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const latestTimestampRef = useRef<number | undefined>(undefined)
+  const panelScale = useFluidScale<HTMLDivElement>(620, 1120, { minRootPx: 13.5, maxRootPx: 17.5 })
 
   const customHint =
     language === "zh" ? "最多选择 31 天，结束日期不能超过昨天" : "Select up to 31 days, ending no later than yesterday"
@@ -134,6 +136,11 @@ export function PowerCurveQuery() {
     { key: "custom" as const, label: customLabel },
   ]
 
+  const titleFontSize = panelScale.fluid(16, 22)
+  const controlFontSize = panelScale.fluid(13, 15)
+  const badgeFontSize = panelScale.fluid(11, 13)
+  const axisFontSize = panelScale.chart(10, 12.5)
+  const emptyFontSize = panelScale.fluid(14, 17)
   const chartData = useMemo(() => toChartPoints(points, queryType), [points, queryType])
   const xInterval =
     queryType === "today" || queryType === "yesterday" ? Math.max(1, Math.floor(chartData.length / 8)) : Math.max(1, Math.floor(chartData.length / 10))
@@ -311,13 +318,13 @@ export function PowerCurveQuery() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
+    <div ref={panelScale.ref} className="flex h-full w-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
-          <h3 className="text-base font-semibold text-[#00d4aa]">{title}</h3>
+          <h3 className="font-semibold text-[#00d4aa]" style={{ fontSize: `${titleFontSize}px` }}>{title}</h3>
           {queryType === "today" && !loading && (
-            <span className="flex items-center gap-1 rounded-full border border-[#1c4273] bg-[linear-gradient(180deg,rgba(8,24,55,0.96),rgba(10,28,62,0.9))] px-2.5 py-1 text-[11px] text-[#9bc6ff] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]">
+            <span className="flex items-center gap-1 rounded-full border border-[#1c4273] bg-[linear-gradient(180deg,rgba(8,24,55,0.96),rgba(10,28,62,0.9))] px-2.5 py-1 text-[#9bc6ff] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]" style={{ fontSize: `${badgeFontSize}px` }}>
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00d4aa]" />
               {liveLabel} {latestTimeLabel}
             </span>
@@ -331,11 +338,12 @@ export function PowerCurveQuery() {
                 <button
                   key={type.key}
                   onClick={() => setQueryType(type.key)}
-                  className={`rounded-lg px-3 py-1.5 text-[13px] transition-all ${
+                  className={`rounded-lg px-3 py-1.5 transition-all ${
                     queryType === type.key
                       ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
                       : "text-[#7b8ab8] hover:text-[#e8f4fc]"
                   }`}
+                  style={{ fontSize: `${controlFontSize}px` }}
                 >
                   {type.label}
                 </button>
@@ -365,7 +373,7 @@ export function PowerCurveQuery() {
             <HistoryStyleLoadingIndicator text={language === "zh" ? "加载功率曲线数据..." : "Loading power data..."} />
           </div>
         ) : chartData.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-[#7b8ab8]">{emptyStateText}</div>
+          <div className="flex h-full items-center justify-center text-[#7b8ab8]" style={{ fontSize: `${emptyFontSize}px` }}>{emptyStateText}</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -381,11 +389,11 @@ export function PowerCurveQuery() {
                 dataKey="label"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: "#88a4d7", fontSize: 10 }}
+                tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
                 tickMargin={10}
                 interval={xInterval}
               />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#88a4d7", fontSize: 10 }} tickMargin={8} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#88a4d7", fontSize: axisFontSize }} tickMargin={8} />
               <ReferenceLine y={0} stroke="#3f6490" strokeDasharray="4 4" strokeOpacity={0.72} />
               <Tooltip cursor={{ stroke: "#2b4f7d", strokeDasharray: "4 4" }} content={renderTooltip} />
               <Area type="monotone" dataKey="power" stroke="none" fill={`url(#${chartId}-power-fill)`} isAnimationActive={false} />
