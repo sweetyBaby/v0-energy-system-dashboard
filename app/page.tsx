@@ -379,7 +379,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                             {zh ? stat.labelZh : stat.labelEn}
                           </span>
                           <span
-                            className="font-bold tabular-nums tracking-[0.04em] text-[#e8f8ff]"
+                            className="max-w-full whitespace-nowrap text-center font-bold leading-none tabular-nums tracking-[0.04em] text-[#e8f8ff]"
                             style={{
                               fontSize: "clamp(1.1rem, calc(var(--overview-root-size, 15px) * 1.22), 1.75rem)",
                               textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 14px rgba(34,211,238,0.45)",

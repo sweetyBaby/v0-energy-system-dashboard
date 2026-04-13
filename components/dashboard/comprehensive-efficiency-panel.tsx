@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useId, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from "react"
 import type { DateRange } from "react-day-picker"
 import {
   Bar,
@@ -38,6 +38,18 @@ type SeriesKey =
   | "dischargeEnergy"
   | "capacityEfficiency"
   | "energyEfficiency"
+type TableColumnKey = "period" | SeriesKey
+
+type ViewportRange = {
+  startIndex: number
+  endIndex: number
+}
+
+type DragState = {
+  pointerId: number
+  startX: number
+  startRange: ViewportRange
+}
 
 type ComprehensiveEfficiencyPanelProps = {
   compact?: boolean
@@ -63,6 +75,7 @@ const addDays = (date: Date, days: number) => {
 
 const formatRequestDate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
 function ViewIconChart({ active }: { active: boolean }) {
   return <LineChartIcon className="h-[16px] w-[16px]" style={{ color: active ? "#07162b" : "#6f86b7" }} />
@@ -98,6 +111,10 @@ export function ComprehensiveEfficiencyPanel({
   const [customRange, setCustomRange] = useState<DateRange | undefined>(defaultCustomRange)
   const [activeData, setActiveData] = useState<EfficiencyPoint[]>([])
   const [loading, setLoading] = useState(true)
+  const [viewportRange, setViewportRange] = useState<ViewportRange | null>(null)
+  const [isDraggingTimeline, setIsDraggingTimeline] = useState(false)
+  const chartShellRef = useRef<HTMLDivElement | null>(null)
+  const dragStateRef = useRef<DragState | null>(null)
   const panelScale = useFluidScale<HTMLDivElement>(620, 1120, { minRootPx: 13.5, maxRootPx: 17.5 })
 
   const activeRequestRange = useMemo(() => {
@@ -183,7 +200,7 @@ export function ComprehensiveEfficiencyPanel({
     }
   }, [activeRequestRange, selectedProject.projectId])
 
-  const rangeOptions = [
+  const legacyRangeOptions = [
     { key: "week" as const, label: language === "zh" ? "近7天" : "7 Days" },
     { key: "month" as const, label: language === "zh" ? "本月" : "This Month" },
     { key: "year" as const, label: language === "zh" ? "本年" : "This Year" },
@@ -227,7 +244,7 @@ export function ComprehensiveEfficiencyPanel({
     [seriesConfig],
   )
 
-  const tableHeaders = {
+  const legacyTableHeaders = {
     period: language === "zh" ? "时间" : "Period",
     chargeCapacity: language === "zh" ? "充电容量 (Ah)" : "Charge Capacity (Ah)",
     dischargeCapacity: language === "zh" ? "放电容量 (Ah)" : "Discharge Capacity (Ah)",
@@ -237,20 +254,179 @@ export function ComprehensiveEfficiencyPanel({
     energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
   }
 
-  const customHint =
+  const legacyCustomHint =
     language === "zh" ? "最多选择 31 天，结束日期不能超过昨天" : "Select up to 31 days, ending no later than yesterday"
-  const maxRangeError =
+  const legacyMaxRangeError =
     language === "zh" ? "自定义日期范围最多 31 天，且结束日期不能超过昨天" : "Custom date range cannot exceed 31 days or go beyond yesterday"
   const selectRangeLabel = language === "zh" ? "选择日期范围" : "Select range"
   const emptyStateText = language === "zh" ? "当前时间范围暂无数据" : "No data for the selected range"
 
   const formatRangeLabel = (rangeValue: DateRange | undefined) => {
-    if (!rangeValue?.from) return selectRangeLabel
+    if (!rangeValue?.from) return displaySelectRangeLabel
 
     const formatDate = (date: Date) => `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
     if (!rangeValue.to) return formatDate(rangeValue.from)
     return `${formatDate(rangeValue.from)} - ${formatDate(rangeValue.to)}`
   }
+
+  const legacyTableColumns: Array<{
+    key: TableColumnKey
+    label: string
+    unit: string
+    align: "left" | "right"
+    tone: string
+  }> = [
+    { key: "period", label: language === "zh" ? "鏃堕棿" : "Period", unit: "", align: "left", tone: "text-[#dce7ff]" },
+    { key: "chargeCapacity", label: language === "zh" ? "鍏呯數瀹归噺" : "Charge Capacity", unit: "Ah", align: "right", tone: "text-[#eef4ff]" },
+    { key: "dischargeCapacity", label: language === "zh" ? "鏀剧數瀹归噺" : "Discharge Capacity", unit: "Ah", align: "right", tone: "text-[#eef4ff]" },
+    { key: "capacityEfficiency", label: language === "zh" ? "瀹归噺鏁堢巼" : "Capacity Efficiency", unit: "%", align: "right", tone: "text-[#90f0c1]" },
+    { key: "chargeEnergy", label: language === "zh" ? "鍏呯數鐢甸噺" : "Charge Energy", unit: "kWh", align: "right", tone: "text-[#eef4ff]" },
+    { key: "dischargeEnergy", label: language === "zh" ? "鏀剧數鐢甸噺" : "Discharge Energy", unit: "kWh", align: "right", tone: "text-[#eef4ff]" },
+    { key: "energyEfficiency", label: language === "zh" ? "鑳介噺鏁堢巼" : "Energy Efficiency", unit: "%", align: "right", tone: "text-[#90f0c1]" },
+  ]
+
+  const renderTableMetric = (value: number | null | undefined, digits = 1) => formatNullableMetric(value, digits)
+  const legacyLocalizedRangeOptions = [
+    { key: "week" as const, label: language === "zh" ? "近7天" : "7 Days" },
+    { key: "month" as const, label: language === "zh" ? "本月" : "This Month" },
+    { key: "year" as const, label: language === "zh" ? "本年" : "This Year" },
+    { key: "custom" as const, label: language === "zh" ? "自定义" : "Custom" },
+  ]
+  const legacyLocalizedLegendText = {
+    chargeCapacity: language === "zh" ? "充电容量 (Ah)" : "Charge Capacity (Ah)",
+    dischargeCapacity: language === "zh" ? "放电容量 (Ah)" : "Discharge Capacity (Ah)",
+    chargeEnergy: language === "zh" ? "充电电量 (kWh)" : "Charge Energy (kWh)",
+    dischargeEnergy: language === "zh" ? "放电电量 (kWh)" : "Discharge Energy (kWh)",
+    capacityEfficiency: language === "zh" ? "容量效率 (%)" : "Capacity Efficiency (%)",
+    energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
+  }
+  const legacyLocalizedTableColumns: Array<{
+    key: TableColumnKey
+    label: string
+    unit: string
+    align: "left" | "right"
+    tone: string
+  }> = [
+    { key: "period", label: language === "zh" ? "时间" : "Period", unit: "", align: "left", tone: "text-[#dce7ff]" },
+    { key: "chargeCapacity", label: language === "zh" ? "充电容量" : "Charge Capacity", unit: "Ah", align: "right", tone: "text-[#eef4ff]" },
+    { key: "dischargeCapacity", label: language === "zh" ? "放电容量" : "Discharge Capacity", unit: "Ah", align: "right", tone: "text-[#eef4ff]" },
+    { key: "capacityEfficiency", label: language === "zh" ? "容量效率" : "Capacity Efficiency", unit: "%", align: "right", tone: "text-[#90f0c1]" },
+    { key: "chargeEnergy", label: language === "zh" ? "充电电量" : "Charge Energy", unit: "kWh", align: "right", tone: "text-[#eef4ff]" },
+    { key: "dischargeEnergy", label: language === "zh" ? "放电电量" : "Discharge Energy", unit: "kWh", align: "right", tone: "text-[#eef4ff]" },
+    { key: "energyEfficiency", label: language === "zh" ? "能量效率" : "Energy Efficiency", unit: "%", align: "right", tone: "text-[#90f0c1]" },
+  ]
+  const legacyLocalizedCustomHint =
+    language === "zh" ? "最多选择 31 天，结束日期不能超过昨天" : "Select up to 31 days, ending no later than yesterday"
+  const legacyLocalizedMaxRangeError =
+    language === "zh" ? "自定义日期范围最多 31 天，且结束日期不能超过昨天" : "Custom date range cannot exceed 31 days or go beyond yesterday"
+  const localizedSelectRangeLabel = language === "zh" ? "选择日期范围" : "Select range"
+  const localizedEmptyStateText = language === "zh" ? "当前时间范围暂无数据" : "No data for the selected range"
+  const localizedTooltipPeriodLabel = language === "zh" ? "统计时段" : "Period"
+  const localizedLoadingText = language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."
+  const localizedTitle = language === "zh" ? "综合能效统计" : "Efficiency Analytics"
+  const localizedChartLabel = language === "zh" ? "图表" : "Chart"
+  const localizedTableLabel = language === "zh" ? "表格" : "Table"
+  const localizedQuickSelectLabel = language === "zh" ? "昨天" : "Yesterday"
+
+  const displayRangeOptions = [
+    { key: "week" as const, label: language === "zh" ? "近7天" : "7 Days" },
+    { key: "month" as const, label: language === "zh" ? "本月" : "This Month" },
+    { key: "year" as const, label: language === "zh" ? "本年" : "This Year" },
+    { key: "custom" as const, label: language === "zh" ? "自定义" : "Custom" },
+  ]
+  const displayLegendText: Record<SeriesKey, string> = {
+    chargeCapacity: language === "zh" ? "充电容量 (Ah)" : "Charge Capacity (Ah)",
+    dischargeCapacity: language === "zh" ? "放电容量 (Ah)" : "Discharge Capacity (Ah)",
+    chargeEnergy: language === "zh" ? "充电电量 (kWh)" : "Charge Energy (kWh)",
+    dischargeEnergy: language === "zh" ? "放电电量 (kWh)" : "Discharge Energy (kWh)",
+    capacityEfficiency: language === "zh" ? "容量效率 (%)" : "Capacity Efficiency (%)",
+    energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
+  }
+  const displayTableColumns: Array<{
+    key: TableColumnKey
+    label: string
+    unit: string
+    align: "left" | "right"
+    tone: string
+  }> = [
+    { key: "period", label: language === "zh" ? "时间" : "Period", unit: "", align: "left", tone: "text-[#dce7ff]" },
+    { key: "chargeCapacity", label: language === "zh" ? "充电容量" : "Charge Capacity", unit: "Ah", align: "right", tone: "text-[#eef4ff]" },
+    { key: "dischargeCapacity", label: language === "zh" ? "放电容量" : "Discharge Capacity", unit: "Ah", align: "right", tone: "text-[#eef4ff]" },
+    { key: "capacityEfficiency", label: language === "zh" ? "容量效率" : "Capacity Efficiency", unit: "%", align: "right", tone: "text-[#90f0c1]" },
+    { key: "chargeEnergy", label: language === "zh" ? "充电电量" : "Charge Energy", unit: "kWh", align: "right", tone: "text-[#eef4ff]" },
+    { key: "dischargeEnergy", label: language === "zh" ? "放电电量" : "Discharge Energy", unit: "kWh", align: "right", tone: "text-[#eef4ff]" },
+    { key: "energyEfficiency", label: language === "zh" ? "能量效率" : "Energy Efficiency", unit: "%", align: "right", tone: "text-[#90f0c1]" },
+  ]
+  const displayCustomHint =
+    language === "zh" ? "最多选择 31 天，结束日期不能超过昨天" : "Select up to 31 days, ending no later than yesterday"
+  const displayMaxRangeError =
+    language === "zh" ? "自定义日期范围最多 31 天，且结束日期不能超过昨天" : "Custom date range cannot exceed 31 days or go beyond yesterday"
+  const displaySelectRangeLabel = language === "zh" ? "选择日期范围" : "Select range"
+  const displayEmptyStateText = language === "zh" ? "当前时间范围暂无数据" : "No data for the selected range"
+  const displayTooltipPeriodLabel = language === "zh" ? "统计时段" : "Period"
+  const displayLoadingText = language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."
+  const displayTitle = language === "zh" ? "综合能效统计" : "Efficiency Analytics"
+  const displayChartLabel = language === "zh" ? "图表" : "Chart"
+  const displayTableLabel = language === "zh" ? "表格" : "Table"
+  const displayQuickSelectLabel = language === "zh" ? "昨天" : "Yesterday"
+
+  const visibleChartData = useMemo(() => {
+    if (!viewportRange) {
+      return activeData
+    }
+
+    return activeData.slice(viewportRange.startIndex, viewportRange.endIndex + 1)
+  }, [activeData, viewportRange])
+
+  const visiblePointCount = visibleChartData.length
+  const xInterval =
+    range === "year"
+      ? Math.max(0, Math.floor(visiblePointCount / 12) - 1)
+      : range === "month"
+        ? Math.max(0, Math.floor(visiblePointCount / 10) - 1)
+        : Math.max(0, Math.floor(visiblePointCount / 8) - 1)
+  const canZoom = activeData.length > 8
+  const canPan = Boolean(viewportRange && visiblePointCount < activeData.length)
+  const orderedSeriesConfig = useMemo(() => {
+    const visibleSeries = seriesConfig.filter((series) => !hiddenSeries.includes(series.key))
+    const hiddenSeriesItems = seriesConfig.filter((series) => hiddenSeries.includes(series.key))
+    return [...visibleSeries, ...hiddenSeriesItems]
+  }, [hiddenSeries, seriesConfig])
+
+  useEffect(() => {
+    setViewportRange(null)
+    dragStateRef.current = null
+    setIsDraggingTimeline(false)
+  }, [customRange?.from?.getTime(), customRange?.to?.getTime(), range, selectedProject.projectId])
+
+  useEffect(() => {
+    if (activeData.length === 0) {
+      setViewportRange(null)
+      return
+    }
+
+    setViewportRange((currentRange) => {
+      if (!currentRange) {
+        return {
+          startIndex: 0,
+          endIndex: activeData.length - 1,
+        }
+      }
+
+      const visibleSize = Math.min(activeData.length, currentRange.endIndex - currentRange.startIndex + 1)
+      const nextStart = clamp(currentRange.startIndex, 0, activeData.length - visibleSize)
+      const nextEnd = nextStart + visibleSize - 1
+
+      if (currentRange.startIndex === nextStart && currentRange.endIndex === nextEnd) {
+        return currentRange
+      }
+
+      return {
+        startIndex: nextStart,
+        endIndex: nextEnd,
+      }
+    })
+  }, [activeData.length])
 
   const toggleSeries = (seriesKey: SeriesKey) => {
     setHiddenSeries((prev) => {
@@ -272,9 +448,7 @@ export function ComprehensiveEfficiencyPanel({
     return (
       <div className="min-w-[220px] overflow-hidden" style={TOOLTIP_SURFACE}>
         <div className="border-b border-white/8 bg-[linear-gradient(90deg,rgba(17,216,191,0.14),transparent)] px-3 py-2">
-          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#7da0d8]">
-            {language === "zh" ? "统计时段" : "Period"}
-          </div>
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#7da0d8]">{displayTooltipPeriodLabel}</div>
           <div className="mt-1 text-sm font-semibold text-[#e9f4ff]">{label}</div>
         </div>
 
@@ -298,7 +472,7 @@ export function ComprehensiveEfficiencyPanel({
                     className="h-2.5 w-2.5 rounded-full"
                     style={{ backgroundColor: meta.color, boxShadow: `0 0 12px ${meta.color}99` }}
                   />
-                  <span className="text-[12px] text-[#bed3f6]">{meta.name}</span>
+                  <span className="text-[12px] text-[#bed3f6]">{displayLegendText[key]}</span>
                 </div>
                 <span className="font-mono text-[12px] font-semibold text-[#f2f8ff]">
                   {displayValue}
@@ -312,9 +486,124 @@ export function ComprehensiveEfficiencyPanel({
     )
   }
 
+  const handleAxisWheel = (event: WheelEvent<HTMLDivElement>) => {
+    if (!canZoom || activeData.length <= 1 || !chartShellRef.current) {
+      return
+    }
+
+    event.preventDefault()
+    const rect = chartShellRef.current.getBoundingClientRect()
+
+    const currentRange =
+      viewportRange ?? {
+        startIndex: 0,
+        endIndex: activeData.length - 1,
+      }
+    const currentSize = currentRange.endIndex - currentRange.startIndex + 1
+    const nextSize = clamp(
+      currentSize + (event.deltaY > 0 ? Math.max(1, Math.ceil(currentSize * 0.2)) : -Math.max(1, Math.ceil(currentSize * 0.2))),
+      Math.min(4, activeData.length),
+      activeData.length,
+    )
+
+    if (nextSize === currentSize) {
+      return
+    }
+
+    const relativeX = clamp((event.clientX - rect.left) / Math.max(rect.width, 1), 0, 1)
+    const anchorIndex = clamp(
+      currentRange.startIndex + Math.round((currentSize - 1) * relativeX),
+      0,
+      activeData.length - 1,
+    )
+    let nextStart = Math.round(anchorIndex - relativeX * (nextSize - 1))
+    let nextEnd = nextStart + nextSize - 1
+
+    if (nextStart < 0) {
+      nextStart = 0
+      nextEnd = nextSize - 1
+    }
+
+    if (nextEnd > activeData.length - 1) {
+      nextEnd = activeData.length - 1
+      nextStart = nextEnd - nextSize + 1
+    }
+
+    setViewportRange({
+      startIndex: nextStart,
+      endIndex: nextEnd,
+    })
+  }
+
+  const stopTimelineDrag = (pointerId?: number) => {
+    if (!chartShellRef.current) {
+      dragStateRef.current = null
+      setIsDraggingTimeline(false)
+      return
+    }
+
+    const activeDrag = dragStateRef.current
+    if (pointerId != null && activeDrag?.pointerId !== pointerId) {
+      return
+    }
+
+    if (activeDrag && chartShellRef.current.hasPointerCapture(activeDrag.pointerId)) {
+      chartShellRef.current.releasePointerCapture(activeDrag.pointerId)
+    }
+
+    dragStateRef.current = null
+    setIsDraggingTimeline(false)
+  }
+
+  const handleTimelinePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (!canPan || !chartShellRef.current || !viewportRange) {
+      return
+    }
+
+    event.preventDefault()
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startRange: viewportRange,
+    }
+    chartShellRef.current.setPointerCapture(event.pointerId)
+    setIsDraggingTimeline(true)
+  }
+
+  const handleTimelinePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!chartShellRef.current || dragStateRef.current?.pointerId !== event.pointerId) {
+      return
+    }
+
+    event.preventDefault()
+
+    const rect = chartShellRef.current.getBoundingClientRect()
+    const visibleSize = dragStateRef.current.startRange.endIndex - dragStateRef.current.startRange.startIndex + 1
+    const maxStart = activeData.length - visibleSize
+    if (maxStart <= 0) {
+      return
+    }
+
+    const deltaX = dragStateRef.current.startX - event.clientX
+    const pointDelta = Math.round((deltaX / Math.max(rect.width, 1)) * visibleSize)
+    const nextStart = clamp(dragStateRef.current.startRange.startIndex + pointDelta, 0, maxStart)
+    const nextEnd = nextStart + visibleSize - 1
+
+    setViewportRange((currentRange) => {
+      if (currentRange && currentRange.startIndex === nextStart && currentRange.endIndex === nextEnd) {
+        return currentRange
+      }
+
+      return {
+        startIndex: nextStart,
+        endIndex: nextEnd,
+      }
+    })
+  }
+
   const renderLegend = () => (
     <div className="flex flex-wrap items-center justify-center gap-2 px-2 pt-3">
-      {seriesConfig.map((series) => {
+      {orderedSeriesConfig.map((series) => {
         const hidden = hiddenSeries.includes(series.key)
 
         return (
@@ -345,7 +634,7 @@ export function ComprehensiveEfficiencyPanel({
                 textDecorationThickness: "1.5px",
               }}
             >
-              {series.name}
+              {displayLegendText[series.key]}
             </span>
           </button>
         )
@@ -368,7 +657,7 @@ export function ComprehensiveEfficiencyPanel({
     return (
       <div ref={panelScale.ref} className={wrapperClassName}>
         <div className="flex h-full items-center justify-center">
-          <HistoryStyleLoadingIndicator text={language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."} />
+          <HistoryStyleLoadingIndicator text={displayLoadingText} />
         </div>
       </div>
     )
@@ -380,13 +669,13 @@ export function ComprehensiveEfficiencyPanel({
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
           <h3 className="font-semibold text-[#00d4aa]" style={{ fontSize: `${titleFontSize}px` }}>
-            {language === "zh" ? "综合能效统计" : "Efficiency Analytics"}
+            {displayTitle}
           </h3>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex gap-1 rounded-xl bg-[#16204b]/90 p-1">
-            {rangeOptions.map((item) => (
+            {displayRangeOptions.map((item) => (
               <button
                 key={item.key}
                 onClick={() => setRange(item.key)}
@@ -410,8 +699,8 @@ export function ComprehensiveEfficiencyPanel({
                   ? "bg-[#11d8bf] shadow-[0_0_10px_rgba(17,216,191,0.25)]"
                   : "hover:bg-[#1a2654]/60"
               }`}
-              aria-label={language === "zh" ? "图表" : "Chart"}
-              title={language === "zh" ? "图表" : "Chart"}
+              aria-label={displayChartLabel}
+              title={displayChartLabel}
             >
               <ViewIconChart active={viewMode === "chart"} />
             </button>
@@ -422,8 +711,8 @@ export function ComprehensiveEfficiencyPanel({
                   ? "bg-[#11d8bf] shadow-[0_0_10px_rgba(17,216,191,0.25)]"
                   : "hover:bg-[#1a2654]/60"
               }`}
-              aria-label={language === "zh" ? "表格" : "Table"}
-              title={language === "zh" ? "表格" : "Table"}
+              aria-label={displayTableLabel}
+              title={displayTableLabel}
             >
               <ViewIconTable active={viewMode === "table"} />
             </button>
@@ -436,26 +725,38 @@ export function ComprehensiveEfficiencyPanel({
               maxDate={maxAvailableDate}
               maxDays={31}
               buttonLabel={formatRangeLabel(customRange)}
-              hint={customHint}
-              maxRangeError={maxRangeError}
-              quickSelectLabel={language === "zh" ? "昨天" : "Yesterday"}
+              hint={displayCustomHint}
+              maxRangeError={displayMaxRangeError}
+              quickSelectLabel={displayQuickSelectLabel}
             />
           )}
         </div>
       </div>
 
       {viewMode === "chart" ? (
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <div
+          ref={chartShellRef}
+          onWheel={handleAxisWheel}
+          onPointerDown={handleTimelinePointerDown}
+          onPointerMove={handleTimelinePointerMove}
+          onPointerUp={(event) => stopTimelineDrag(event.pointerId)}
+          onPointerCancel={(event) => stopTimelineDrag(event.pointerId)}
+          onLostPointerCapture={(event) => stopTimelineDrag(event.pointerId)}
+          className={`relative min-h-0 flex-1 overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
+            canPan ? (isDraggingTimeline ? "cursor-grabbing" : "cursor-grab") : ""
+          }`}
+          style={{ touchAction: canPan ? "none" : "auto" }}
+        >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(0,212,170,0.08),transparent_28%),radial-gradient(circle_at_84%_10%,rgba(86,130,255,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]" />
           {loading ? (
             <div className="flex h-full items-center justify-center">
-              <HistoryStyleLoadingIndicator text={language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."} />
+              <HistoryStyleLoadingIndicator text={displayLoadingText} />
             </div>
           ) : activeData.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-[#7b8ab8]" style={{ fontSize: `${emptyFontSize}px` }}>{emptyStateText}</div>
+            <div className="flex h-full items-center justify-center text-[#7b8ab8]" style={{ fontSize: `${emptyFontSize}px` }}>{displayEmptyStateText}</div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={activeData} margin={{ top: 18, right: 12, left: 0, bottom: 8 }}>
+              <ComposedChart data={visibleChartData} margin={{ top: 18, right: 12, left: 0, bottom: 8 }}>
                 <defs>
                   <linearGradient id={`${chartId}-charge-capacity`} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#8ee7ff" stopOpacity={0.95} />
@@ -481,7 +782,8 @@ export function ComprehensiveEfficiencyPanel({
                   tickLine={false}
                   tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
                   tickMargin={10}
-                  interval={range === "month" && activeData.length > 16 ? 1 : 0}
+                  interval={xInterval}
+                  minTickGap={range === "year" ? 28 : 20}
                 />
                 <YAxis
                   yAxisId="quantity"
@@ -505,7 +807,7 @@ export function ComprehensiveEfficiencyPanel({
                   <Bar
                     yAxisId="quantity"
                     dataKey="chargeCapacity"
-                    name={legendText.chargeCapacity}
+                    name={displayLegendText.chargeCapacity}
                     fill={`url(#${chartId}-charge-capacity)`}
                     radius={[0, 0, 0, 0]}
                     barSize={10}
@@ -516,7 +818,7 @@ export function ComprehensiveEfficiencyPanel({
                   <Bar
                     yAxisId="quantity"
                     dataKey="dischargeCapacity"
-                    name={legendText.dischargeCapacity}
+                    name={displayLegendText.dischargeCapacity}
                     fill={`url(#${chartId}-discharge-capacity)`}
                     radius={[0, 0, 0, 0]}
                     barSize={10}
@@ -527,7 +829,7 @@ export function ComprehensiveEfficiencyPanel({
                   <Bar
                     yAxisId="quantity"
                     dataKey="chargeEnergy"
-                    name={legendText.chargeEnergy}
+                    name={displayLegendText.chargeEnergy}
                     fill={`url(#${chartId}-charge-energy)`}
                     radius={[0, 0, 0, 0]}
                     barSize={10}
@@ -538,7 +840,7 @@ export function ComprehensiveEfficiencyPanel({
                   <Bar
                     yAxisId="quantity"
                     dataKey="dischargeEnergy"
-                    name={legendText.dischargeEnergy}
+                    name={displayLegendText.dischargeEnergy}
                     fill={`url(#${chartId}-discharge-energy)`}
                     radius={[0, 0, 0, 0]}
                     barSize={10}
@@ -550,7 +852,7 @@ export function ComprehensiveEfficiencyPanel({
                     yAxisId="efficiency"
                     type="monotone"
                     dataKey="capacityEfficiency"
-                    name={legendText.capacityEfficiency}
+                    name={displayLegendText.capacityEfficiency}
                     stroke="#ffd60a"
                     strokeWidth={2.5}
                     dot={{ r: 4, fill: "#08122a", stroke: "#ffd60a", strokeWidth: 3 }}
@@ -563,7 +865,7 @@ export function ComprehensiveEfficiencyPanel({
                     yAxisId="efficiency"
                     type="monotone"
                     dataKey="energyEfficiency"
-                    name={legendText.energyEfficiency}
+                    name={displayLegendText.energyEfficiency}
                     stroke="#4ade80"
                     strokeWidth={2.5}
                     dot={{ r: 4, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
@@ -579,10 +881,10 @@ export function ComprehensiveEfficiencyPanel({
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.95),rgba(11,18,44,0.92))] p-2 [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]">
           {loading ? (
             <div className="flex h-full min-h-[240px] items-center justify-center">
-              <HistoryStyleLoadingIndicator text={language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."} />
+              <HistoryStyleLoadingIndicator text={displayLoadingText} />
             </div>
           ) : activeData.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-[#7b8ab8]" style={{ fontSize: `${emptyFontSize}px` }}>{emptyStateText}</div>
+            <div className="flex h-full items-center justify-center text-[#7b8ab8]" style={{ fontSize: `${emptyFontSize}px` }}>{displayEmptyStateText}</div>
           ) : (
             <table className="w-full table-fixed border-separate border-spacing-y-1.5" style={{ fontSize: `${tableCellFontSize}px` }}>
               <colgroup>
@@ -596,13 +898,18 @@ export function ComprehensiveEfficiencyPanel({
               </colgroup>
               <thead>
                 <tr className="text-[#7b8ab8]">
-                  <th className="rounded-l-lg bg-[#121a40] px-2 py-3 text-left font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.period}</th>
-                  <th className="bg-[#121a40] px-2 py-3 text-right font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.chargeCapacity}</th>
-                  <th className="bg-[#121a40] px-2 py-3 text-right font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.dischargeCapacity}</th>
-                  <th className="bg-[#121a40] px-2 py-3 text-right font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.capacityEfficiency}</th>
-                  <th className="bg-[#121a40] px-2 py-3 text-right font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.chargeEnergy}</th>
-                  <th className="bg-[#121a40] px-2 py-3 text-right font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.dischargeEnergy}</th>
-                  <th className="rounded-r-lg bg-[#121a40] px-2 py-3 text-right font-medium leading-tight" style={{ fontSize: `${tableHeadFontSize}px` }}>{tableHeaders.energyEfficiency}</th>
+                  {displayTableColumns.map((column, index) => (
+                    <th
+                      key={column.key}
+                      className={`${index === 0 ? "rounded-l-lg" : ""} ${index === displayTableColumns.length - 1 ? "rounded-r-lg" : ""} bg-[#121a40] px-2 py-3 font-medium leading-tight ${column.align === "left" ? "text-left" : "text-right"}`}
+                      style={{ fontSize: `${tableHeadFontSize}px` }}
+                    >
+                      <div className={`flex flex-col ${column.align === "left" ? "items-start" : "items-end"} gap-0.5`}>
+                        <span className="whitespace-nowrap text-[#a7b8df]">{column.label}</span>
+                        {column.unit ? <span className="text-[0.84em] font-semibold text-[#6f86b7]">{column.unit}</span> : <span className="text-[0.84em] text-transparent">.</span>}
+                      </div>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -611,24 +918,30 @@ export function ComprehensiveEfficiencyPanel({
                     <td className="truncate rounded-l-lg border-y border-l border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-[#dce7ff] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableCellFontSize}px` }}>
                       {item.label}
                     </td>
-                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[#8ee7ff] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableValueFontSize}px` }}>
-                      {formatNullableMetric(item.chargeCapacity)}
-                    </td>
-                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[#ffb7c2] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableValueFontSize}px` }}>
-                      {formatNullableMetric(item.dischargeCapacity)}
-                    </td>
-                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[#ffd36b] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableValueFontSize}px` }}>
-                      {formatNullableMetric(item.capacityEfficiency, 2, "%")}
-                    </td>
-                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[#9af7df] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableValueFontSize}px` }}>
-                      {formatNullableMetric(item.chargeEnergy)}
-                    </td>
-                    <td className="border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[#d6c2ff] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableValueFontSize}px` }}>
-                      {formatNullableMetric(item.dischargeEnergy)}
-                    </td>
-                    <td className="rounded-r-lg border-y border-r border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono text-[#4ade80] transition-colors group-hover:bg-[#162252]" style={{ fontSize: `${tableValueFontSize}px` }}>
-                      {formatNullableMetric(item.energyEfficiency, 2, "%")}
-                    </td>
+                    {displayTableColumns.slice(1).map((column, index) => {
+                      const value =
+                        column.key === "chargeCapacity"
+                          ? renderTableMetric(item.chargeCapacity)
+                          : column.key === "dischargeCapacity"
+                            ? renderTableMetric(item.dischargeCapacity)
+                            : column.key === "capacityEfficiency"
+                              ? renderTableMetric(item.capacityEfficiency, 2)
+                              : column.key === "chargeEnergy"
+                                ? renderTableMetric(item.chargeEnergy)
+                                : column.key === "dischargeEnergy"
+                                  ? renderTableMetric(item.dischargeEnergy)
+                                  : renderTableMetric(item.energyEfficiency, 2)
+
+                      return (
+                        <td
+                          key={column.key}
+                          className={`${index === displayTableColumns.length - 2 ? "rounded-r-lg border-r" : ""} border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono transition-colors group-hover:bg-[#162252] ${column.tone}`}
+                          style={{ fontSize: `${tableValueFontSize}px` }}
+                        >
+                          {value}
+                        </td>
+                      )
+                    })}
                   </tr>
                 ))}
               </tbody>

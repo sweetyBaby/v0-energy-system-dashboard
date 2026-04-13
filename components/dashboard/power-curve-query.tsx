@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useId, useMemo, useRef, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from "react"
 import type { DateRange } from "react-day-picker"
 import {
   Area,
@@ -35,6 +35,17 @@ type ChartPoint = {
   label: string
   power: number | null
   tooltipLabel: string
+}
+
+type ViewportRange = {
+  startIndex: number
+  endIndex: number
+}
+
+type DragState = {
+  pointerId: number
+  startX: number
+  startRange: ViewportRange
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -80,6 +91,7 @@ const formatRangeLabel = (range: DateRange | undefined, language: "zh" | "en") =
 }
 
 const toSeconds = (timestamp: number) => Math.floor(timestamp / 1000)
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
 const toChartPoints = (points: PowerPoint[], queryType: QueryType): ChartPoint[] => {
   const multiDay = queryType === "week" || queryType === "custom"
@@ -115,8 +127,13 @@ export function PowerCurveQuery() {
   const [points, setPoints] = useState<PowerPoint[]>([])
   const [loading, setLoading] = useState(true)
   const [latestTimeLabel, setLatestTimeLabel] = useState("--")
+  const [viewportRange, setViewportRange] = useState<ViewportRange | null>(null)
+  const [isDraggingTimeline, setIsDraggingTimeline] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const latestTimestampRef = useRef<number | undefined>(undefined)
+  const chartShellRef = useRef<HTMLDivElement | null>(null)
+  const dragStateRef = useRef<DragState | null>(null)
+  const previousChartLengthRef = useRef(0)
   const panelScale = useFluidScale<HTMLDivElement>(620, 1120, { minRootPx: 13.5, maxRootPx: 17.5 })
 
   const customHint =
@@ -142,8 +159,65 @@ export function PowerCurveQuery() {
   const axisFontSize = panelScale.chart(10, 12.5)
   const emptyFontSize = panelScale.fluid(14, 17)
   const chartData = useMemo(() => toChartPoints(points, queryType), [points, queryType])
+  const visibleChartData = useMemo(() => {
+    if (!viewportRange) {
+      return chartData
+    }
+
+    return chartData.slice(viewportRange.startIndex, viewportRange.endIndex + 1)
+  }, [chartData, viewportRange])
+  const visiblePointCount = visibleChartData.length
   const xInterval =
-    queryType === "today" || queryType === "yesterday" ? Math.max(1, Math.floor(chartData.length / 8)) : Math.max(1, Math.floor(chartData.length / 10))
+    queryType === "today" || queryType === "yesterday"
+      ? Math.max(1, Math.floor(visiblePointCount / 8))
+      : Math.max(1, Math.floor(visiblePointCount / 10))
+  const canZoom = chartData.length > 24
+  const canPan = Boolean(viewportRange && visiblePointCount < chartData.length)
+
+  useEffect(() => {
+    setViewportRange(null)
+    previousChartLengthRef.current = 0
+    dragStateRef.current = null
+    setIsDraggingTimeline(false)
+  }, [customRange?.from?.getTime(), customRange?.to?.getTime(), queryType, selectedProject.projectId])
+
+  useEffect(() => {
+    if (chartData.length === 0) {
+      previousChartLengthRef.current = 0
+      setViewportRange(null)
+      return
+    }
+
+    setViewportRange((currentRange) => {
+      if (!currentRange) {
+        return {
+          startIndex: 0,
+          endIndex: chartData.length - 1,
+        }
+      }
+
+      const previousLength = previousChartLengthRef.current
+      const visibleSize = Math.min(chartData.length, currentRange.endIndex - currentRange.startIndex + 1)
+      const wasPinnedToEnd = previousLength > 0 && currentRange.endIndex >= previousLength - 1
+      const nextEnd = wasPinnedToEnd
+        ? chartData.length - 1
+        : clamp(currentRange.endIndex, visibleSize - 1, chartData.length - 1)
+      const nextStart = wasPinnedToEnd
+        ? Math.max(0, nextEnd - visibleSize + 1)
+        : clamp(currentRange.startIndex, 0, chartData.length - visibleSize)
+
+      if (nextStart === currentRange.startIndex && nextEnd === currentRange.endIndex) {
+        return currentRange
+      }
+
+      return {
+        startIndex: nextStart,
+        endIndex: nextEnd,
+      }
+    })
+
+    previousChartLengthRef.current = chartData.length
+  }, [chartData.length])
 
   useEffect(() => {
     if (points.length === 0) {
@@ -317,6 +391,121 @@ export function PowerCurveQuery() {
     )
   }
 
+  const handleAxisWheel = (event: WheelEvent<HTMLDivElement>) => {
+    if (!canZoom || chartData.length <= 1 || !chartShellRef.current) {
+      return
+    }
+
+    event.preventDefault()
+    const rect = chartShellRef.current.getBoundingClientRect()
+
+    const currentRange =
+      viewportRange ?? {
+        startIndex: 0,
+        endIndex: chartData.length - 1,
+      }
+    const currentSize = currentRange.endIndex - currentRange.startIndex + 1
+    const nextSize = clamp(
+      currentSize + (event.deltaY > 0 ? Math.max(2, Math.ceil(currentSize * 0.2)) : -Math.max(2, Math.ceil(currentSize * 0.2))),
+      Math.min(12, chartData.length),
+      chartData.length,
+    )
+
+    if (nextSize === currentSize) {
+      return
+    }
+
+    const relativeX = clamp((event.clientX - rect.left) / Math.max(rect.width, 1), 0, 1)
+    const anchorIndex = clamp(
+      currentRange.startIndex + Math.round((currentSize - 1) * relativeX),
+      0,
+      chartData.length - 1,
+    )
+    let nextStart = Math.round(anchorIndex - relativeX * (nextSize - 1))
+    let nextEnd = nextStart + nextSize - 1
+
+    if (nextStart < 0) {
+      nextStart = 0
+      nextEnd = nextSize - 1
+    }
+
+    if (nextEnd > chartData.length - 1) {
+      nextEnd = chartData.length - 1
+      nextStart = nextEnd - nextSize + 1
+    }
+
+    setViewportRange({
+      startIndex: nextStart,
+      endIndex: nextEnd,
+    })
+  }
+
+  const stopTimelineDrag = (pointerId?: number) => {
+    if (!chartShellRef.current) {
+      dragStateRef.current = null
+      setIsDraggingTimeline(false)
+      return
+    }
+
+    const activeDrag = dragStateRef.current
+    if (pointerId != null && activeDrag?.pointerId !== pointerId) {
+      return
+    }
+
+    if (activeDrag && chartShellRef.current.hasPointerCapture(activeDrag.pointerId)) {
+      chartShellRef.current.releasePointerCapture(activeDrag.pointerId)
+    }
+
+    dragStateRef.current = null
+    setIsDraggingTimeline(false)
+  }
+
+  const handleTimelinePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (!canPan || !chartShellRef.current || !viewportRange) {
+      return
+    }
+
+    event.preventDefault()
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startRange: viewportRange,
+    }
+    chartShellRef.current.setPointerCapture(event.pointerId)
+    setIsDraggingTimeline(true)
+  }
+
+  const handleTimelinePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!chartShellRef.current || dragStateRef.current?.pointerId !== event.pointerId) {
+      return
+    }
+
+    event.preventDefault()
+
+    const rect = chartShellRef.current.getBoundingClientRect()
+    const visibleSize = dragStateRef.current.startRange.endIndex - dragStateRef.current.startRange.startIndex + 1
+    const maxStart = chartData.length - visibleSize
+    if (maxStart <= 0) {
+      return
+    }
+
+    const deltaX = dragStateRef.current.startX - event.clientX
+    const pointDelta = Math.round((deltaX / Math.max(rect.width, 1)) * visibleSize)
+    const nextStart = clamp(dragStateRef.current.startRange.startIndex + pointDelta, 0, maxStart)
+    const nextEnd = nextStart + visibleSize - 1
+
+    setViewportRange((currentRange) => {
+      if (currentRange && currentRange.startIndex === nextStart && currentRange.endIndex === nextEnd) {
+        return currentRange
+      }
+
+      return {
+        startIndex: nextStart,
+        endIndex: nextEnd,
+      }
+    })
+  }
+
   return (
     <div ref={panelScale.ref} className="flex h-full w-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -366,7 +555,19 @@ export function PowerCurveQuery() {
         </div>
       </div>
 
-      <div className="relative h-72 flex-1 overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div
+        ref={chartShellRef}
+        onWheel={handleAxisWheel}
+        onPointerDown={handleTimelinePointerDown}
+        onPointerMove={handleTimelinePointerMove}
+        onPointerUp={(event) => stopTimelineDrag(event.pointerId)}
+        onPointerCancel={(event) => stopTimelineDrag(event.pointerId)}
+        onLostPointerCapture={(event) => stopTimelineDrag(event.pointerId)}
+        className={`relative h-72 flex-1 overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
+          canPan ? (isDraggingTimeline ? "cursor-grabbing" : "cursor-grab") : ""
+        }`}
+        style={{ touchAction: canPan ? "none" : "auto" }}
+      >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(0,212,170,0.08),transparent_28%),radial-gradient(circle_at_84%_10%,rgba(86,130,255,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]" />
         {loading ? (
           <div className="flex h-full items-center justify-center">
@@ -376,7 +577,7 @@ export function PowerCurveQuery() {
           <div className="flex h-full items-center justify-center text-[#7b8ab8]" style={{ fontSize: `${emptyFontSize}px` }}>{emptyStateText}</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <LineChart data={visibleChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id={`${chartId}-power-fill`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.34} />
@@ -392,8 +593,25 @@ export function PowerCurveQuery() {
                 tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
                 tickMargin={10}
                 interval={xInterval}
+                minTickGap={queryType === "today" || queryType === "yesterday" ? 18 : 28}
               />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#88a4d7", fontSize: axisFontSize }} tickMargin={8} />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
+                tickMargin={8}
+                width={56}
+                label={{
+                  value: powerSeriesLabel,
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 4,
+                  style: {
+                    fill: "#88a4d7",
+                    fontSize: axisFontSize,
+                  },
+                }}
+              />
               <ReferenceLine y={0} stroke="#3f6490" strokeDasharray="4 4" strokeOpacity={0.72} />
               <Tooltip cursor={{ stroke: "#2b4f7d", strokeDasharray: "4 4" }} content={renderTooltip} />
               <Area type="monotone" dataKey="power" stroke="none" fill={`url(#${chartId}-power-fill)`} isAnimationActive={false} />
