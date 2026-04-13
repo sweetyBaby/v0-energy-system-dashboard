@@ -72,8 +72,8 @@ type TemperatureExtremeTrendMap = {
 }
 
 type DailyEnergySummary = {
-  chargeAh: number | null
-  dischargeAh: number | null
+  chargeWh: number | null
+  dischargeWh: number | null
   chargeEfficiencyCe: number | null
 }
 
@@ -144,8 +144,8 @@ const EMPTY_TEMPERATURE_EXTREME_TRENDS: TemperatureExtremeTrendMap = {
   t3: [],
 }
 const EMPTY_DAILY_ENERGY_SUMMARY: DailyEnergySummary = {
-  chargeAh: null,
-  dischargeAh: null,
+  chargeWh: null,
+  dischargeWh: null,
   chargeEfficiencyCe: null,
 }
 const EMPTY_DAILY_CELL_HISTORY_BUNDLE: DailyCellHistoryBundle = {
@@ -1155,16 +1155,16 @@ const parseDailyEnergySummary = (data: unknown): DailyEnergySummary => {
   })
 
   for (const candidate of candidates) {
-    const chargeAh = toFiniteNumber(getFieldValue(candidate, ["chargeAh", "chargeCapacity"]))
-    const dischargeAh = toFiniteNumber(getFieldValue(candidate, ["dischargeAh", "dischargeCapacity"]))
+    const chargeWh = toFiniteNumber(getFieldValue(candidate, ["chargeWh", "chargeEnergyWh", "chargeEnergy"]))
+    const dischargeWh = toFiniteNumber(getFieldValue(candidate, ["dischargeWh", "dischargeEnergyWh", "dischargeEnergy"]))
     const chargeEfficiencyCe = toFiniteNumber(
       getFieldValue(candidate, ["chargeEfficiencyCe", "capacityEfficiency", "ceEfficiency"]),
     )
 
-    if (chargeAh != null || dischargeAh != null || chargeEfficiencyCe != null) {
+    if (chargeWh != null || dischargeWh != null || chargeEfficiencyCe != null) {
       return {
-        chargeAh: chargeAh == null ? null : Number(chargeAh.toFixed(3)),
-        dischargeAh: dischargeAh == null ? null : Number(dischargeAh.toFixed(3)),
+        chargeWh: chargeWh == null ? null : Number(chargeWh.toFixed(3)),
+        dischargeWh: dischargeWh == null ? null : Number(dischargeWh.toFixed(3)),
         chargeEfficiencyCe: chargeEfficiencyCe == null ? null : Number(chargeEfficiencyCe.toFixed(2)),
       }
     }
@@ -1300,7 +1300,7 @@ export const fetchDailyCellHistory = async (
   const dailyEnergySummary =
     dailyEnergySummarySources
       .map((source) => parseDailyEnergySummary(source))
-      .find((summary) => summary.chargeAh != null || summary.dischargeAh != null || summary.chargeEfficiencyCe != null) ??
+      .find((summary) => summary.chargeWh != null || summary.dischargeWh != null || summary.chargeEfficiencyCe != null) ??
     EMPTY_DAILY_ENERGY_SUMMARY
 
   return {
