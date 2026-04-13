@@ -235,12 +235,12 @@ function HeatmapLegend({
         className="h-full w-2.5 rounded-full border border-white/5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
         style={{ background: gradient }}
       />
-      <div className="flex h-full flex-col justify-between text-right tracking-[0.02em]">
-        <div className="flex items-center justify-end gap-1 whitespace-nowrap text-[8.5px] leading-none">
+      <div className="flex h-full flex-col justify-between text-right tracking-[0.02em] [&>div>span:first-child]:font-extrabold [&>div>span:first-child]:text-[#e6f2ff] [&>div>span:first-child]:[text-shadow:0_0_10px_rgba(125,211,252,0.6)] [&>div>span:last-child]:font-semibold [&>div>span:last-child]:text-[#b7d3ff] [&>div>span:last-child]:[text-shadow:0_0_10px_rgba(96,165,250,0.35)]">
+        <div className="flex items-center justify-end gap-1 whitespace-nowrap text-[9.5px] leading-none">
           <span className="font-semibold text-[#8ca4cd]">{zh ? "高" : "H"}</span>
           <span className="tabular-nums text-[#6f89b8]">{maxLabel}</span>
         </div>
-        <div className="flex items-center justify-end gap-1 whitespace-nowrap text-[8.5px] leading-none">
+        <div className="flex items-center justify-end gap-1 whitespace-nowrap text-[9.5px] leading-none">
           <span className="font-semibold text-[#8ca4cd]">{zh ? "低" : "L"}</span>
           <span className="tabular-nums text-[#6f89b8]">{minLabel}</span>
         </div>
