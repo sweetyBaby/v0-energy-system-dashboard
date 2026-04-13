@@ -265,6 +265,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
       labelZh: "额定功率",
       labelEn: "Rated Power",
       value: selectedProject.ratedPower,
+      valueSize: "regular" as const,
     },
     {
       icon: <Battery className="h-6 w-6 text-[#25efff]" />,
@@ -272,6 +273,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
       labelZh: "额定容量",
       labelEn: "Rated Capacity",
       value: selectedProject.ratedCapacity,
+      valueSize: "dense" as const,
     },
     {
       icon: <Calendar className="h-6 w-6 text-[#25efff]" />,
@@ -279,6 +281,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
       labelZh: "投运日期",
       labelEn: "Commission",
       value: selectedProject.commissioningDate,
+      valueSize: "dense" as const,
     },
   ]
 
@@ -359,10 +362,10 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                 </div>
 
                 <div className="col-span-6 flex min-h-0 items-end justify-center">
-                  <div className="w-full max-w-[560px] px-5 pb-1 pt-3">
-                    <div className="grid grid-cols-3">
+                  <div className="w-full max-w-[660px] px-5 pb-1 pt-3">
+                    <div className="grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)_minmax(0,1.05fr)]">
                       {projectStats.map((stat, index) => (
-                        <div key={index} className="relative flex min-h-[122px] flex-col items-center justify-end gap-2 px-4 py-1">
+                        <div key={index} className="relative flex min-h-[122px] min-w-0 flex-col items-center justify-end gap-2 px-3 py-1">
                           {index < projectStats.length - 1 && (
                             <div className="pointer-events-none absolute inset-y-3 right-0 w-px bg-gradient-to-b from-transparent via-[#b8d8f0]/35 to-transparent" />
                           )}
@@ -379,9 +382,14 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                             {zh ? stat.labelZh : stat.labelEn}
                           </span>
                           <span
-                            className="max-w-full whitespace-nowrap text-center font-bold leading-none tabular-nums tracking-[0.04em] text-[#e8f8ff]"
+                            className={`max-w-full whitespace-nowrap text-center font-bold leading-none tabular-nums text-[#e8f8ff] ${
+                              stat.valueSize === "dense" ? "tracking-[0.015em]" : "tracking-[0.04em]"
+                            }`}
                             style={{
-                              fontSize: "clamp(1.1rem, calc(var(--overview-root-size, 15px) * 1.22), 1.75rem)",
+                              fontSize:
+                                stat.valueSize === "dense"
+                                  ? "clamp(0.98rem, calc(var(--overview-root-size, 15px) * 1.04), 1.42rem)"
+                                  : "clamp(1.1rem, calc(var(--overview-root-size, 15px) * 1.22), 1.75rem)",
                               textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 14px rgba(34,211,238,0.45)",
                             }}
                           >

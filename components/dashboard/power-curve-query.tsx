@@ -144,7 +144,7 @@ export function PowerCurveQuery() {
   const powerSeriesLabel = language === "zh" ? "功率(kW)" : "Power (kW)"
   const title = language === "zh" ? "功率曲线" : "Power Curve Query"
   const customLabel = language === "zh" ? "自定义" : "Custom"
-  const liveLabel = language === "zh" ? "实时" : "Live"
+  const liveLabel = language === "zh" ? "实时" : "Live Time"
 
   const queryTypes = [
     { key: "today" as const, label: language === "zh" ? "今日" : "Today" },

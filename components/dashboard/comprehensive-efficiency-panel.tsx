@@ -113,6 +113,7 @@ export function ComprehensiveEfficiencyPanel({
   const [loading, setLoading] = useState(true)
   const [viewportRange, setViewportRange] = useState<ViewportRange | null>(null)
   const [isDraggingTimeline, setIsDraggingTimeline] = useState(false)
+  const [dragPreviewOffset, setDragPreviewOffset] = useState(0)
   const chartShellRef = useRef<HTMLDivElement | null>(null)
   const dragStateRef = useRef<DragState | null>(null)
   const panelScale = useFluidScale<HTMLDivElement>(620, 1120, { minRootPx: 13.5, maxRootPx: 17.5 })
@@ -397,11 +398,13 @@ export function ComprehensiveEfficiencyPanel({
     setViewportRange(null)
     dragStateRef.current = null
     setIsDraggingTimeline(false)
+    setDragPreviewOffset(0)
   }, [customRange?.from?.getTime(), customRange?.to?.getTime(), range, selectedProject.projectId])
 
   useEffect(() => {
     if (activeData.length === 0) {
       setViewportRange(null)
+      setDragPreviewOffset(0)
       return
     }
 
@@ -539,6 +542,7 @@ export function ComprehensiveEfficiencyPanel({
     if (!chartShellRef.current) {
       dragStateRef.current = null
       setIsDraggingTimeline(false)
+      setDragPreviewOffset(0)
       return
     }
 
@@ -553,6 +557,7 @@ export function ComprehensiveEfficiencyPanel({
 
     dragStateRef.current = null
     setIsDraggingTimeline(false)
+    setDragPreviewOffset(0)
   }
 
   const handleTimelinePointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -581,13 +586,20 @@ export function ComprehensiveEfficiencyPanel({
     const visibleSize = dragStateRef.current.startRange.endIndex - dragStateRef.current.startRange.startIndex + 1
     const maxStart = activeData.length - visibleSize
     if (maxStart <= 0) {
+      setDragPreviewOffset(0)
       return
     }
 
     const deltaX = dragStateRef.current.startX - event.clientX
-    const pointDelta = Math.round((deltaX / Math.max(rect.width, 1)) * visibleSize)
+    const pointSpacing = rect.width / Math.max(visibleSize, 1)
+    const pointDelta = Math.round(deltaX / Math.max(pointSpacing, 1))
     const nextStart = clamp(dragStateRef.current.startRange.startIndex + pointDelta, 0, maxStart)
     const nextEnd = nextStart + visibleSize - 1
+    const effectiveDelta = nextStart - dragStateRef.current.startRange.startIndex
+    const nextPreviewOffset =
+      effectiveDelta !== pointDelta
+        ? 0
+        : clamp(-(deltaX - effectiveDelta * pointSpacing), -pointSpacing / 2, pointSpacing / 2)
 
     setViewportRange((currentRange) => {
       if (currentRange && currentRange.startIndex === nextStart && currentRange.endIndex === nextEnd) {
@@ -599,6 +611,7 @@ export function ComprehensiveEfficiencyPanel({
         endIndex: nextEnd,
       }
     })
+    setDragPreviewOffset(nextPreviewOffset)
   }
 
   const renderLegend = () => (
@@ -742,10 +755,10 @@ export function ComprehensiveEfficiencyPanel({
           onPointerUp={(event) => stopTimelineDrag(event.pointerId)}
           onPointerCancel={(event) => stopTimelineDrag(event.pointerId)}
           onLostPointerCapture={(event) => stopTimelineDrag(event.pointerId)}
-          className={`relative min-h-0 flex-1 overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
+          className={`relative min-h-0 flex-1 select-none overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
             canPan ? (isDraggingTimeline ? "cursor-grabbing" : "cursor-grab") : ""
           }`}
-          style={{ touchAction: canPan ? "none" : "auto" }}
+          style={{ touchAction: canPan ? "none" : "auto", userSelect: "none" }}
         >
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(0,212,170,0.08),transparent_28%),radial-gradient(circle_at_84%_10%,rgba(86,130,255,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]" />
           {loading ? (
@@ -755,126 +768,136 @@ export function ComprehensiveEfficiencyPanel({
           ) : activeData.length === 0 ? (
             <div className="flex h-full items-center justify-center text-[#7b8ab8]" style={{ fontSize: `${emptyFontSize}px` }}>{displayEmptyStateText}</div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={visibleChartData} margin={{ top: 18, right: 12, left: 0, bottom: 8 }}>
-                <defs>
-                  <linearGradient id={`${chartId}-charge-capacity`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8ee7ff" stopOpacity={0.95} />
-                    <stop offset="100%" stopColor="#3f8bff" stopOpacity={0.55} />
-                  </linearGradient>
-                  <linearGradient id={`${chartId}-discharge-capacity`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#ffb3c7" stopOpacity={0.95} />
-                    <stop offset="100%" stopColor="#ff6f91" stopOpacity={0.55} />
-                  </linearGradient>
-                  <linearGradient id={`${chartId}-charge-energy`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#a8fff0" stopOpacity={0.95} />
-                    <stop offset="100%" stopColor="#42d9b8" stopOpacity={0.55} />
-                  </linearGradient>
-                  <linearGradient id={`${chartId}-discharge-energy`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#d9c8ff" stopOpacity={0.96} />
-                    <stop offset="100%" stopColor="#8f7cff" stopOpacity={0.58} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="rgba(45,74,126,0.72)" strokeDasharray="3 5" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
-                  tickMargin={10}
-                  interval={xInterval}
-                  minTickGap={range === "year" ? 28 : 20}
-                />
-                <YAxis
-                  yAxisId="quantity"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
-                  tickMargin={8}
-                />
-                <YAxis
-                  yAxisId="efficiency"
-                  orientation="right"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
-                  tickMargin={8}
-                  tickFormatter={(value: number) => `${value}%`}
-                />
-                <Tooltip cursor={{ fill: "rgba(255,255,255,0.03)" }} content={renderTooltip} />
-                <Legend wrapperStyle={{ paddingTop: "4px" }} content={renderLegend} />
-                {!hiddenSeries.includes("chargeCapacity") && (
-                  <Bar
-                    yAxisId="quantity"
-                    dataKey="chargeCapacity"
-                    name={displayLegendText.chargeCapacity}
-                    fill={`url(#${chartId}-charge-capacity)`}
-                    radius={[0, 0, 0, 0]}
-                    barSize={10}
-                    fillOpacity={0.95}
+            <div
+              className="h-full w-full"
+              style={{
+                transform: dragPreviewOffset === 0 ? "translate3d(0,0,0)" : `translate3d(${dragPreviewOffset}px,0,0)`,
+                transition: isDraggingTimeline ? "none" : "transform 140ms ease-out",
+                willChange: "transform",
+                userSelect: "none",
+              }}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={visibleChartData} margin={{ top: 18, right: 12, left: 0, bottom: 8 }}>
+                  <defs>
+                    <linearGradient id={`${chartId}-charge-capacity`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8ee7ff" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#3f8bff" stopOpacity={0.55} />
+                    </linearGradient>
+                    <linearGradient id={`${chartId}-discharge-capacity`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ffb3c7" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#ff6f91" stopOpacity={0.55} />
+                    </linearGradient>
+                    <linearGradient id={`${chartId}-charge-energy`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#a8fff0" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#42d9b8" stopOpacity={0.55} />
+                    </linearGradient>
+                    <linearGradient id={`${chartId}-discharge-energy`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#d9c8ff" stopOpacity={0.96} />
+                      <stop offset="100%" stopColor="#8f7cff" stopOpacity={0.58} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="rgba(45,74,126,0.72)" strokeDasharray="3 5" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
+                    tickMargin={10}
+                    interval={xInterval}
+                    minTickGap={range === "year" ? 28 : 20}
                   />
-                )}
-                {!hiddenSeries.includes("dischargeCapacity") && (
-                  <Bar
+                  <YAxis
                     yAxisId="quantity"
-                    dataKey="dischargeCapacity"
-                    name={displayLegendText.dischargeCapacity}
-                    fill={`url(#${chartId}-discharge-capacity)`}
-                    radius={[0, 0, 0, 0]}
-                    barSize={10}
-                    fillOpacity={0.95}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
+                    tickMargin={8}
                   />
-                )}
-                {!hiddenSeries.includes("chargeEnergy") && (
-                  <Bar
-                    yAxisId="quantity"
-                    dataKey="chargeEnergy"
-                    name={displayLegendText.chargeEnergy}
-                    fill={`url(#${chartId}-charge-energy)`}
-                    radius={[0, 0, 0, 0]}
-                    barSize={10}
-                    fillOpacity={0.95}
-                  />
-                )}
-                {!hiddenSeries.includes("dischargeEnergy") && (
-                  <Bar
-                    yAxisId="quantity"
-                    dataKey="dischargeEnergy"
-                    name={displayLegendText.dischargeEnergy}
-                    fill={`url(#${chartId}-discharge-energy)`}
-                    radius={[0, 0, 0, 0]}
-                    barSize={10}
-                    fillOpacity={0.95}
-                  />
-                )}
-                {!hiddenSeries.includes("capacityEfficiency") && (
-                  <Line
+                  <YAxis
                     yAxisId="efficiency"
-                    type="monotone"
-                    dataKey="capacityEfficiency"
-                    name={displayLegendText.capacityEfficiency}
-                    stroke="#ffd60a"
-                    strokeWidth={2.5}
-                    dot={{ r: 4, fill: "#08122a", stroke: "#ffd60a", strokeWidth: 3 }}
-                    activeDot={{ r: 5, fill: "#08122a", stroke: "#ffd60a", strokeWidth: 3 }}
-                    connectNulls
+                    orientation="right"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
+                    tickMargin={8}
+                    tickFormatter={(value: number) => `${value}%`}
                   />
-                )}
-                {!hiddenSeries.includes("energyEfficiency") && (
-                  <Line
-                    yAxisId="efficiency"
-                    type="monotone"
-                    dataKey="energyEfficiency"
-                    name={displayLegendText.energyEfficiency}
-                    stroke="#4ade80"
-                    strokeWidth={2.5}
-                    dot={{ r: 4, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
-                    activeDot={{ r: 5, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
-                    connectNulls
-                  />
-                )}
-              </ComposedChart>
-            </ResponsiveContainer>
+                  <Tooltip cursor={{ fill: "rgba(255,255,255,0.03)" }} content={renderTooltip} />
+                  <Legend wrapperStyle={{ paddingTop: "4px" }} content={renderLegend} />
+                  {!hiddenSeries.includes("chargeCapacity") && (
+                    <Bar
+                      yAxisId="quantity"
+                      dataKey="chargeCapacity"
+                      name={displayLegendText.chargeCapacity}
+                      fill={`url(#${chartId}-charge-capacity)`}
+                      radius={[0, 0, 0, 0]}
+                      barSize={10}
+                      fillOpacity={0.95}
+                    />
+                  )}
+                  {!hiddenSeries.includes("dischargeCapacity") && (
+                    <Bar
+                      yAxisId="quantity"
+                      dataKey="dischargeCapacity"
+                      name={displayLegendText.dischargeCapacity}
+                      fill={`url(#${chartId}-discharge-capacity)`}
+                      radius={[0, 0, 0, 0]}
+                      barSize={10}
+                      fillOpacity={0.95}
+                    />
+                  )}
+                  {!hiddenSeries.includes("chargeEnergy") && (
+                    <Bar
+                      yAxisId="quantity"
+                      dataKey="chargeEnergy"
+                      name={displayLegendText.chargeEnergy}
+                      fill={`url(#${chartId}-charge-energy)`}
+                      radius={[0, 0, 0, 0]}
+                      barSize={10}
+                      fillOpacity={0.95}
+                    />
+                  )}
+                  {!hiddenSeries.includes("dischargeEnergy") && (
+                    <Bar
+                      yAxisId="quantity"
+                      dataKey="dischargeEnergy"
+                      name={displayLegendText.dischargeEnergy}
+                      fill={`url(#${chartId}-discharge-energy)`}
+                      radius={[0, 0, 0, 0]}
+                      barSize={10}
+                      fillOpacity={0.95}
+                    />
+                  )}
+                  {!hiddenSeries.includes("capacityEfficiency") && (
+                    <Line
+                      yAxisId="efficiency"
+                      type="monotone"
+                      dataKey="capacityEfficiency"
+                      name={displayLegendText.capacityEfficiency}
+                      stroke="#ffd60a"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: "#08122a", stroke: "#ffd60a", strokeWidth: 3 }}
+                      activeDot={{ r: 5, fill: "#08122a", stroke: "#ffd60a", strokeWidth: 3 }}
+                      connectNulls
+                    />
+                  )}
+                  {!hiddenSeries.includes("energyEfficiency") && (
+                    <Line
+                      yAxisId="efficiency"
+                      type="monotone"
+                      dataKey="energyEfficiency"
+                      name={displayLegendText.energyEfficiency}
+                      stroke="#4ade80"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
+                      activeDot={{ r: 5, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
+                      connectNulls
+                    />
+                  )}
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </div>
       ) : (
