@@ -11,6 +11,16 @@ type UseFluidScaleOptions = {
   maxRootPx?: number
 }
 
+export const DASHBOARD_CONTENT_SCALE: UseFluidScaleOptions = {
+  minRootPx: 14,
+  maxRootPx: 21,
+}
+
+export const DASHBOARD_DENSE_PANEL_SCALE: UseFluidScaleOptions = {
+  minRootPx: 14,
+  maxRootPx: 19.5,
+}
+
 type FluidScaleResult<T extends HTMLElement> = {
   ref: RefObject<T | null>
   progress: number

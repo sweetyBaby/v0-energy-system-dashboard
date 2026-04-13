@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import type { DateRange } from "react-day-picker"
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Download } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
-import { useFluidScale } from "@/hooks/use-fluid-scale"
+import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -78,7 +78,7 @@ const buildCalendarCells = (viewDate: Date, language: "zh" | "en"): CalendarCell
 
 export function ReportCenterPanel() {
   const { language } = useLanguage()
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const titleSize = scale.clampText(0.95, 1.02, 1.28)
   const controlSize = scale.fluid(12, 15)
   const hintSize = scale.fluid(11, 13)

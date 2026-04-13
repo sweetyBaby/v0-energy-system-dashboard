@@ -6,7 +6,7 @@ import { CartesianGrid, Customized, Line, LineChart, ReferenceArea, ResponsiveCo
 import { useLanguage } from "@/components/language-provider"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { useProject } from "@/components/dashboard/dashboard-header"
-import { useFluidScale } from "@/hooks/use-fluid-scale"
+import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
@@ -333,7 +333,7 @@ function NeonSection({
   className?: string
   children: ReactNode
 }) {
-  const scale = useFluidScale<HTMLElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const isBcuHeader = headerVariant === "bcu"
   const defaultAccentBarClass = isBcuHeader
     ? "bg-[#00d4aa]"
@@ -394,7 +394,7 @@ function NeonSection({
 }
 
 function InnerFrame({ title, accent = "#74ebff", compact = false, children }: { title: string; accent?: string; compact?: boolean; children: ReactNode }) {
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   return (
     <div ref={scale.ref} className={`flex h-full min-h-0 flex-col rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] shadow-[inset_0_0_16px_rgba(25,92,148,0.08)] ${compact ? "p-1.5" : "p-2"}`} style={scale.rootStyle}>
       <div className={`${compact ? "mb-1" : "mb-1.5"} flex items-center gap-2`}>
@@ -408,7 +408,7 @@ function InnerFrame({ title, accent = "#74ebff", compact = false, children }: { 
 
 
 function LegendItem({ label, color, dashed = false, compact = false }: { label: string; color: string; dashed?: boolean; compact?: boolean }) {
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   return (
     <div ref={scale.ref} className={`flex items-center ${compact ? "gap-1.5" : "gap-2"} text-[#96bdd4]`} style={{ fontSize: compact ? scale.fluid(10, 12) : scale.fluid(11, 13) }}>
       <span className={`block h-[2px] ${compact ? "w-4" : "w-5"} ${dashed ? "border-t-2 border-dashed" : ""}`} style={dashed ? { borderColor: color } : { backgroundColor: color, boxShadow: `0 0 8px ${color}` }} />
@@ -418,7 +418,7 @@ function LegendItem({ label, color, dashed = false, compact = false }: { label: 
 }
 
 function ChartPlaceholder({ text }: { text: string }) {
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   return (
     <div ref={scale.ref} className="flex h-full min-h-0 items-center justify-center px-4" style={scale.rootStyle}>
       <div className="rounded-[12px] border border-[#214260]/70 bg-[rgba(8,18,40,0.52)] px-4 py-2.5 text-center text-[#7b8ab8] shadow-[inset_0_0_18px_rgba(63,231,255,0.03)]" style={{ fontSize: scale.fluid(12, 14) }}>
@@ -454,20 +454,29 @@ function HistoryLoadingIndicator({
   variant?: "skeleton" | "overlay"
 }) {
   const isOverlay = variant === "overlay"
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
+  const textSize = scale.fluid(12, 15)
+  const orbEdge = scale.fluid(44, 54)
+  const pulseEdge = scale.fluid(12, 15)
 
   return (
     <div
+      ref={scale.ref}
       className={`relative overflow-hidden rounded-[20px] border border-[#29547f]/80 bg-[linear-gradient(180deg,rgba(12,27,58,0.9),rgba(8,18,40,0.96))] shadow-[0_18px_40px_rgba(0,0,0,0.24),inset_0_0_24px_rgba(63,231,255,0.05)] ${
         isOverlay ? "min-w-[240px] px-6 py-5" : "min-w-[220px] px-5 py-4"
       }`}
+      style={scale.rootStyle}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(110,231,255,0.14),transparent_42%),linear-gradient(90deg,transparent,rgba(255,211,107,0.05),transparent)]" />
       <div className="relative flex flex-col items-center gap-3 text-center">
-        <div className="relative flex h-11 w-11 items-center justify-center rounded-full border border-[#4ba7d7]/45 bg-[radial-gradient(circle,rgba(110,231,255,0.18),rgba(17,35,68,0.1)_65%,transparent)]">
-          <span className="absolute h-11 w-11 animate-ping rounded-full border border-[#6ee7ff]/30" />
-          <span className="h-3 w-3 animate-pulse rounded-full bg-[#6ee7ff] shadow-[0_0_14px_rgba(110,231,255,0.95)]" />
+        <div
+          className="relative flex items-center justify-center rounded-full border border-[#4ba7d7]/45 bg-[radial-gradient(circle,rgba(110,231,255,0.18),rgba(17,35,68,0.1)_65%,transparent)]"
+          style={{ width: orbEdge, height: orbEdge }}
+        >
+          <span className="absolute animate-ping rounded-full border border-[#6ee7ff]/30" style={{ width: orbEdge, height: orbEdge }} />
+          <span className="animate-pulse rounded-full bg-[#6ee7ff] shadow-[0_0_14px_rgba(110,231,255,0.95)]" style={{ width: pulseEdge, height: pulseEdge }} />
         </div>
-        <div className="text-[12px] font-semibold tracking-[0.08em] text-[#dffbff]">{text}</div>
+        <div className="font-semibold tracking-[0.08em] text-[#dffbff]" style={{ fontSize: textSize }}>{text}</div>
         <div className="w-full max-w-[188px] space-y-2">
           <div className="h-1.5 overflow-hidden rounded-full bg-[#102346]">
             <div className="h-full w-2/3 animate-pulse rounded-full bg-[linear-gradient(90deg,rgba(63,231,255,0.42),rgba(255,211,107,0.78),rgba(63,231,255,0.42))]" />
@@ -739,14 +748,18 @@ function ExtremeTrendTooltip({
 
   return (
     <div className="rounded-[12px] border border-[#29547f] bg-[rgba(7,17,36,0.96)] px-3 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.28)]">
-      <div className="mb-1 text-[10px] font-semibold text-[#dffbff]">{label}</div>
+      <div className="mb-1 font-semibold text-[#dffbff]" style={{ fontSize: "clamp(0.68rem, calc(var(--overview-root-size, 14px) * 0.72), 0.84rem)" }}>{label}</div>
       <div className="space-y-1">
         {rows.map((item) => {
           const cellKey = item.dataKey === "max" ? "maxCell" : "minCell"
           const cell = Number(item.payload?.[cellKey] ?? 0)
           const numericValue = Number(item.value ?? 0)
           return (
-            <div key={String(item.dataKey)} className="flex items-center gap-2 text-[10px] text-[#bfe8ff]">
+            <div
+              key={String(item.dataKey)}
+              className="flex items-center gap-2 text-[#bfe8ff]"
+              style={{ fontSize: "clamp(0.68rem, calc(var(--overview-root-size, 14px) * 0.72), 0.84rem)" }}
+            >
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color ?? "#bfe8ff" }} />
                 <span className="font-mono text-[#fff1b3]">
                   {zh
@@ -798,10 +811,14 @@ function FleetTooltip({
 
   return (
     <div className="rounded-[12px] border border-[#29547f] bg-[rgba(7,17,36,0.96)] px-3 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.28)]">
-      <div className="mb-1 text-[10px] font-semibold text-[#dffbff]">{label}</div>
+      <div className="mb-1 font-semibold text-[#dffbff]" style={{ fontSize: "clamp(0.68rem, calc(var(--overview-root-size, 14px) * 0.72), 0.84rem)" }}>{label}</div>
       <div className="space-y-1">
         {rows.map((item) => (
-          <div key={item.key} className="flex items-center justify-between gap-3 text-[10px]">
+          <div
+            key={item.key}
+            className="flex items-center justify-between gap-3"
+            style={{ fontSize: "clamp(0.68rem, calc(var(--overview-root-size, 14px) * 0.72), 0.84rem)" }}
+          >
             <div className="flex items-center gap-2 text-[#bfe8ff]">
               {markerVariantForKey?.(item.key) === "diamond" ? (
                 <span
@@ -823,7 +840,7 @@ function FleetTooltip({
 
 
 function CellChip({ label, active, warning, onClick }: { label: string; active: boolean; warning: boolean; onClick: () => void }) {
-  const scale = useFluidScale<HTMLButtonElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLButtonElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   return (
     <button
       ref={scale.ref}
@@ -846,7 +863,7 @@ function CellChip({ label, active, warning, onClick }: { label: string; active: 
 export function CellHistoryCellPicker({ value, onChange }: { value: number | null; onChange: (value: number | null) => void }) {
   const { language } = useLanguage()
   const zh = language === "zh"
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const controlSize = scale.fluid(12, 14.5)
   const triggerHeight = scale.fluid(34, 40)
   const iconSize = scale.fluid(14, 17)
@@ -901,7 +918,7 @@ export function CellHistoryMultiPicker({
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const controlSize = scale.fluid(12, 14.5)
   const hintSize = scale.fluid(10, 12)
   const triggerHeight = scale.fluid(36, 42)
@@ -1043,10 +1060,14 @@ function DetailReplayTooltip({
 
   return (
     <div className="rounded-[12px] border border-[#29547f] bg-[rgba(7,17,36,0.96)] px-3 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.28)]">
-      <div className="mb-1 text-[10px] font-semibold text-[#dffbff]">{label}</div>
+      <div className="mb-1 font-semibold text-[#dffbff]" style={{ fontSize: "clamp(0.68rem, calc(var(--overview-root-size, 14px) * 0.72), 0.84rem)" }}>{label}</div>
       <div className="space-y-1">
         {rows.map((item) => (
-          <div key={item.key} className="flex items-center justify-between gap-3 text-[10px]">
+          <div
+            key={item.key}
+            className="flex items-center justify-between gap-3"
+            style={{ fontSize: "clamp(0.68rem, calc(var(--overview-root-size, 14px) * 0.72), 0.84rem)" }}
+          >
             <div className="flex items-center gap-2 text-[#bfe8ff]">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
               <span>{item.metric.label}</span>
@@ -1092,7 +1113,7 @@ export function CellHistoryReplayPanel({
 }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const zh = language === "zh"
   const chartFontSize = scale.chart(9, 12)
   const summaryTitleSize = scale.fluid(14, 17)

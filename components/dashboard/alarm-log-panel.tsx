@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { BarChart2, ChevronDown, Filter, List } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
-import { useFluidScale } from "@/hooks/use-fluid-scale"
+import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 
 // ── 等级定义 ──────────────────────────────────────────────────────────────────
 const LV_COLOR: Record<number, string> = {
@@ -237,7 +237,7 @@ const DAY_MIN = 24 * 60
 
 // ── 甘特时间轴（拖动平移 + 滚轮缩放，始终铺满容器，无横向滚动条） ─────────────
 function AlarmTimeline({ events, zh }: { events: TimelineEvent[]; zh: boolean }) {
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const labelSize = scale.fluid(11, 13.5)
   const tickSize = scale.fluid(10, 12.5)
   const tooltipSize = scale.fluid(11, 13.5)
@@ -414,7 +414,7 @@ function AlarmTimeline({ events, zh }: { events: TimelineEvent[]; zh: boolean })
 const LEVELS = [1, 2, 3, 4, 5] as const
 
 function AlarmTypeStats({ alarms, zh }: { alarms: AlarmEntry[]; zh: boolean }) {
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const labelSize = scale.fluid(11, 13.5)
   const valueSize = scale.fluid(12, 15)
   const totalSize = scale.fluid(15, 18)
@@ -677,7 +677,7 @@ export function AlarmLogPanel({
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const titleSize = scale.clampText(0.9, 0.98, 1.18)
   const infoSize = scale.fluid(12, 14.5)
   const badgeSize = scale.fluid(11, 13)

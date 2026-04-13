@@ -5,7 +5,7 @@ import { Table, LineChart as LineChartIcon } from "lucide-react"
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
-import { useFluidScale } from "@/hooks/use-fluid-scale"
+import { DASHBOARD_DENSE_PANEL_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 import type { DailyTrendRangePoint, DailyTrendRangeSummary } from "@/lib/api/daily-trend-range"
 
 const TABLE_SCROLLBAR =
@@ -48,7 +48,7 @@ export function TemperatureDifferenceAnalysis({
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
   const { t, language } = useLanguage()
   const zh = language === "zh"
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_DENSE_PANEL_SCALE)
   const titleSize = scale.clampText(0.9, 0.98, 1.18)
   const cardLabelSize = scale.fluid(12, 14.5)
   const cardValueSize = scale.clampText(0.95, 1.08, 1.42)

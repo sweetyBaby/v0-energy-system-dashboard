@@ -21,7 +21,7 @@ import { ReportCenterPanel } from "@/components/dashboard/report-center-panel"
 import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { LanguageProvider } from "@/components/language-provider"
-import { useFluidScale } from "@/hooks/use-fluid-scale"
+import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 import {
   fetchDailyTrendRange,
   formatAnalysisRangeDate,
@@ -142,7 +142,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const overviewScale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18.5 })
-  const contentScale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const contentScale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const zh = language === "zh"
   const pageControlLabelSize = contentScale.fluid(11, 14)
   const pageControlButtonSize = contentScale.fluid(12, 15)

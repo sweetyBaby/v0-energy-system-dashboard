@@ -15,7 +15,7 @@ import {
 import { useLanguage } from "@/components/language-provider"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
-import { useFluidScale } from "@/hooks/use-fluid-scale"
+import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 import {
   fetchOperationsIncrementalBundle,
   fetchOperationsRecentBundle,
@@ -459,7 +459,7 @@ export function BCUStatusQuery({
 }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const zh = language === "zh"
   const [rtOverview, setRtOverview] = useState<OperationTrendPoint[]>([])
   const [isRealtimeLoading, setIsRealtimeLoading] = useState(mode === "realtime")
@@ -476,6 +476,8 @@ export function BCUStatusQuery({
   const tooltipFontSize = scale.chart(13, 15)
   const sectionLabelSize = scale.chart(11, 13)
   const legendFontSize = scale.chart(11, 12.5)
+  const liveBadgeSize = scale.fluid(11.5, 14.5)
+  const toastTitleSize = scale.clampText(1, 1.14, 1.4)
 
   type StatusToast = { type: "info" | "error"; text: string } | null
   const [toast, setToast] = useState<StatusToast>(null)
@@ -601,9 +603,12 @@ export function BCUStatusQuery({
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
-          <span className="text-sm font-semibold text-[#00d4aa]">{zh ? "BCU 运行状态" : "BCU Status"}</span>
+          <span className="font-semibold text-[#00d4aa]" style={{ fontSize: titleSize }}>{zh ? "BCU 运行状态" : "BCU Status"}</span>
           {mode === "realtime" ? (
-            <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-[#1f5f92] bg-[linear-gradient(180deg,rgba(14,44,78,0.96),rgba(9,26,50,0.96))] px-2.5 text-[11px] font-semibold text-[#bfe7ff] shadow-[inset_0_0_0_1px_rgba(110,196,255,0.08)]">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#1f5f92] bg-[linear-gradient(180deg,rgba(14,44,78,0.96),rgba(9,26,50,0.96))] px-2.5 font-semibold text-[#bfe7ff] shadow-[inset_0_0_0_1px_rgba(110,196,255,0.08)]"
+              style={{ height: scale.fluid(24, 30), fontSize: liveBadgeSize }}
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-[#20d4ff] shadow-[0_0_8px_rgba(32,212,255,0.9)]" />
               <span>{zh ? "实时" : "Live"}</span>
               <span className="tabular-nums text-[#f2fbff]">{liveTimeLabel}</span>
@@ -645,8 +650,8 @@ export function BCUStatusQuery({
                   : <DatabaseZap className="h-6 w-6" style={{ color: "rgb(99,179,237)" }} />}
               </div>
               <span
-                className="text-base font-bold tracking-wide"
-                style={{ color: toast.type === "error" ? "rgb(252,165,165)" : "rgb(186,230,253)" }}
+                className="font-bold tracking-wide"
+                style={{ color: toast.type === "error" ? "rgb(252,165,165)" : "rgb(186,230,253)", fontSize: toastTitleSize }}
               >
                 {toast.type === "error"
                   ? (zh ? "运行状态加载失败" : "Load failed")
