@@ -71,6 +71,12 @@ export function CustomRangePicker({
 
   const normalizedMaxDate = useMemo(() => toDayStart(maxDate), [maxDate])
   const monthNames = zh ? monthNamesZh : monthNamesEn
+  const triggerFontSize = "clamp(0.82rem, calc(var(--overview-root-size, 15px) * 0.92), 1.02rem)"
+  const triggerIconSize = "clamp(0.92rem, calc(var(--overview-root-size, 15px) * 1.02), 1.1rem)"
+  const panelTitleFontSize = "clamp(0.92rem, calc(var(--overview-root-size, 15px) * 1.02), 1.08rem)"
+  const panelHintFontSize = "clamp(0.72rem, calc(var(--overview-root-size, 15px) * 0.8), 0.84rem)"
+  const panelControlFontSize = "clamp(0.82rem, calc(var(--overview-root-size, 15px) * 0.92), 0.96rem)"
+  const quickSelectFontSize = "clamp(0.84rem, calc(var(--overview-root-size, 15px) * 0.94), 0.98rem)"
 
   const yearOptions = useMemo(() => {
     const years: number[] = []
@@ -116,25 +122,28 @@ export function CustomRangePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3 py-1.5 text-xs text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60">
-          <CalendarDays className="h-3.5 w-3.5 text-[#8db7ff]" />
+        <button
+          className="flex min-h-[2.5rem] items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3.5 py-2 text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60"
+          style={{ fontSize: triggerFontSize }}
+        >
+          <CalendarDays className="shrink-0 text-[#8db7ff]" style={{ width: triggerIconSize, height: triggerIconSize }} />
           <span className="font-medium">{buttonLabel ?? formatRangeLabel(value, language)}</span>
-          <ChevronDown className="h-3.5 w-3.5 text-[#7b8ab8]" />
+          <ChevronDown className="shrink-0 text-[#7b8ab8]" style={{ width: triggerIconSize, height: triggerIconSize }} />
         </button>
       </PopoverTrigger>
 
       <PopoverContent
         align={align}
-        className="z-50 w-[320px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]"
+        className="z-50 w-[360px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]"
       >
         <div className="border-b border-[#1a2654] px-4 py-3">
-          <div className="text-sm font-semibold text-[#e8f4fc]">
+          <div className="font-semibold text-[#e8f4fc]" style={{ fontSize: panelTitleFontSize }}>
             {zh ? "选择日期范围" : "Select range"}
-            <span className="ml-1 text-[11px] font-normal text-[#7b8ab8]">
+            <span className="ml-1 font-normal text-[#7b8ab8]" style={{ fontSize: panelHintFontSize }}>
               {zh ? `（${hint}）` : `(${hint})`}
             </span>
           </div>
-          {rangeError && <div className="mt-1 text-[11px] text-[#fda4af]">{rangeError}</div>}
+          {rangeError && <div className="mt-1 text-[#fda4af]" style={{ fontSize: panelHintFontSize }}>{rangeError}</div>}
         </div>
 
         <div className="border-b border-[#1a2654] p-3">
@@ -143,12 +152,12 @@ export function CustomRangePicker({
               value={String(pickerMonth.getFullYear())}
               onValueChange={(nextYear) => setPickerMonth(new Date(Number(nextYear), pickerMonth.getMonth(), 1))}
             >
-              <SelectTrigger className="h-9 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]">
+              <SelectTrigger className="h-10 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]" style={{ fontSize: panelControlFontSize }}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]">
+              <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]" style={{ fontSize: panelControlFontSize }}>
                 {yearOptions.map((year) => (
-                  <SelectItem key={year} value={String(year)} className="text-[#e8f4fc]">
+                  <SelectItem key={year} value={String(year)} className="text-[#e8f4fc]" style={{ fontSize: panelControlFontSize }}>
                     {zh ? `${year}年` : String(year)}
                   </SelectItem>
                 ))}
@@ -159,12 +168,12 @@ export function CustomRangePicker({
               value={String(pickerMonth.getMonth())}
               onValueChange={(nextMonth) => setPickerMonth(new Date(pickerMonth.getFullYear(), Number(nextMonth), 1))}
             >
-              <SelectTrigger className="h-9 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]">
+              <SelectTrigger className="h-10 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]" style={{ fontSize: panelControlFontSize }}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]">
+              <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]" style={{ fontSize: panelControlFontSize }}>
                 {monthNames.map((month, index) => (
-                  <SelectItem key={`${month}-${index}`} value={String(index)} className="text-[#e8f4fc]">
+                  <SelectItem key={`${month}-${index}`} value={String(index)} className="text-[#e8f4fc]" style={{ fontSize: panelControlFontSize }}>
                     {month}
                   </SelectItem>
                 ))}
@@ -174,20 +183,20 @@ export function CustomRangePicker({
             <button
               type="button"
               onClick={() => setPickerMonth((prev) => addMonths(prev, -1))}
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-[#26456e] bg-[#101840] text-[#c7d7f5] transition-colors hover:border-[#22d3ee]/50 hover:text-white"
+              className="flex h-10 w-10 items-center justify-center rounded-md border border-[#26456e] bg-[#101840] text-[#c7d7f5] transition-colors hover:border-[#22d3ee]/50 hover:text-white"
               aria-label={zh ? "上一个月" : "Previous month"}
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-[18px] w-[18px]" />
             </button>
 
             <button
               type="button"
               onClick={() => canGoNextMonth && setPickerMonth((prev) => addMonths(prev, 1))}
               disabled={!canGoNextMonth}
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-[#26456e] bg-[#101840] text-[#c7d7f5] transition-colors hover:border-[#22d3ee]/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+              className="flex h-10 w-10 items-center justify-center rounded-md border border-[#26456e] bg-[#101840] text-[#c7d7f5] transition-colors hover:border-[#22d3ee]/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
               aria-label={zh ? "下一个月" : "Next month"}
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-[18px] w-[18px]" />
             </button>
           </div>
         </div>
@@ -220,7 +229,7 @@ export function CustomRangePicker({
           className="bg-[#0d1233] p-3"
           classNames={{
             month_caption: "hidden",
-            weekday: "flex-1 rounded-md text-xs text-[#7b8ab8]",
+            weekday: "flex-1 rounded-md text-[13px] text-[#7b8ab8]",
             day: "relative aspect-square w-full p-0 text-center",
             selected: "rounded-md bg-[#00d4aa] text-[#041123] font-semibold",
             today: "rounded-md bg-[#1c315f] text-[#e8f4fc]",
@@ -242,9 +251,10 @@ export function CustomRangePicker({
               setPickerMonth(startOfMonth(current))
               setOpen(false)
             }}
-            className="mx-auto flex items-center gap-1.5 text-sm text-[#e8f4fc] transition-colors hover:text-[#22d3ee]"
+            className="mx-auto flex items-center gap-1.5 text-[#e8f4fc] transition-colors hover:text-[#22d3ee]"
+            style={{ fontSize: quickSelectFontSize }}
           >
-            <Crosshair className="h-4 w-4" />
+            <Crosshair className="h-[18px] w-[18px]" />
             <span>{quickSelectLabel ?? (zh ? "今天" : "Today")}</span>
           </button>
         </div>

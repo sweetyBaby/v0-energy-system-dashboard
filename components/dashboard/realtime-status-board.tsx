@@ -72,8 +72,8 @@ function useContainerBase(ref: React.RefObject<HTMLDivElement | null>) {
     const calc = (w: number, h: number) => {
       // 左侧 SOC 柱约占宽 22%，右侧 2×2 grid 占 78%
       // 基准取容器短边的 4.5%，保证所有元素在任意比例下不溢出
-      const b = Math.min(w, h) * 0.045
-      setBase(Math.max(9, Math.min(b, 20)))
+      const b = Math.min(w, h) * 0.05
+      setBase(Math.max(9, Math.min(b, 24)))
     }
     const ro = new ResizeObserver(entries => {
       const { width, height } = entries[0].contentRect
@@ -336,7 +336,7 @@ export function RealtimeStatusBoard() {
                 {/* 标签 */}
                 <span
                   className="z-10 text-center font-semibold leading-tight tracking-[0.02em] text-[#f5f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.55)]"
-                  style={{ fontSize: clampText(0.64, 0.76, 1.02) }}
+                  style={{ fontSize: clampText(0.8, 0.96, 1.22) }}
                 >
                   {language === "zh" ? item.labelZh : item.labelEn}
                 </span>
@@ -365,7 +365,7 @@ export function RealtimeStatusBoard() {
                   <span
                     className="font-extrabold tabular-nums"
                     style={{
-                      fontSize: clampText(1.12, 1.42, 2.02),
+                      fontSize: clampText(1.26, 1.58, 2.2),
                       color: item.accent,
                       textShadow: `0 0 18px ${item.glow}, 0 1px 6px rgba(0,0,0,0.9)`,
                     }}
@@ -375,7 +375,7 @@ export function RealtimeStatusBoard() {
                   <span
                     className="font-semibold text-white/60"
                     style={{
-                      fontSize: clampText(0.58, 0.68, 0.94),
+                      fontSize: clampText(0.74, 0.88, 1.12),
                       paddingBottom: `${B * 0.1}px`,
                       textShadow: "0 1px 4px rgba(0,0,0,0.9)",
                     }}
