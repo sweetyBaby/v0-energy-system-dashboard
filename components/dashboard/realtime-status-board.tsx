@@ -9,6 +9,12 @@ type RealtimePackStatus = "offline" | "standby" | "charge" | "discharge"
 
 const PLACEHOLDER = "--"
 
+const formatRealtimeClock = (date: Date) => {
+  const hours = String(date.getHours()).padStart(2, "0")
+  const minutes = String(date.getMinutes()).padStart(2, "0")
+  return `${hours}:${minutes}`
+}
+
 const displayPackStatusLabels: Record<RealtimePackStatus, { zh: string; en: string }> = {
   offline: { zh: "离线", en: "Offline" },
   standby: { zh: "静置", en: "Standby" },
@@ -84,6 +90,7 @@ export function RealtimeStatusBoard() {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const [liveBlink, setLiveBlink] = useState(true)
+  const [liveTime, setLiveTime] = useState(() => formatRealtimeClock(new Date()))
   const { realtimeSnapshot } = selectedProject
   const containerRef = useRef<HTMLDivElement>(null)
   const B = useContainerBase(containerRef)
@@ -91,6 +98,14 @@ export function RealtimeStatusBoard() {
   useEffect(() => {
     const t = window.setInterval(() => setLiveBlink(v => !v), 1200)
     return () => window.clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    const updateClock = () => setLiveTime(formatRealtimeClock(new Date()))
+    updateClock()
+
+    const timer = window.setInterval(updateClock, 1000)
+    return () => window.clearInterval(timer)
   }, [])
 
   const colors = statusColors[realtimeSnapshot.packStatus]
@@ -132,7 +147,11 @@ export function RealtimeStatusBoard() {
       `}</style>
 
       {/* 在线状态指示 */}
-      <div className="absolute flex items-center" style={{ left: `${B * 0.8}px`, top: `${B * 0.8}px`, gap: `${B * 0.3}px` }}>
+      <div
+        className="absolute inset-x-0 top-0 z-20 flex items-center justify-between"
+        style={{ paddingLeft: `${B * 0.8}px`, paddingRight: `${B * 0.8}px`, paddingTop: `${B * 0.18}px` }}
+      >
+        <div className="flex items-center" style={{ gap: `${B * 0.3}px` }}>
         <div
           className={`rounded-full ${realtimeSnapshot.isOnline ? "bg-[#00e87a]" : "bg-[#94a3b8]"}`}
           style={{
@@ -151,9 +170,51 @@ export function RealtimeStatusBoard() {
         >
           {realtimeSnapshot.isOnline ? (language === "zh" ? "在线" : "Online") : (language === "zh" ? "离线" : "Offline")}
         </span>
-      </div>
+        </div>
 
       {/* 主体：SOC柱 + 指标grid */}
+      <div className="contents">
+        <div
+          className="flex items-center rounded-full border border-[#1c74d9]/65 bg-[linear-gradient(180deg,rgba(5,16,48,0.96),rgba(7,24,66,0.92))]"
+          style={{
+            gap: `${B * 0.28}px`,
+            padding: `${B * 0.12}px ${B * 0.58}px`,
+            boxShadow: "0 0 12px rgba(37,153,255,0.22), inset 0 0 0 1px rgba(125,211,252,0.08)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <div
+            className="rounded-full bg-[#28d7ff]"
+            style={{
+              width: `${B * 0.48}px`,
+              height: `${B * 0.48}px`,
+              opacity: liveBlink ? 1 : 0.35,
+              transition: "opacity 0.4s ease",
+              boxShadow: "0 0 8px rgba(40,215,255,0.78)",
+            }}
+          />
+          <span
+            className="font-semibold tracking-[0.03em] text-[#55d9ff]"
+            style={{
+              fontSize: `${B * 0.72}px`,
+              textShadow: "0 0 8px rgba(34,211,238,0.22)",
+            }}
+          >
+            {language === "zh" ? "实时" : "Live Time"}
+          </span>
+          <span
+            className="font-semibold tabular-nums tracking-[0.03em] text-[#d8f2ff]"
+            style={{
+              fontSize: `${B * 0.72}px`,
+              textShadow: "0 0 10px rgba(125,211,252,0.16)",
+            }}
+          >
+            {liveTime}
+          </span>
+        </div>
+      </div>
+      </div>
+
       <div className="flex min-h-0 flex-1 flex-row overflow-hidden" style={{ gap, paddingTop: `${B * 1.2}px` }}>
 
         {/* ── 左列：SOC 液位柱 ── */}
