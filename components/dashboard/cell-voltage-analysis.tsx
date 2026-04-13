@@ -5,9 +5,9 @@ import { Table, LineChart as LineChartIcon } from "lucide-react"
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
+import { useFluidScale } from "@/hooks/use-fluid-scale"
 import type { DailyTrendRangePoint, DailyTrendRangeSummary } from "@/lib/api/daily-trend-range"
 
-const TS = { backgroundColor: "#0d1233", border: "1px solid #1a2654", borderRadius: "8px", fontSize: 11 }
 const TABLE_SCROLLBAR =
   "h-full overflow-auto rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.95),rgba(11,18,44,0.92))] [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]"
 
@@ -21,9 +21,12 @@ const formatTableMetric = (value: number | null | undefined, digits = 3) => {
   return value.toFixed(digits)
 }
 
-function AnalysisPlaceholder({ text }: { text: string }) {
+function AnalysisPlaceholder({ text, fontSize }: { text: string; fontSize: number }) {
   return (
-    <div className="flex h-full items-center justify-center rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.72),rgba(11,18,44,0.78))] px-4 text-center text-sm text-[#7b8ab8]">
+    <div
+      className="flex h-full items-center justify-center rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.72),rgba(11,18,44,0.78))] px-4 text-center text-[#7b8ab8]"
+      style={{ fontSize }}
+    >
       {text}
     </div>
   )
@@ -45,6 +48,15 @@ export function CellVoltageAnalysis({
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
   const { t, language } = useLanguage()
   const zh = language === "zh"
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const titleSize = scale.clampText(0.9, 0.98, 1.18)
+  const cardLabelSize = scale.fluid(12, 14.5)
+  const cardValueSize = scale.clampText(0.95, 1.08, 1.42)
+  const tableSize = scale.fluid(12, 14)
+  const chartFontSize = scale.chart(10, 13)
+  const tooltipFontSize = scale.chart(11, 14)
+  const iconEdge = scale.fluid(26, 32)
+  const iconSize = scale.fluid(14, 17)
 
   const data = useMemo(
     () =>
@@ -64,28 +76,42 @@ export function CellVoltageAnalysis({
     voltageRange: null,
   }
 
+  const tooltipStyle = useMemo(
+    () => ({
+      backgroundColor: "#0d1233",
+      border: "1px solid #1a2654",
+      borderRadius: "8px",
+      fontSize: tooltipFontSize,
+    }),
+    [tooltipFontSize]
+  )
+
   const loadingText = zh ? "加载单体电压分析..." : "Loading cell voltage analysis..."
   const placeholderText = error ? error : zh ? "暂无单体电压分析数据" : "No cell voltage analysis data"
 
   return (
-    <div className="flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
+    <div ref={scale.ref} className="flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4" style={scale.rootStyle}>
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#7dd3fc]" />
-          <h3 className="text-sm font-semibold text-[#7dd3fc]">{t("cellVoltageAnalysis")}</h3>
+          <h3 className="font-semibold text-[#7dd3fc]" style={{ fontSize: titleSize }}>
+            {t("cellVoltageAnalysis")}
+          </h3>
         </div>
         <div className="flex gap-1 rounded-lg bg-[#1a2654]/50 p-1">
           <button
             onClick={() => setViewMode("chart")}
-            className={`rounded-md p-1.5 transition-all ${viewMode === "chart" ? "bg-[#7dd3fc] text-[#0a0e27]" : "text-[#7b8ab8]"}`}
+            className={`rounded-md transition-all ${viewMode === "chart" ? "bg-[#7dd3fc] text-[#0a0e27]" : "text-[#7b8ab8]"}`}
+            style={{ width: iconEdge, height: iconEdge }}
           >
-            <LineChartIcon className="h-3.5 w-3.5" />
+            <LineChartIcon style={{ width: iconSize, height: iconSize, margin: "0 auto" }} />
           </button>
           <button
             onClick={() => setViewMode("table")}
-            className={`rounded-md p-1.5 transition-all ${viewMode === "table" ? "bg-[#7dd3fc] text-[#0a0e27]" : "text-[#7b8ab8]"}`}
+            className={`rounded-md transition-all ${viewMode === "table" ? "bg-[#7dd3fc] text-[#0a0e27]" : "text-[#7b8ab8]"}`}
+            style={{ width: iconEdge, height: iconEdge }}
           >
-            <Table className="h-3.5 w-3.5" />
+            <Table style={{ width: iconSize, height: iconSize, margin: "0 auto" }} />
           </button>
         </div>
       </div>
@@ -98,8 +124,10 @@ export function CellVoltageAnalysis({
           { label: zh ? "压差区间" : "Range", value: formatMetric(stats.voltageRange, 3, " V"), color: "#fbbf24" },
         ].map((item) => (
           <div key={item.label} className="rounded-lg border border-[#1a2654]/60 bg-[#101840]/80 px-2 py-2 text-center">
-            <div className="text-xs font-medium text-[#7b8ab8]">{item.label}</div>
-            <div className="mt-0.5 font-mono text-[0.95rem] font-bold" style={{ color: item.color }}>
+            <div className="font-medium text-[#7b8ab8]" style={{ fontSize: cardLabelSize }}>
+              {item.label}
+            </div>
+            <div className="mt-0.5 font-mono font-bold" style={{ color: item.color, fontSize: cardValueSize }}>
               {item.value}
             </div>
           </div>
@@ -116,21 +144,42 @@ export function CellVoltageAnalysis({
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 28, right: 16, left: -8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" vertical={false} />
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#7b8ab8", fontSize: 10 }} interval={range > 15 ? 4 : range > 7 ? 1 : 0} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#7b8ab8", fontSize: 10 }} tickFormatter={(value) => Number(value).toFixed(2)} unit="V" />
-                <Tooltip contentStyle={TS} labelStyle={{ color: "#7b8ab8" }} formatter={(value: number | null, name: string) => [formatMetric(value, 3, " V"), name]} />
-                <Legend wrapperStyle={{ paddingTop: "6px" }} layout="horizontal" verticalAlign="bottom" formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: "11px" }}>{value}</span>} />
+                <XAxis
+                  dataKey="day"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#7b8ab8", fontSize: chartFontSize }}
+                  interval={range > 15 ? 4 : range > 7 ? 1 : 0}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#7b8ab8", fontSize: chartFontSize }}
+                  tickFormatter={(value) => Number(value).toFixed(2)}
+                  unit="V"
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  labelStyle={{ color: "#7b8ab8", fontSize: tooltipFontSize }}
+                  formatter={(value: number | null, name: string) => [formatMetric(value, 3, " V"), name]}
+                />
+                <Legend
+                  wrapperStyle={{ paddingTop: "6px" }}
+                  layout="horizontal"
+                  verticalAlign="bottom"
+                  formatter={(value) => <span style={{ color: "#7b8ab8", fontSize: chartFontSize }}>{value}</span>}
+                />
                 <Line type="monotone" connectNulls={false} dataKey="maxVoltage" name={zh ? "最高电压" : "Max Voltage"} stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
                 <Line type="monotone" connectNulls={false} dataKey="avgVoltage" name={zh ? "平均电压" : "Avg Voltage"} stroke="#00d4aa" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} strokeDasharray="5 3" />
                 <Line type="monotone" connectNulls={false} dataKey="minVoltage" name={zh ? "最低电压" : "Min Voltage"} stroke="#22d3ee" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <AnalysisPlaceholder text={placeholderText} />
+            <AnalysisPlaceholder text={placeholderText} fontSize={tableSize} />
           )
         ) : data.length > 0 ? (
           <div className={TABLE_SCROLLBAR}>
-            <table className="w-full text-xs">
+            <table className="w-full" style={{ fontSize: tableSize }}>
               <thead className="sticky top-0 bg-[#0d1233]">
                 <tr className="border-b border-[#1a2654] text-[#7b8ab8]">
                   <th className="px-2 py-2 text-left">{t("date")}</th>
@@ -152,7 +201,7 @@ export function CellVoltageAnalysis({
             </table>
           </div>
         ) : (
-          <AnalysisPlaceholder text={placeholderText} />
+          <AnalysisPlaceholder text={placeholderText} fontSize={tableSize} />
         )}
       </div>
     </div>

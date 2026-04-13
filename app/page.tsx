@@ -142,7 +142,13 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const overviewScale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18.5 })
+  const contentScale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
   const zh = language === "zh"
+  const pageControlLabelSize = contentScale.fluid(11, 14)
+  const pageControlButtonSize = contentScale.fluid(12, 15)
+  const pageIconButtonSize = contentScale.fluid(12, 15)
+  const pageIconButtonEdge = contentScale.fluid(28, 34)
+  const pageControlGroupHeight = contentScale.fluid(32, 40)
   const analysisCurrentDay = useMemo(() => toDayStart(new Date()), [])
   const analysisMaxDate = useMemo(() => addDays(analysisCurrentDay, -1), [analysisCurrentDay])
   const defaultAnalysisCustomRange = useMemo<DateRange>(
@@ -308,11 +314,12 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
             <button
               key={mode}
               onClick={() => setBcuMode(mode)}
-              className={`flex items-center gap-1.5 rounded px-3 py-1 text-[12px] font-medium tracking-[0.03em] transition-all ${
+              className={`flex items-center gap-1.5 rounded px-3 py-1 font-medium tracking-[0.03em] transition-all ${
                 bcuMode === mode
                   ? "border border-[#00d4aa]/55 bg-[linear-gradient(180deg,rgba(0,212,170,0.90),rgba(0,195,160,0.82))] font-semibold text-[#021a12] shadow-[0_0_12px_rgba(0,212,170,0.25)]"
                   : "text-[#5a8aaa] hover:text-[#c0dff5]"
               }`}
+              style={{ fontSize: pageControlButtonSize }}
             >
               {bcuMode === mode && mode === "realtime" && (
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#021a12]" />
@@ -338,7 +345,11 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className={activeTab === "realtime" ? "min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-0" : "min-h-0 flex-1 overflow-hidden p-3"}>
+      <div
+        ref={activeTab === "realtime" ? undefined : contentScale.ref}
+        className={activeTab === "realtime" ? "min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-0" : "min-h-0 flex-1 overflow-hidden p-3"}
+        style={activeTab === "realtime" ? undefined : contentScale.rootStyle}
+      >
         {activeTab === "realtime" && (
           <div
             ref={overviewScale.ref}
@@ -430,7 +441,10 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                   <CellHistoryMultiPicker value={selectedHistoryCells} onChange={setSelectedHistoryCells} />
                 )}
                 <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={yesterday} compact />
-                <div className="flex h-8 shrink-0 items-center gap-1 rounded-[12px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]">
+                <div
+                  className="flex shrink-0 items-center gap-1 rounded-[12px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]"
+                  style={{ height: pageControlGroupHeight }}
+                >
                   {([
                     {
                       key: "overview",
@@ -474,11 +488,12 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                         }}
                         aria-label={zh ? item.labelZh : item.labelEn}
                         title={zh ? item.labelZh : item.labelEn}
-                        className={`flex h-[28px] w-[28px] items-center justify-center rounded-[8px] text-[12px] font-medium transition-all ${
+                        className={`flex items-center justify-center rounded-[8px] font-medium transition-all ${
                           active
                             ? "border border-[#45f1d0]/45 bg-[linear-gradient(180deg,rgba(20,221,190,0.94),rgba(7,193,164,0.88))] text-[#04241c] shadow-[0_0_10px_rgba(34,211,238,0.18)]"
                             : "border border-transparent bg-transparent text-[#6d90ad] hover:border-[#22d3ee]/22 hover:text-[#d5efff]"
                         }`}
+                        style={{ width: pageIconButtonEdge, height: pageIconButtonEdge, fontSize: pageIconButtonSize }}
                       >
                         <span className={active ? "scale-100" : "scale-[0.95]"}>{item.icon}</span>
                       </button>
@@ -502,45 +517,40 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
 
         {activeTab === "analysis" && (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-            <div
-              className="relative flex shrink-0 flex-wrap items-center gap-3 overflow-visible border border-[#22d3ee]/20 bg-[#020810] px-4 py-2"
-              style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 100%, 0 100%)" }}
-            >
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
-              <span className="text-[11px] font-medium tracking-[0.06em] text-[#4a7090]">
-                {zh ? "时间范围" : "TIME RANGE"}
-              </span>
-              <div className="h-3 w-px bg-[#22d3ee]/25" />
-              <div className="flex flex-wrap items-center gap-1">
+            <div className="flex shrink-0 flex-wrap items-center gap-3 overflow-visible">
+              <div className="flex flex-wrap items-center gap-1 rounded-[14px] border border-[#1d4c69] bg-[linear-gradient(180deg,rgba(9,25,48,0.92),rgba(8,20,38,0.96))] p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
                 {ANALYSIS_RANGES.map((range) => (
                   <button
                     key={range.key}
                     onClick={() => setAnalysisRange(range.key)}
-                    className={`rounded px-3 py-1 text-[12px] tracking-[0.03em] transition-all ${
+                    className={`rounded-[10px] px-3.5 py-1.5 tracking-[0.03em] transition-all ${
                       analysisRange === range.key
-                        ? "border border-[#00d4aa]/55 bg-[linear-gradient(180deg,rgba(0,212,170,0.90),rgba(0,195,160,0.82))] font-semibold text-[#021a12] shadow-[0_0_12px_rgba(0,212,170,0.25)]"
-                        : "text-[#5a8aaa] hover:text-[#c0dff5]"
+                        ? "border border-[#00d4aa]/60 bg-[linear-gradient(180deg,rgba(27,220,191,0.96),rgba(7,193,164,0.88))] font-semibold text-[#041c16] shadow-[0_0_16px_rgba(0,212,170,0.22)]"
+                        : "border border-transparent text-[#8aaed2] hover:border-[#22d3ee]/20 hover:bg-[#112347] hover:text-[#e3f4ff]"
                     }`}
+                    style={{ fontSize: pageControlButtonSize }}
                   >
                     {zh ? range.zh : range.en}
                   </button>
                 ))}
               </div>
               {analysisRange === "custom" && (
-                <CustomRangePicker
-                  value={analysisCustomRange}
-                  onChange={setAnalysisCustomRange}
-                  maxDate={analysisMaxDate}
-                  maxDays={31}
-                  buttonLabel={formatAnalysisRangeLabel(analysisCustomRange)}
-                  hint={zh ? "最多选择 31 天，结束日期不能超过昨天" : "Select up to 31 days, ending no later than yesterday"}
-                  maxRangeError={
-                    zh
-                      ? "自定义日期范围最多 31 天，且结束日期不能超过昨天"
-                      : "Custom date range cannot exceed 31 days or go beyond yesterday"
-                  }
-                  quickSelectLabel={zh ? "昨天" : "Yesterday"}
-                />
+                <div className="min-w-0 flex-1 sm:flex-none">
+                  <CustomRangePicker
+                    value={analysisCustomRange}
+                    onChange={setAnalysisCustomRange}
+                    maxDate={analysisMaxDate}
+                    maxDays={31}
+                    buttonLabel={formatAnalysisRangeLabel(analysisCustomRange)}
+                    hint={zh ? "最多选择 31 天，结束日期不能超过昨天" : "Select up to 31 days, ending no later than yesterday"}
+                    maxRangeError={
+                      zh
+                        ? "自定义日期范围最多 31 天，且结束日期不能超过昨天"
+                        : "Custom date range cannot exceed 31 days or go beyond yesterday"
+                    }
+                    quickSelectLabel={zh ? "昨天" : "Yesterday"}
+                  />
+                </div>
               )}
             </div>
             <div className="grid min-h-0 flex-1 grid-cols-12 gap-4">

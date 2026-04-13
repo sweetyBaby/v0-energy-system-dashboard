@@ -15,6 +15,7 @@ import {
 import { useLanguage } from "@/components/language-provider"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
+import { useFluidScale } from "@/hooks/use-fluid-scale"
 import {
   fetchOperationsIncrementalBundle,
   fetchOperationsRecentBundle,
@@ -285,11 +286,21 @@ function TrendStackedChart({
   zh,
   history,
   hideCellSeries = false,
+  axisFontSize,
+  yAxisFontSize,
+  tooltipFontSize,
+  sectionLabelSize,
+  legendFontSize,
 }: {
   data: OperationTrendPoint[]
   zh: boolean
   history: boolean
   hideCellSeries?: boolean
+  axisFontSize: number
+  yAxisFontSize: number
+  tooltipFontSize: number
+  sectionLabelSize: number
+  legendFontSize: number
 }) {
   const sections = createSections(zh)
   const visibleSections = hideCellSeries ? sections.filter((section) => section.kind !== "pair") : sections
@@ -341,7 +352,7 @@ function TrendStackedChart({
                     <svg width="18" height="10" style={{ display: "block" }}>
                       <line x1="0" y1="5" x2="18" y2="5" stroke={line.color} strokeWidth="2" strokeLinecap="round" />
                     </svg>
-                    <span style={{ color: "#9ca3af", fontSize: "11px", lineHeight: 1 }}>
+                    <span style={{ color: "#9ca3af", fontSize: legendFontSize, lineHeight: 1 }}>
                       {zh ? line.nameZh : line.nameEn}
                     </span>
                   </div>
@@ -354,7 +365,7 @@ function TrendStackedChart({
                 <CartesianGrid stroke="#1a2654" strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="time"
-                  tick={!isLast ? false : { fill: "#7b8ab8", fontSize: 9 }}
+                  tick={!isLast ? false : { fill: "#7b8ab8", fontSize: axisFontSize }}
                   axisLine={isLast ? { stroke: "#1a2654", strokeOpacity: 0.4 } : false}
                   tickLine={false}
                   height={isLast ? 18 : 0}
@@ -365,7 +376,7 @@ function TrendStackedChart({
                 <YAxis
                   domain={section.domain}
                   width={44}
-                  tick={{ fill: section.color, fontSize: 8 }}
+                  tick={{ fill: section.color, fontSize: yAxisFontSize }}
                   axisLine={{ stroke: section.color, strokeOpacity: 0.25 }}
                   tickLine={false}
                   ticks={section.kind === "single" ? section.ticks : undefined}
@@ -381,8 +392,8 @@ function TrendStackedChart({
                   contentStyle={TOOLTIP_STYLE}
                   cursor={{ stroke: "#93c5fd", strokeWidth: 1, strokeOpacity: 0.65 }}
                   position={{ y: 4 }}
-                  labelStyle={{ color: "#7b8ab8", fontSize: 13 }}
-                  itemStyle={{ fontSize: 13, padding: "2px 0" }}
+                  labelStyle={{ color: "#7b8ab8", fontSize: tooltipFontSize }}
+                  itemStyle={{ fontSize: tooltipFontSize, padding: "2px 0" }}
                   formatter={(value, name) => {
                     const numericValue = typeof value === "number" ? value : Number(value ?? 0)
 
@@ -402,7 +413,7 @@ function TrendStackedChart({
                   textAnchor={section.kind === "single" ? "end" : "start"}
                   dx={section.kind === "single" ? -10 : 0}
                   fill={section.color}
-                  fontSize={11}
+                  fontSize={sectionLabelSize}
                   fontWeight={600}
                 >
                   {zh ? section.labelZh : section.labelEn}
@@ -448,6 +459,7 @@ export function BCUStatusQuery({
 }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
   const zh = language === "zh"
   const [rtOverview, setRtOverview] = useState<OperationTrendPoint[]>([])
   const [isRealtimeLoading, setIsRealtimeLoading] = useState(mode === "realtime")
@@ -457,6 +469,13 @@ export function BCUStatusQuery({
   const effectiveHistoryData = historyData ?? histData
   const liveTimeLabel = rtOverview[rtOverview.length - 1]?.time.slice(0, 5) ?? "--:--"
   const isOverviewVariant = panelVariant === "overview"
+  const titleSize = scale.clampText(0.9, 0.98, 1.16)
+  const pillFontSize = scale.fluid(11, 13.5)
+  const axisFontSize = scale.chart(9, 12)
+  const yAxisFontSize = scale.chart(8, 11)
+  const tooltipFontSize = scale.chart(13, 15)
+  const sectionLabelSize = scale.chart(11, 13)
+  const legendFontSize = scale.chart(11, 12.5)
 
   type StatusToast = { type: "info" | "error"; text: string } | null
   const [toast, setToast] = useState<StatusToast>(null)
@@ -570,11 +589,13 @@ export function BCUStatusQuery({
 
   return (
     <div
+      ref={scale.ref}
       className={`flex h-full min-h-0 flex-col overflow-hidden ${
         isOverviewVariant
           ? "relative rounded-[20px] border border-[#254873]/80 bg-[radial-gradient(circle_at_top_right,rgba(38,109,178,0.15),transparent_28%),linear-gradient(180deg,rgba(10,19,44,0.97),rgba(6,12,29,0.98))] p-3 shadow-[0_0_0_1px_rgba(88,181,255,0.08),0_18px_42px_rgba(1,7,19,0.42),inset_0_0_28px_rgba(44,126,198,0.06)]"
           : "rounded-lg border border-[#1a2654] bg-[#0d1233] p-3"
       }`}
+      style={scale.rootStyle}
     >
       {isOverviewVariant ? <div className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#8feaff]/[0.05]" /> : null}
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
@@ -632,7 +653,7 @@ export function BCUStatusQuery({
                   : (zh ? "暂无实时运行数据" : "No realtime data")}
               </span>
               {toast.type === "error" && (
-                <div className="flex items-center gap-1.5 text-[11px] text-[#4a5f8a]">
+                <div className="flex items-center gap-1.5 text-[#4a5f8a]" style={{ fontSize: pillFontSize }}>
                   <AlertCircle className="h-3 w-3" />
                   <span>{zh ? "将在下次轮询时自动重试" : "Will retry on next poll"}</span>
                 </div>
@@ -652,6 +673,11 @@ export function BCUStatusQuery({
           zh={zh}
           history={mode !== "realtime"}
           hideCellSeries={hideCellSeries}
+          axisFontSize={axisFontSize}
+          yAxisFontSize={yAxisFontSize}
+          tooltipFontSize={tooltipFontSize}
+          sectionLabelSize={sectionLabelSize}
+          legendFontSize={legendFontSize}
         />
       </div>
     </div>

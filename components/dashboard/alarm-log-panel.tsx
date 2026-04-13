@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { BarChart2, ChevronDown, Filter, List } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import { useFluidScale } from "@/hooks/use-fluid-scale"
 
 // ── 等级定义 ──────────────────────────────────────────────────────────────────
 const LV_COLOR: Record<number, string> = {
@@ -236,6 +237,10 @@ const DAY_MIN = 24 * 60
 
 // ── 甘特时间轴（拖动平移 + 滚轮缩放，始终铺满容器，无横向滚动条） ─────────────
 function AlarmTimeline({ events, zh }: { events: TimelineEvent[]; zh: boolean }) {
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const labelSize = scale.fluid(11, 13.5)
+  const tickSize = scale.fluid(10, 12.5)
+  const tooltipSize = scale.fluid(11, 13.5)
   const [viewStart, setViewStart] = useState(0)
   const [viewEnd,   setViewEnd]   = useState(DAY_MIN)
   const [tooltip, setTooltip]     = useState<{ ev: TimelineEvent; mx: number; my: number } | null>(null)
@@ -293,7 +298,7 @@ function AlarmTimeline({ events, zh }: { events: TimelineEvent[]; zh: boolean })
   }
 
   return (
-    <div className="select-none flex h-full flex-col rounded-lg border border-[#1a3060] bg-[#080e28]/70 px-3 py-2">
+    <div ref={scale.ref} className="select-none flex h-full flex-col rounded-lg border border-[#1a3060] bg-[#080e28]/70 px-3 py-2" style={scale.rootStyle}>
       {/* 图例 + 视窗范围提示 */}
       <div className="mb-2 flex shrink-0 items-center gap-3 px-1">
         {([
@@ -303,15 +308,15 @@ function AlarmTimeline({ events, zh }: { events: TimelineEvent[]; zh: boolean })
         ]).map(g => (
           <div key={g.en} className="flex items-center gap-1.5">
             <div className="h-2.5 w-5 rounded-sm" style={{ background: g.c, boxShadow: `0 0 5px ${g.c}66` }} />
-            <span className="text-[11px] font-medium text-[#c8deff]">{zh ? g.zh : g.en}</span>
+            <span className="font-medium text-[#c8deff]" style={{ fontSize: labelSize }}>{zh ? g.zh : g.en}</span>
           </div>
         ))}
         <div className="ml-auto flex items-center gap-3">
           {zoomed && (
-            <span className="text-[11px] font-semibold text-[#7dd3fc]">{fmt(viewStart)} – {fmt(viewEnd)}</span>
+            <span className="font-semibold text-[#7dd3fc]" style={{ fontSize: labelSize }}>{fmt(viewStart)} – {fmt(viewEnd)}</span>
           )}
-          <span className="rounded-md border border-[#2a4a80]/60 bg-[#0d1a3a]/80 px-2.5 py-0.5 text-[11px] font-medium text-[#60a0ff]"
-            style={{ textShadow: "0 0 8px rgba(96,160,255,0.5)" }}>
+          <span className="rounded-md border border-[#2a4a80]/60 bg-[#0d1a3a]/80 px-2.5 py-0.5 font-medium text-[#60a0ff]"
+            style={{ fontSize: labelSize, textShadow: "0 0 8px rgba(96,160,255,0.5)" }}>
             {zh ? "⇕ 滚轮缩放 \u00a0⇔ 拖动平移" : "⇕ Scroll zoom \u00a0⇔ Drag pan"}
           </span>
         </div>
@@ -324,8 +329,8 @@ function AlarmTimeline({ events, zh }: { events: TimelineEvent[]; zh: boolean })
           <div className="shrink-0" style={{ height: 18 }} />
           {types.map(type => (
             <div key={type}
-              className="flex min-h-[20px] flex-1 items-center justify-end pr-2 text-right text-[11px] font-medium text-[#a8c4f0]"
-              style={{ textShadow: "0 0 6px rgba(100,160,255,0.35)" }}>
+              className="flex min-h-[20px] flex-1 items-center justify-end pr-2 text-right font-medium text-[#a8c4f0]"
+              style={{ fontSize: labelSize, textShadow: "0 0 6px rgba(100,160,255,0.35)" }}>
               {nameMap.get(type) ?? type}
             </div>
           ))}
@@ -342,8 +347,8 @@ function AlarmTimeline({ events, zh }: { events: TimelineEvent[]; zh: boolean })
           <div className="relative shrink-0" style={{ height: 18 }}>
             {ticks.map(m => (
               <span key={m}
-                className="absolute -translate-x-1/2 whitespace-nowrap text-[10px] font-medium text-[#7ab0f0]"
-                style={{ left: pct(m) }}>
+                className="absolute -translate-x-1/2 whitespace-nowrap font-medium text-[#7ab0f0]"
+                style={{ left: pct(m), fontSize: tickSize }}>
                 {fmt(m)}
               </span>
             ))}
@@ -386,15 +391,15 @@ function AlarmTimeline({ events, zh }: { events: TimelineEvent[]; zh: boolean })
 
       {tooltip && (
         <div
-          className="pointer-events-none fixed z-[200] rounded-lg border border-[#1e3a70] bg-[#0a1535] px-3 py-2.5 text-[12px] shadow-2xl"
-          style={{ left: tooltip.mx + 14, top: tooltip.my - 8, boxShadow: "0 8px 32px rgba(0,0,0,0.6)" }}
+          className="pointer-events-none fixed z-[200] rounded-lg border border-[#1e3a70] bg-[#0a1535] px-3 py-2.5 shadow-2xl"
+          style={{ left: tooltip.mx + 14, top: tooltip.my - 8, boxShadow: "0 8px 32px rgba(0,0,0,0.6)", fontSize: tooltipSize }}
         >
           <div className="mb-1.5 font-bold" style={{ color: LV_COLOR[tooltip.ev.lv], textShadow: `0 0 8px ${LV_COLOR[tooltip.ev.lv]}80` }}>
             {zh ? tooltip.ev.nameZh : tooltip.ev.nameEn} · {zh ? LV_LABEL[tooltip.ev.lv].zh : LV_LABEL[tooltip.ev.lv].en}
           </div>
           <div className="space-y-1 text-[#8a9ec8]">
-            <div className="text-[11px]">{fmt(tooltip.ev.start)} — {fmt(tooltip.ev.end)}</div>
-            <div className="text-[11px]">
+            <div style={{ fontSize: labelSize }}>{fmt(tooltip.ev.start)} — {fmt(tooltip.ev.end)}</div>
+            <div style={{ fontSize: labelSize }}>
               {zh ? "持续" : "Duration"}{" "}
               <span className="font-semibold text-[#c8deff]">{tooltip.ev.end - tooltip.ev.start} {zh ? "分钟" : "min"}</span>
             </div>
@@ -409,6 +414,10 @@ function AlarmTimeline({ events, zh }: { events: TimelineEvent[]; zh: boolean })
 const LEVELS = [1, 2, 3, 4, 5] as const
 
 function AlarmTypeStats({ alarms, zh }: { alarms: AlarmEntry[]; zh: boolean }) {
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const labelSize = scale.fluid(11, 13.5)
+  const valueSize = scale.fluid(12, 15)
+  const totalSize = scale.fluid(15, 18)
   const total = alarms.length
   if (total === 0) return null
   const fmtPct = (count: number) => `${((count / total) * 100).toFixed(2)}%`
@@ -438,12 +447,12 @@ function AlarmTypeStats({ alarms, zh }: { alarms: AlarmEntry[]; zh: boolean }) {
   const lvMax = LEVELS.map(lv => Math.max(...typeOrder.map(t => matrix.get(t)!.get(lv) ?? 0), 1))
 
   return (
-    <div className="shrink-0 rounded-lg border border-[#1a3060] bg-[#070d20]/80 px-3 py-2">
+    <div ref={scale.ref} className="shrink-0 rounded-lg border border-[#1a3060] bg-[#070d20]/80 px-3 py-2" style={scale.rootStyle}>
 
       {/* ── 标题行 ── */}
       <div className="mb-2 flex items-center gap-2">
         <div className="h-3.5 w-[3px] rounded-full bg-[#00d4aa]" style={{ boxShadow: "0 0 6px #00d4aa80" }} />
-        <span className="text-[12px] font-bold tracking-wide text-[#cfe3ff] [text-shadow:0_0_10px_rgba(124,170,255,0.15)]">{zh ? "告警分布矩阵" : "Alarm Matrix"}</span>
+        <span className="font-bold tracking-wide text-[#cfe3ff] [text-shadow:0_0_10px_rgba(124,170,255,0.15)]" style={{ fontSize: valueSize }}>{zh ? "告警分布矩阵" : "Alarm Matrix"}</span>
         
       </div>
 
@@ -455,8 +464,9 @@ function AlarmTypeStats({ alarms, zh }: { alarms: AlarmEntry[]; zh: boolean }) {
           {LEVELS.map((lv, i) => (
             <div key={lv} className="flex-1 text-center">
               <span
-                className="text-[11px] font-bold tabular-nums tracking-[0.02em]"
+                className="font-bold tabular-nums tracking-[0.02em]"
                 style={{
+                  fontSize: labelSize,
                   color: lvTotals[i] > 0 ? LV_BRIGHT[lv] : "#2a3a5a",
                   textShadow: lvTotals[i] > 0 ? `0 0 10px ${LV_COLOR[lv]}45` : "none",
                 }}
@@ -466,7 +476,7 @@ function AlarmTypeStats({ alarms, zh }: { alarms: AlarmEntry[]; zh: boolean }) {
             </div>
           ))}
           <div className="w-[52px] shrink-0 pr-1 text-right">
-            <span className="text-[11px] font-semibold text-[#a7c7ff] [text-shadow:0_0_10px_rgba(98,154,255,0.15)]">{zh ? "合计" : "Total"}</span>
+            <span className="font-semibold text-[#a7c7ff] [text-shadow:0_0_10px_rgba(98,154,255,0.15)]" style={{ fontSize: labelSize }}>{zh ? "合计" : "Total"}</span>
           </div>
         </div>
 
@@ -484,7 +494,7 @@ function AlarmTypeStats({ alarms, zh }: { alarms: AlarmEntry[]; zh: boolean }) {
                   className="h-1.5 w-1.5 shrink-0 rounded-full"
                   style={{ backgroundColor: LV_COLOR[rowMaxLv], boxShadow: `0 0 5px ${LV_COLOR[rowMaxLv]}` }}
                 />
-                <span className="truncate text-[11px] font-medium text-[#d7e6ff]">{nameDisplayMap.get(typeName) ?? typeName}</span>
+                <span className="truncate font-medium text-[#d7e6ff]" style={{ fontSize: labelSize }}>{nameDisplayMap.get(typeName) ?? typeName}</span>
               </div>
 
               {/* 各等级单元格 */}
@@ -504,14 +514,14 @@ function AlarmTypeStats({ alarms, zh }: { alarms: AlarmEntry[]; zh: boolean }) {
                       }}
                     >
                       <span
-                        className="text-[12px] font-bold tabular-nums leading-none"
-                        style={{ color: LV_BRIGHT[lv], textShadow: `0 0 10px ${LV_COLOR[lv]}aa` }}
+                        className="font-bold tabular-nums leading-none"
+                        style={{ color: LV_BRIGHT[lv], textShadow: `0 0 10px ${LV_COLOR[lv]}aa`, fontSize: valueSize }}
                       >
                         {cnt}
                       </span>
                       <span
-                        className="mt-[2px] text-[10px] font-semibold tabular-nums leading-none"
-                        style={{ color: LV_BRIGHT[lv], textShadow: `0 0 8px ${LV_COLOR[lv]}35` }}
+                        className="mt-[2px] font-semibold tabular-nums leading-none"
+                        style={{ color: LV_BRIGHT[lv], textShadow: `0 0 8px ${LV_COLOR[lv]}35`, fontSize: labelSize }}
                       >
                         +{cellPct}
                       </span>
@@ -524,14 +534,14 @@ function AlarmTypeStats({ alarms, zh }: { alarms: AlarmEntry[]; zh: boolean }) {
               {/* 行合计 */}
               <div className="w-[52px] shrink-0 flex flex-col items-end pl-2">
                 <span
-                  className="text-[13px] font-bold tabular-nums leading-none"
-                  style={{ color: LV_BRIGHT[rowMaxLv], textShadow: `0 0 10px ${LV_COLOR[rowMaxLv]}aa` }}
+                  className="font-bold tabular-nums leading-none"
+                  style={{ color: LV_BRIGHT[rowMaxLv], textShadow: `0 0 10px ${LV_COLOR[rowMaxLv]}aa`, fontSize: valueSize }}
                 >
                   {rowTotal}
                 </span>
                 <span
-                  className="mt-[2px] text-[10px] font-semibold tabular-nums leading-none"
-                  style={{ color: LV_COLOR[rowMaxLv] }}
+                  className="mt-[2px] font-semibold tabular-nums leading-none"
+                  style={{ color: LV_COLOR[rowMaxLv], fontSize: labelSize }}
                 >
                   {rowPct}%
                 </span>
@@ -543,38 +553,38 @@ function AlarmTypeStats({ alarms, zh }: { alarms: AlarmEntry[]; zh: boolean }) {
         {/* 列小计行 */}
         <div className="mt-1 flex items-start border-t border-[#1e3870]/60 pt-1">
           <div className="w-[66px] shrink-0 flex items-center">
-            <span className="text-[11px] font-bold text-[#a7c7ff]">{zh ? "小计" : "Sub"}</span>
+            <span className="font-bold text-[#a7c7ff]" style={{ fontSize: labelSize }}>{zh ? "小计" : "Sub"}</span>
           </div>
           {LEVELS.map((lv, i) => (
             <div key={lv} className="flex-1 flex flex-col items-center gap-[4px]">
               {lvTotals[i] > 0 ? (
                 <>
                   <span
-                    className="text-[13px] font-bold tabular-nums leading-none"
-                    style={{ color: LV_BRIGHT[lv], textShadow: `0 0 10px ${LV_COLOR[lv]}aa` }}
+                    className="font-bold tabular-nums leading-none"
+                    style={{ color: LV_BRIGHT[lv], textShadow: `0 0 10px ${LV_COLOR[lv]}aa`, fontSize: valueSize }}
                   >
                     {lvTotals[i]}
                   </span>
                   <span
-                    className="text-[10px] font-semibold tabular-nums leading-none"
-                    style={{ color: LV_COLOR[lv] }}
+                    className="font-semibold tabular-nums leading-none"
+                    style={{ color: LV_COLOR[lv], fontSize: labelSize }}
                   >
                     +{(lvTotals[i] / total * 100).toFixed(0)}%
                   </span>
                 </>
               ) : (
-                <span className="text-[11px] text-[#32456f]">·</span>
+                <span className="text-[#32456f]" style={{ fontSize: labelSize }}>·</span>
               )}
             </div>
           ))}
           <div className="w-[52px] shrink-0 flex flex-col items-end pl-2">
             <span
-              className="text-[15px] font-bold tabular-nums leading-none text-[#45f5ff]"
-              style={{ textShadow: "0 0 12px rgba(69,245,255,0.35)" }}
+              className="font-bold tabular-nums leading-none text-[#45f5ff]"
+              style={{ fontSize: totalSize, textShadow: "0 0 12px rgba(69,245,255,0.35)" }}
             >
               {total}
             </span>
-            <span className="mt-[2px] text-[11px] font-bold tabular-nums leading-none text-[#5effdf]">
+            <span className="mt-[2px] font-bold tabular-nums leading-none text-[#5effdf]" style={{ fontSize: labelSize }}>
               100.00%
             </span>
           </div>
@@ -603,7 +613,17 @@ function SeverityBar({ lv }: { lv: number }) {
 }
 
 // ── 告警行 ────────────────────────────────────────────────────────────────────
-function AlarmRow({ alarm, zh }: { alarm: AlarmEntry; zh: boolean }) {
+function AlarmRow({
+  alarm,
+  zh,
+  tableFontSize,
+  headerFontSize,
+}: {
+  alarm: AlarmEntry
+  zh: boolean
+  tableFontSize: number
+  headerFontSize: number
+}) {
   const isActive = alarm.statusZh === "未恢复"
   const color    = LV_COLOR[alarm.lv]
   const action   = ACTION_MAP[alarm.lv]
@@ -614,34 +634,33 @@ function AlarmRow({ alarm, zh }: { alarm: AlarmEntry; zh: boolean }) {
     <tr className={`border-b border-[#1a2654]/50 transition-colors last:border-0 ${
       alarm.lv >= 5 ? "bg-[#3a0e0e]/30" : "hover:bg-[#1a2654]/20"
     }`}>
-      <td className="py-2 pl-3 pr-2 text-[11px] tabular-nums text-[#7ab0f0]">{timePart}</td>
+      <td className="py-2 pl-3 pr-2 tabular-nums text-[#7ab0f0]" style={{ fontSize: tableFontSize }}>{timePart}</td>
       <td className="py-2 pr-2">
         <div className="flex items-center gap-1.5">
           <span className="h-2 w-2 shrink-0 rounded-full"
             style={{ backgroundColor: color, boxShadow: alarm.lv >= 5 ? `0 0 0 2px ${color}44` : undefined }} />
-          <span className="whitespace-nowrap text-[11px] font-medium" style={{ color }}>
+          <span className="whitespace-nowrap font-medium" style={{ color, fontSize: tableFontSize }}>
             {zh ? LV_LABEL[alarm.lv].zh : LV_LABEL[alarm.lv].en}
           </span>
         </div>
       </td>
       <td className="relative max-w-0 py-2 pr-2">
-        <span className="block truncate text-xs text-[#dbe8ff]">
+        <span className="block truncate text-[#dbe8ff]" style={{ fontSize: headerFontSize }}>
           {isActive && <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#ef4444] align-middle" />}
           {zh ? alarm.nameZh : alarm.nameEn}
         </span>
       </td>
-      <td className="py-2 pr-2 text-[11px] text-[#7b8ab8]">{(zh ? GRP_LABEL[alarm.group]?.zh : GRP_LABEL[alarm.group]?.en) ?? alarm.group}</td>
+      <td className="py-2 pr-2 text-[#7b8ab8]" style={{ fontSize: tableFontSize }}>{(zh ? GRP_LABEL[alarm.group]?.zh : GRP_LABEL[alarm.group]?.en) ?? alarm.group}</td>
       <td className="py-2 pr-2"><SeverityBar lv={alarm.lv} /></td>
-      <td className="py-2 pr-2 text-[11px] text-[#7b8ab8]">
+      <td className="py-2 pr-2 text-[#7b8ab8]" style={{ fontSize: tableFontSize }}>
         <span className="text-[#dbe8ff]">{alarm.ref}</span>{" / "}{alarm.rref}
       </td>
       <td className="py-2 pr-2">
-        <span className="text-[11px] font-medium"
-          style={{ color: STATUS_COLOR[zh ? alarm.statusZh : alarm.statusEn] }}>
+        <span className="font-medium" style={{ color: STATUS_COLOR[zh ? alarm.statusZh : alarm.statusEn], fontSize: tableFontSize }}>
           {zh ? alarm.statusZh : alarm.statusEn}
         </span>
       </td>
-      <td className="py-2 pr-3 text-[11px] font-medium" style={{ color: action.color }}>
+      <td className="py-2 pr-3 font-medium" style={{ color: action.color, fontSize: tableFontSize }}>
         {zh ? action.zh : action.en}
       </td>
     </tr>
@@ -658,6 +677,12 @@ export function AlarmLogPanel({
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const titleSize = scale.clampText(0.9, 0.98, 1.18)
+  const infoSize = scale.fluid(12, 14.5)
+  const badgeSize = scale.fluid(11, 13)
+  const tableFontSize = scale.fluid(11, 13)
+  const headerFontSize = scale.fluid(12, 14)
 
   const REALTIME_LIMIT = 15
 
@@ -735,13 +760,13 @@ export function AlarmLogPanel({
   const showTable = mode === "realtime" || viewMode === "table"
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-3">
+    <div ref={scale.ref} className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-3" style={scale.rootStyle}>
 
       {/* ── Header ── */}
       <div className="mb-2 flex shrink-0 items-center gap-2">
         <div className="h-4 w-1 shrink-0 rounded-full bg-[#f97316]" />
-        <span className="text-sm font-semibold text-[#f97316]">{zh ? "告警日志" : "Alarm Log"}</span>
-        <span className="text-[12px] font-medium text-[#5f79ad]">
+        <span className="font-semibold text-[#f97316]" style={{ fontSize: titleSize }}>{zh ? "告警日志" : "Alarm Log"}</span>
+        <span className="font-medium text-[#5f79ad]" style={{ fontSize: infoSize }}>
           {mode === "history"
             ? (zh ? `共 ${cnt.total} 条` : `Total ${cnt.total}`)
             : (zh ? `最新 ${Math.min(cnt.total, REALTIME_LIMIT)} 条` : `Latest ${Math.min(cnt.total, REALTIME_LIMIT)}`)}
@@ -749,22 +774,22 @@ export function AlarmLogPanel({
 
         <div className="ml-auto flex items-center gap-1.5">
           {cnt.active > 0 && (
-            <span className="rounded-full border border-[#ef4444]/30 bg-[#3a0e0e] px-2.5 py-0.5 text-[11px] font-semibold text-[#ef4444]">
+            <span className="rounded-full border border-[#ef4444]/30 bg-[#3a0e0e] px-2.5 py-0.5 font-semibold text-[#ef4444]" style={{ fontSize: badgeSize }}>
               {zh ? `活动 ${cnt.active}` : `Active ${cnt.active}`}
             </span>
           )}
           {cnt.lv45 > 0 && (
-            <span className="rounded-full border border-[#E24B4A]/25 bg-[#2a0a0a]/80 px-2.5 py-0.5 text-[11px] font-semibold text-[#E24B4A]">
+            <span className="rounded-full border border-[#E24B4A]/25 bg-[#2a0a0a]/80 px-2.5 py-0.5 font-semibold text-[#E24B4A]" style={{ fontSize: badgeSize }}>
               {zh ? `严重 ${cnt.lv45}` : `Crit ${cnt.lv45}`}
             </span>
           )}
           {cnt.lv3 > 0 && (
-            <span className="rounded-full border border-[#EF9F27]/25 bg-[#2a1a00]/80 px-2.5 py-0.5 text-[11px] font-semibold text-[#EF9F27]">
+            <span className="rounded-full border border-[#EF9F27]/25 bg-[#2a1a00]/80 px-2.5 py-0.5 font-semibold text-[#EF9F27]" style={{ fontSize: badgeSize }}>
               {zh ? `预警 ${cnt.lv3}` : `Warn ${cnt.lv3}`}
             </span>
           )}
           {cnt.lv12 > 0 && (
-            <span className="rounded-full border border-[#378ADD]/25 bg-[#0a1a30]/80 px-2.5 py-0.5 text-[11px] font-semibold text-[#378ADD]">
+            <span className="rounded-full border border-[#378ADD]/25 bg-[#0a1a30]/80 px-2.5 py-0.5 font-semibold text-[#378ADD]" style={{ fontSize: badgeSize }}>
               {zh ? `提示 ${cnt.lv12}` : `Info ${cnt.lv12}`}
             </span>
           )}
@@ -811,9 +836,10 @@ export function AlarmLogPanel({
             <div className="flex gap-1">
               {(["all", "lv45", "lv3", "lv12"] as LevelFilter[]).map(l => (
                 <button key={l} onClick={() => setLevelFilter(l)}
-                  className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${
+                  className={`rounded-md px-2.5 py-1 font-semibold transition-all ${
                     levelFilter === l ? "bg-[#00d4aa] text-[#07162b]" : "bg-[#0e1e3a] text-[#5a7aaa] hover:bg-[#142040] hover:text-[#90b8f0]"
-                  }`}>
+                  }`}
+                  style={{ fontSize: badgeSize }}>
                   {l === "all" ? (zh ? "全部" : "All") : l === "lv45" ? (zh ? "严重" : "Crit") : l === "lv3" ? (zh ? "预警" : "Warn") : (zh ? "提示" : "Info")}
                 </button>
               ))}
@@ -823,7 +849,8 @@ export function AlarmLogPanel({
               <select
                 value={groupFilter}
                 onChange={(event) => setGroupFilter(event.target.value as GroupFilter)}
-                className="h-7 w-full appearance-none rounded-md border border-[#1e3a70] bg-[#0e1e3a] pl-2.5 pr-7 text-[11px] font-semibold text-[#8fe7ff] outline-none transition-colors hover:border-[#2a4f92] focus:border-[#3b7bd6]"
+                className="h-7 w-full appearance-none rounded-md border border-[#1e3a70] bg-[#0e1e3a] pl-2.5 pr-7 font-semibold text-[#8fe7ff] outline-none transition-colors hover:border-[#2a4f92] focus:border-[#3b7bd6]"
+                style={{ fontSize: badgeSize }}
               >
                 {GROUP_FILTERS.map(group => (
                   <option key={group} value={group}>
@@ -871,7 +898,7 @@ export function AlarmLogPanel({
                     zh ? "状态"        : "Status",
                     zh ? "处置"        : "Action",
                   ].map(h => (
-                    <th key={h} className="border-b border-[#1a2654] px-2 py-2 text-left text-[11px] font-semibold text-[#6a8abf] first:pl-3 last:pr-3">
+                    <th key={h} className="border-b border-[#1a2654] px-2 py-2 text-left font-semibold text-[#6a8abf] first:pl-3 last:pr-3" style={{ fontSize: tableFontSize }}>
                       {h}
                     </th>
                   ))}
@@ -880,12 +907,12 @@ export function AlarmLogPanel({
               <tbody>
                 {displayed.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-10 text-center text-sm text-[#5f79ad]">
+                    <td colSpan={8} className="py-10 text-center text-[#5f79ad]" style={{ fontSize: infoSize }}>
                       {zh ? "该日期无告警记录" : "No alarm records"}
                     </td>
                   </tr>
                 ) : displayed.map(alarm => (
-                  <AlarmRow key={`${alarm.time}-${alarm.source}`} alarm={alarm} zh={zh} />
+                  <AlarmRow key={`${alarm.time}-${alarm.source}`} alarm={alarm} zh={zh} tableFontSize={tableFontSize} headerFontSize={headerFontSize} />
                 ))}
               </tbody>
             </table>

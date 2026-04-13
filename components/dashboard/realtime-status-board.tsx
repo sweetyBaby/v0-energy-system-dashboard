@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Activity, ArrowUpDown, ShieldCheck, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { useProject } from "@/components/dashboard/dashboard-header"
@@ -17,7 +17,7 @@ const formatRealtimeClock = (date: Date) => {
 
 const displayPackStatusLabels: Record<RealtimePackStatus, { zh: string; en: string }> = {
   offline: { zh: "离线", en: "Offline" },
-  standby: { zh: "静置", en: "Standby" },
+  standby: { zh: "待机", en: "Standby" },
   charge: { zh: "充电", en: "Charging" },
   discharge: { zh: "放电", en: "Discharging" },
 }
@@ -64,25 +64,43 @@ const isPlaceholder = (value: string) => value.trim() === PLACEHOLDER
 const displaySocText = (soc: string, socPercent: number | null) =>
   isPlaceholder(soc) ? `${PLACEHOLDER}%` : `${Math.round(socPercent ?? 0)}%`
 
-// ResizeObserver 监听容器，返回基准字号
 function useContainerBase(ref: React.RefObject<HTMLDivElement | null>) {
   const [base, setBase] = useState(12)
-  useEffect(() => {
+
+  useLayoutEffect(() => {
     if (!ref.current) return
-    const calc = (w: number, h: number) => {
-      // 左侧 SOC 柱约占宽 22%，右侧 2×2 grid 占 78%
-      // 基准取容器短边的 4.5%，保证所有元素在任意比例下不溢出
-      const b = Math.min(w, h) * 0.05
-      setBase(Math.max(9, Math.min(b, 24)))
+
+    const element = ref.current
+    const calc = (width: number, height: number) => {
+      const metricAreaWidth = width * 0.74
+      const metricCardWidth = metricAreaWidth / 2
+      const metricCardHeight = height / 2
+      const nextBase = Math.min(metricCardWidth, metricCardHeight) * 0.09
+      setBase(Math.max(9, Math.min(nextBase, 18)))
     }
-    const ro = new ResizeObserver(entries => {
-      const { width, height } = entries[0].contentRect
-      calc(width, height)
+    const measure = () => calc(element.offsetWidth, element.offsetHeight)
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      calc(entry.contentRect.width || element.offsetWidth, entry.contentRect.height || element.offsetHeight)
     })
-    ro.observe(ref.current)
-    calc(ref.current.offsetWidth, ref.current.offsetHeight)
-    return () => ro.disconnect()
+
+    observer.observe(element)
+    measure()
+
+    const rafId = window.requestAnimationFrame(measure)
+    const rafId2 = window.requestAnimationFrame(() => window.requestAnimationFrame(measure))
+    window.addEventListener("resize", measure)
+
+    return () => {
+      observer.disconnect()
+      window.cancelAnimationFrame(rafId)
+      window.cancelAnimationFrame(rafId2)
+      window.removeEventListener("resize", measure)
+    }
   }, [ref])
+
   return base
 }
 
@@ -93,13 +111,15 @@ export function RealtimeStatusBoard() {
   const [liveTime, setLiveTime] = useState(() => formatRealtimeClock(new Date()))
   const { realtimeSnapshot } = selectedProject
   const containerRef = useRef<HTMLDivElement>(null)
-  const B = useContainerBase(containerRef)
+  const base = useContainerBase(containerRef)
   const clampText = (minRem: number, multiple: number, maxRem: number) =>
     `clamp(${minRem}rem, calc(var(--overview-root-size, 15px) * ${multiple}), ${maxRem}rem)`
+  const fitText = (minRem: number, pixelSize: number, maxRem: number) =>
+    `clamp(${minRem}rem, ${pixelSize}px, ${maxRem}rem)`
 
   useEffect(() => {
-    const t = window.setInterval(() => setLiveBlink(v => !v), 1200)
-    return () => window.clearInterval(t)
+    const timer = window.setInterval(() => setLiveBlink((value) => !value), 1200)
+    return () => window.clearInterval(timer)
   }, [])
 
   useEffect(() => {
@@ -123,20 +143,19 @@ export function RealtimeStatusBoard() {
     { labelZh: "SOH", labelEn: "SOH", value: realtimeSnapshot.soh, unit: "%", Icon: ShieldCheck, accent: "#8af7bc", glow: "rgba(138,247,188,0.5)" },
   ]
 
-  // SOC 液柱尺寸随 B 缩放
-  const socBarW = B * 7       // 液柱宽度
-  const socBarH = B * 14      // 液柱高度
-  const circleOuter = B * 6.0 // 图标外圆
-  const circleInner = B * 4.6 // 图标内圆
-  const iconSize = B * 2.0    // lucide icon 尺寸
-  const gap = `${B * 0.4}px`
+  const socBarWidth = base * 7
+  const socBarHeight = base * 14
+  const circleOuter = base * 6
+  const circleInner = base * 4.6
+  const iconSize = base * 2
+  const gap = `${base * 0.38}px`
 
   return (
     <div
       ref={containerRef}
       className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#22d3ee]/26 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_16px_32px_rgba(0,0,0,0.16)]"
       style={{
-        padding: `${B * 0.5}px`,
+        padding: `${base * 0.5}px`,
         background:
           "radial-gradient(circle at 18% 16%,rgba(64,124,255,0.18),transparent 30%),radial-gradient(circle at 80% 10%,rgba(0,212,170,0.12),transparent 24%),linear-gradient(180deg,rgba(11,31,67,0.72),rgba(6,20,47,0.82))",
       }}
@@ -148,39 +167,37 @@ export function RealtimeStatusBoard() {
         @keyframes rsb-sonar { 0% { opacity: 0.55; transform: scale(0.82) } 100% { opacity: 0; transform: scale(1.5) } }
       `}</style>
 
-      {/* 在线状态指示 */}
       <div
         className="absolute inset-x-0 top-0 z-20 flex items-center justify-between"
-        style={{ paddingLeft: `${B * 0.8}px`, paddingRight: `${B * 0.8}px`, paddingTop: `${B * 0.18}px` }}
+        style={{ paddingLeft: `${base * 0.8}px`, paddingRight: `${base * 0.8}px`, paddingTop: `${base * 0.18}px` }}
       >
-        <div className="flex items-center" style={{ gap: `${B * 0.3}px` }}>
-        <div
-          className={`rounded-full ${realtimeSnapshot.isOnline ? "bg-[#00e87a]" : "bg-[#94a3b8]"}`}
-          style={{
-            width: `${B * 0.55}px`, height: `${B * 0.55}px`,
-            opacity: liveBlink ? 1 : 0.18,
-            transition: "opacity 0.4s ease",
-            boxShadow: realtimeSnapshot.isOnline ? "0 0 5px rgba(0,232,122,0.8)" : "0 0 5px rgba(148,163,184,0.55)",
-          }}
-        />
-        <span
-          className={`font-bold tracking-[0.04em] ${realtimeSnapshot.isOnline ? "text-[#00e87a]" : "text-[#cbd5e1]"}`}
-          style={{
-            fontSize: clampText(0.72, 0.84, 1.18),
-            textShadow: realtimeSnapshot.isOnline ? "0 0 6px rgba(0,232,122,0.6)" : "0 0 6px rgba(148,163,184,0.45)",
-          }}
-        >
-          {realtimeSnapshot.isOnline ? (language === "zh" ? "在线" : "Online") : (language === "zh" ? "离线" : "Offline")}
-        </span>
+        <div className="flex items-center" style={{ gap: `${base * 0.3}px` }}>
+          <div
+            className={`rounded-full ${realtimeSnapshot.isOnline ? "bg-[#00e87a]" : "bg-[#94a3b8]"}`}
+            style={{
+              width: `${base * 0.55}px`,
+              height: `${base * 0.55}px`,
+              opacity: liveBlink ? 1 : 0.18,
+              transition: "opacity 0.4s ease",
+              boxShadow: realtimeSnapshot.isOnline ? "0 0 5px rgba(0,232,122,0.8)" : "0 0 5px rgba(148,163,184,0.55)",
+            }}
+          />
+          <span
+            className={`font-bold tracking-[0.04em] ${realtimeSnapshot.isOnline ? "text-[#00e87a]" : "text-[#cbd5e1]"}`}
+            style={{
+              fontSize: clampText(0.72, 0.84, 1.18),
+              textShadow: realtimeSnapshot.isOnline ? "0 0 6px rgba(0,232,122,0.6)" : "0 0 6px rgba(148,163,184,0.45)",
+            }}
+          >
+            {realtimeSnapshot.isOnline ? (language === "zh" ? "在线" : "Online") : (language === "zh" ? "离线" : "Offline")}
+          </span>
         </div>
 
-      {/* 主体：SOC柱 + 指标grid */}
-      <div className="contents">
         <div
           className="flex items-center rounded-full border border-[#1c74d9]/65 bg-[linear-gradient(180deg,rgba(5,16,48,0.96),rgba(7,24,66,0.92))]"
           style={{
-            gap: `${B * 0.28}px`,
-            padding: `${B * 0.12}px ${B * 0.58}px`,
+            gap: `${base * 0.28}px`,
+            padding: `${base * 0.12}px ${base * 0.58}px`,
             boxShadow: "0 0 12px rgba(37,153,255,0.22), inset 0 0 0 1px rgba(125,211,252,0.08)",
             whiteSpace: "nowrap",
           }}
@@ -188,8 +205,8 @@ export function RealtimeStatusBoard() {
           <div
             className="rounded-full bg-[#28d7ff]"
             style={{
-              width: `${B * 0.48}px`,
-              height: `${B * 0.48}px`,
+              width: `${base * 0.48}px`,
+              height: `${base * 0.48}px`,
               opacity: liveBlink ? 1 : 0.35,
               transition: "opacity 0.4s ease",
               boxShadow: "0 0 8px rgba(40,215,255,0.78)",
@@ -215,43 +232,37 @@ export function RealtimeStatusBoard() {
           </span>
         </div>
       </div>
-      </div>
 
       <div
         className="flex min-h-0 flex-1 flex-row overflow-hidden"
-        style={{ gap, paddingTop: `max(${B * 1.2}px, calc(var(--overview-root-size, 15px) * 2.1))` }}
+        style={{ gap, paddingTop: `max(${base * 0.8}px, calc(var(--overview-root-size, 15px) * 1.65))` }}
       >
-
-        {/* ── 左列：SOC 液位柱 ── */}
-        <div className="flex shrink-0 flex-col items-center justify-center" style={{ width: `${socBarW}px`, gap: `${B * 0.5}px` }}>
-          {/* 顶部电池帽 */}
+        <div className="flex shrink-0 flex-col items-center justify-center" style={{ width: `${socBarWidth}px`, gap: `${base * 0.5}px` }}>
           <div
             className="rounded-t-[3px] transition-all duration-700"
             style={{
-              width: `${socBarW * 0.45}px`, height: `${B * 0.4}px`,
+              width: `${socBarWidth * 0.45}px`,
+              height: `${base * 0.4}px`,
               background: colors.wave,
               boxShadow: `0 0 8px ${colors.glow}`,
             }}
           />
 
-          {/* 液位柱主体 */}
           <div
             className="relative overflow-hidden rounded-[12px] transition-all duration-700"
             style={{
-              width: `${socBarW}px`,
-              height: `${socBarH}px`,
+              width: `${socBarWidth}px`,
+              height: `${socBarHeight}px`,
               border: `1.5px solid ${colors.border}`,
               background: "#020810",
               boxShadow: `0 0 22px ${colors.glow}, inset 0 0 14px rgba(0,0,0,0.7)`,
             }}
           >
             <div className="pointer-events-none absolute inset-[2px] z-10 rounded-[10px] border border-white/[0.07]" />
-            {/* 液位填充 */}
             <div
               className="absolute bottom-0 left-0 right-0 transition-all duration-1000"
               style={{ height: `${realtimeSnapshot.socPercent ?? 0}%`, background: colors.fill }}
             />
-            {/* 波浪1 */}
             <div
               className="pointer-events-none absolute left-0 right-0 z-20 overflow-hidden"
               style={{ bottom: `calc(${realtimeSnapshot.socPercent ?? 0}% - 9px)`, height: "18px", transition: "bottom 1s ease" }}
@@ -260,7 +271,6 @@ export function RealtimeStatusBoard() {
                 <path d="M0,9 C50,0 100,18 150,9 C200,0 250,18 300,9 C350,0 400,18 400,9 L400,18 L0,18 Z" style={{ fill: colors.wave, opacity: 0.9 }} />
               </svg>
             </div>
-            {/* 波浪2 */}
             <div
               className="pointer-events-none absolute left-0 right-0 z-20 overflow-hidden"
               style={{ bottom: `calc(${realtimeSnapshot.socPercent ?? 0}% - 6px)`, height: "14px", transition: "bottom 1s ease" }}
@@ -269,15 +279,12 @@ export function RealtimeStatusBoard() {
                 <path d="M0,7 C50,0 100,14 150,7 C200,0 250,14 300,7 C350,0 400,14 400,7 L400,14 L0,14 Z" style={{ fill: colors.wave, opacity: 0.5 }} />
               </svg>
             </div>
-            {/* 扫描线 */}
             <div className="pointer-events-none absolute left-0 right-0 z-30 h-[30%]" style={{ background: "linear-gradient(180deg,transparent,rgba(255,255,255,0.06),transparent)", animation: "rsb-scanline 3s ease-in-out infinite" }} />
-            {/* 刻度线 */}
-            {[25, 50, 75].map(pct => (
+            {[25, 50, 75].map((pct) => (
               <div key={pct} className="pointer-events-none absolute left-2 right-2 z-40 h-px" style={{ bottom: `${pct}%`, background: "rgba(255,255,255,0.12)" }} />
             ))}
-            {/* SOC 数值 */}
-            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center" style={{ gap: `${B * 0.3}px` }}>
-              <Zap style={{ width: `${B * 1.2}px`, height: `${B * 1.2}px`, color: "rgba(255,255,255,0.9)" }} fill="currentColor" />
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center" style={{ gap: `${base * 0.3}px` }}>
+              <Zap style={{ width: `${base * 1.2}px`, height: `${base * 1.2}px`, color: "rgba(255,255,255,0.9)" }} fill="currentColor" />
               <span
                 className="font-extrabold leading-none text-white"
                 style={{
@@ -290,12 +297,11 @@ export function RealtimeStatusBoard() {
             </div>
           </div>
 
-          {/* 状态胶囊 */}
           <div
             className="shrink-0 rounded-full font-bold tracking-[0.03em] transition-all duration-700"
             style={{
               fontSize: clampText(0.72, 0.84, 1.05),
-              padding: `${B * 0.2}px ${B * 0.7}px`,
+              padding: `${base * 0.2}px ${base * 0.7}px`,
               color: colors.text,
               background: colors.pill,
               border: `1px solid ${colors.border}`,
@@ -307,65 +313,60 @@ export function RealtimeStatusBoard() {
           </div>
         </div>
 
-        {/* ── 右侧：2×2 指标 grid ── */}
         <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 overflow-hidden" style={{ gap }}>
-          {metricRows.map(item => {
+          {metricRows.map((item) => {
             const Icon = item.Icon
+
             return (
               <div
                 key={item.labelEn}
                 className="relative flex min-h-0 min-w-0 flex-col items-center justify-between overflow-hidden rounded-[14px] border border-dashed border-white/40"
                 style={{
-                  gap: `${B * 0.14}px`,
-                  padding: `${B * 0.46}px ${B * 0.48}px ${B * 0.32}px`,
+                  gap: `${base * 0.12}px`,
+                  padding: `${base * 0.34}px ${base * 0.42}px ${base * 0.24}px`,
                   background: "linear-gradient(160deg,rgba(16,42,92,0.94),rgba(8,22,54,0.98))",
                   boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 0 40px ${item.glow.replace(/[\d.]+\)$/, "0.12)")}, 0 0 16px rgba(0,0,0,0.2)`,
                 }}
               >
-                {/* 底部光条 */}
                 <div
                   className="pointer-events-none absolute bottom-0 left-4 right-4 rounded-full"
-                  style={{ height: `${B * 0.22}px`, background: `linear-gradient(90deg,transparent,${item.accent},transparent)`, boxShadow: `0 0 12px ${item.accent}` }}
+                  style={{ height: `${base * 0.22}px`, background: `linear-gradient(90deg,transparent,${item.accent},transparent)`, boxShadow: `0 0 12px ${item.accent}` }}
                 />
-                {/* 顶部光晕 */}
                 <div
                   className="pointer-events-none absolute left-0 top-0 h-full w-full rounded-[14px]"
                   style={{ background: `radial-gradient(ellipse at 50% 0%, ${item.glow.replace(/[\d.]+\)$/, "0.15)")}, transparent 60%)` }}
                 />
 
-                {/* 标签 */}
                 <span
                   className="z-10 text-center font-semibold leading-tight tracking-[0.02em] text-[#f5f8ff] [text-shadow:0_2px_8px_rgba(0,0,0,0.55)]"
-                  style={{ fontSize: clampText(0.8, 0.96, 1.22) }}
+                  style={{ fontSize: fitText(0.76, base * 0.92, 1.1) }}
                 >
                   {language === "zh" ? item.labelZh : item.labelEn}
                 </span>
 
-                {/* 图标圆圈 */}
-                <div className="relative flex shrink-0 items-center justify-center" style={{ width: `${circleOuter * 0.86}px`, height: `${circleOuter * 0.86}px`, marginTop: `${B * 0.04}px` }}>
+                <div className="relative flex shrink-0 items-center justify-center" style={{ width: `${circleOuter * 0.82}px`, height: `${circleOuter * 0.82}px`, marginTop: `${base * 0.02}px` }}>
                   <div className="pointer-events-none absolute inset-0 rounded-full" style={{ border: `1px solid ${item.accent}60`, animation: "rsb-sonar 2.6s ease-out infinite" }} />
                   <div className="pointer-events-none absolute inset-0 rounded-full" style={{ border: `1px solid ${item.accent}40`, animation: "rsb-sonar 2.6s ease-out infinite", animationDelay: "1s" }} />
-                  <div className="pointer-events-none absolute rounded-full" style={{ inset: `${B * 0.6}px`, background: `radial-gradient(circle, ${item.glow.replace(/[\d.]+\)$/, "0.25)")}, transparent 70%)` }} />
+                  <div className="pointer-events-none absolute rounded-full" style={{ inset: `${base * 0.6}px`, background: `radial-gradient(circle, ${item.glow.replace(/[\d.]+\)$/, "0.25)")}, transparent 70%)` }} />
                   <div
                     className="relative flex items-center justify-center rounded-full"
                     style={{
-                      width: `${circleInner * 0.86}px`,
-                      height: `${circleInner * 0.86}px`,
+                      width: `${circleInner * 0.82}px`,
+                      height: `${circleInner * 0.82}px`,
                       background: `radial-gradient(circle at 30% 30%, ${item.accent}30, ${item.accent}08)`,
                       border: `1.5px solid ${item.accent}90`,
                       boxShadow: `0 0 20px ${item.glow}, 0 0 8px ${item.glow}, inset 0 0 16px ${item.accent}18`,
                     }}
                   >
-                    <Icon style={{ width: `${iconSize * 0.84}px`, height: `${iconSize * 0.84}px`, color: item.accent, filter: `drop-shadow(0 0 6px ${item.glow})` }} />
+                    <Icon style={{ width: `${iconSize * 0.78}px`, height: `${iconSize * 0.78}px`, color: item.accent, filter: `drop-shadow(0 0 6px ${item.glow})` }} />
                   </div>
                 </div>
 
-                {/* 数值 */}
-                <div className="z-10 flex shrink-0 items-end justify-center whitespace-nowrap leading-none" style={{ gap: `${B * 0.25}px` }}>
+                <div className="z-10 flex shrink-0 items-end justify-center whitespace-nowrap leading-none" style={{ gap: `${base * 0.2}px` }}>
                   <span
                     className="font-extrabold tabular-nums"
                     style={{
-                      fontSize: clampText(1.26, 1.58, 2.2),
+                      fontSize: fitText(1.02, base * 1.54, 1.86),
                       color: item.accent,
                       textShadow: `0 0 18px ${item.glow}, 0 1px 6px rgba(0,0,0,0.9)`,
                     }}
@@ -375,8 +376,8 @@ export function RealtimeStatusBoard() {
                   <span
                     className="font-semibold text-white/60"
                     style={{
-                      fontSize: clampText(0.74, 0.88, 1.12),
-                      paddingBottom: `${B * 0.1}px`,
+                      fontSize: fitText(0.68, base * 0.76, 0.92),
+                      paddingBottom: `${base * 0.08}px`,
                       textShadow: "0 1px 4px rgba(0,0,0,0.9)",
                     }}
                   >

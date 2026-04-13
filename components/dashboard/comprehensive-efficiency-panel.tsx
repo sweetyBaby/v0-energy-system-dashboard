@@ -687,15 +687,15 @@ export function ComprehensiveEfficiencyPanel({
         </div>
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <div className="flex gap-1 rounded-xl bg-[#16204b]/90 p-1">
-            {displayRangeOptions.filter((item) => item.key !== "custom").map((item) => (
+          <div className="flex flex-wrap items-center gap-1 rounded-xl border border-[#203166] bg-[#16204b]/90 p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
+            {displayRangeOptions.map((item) => (
               <button
                 key={item.key}
                 onClick={() => setRange(item.key)}
                 className={`rounded-lg px-3 py-1.5 transition-all ${
                   range === item.key
                     ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
-                    : "text-[#7b8ab8] hover:text-[#e8f4fc]"
+                    : "text-[#7b8ab8] hover:bg-[#1d2a5f]/80 hover:text-[#e8f4fc]"
                 }`}
                 style={{ fontSize: `${controlFontSize}px` }}
               >
@@ -705,21 +705,6 @@ export function ComprehensiveEfficiencyPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {displayRangeOptions.filter((item) => item.key === "custom").map((item) => (
-              <button
-                key={item.key}
-                onClick={() => setRange(item.key)}
-                className={`rounded-lg px-3 py-1.5 transition-all ${
-                  range === item.key
-                    ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
-                    : "bg-[#16204b]/90 text-[#7b8ab8] hover:text-[#e8f4fc]"
-                }`}
-                style={{ fontSize: `${controlFontSize}px` }}
-              >
-                {item.label}
-              </button>
-            ))}
-
             {range === "custom" && (
               <CustomRangePicker
                 value={customRange}

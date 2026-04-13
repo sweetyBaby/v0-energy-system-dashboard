@@ -6,6 +6,7 @@ import { CartesianGrid, Customized, Line, LineChart, ReferenceArea, ResponsiveCo
 import { useLanguage } from "@/components/language-provider"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { useProject } from "@/components/dashboard/dashboard-header"
+import { useFluidScale } from "@/hooks/use-fluid-scale"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
@@ -332,21 +333,26 @@ function NeonSection({
   className?: string
   children: ReactNode
 }) {
+  const scale = useFluidScale<HTMLElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
   const isBcuHeader = headerVariant === "bcu"
   const defaultAccentBarClass = isBcuHeader
     ? "bg-[#00d4aa]"
     : "bg-[#3fe7ff]/90 shadow-[0_0_12px_rgba(63,231,255,0.85)]"
-  const defaultTitleClass = isBcuHeader
-    ? "text-sm font-semibold text-[#00d4aa]"
-    : `${compact ? "text-[0.9rem]" : "text-[0.98rem]"} font-semibold tracking-[0.08em] text-[#8ceeff]`
   const headerSpacingClass = inlineSubtitle
     ? (compact ? "mb-1.5" : "mb-2")
     : (compact ? "mb-2" : "mb-3")
   const headerPaddingLeftClass = isBcuHeader ? "pl-4.5" : (compact ? "pl-2.5" : "pl-3")
+  const titleStyle = isBcuHeader
+    ? { fontSize: scale.clampText(0.9, 0.98, 1.15) }
+    : { fontSize: compact ? scale.clampText(0.82, 0.9, 1.02) : scale.clampText(0.88, 0.98, 1.12) }
+  const subtitleSize = scale.fluid(10, 12.5)
+  const badgeSize = scale.fluid(10, 12.5)
 
   return (
     <section
+      ref={scale.ref}
       className={`relative flex min-h-0 flex-col overflow-hidden rounded-[20px] ${bare ? "" : "border border-[#254873]/80 bg-[radial-gradient(circle_at_top_right,rgba(38,109,178,0.15),transparent_28%),linear-gradient(180deg,rgba(10,19,44,0.97),rgba(6,12,29,0.98))]"} ${compact ? "p-2.5" : "p-3"} ${bare ? "" : edgeGlow} ${className}`}
+      style={scale.rootStyle}
     >
       {!bare ? <div className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#8feaff]/[0.05]" /> : null}
       <div className={`pointer-events-none absolute left-3 ${isBcuHeader ? "top-[13px] h-4 w-1" : "top-3 h-5 w-[2px]"} rounded-full ${accentBarClassName || defaultAccentBarClass}`} />
@@ -355,15 +361,28 @@ function NeonSection({
       ) : null}
       <div className={`relative flex ${inlineSubtitle || isBcuHeader ? "items-center" : "items-start"} justify-between gap-3 ${headerPaddingLeftClass} ${headerSpacingClass}`}>
         <div className={inlineSubtitle ? "flex items-center gap-3" : ""}>
-          <div className={titleClassName || defaultTitleClass}>{title}</div>
+          <div
+            className={titleClassName || `${isBcuHeader ? "font-semibold text-[#00d4aa]" : "font-semibold tracking-[0.08em] text-[#8ceeff]"}`}
+            style={titleStyle}
+          >
+            {title}
+          </div>
           {subtitle ? (
-            <div className={inlineSubtitle ? `text-[10px] leading-none ${mutedText}` : `mt-1 text-[10px] leading-4 ${mutedText}`}>{subtitle}</div>
+            <div
+              className={inlineSubtitle ? `leading-none ${mutedText}` : `mt-1 leading-4 ${mutedText}`}
+              style={{ fontSize: subtitleSize }}
+            >
+              {subtitle}
+            </div>
           ) : null}
         </div>
         <div className="flex items-center gap-3">
           {headerExtra}
           {badge ? (
-            <div className="rounded-[10px] border border-[#29547f] bg-[linear-gradient(180deg,rgba(12,28,60,0.95),rgba(8,19,42,0.96))] px-2.5 py-1 text-[10px] text-[#c0eeff] shadow-[inset_0_0_12px_rgba(63,231,255,0.06)]">
+            <div
+              className="rounded-[10px] border border-[#29547f] bg-[linear-gradient(180deg,rgba(12,28,60,0.95),rgba(8,19,42,0.96))] px-2.5 py-1 text-[#c0eeff] shadow-[inset_0_0_12px_rgba(63,231,255,0.06)]"
+              style={{ fontSize: badgeSize }}
+            >
               {badge}
             </div>
           ) : null}
@@ -375,11 +394,12 @@ function NeonSection({
 }
 
 function InnerFrame({ title, accent = "#74ebff", compact = false, children }: { title: string; accent?: string; compact?: boolean; children: ReactNode }) {
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
   return (
-    <div className={`flex h-full min-h-0 flex-col rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] shadow-[inset_0_0_16px_rgba(25,92,148,0.08)] ${compact ? "p-1.5" : "p-2"}`}>
+    <div ref={scale.ref} className={`flex h-full min-h-0 flex-col rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] shadow-[inset_0_0_16px_rgba(25,92,148,0.08)] ${compact ? "p-1.5" : "p-2"}`} style={scale.rootStyle}>
       <div className={`${compact ? "mb-1" : "mb-1.5"} flex items-center gap-2`}>
         <div className="h-5 w-[2px] rounded-full" style={{ backgroundColor: accent, boxShadow: `0 0 10px ${accent}` }} />
-        <div className={`${compact ? "text-[0.78rem]" : "text-[0.86rem]"} font-semibold tracking-[0.06em] text-[#d8f7ff]`}>{title}</div>
+        <div className="font-semibold tracking-[0.06em] text-[#d8f7ff]" style={{ fontSize: compact ? scale.clampText(0.72, 0.78, 0.92) : scale.clampText(0.78, 0.86, 1.02) }}>{title}</div>
       </div>
       <div className="min-h-0 flex-1">{children}</div>
     </div>
@@ -388,8 +408,9 @@ function InnerFrame({ title, accent = "#74ebff", compact = false, children }: { 
 
 
 function LegendItem({ label, color, dashed = false, compact = false }: { label: string; color: string; dashed?: boolean; compact?: boolean }) {
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
   return (
-    <div className={`flex items-center ${compact ? "gap-1.5 text-[10px]" : "gap-2 text-[11px]"} text-[#96bdd4]`}>
+    <div ref={scale.ref} className={`flex items-center ${compact ? "gap-1.5" : "gap-2"} text-[#96bdd4]`} style={{ fontSize: compact ? scale.fluid(10, 12) : scale.fluid(11, 13) }}>
       <span className={`block h-[2px] ${compact ? "w-4" : "w-5"} ${dashed ? "border-t-2 border-dashed" : ""}`} style={dashed ? { borderColor: color } : { backgroundColor: color, boxShadow: `0 0 8px ${color}` }} />
       <span>{label}</span>
     </div>
@@ -397,9 +418,10 @@ function LegendItem({ label, color, dashed = false, compact = false }: { label: 
 }
 
 function ChartPlaceholder({ text }: { text: string }) {
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
   return (
-    <div className="flex h-full min-h-0 items-center justify-center px-4">
-      <div className="rounded-[12px] border border-[#214260]/70 bg-[rgba(8,18,40,0.52)] px-4 py-2.5 text-center text-[12px] text-[#7b8ab8] shadow-[inset_0_0_18px_rgba(63,231,255,0.03)]">
+    <div ref={scale.ref} className="flex h-full min-h-0 items-center justify-center px-4" style={scale.rootStyle}>
+      <div className="rounded-[12px] border border-[#214260]/70 bg-[rgba(8,18,40,0.52)] px-4 py-2.5 text-center text-[#7b8ab8] shadow-[inset_0_0_18px_rgba(63,231,255,0.03)]" style={{ fontSize: scale.fluid(12, 14) }}>
         {text}
       </div>
     </div>
@@ -801,17 +823,20 @@ function FleetTooltip({
 
 
 function CellChip({ label, active, warning, onClick }: { label: string; active: boolean; warning: boolean; onClick: () => void }) {
+  const scale = useFluidScale<HTMLButtonElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
   return (
     <button
+      ref={scale.ref}
       type="button"
       onClick={onClick}
-      className={`rounded-[10px] border px-2 py-1.5 text-[10px] font-medium leading-none transition-all ${
+      className={`rounded-[10px] border px-2 py-1.5 font-medium leading-none transition-all ${
         active
           ? "border-[#3de7d9] bg-[linear-gradient(180deg,rgba(20,91,96,0.72),rgba(13,45,51,0.94))] text-[#efffff] shadow-[0_0_12px_rgba(61,231,217,0.12)]"
           : warning
             ? "border-[#6a4c31] bg-[linear-gradient(180deg,rgba(56,36,25,0.62),rgba(31,22,19,0.9))] text-[#ffd7a6] hover:border-[#a37649]"
             : "border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.92),rgba(8,17,35,0.96))] text-[#a7cae2] hover:border-[#3d709f] hover:text-[#e3f8ff]"
       }`}
+      style={{ fontSize: scale.fluid(10, 12) }}
     >
       {label}
     </button>
@@ -821,18 +846,23 @@ function CellChip({ label, active, warning, onClick }: { label: string; active: 
 export function CellHistoryCellPicker({ value, onChange }: { value: number | null; onChange: (value: number | null) => void }) {
   const { language } = useLanguage()
   const zh = language === "zh"
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const controlSize = scale.fluid(12, 14.5)
+  const triggerHeight = scale.fluid(34, 40)
+  const iconSize = scale.fluid(14, 17)
   const [open, setOpen] = useState(false)
   const label = value === null ? (zh ? "全部电芯" : "All Cells") : `${zh ? "电芯" : "Cell"} ${value}`
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <div ref={scale.ref} style={scale.rootStyle}>
+      <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex min-w-[150px] items-center justify-between gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3 py-1.5 text-xs text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60">
+        <button className="flex min-w-[150px] items-center justify-between gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3 py-1.5 text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60" style={{ height: triggerHeight, fontSize: controlSize }}>
           <span className="font-medium">{label}</span>
-          <ChevronsUpDown className="h-3.5 w-3.5 text-[#7b8ab8]" />
+          <ChevronsUpDown className="text-[#7b8ab8]" style={{ width: iconSize, height: iconSize }} />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="z-50 w-[240px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]">
+      <PopoverContent align="start" className="z-50 w-[240px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]" style={{ fontSize: controlSize }}>
         <Command className="bg-[#0d1233] text-[#e8f4fc]">
           <CommandInput placeholder={zh ? "搜索电芯..." : "Search cells..."} className="text-[#e8f4fc] placeholder:text-[#5f79ad]" />
           <CommandList className={pickerScrollbarClass}>
@@ -856,6 +886,7 @@ export function CellHistoryCellPicker({ value, onChange }: { value: number | nul
         </Command>
       </PopoverContent>
     </Popover>
+    </div>
   )
 }
 
@@ -870,6 +901,11 @@ export function CellHistoryMultiPicker({
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
+  const controlSize = scale.fluid(12, 14.5)
+  const hintSize = scale.fluid(10, 12)
+  const triggerHeight = scale.fluid(36, 42)
+  const iconSize = scale.fluid(14, 17)
   const [open, setOpen] = useState(false)
   const limitReached = value.length >= maxSelection
   const label =
@@ -891,19 +927,20 @@ export function CellHistoryMultiPicker({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <div ref={scale.ref} style={scale.rootStyle}>
+      <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex h-9 min-w-[220px] items-center justify-between gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3 text-xs text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60">
+        <button className="flex min-w-[220px] items-center justify-between gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3 text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60" style={{ height: triggerHeight, fontSize: controlSize }}>
           <div className="flex min-w-0 items-center gap-2">
             <span className="font-medium">{label}</span>
-            <span className="rounded-full border border-[#2f568a] bg-[#0b1735] px-1.5 py-0.5 text-[10px] text-[#8feaff]">
+            <span className="rounded-full border border-[#2f568a] bg-[#0b1735] px-1.5 py-0.5 text-[#8feaff]" style={{ fontSize: hintSize }}>
               {value.length}/{maxSelection}
             </span>
           </div>
-          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-[#7b8ab8]" />
+          <ChevronsUpDown className="shrink-0 text-[#7b8ab8]" style={{ width: iconSize, height: iconSize }} />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="z-50 w-[260px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]">
+      <PopoverContent align="start" className="z-50 w-[260px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]" style={{ fontSize: controlSize }}>
         <Command className="bg-[#0d1233] text-[#e8f4fc]">
           <CommandInput placeholder={zh ? "搜索电芯..." : "Search cells..."} className="text-[#e8f4fc] placeholder:text-[#5f79ad]" />
           <CommandList className={pickerScrollbarClass}>
@@ -929,12 +966,13 @@ export function CellHistoryMultiPicker({
               })}
             </CommandGroup>
           </CommandList>
-          <div className="border-t border-[#1a2654] px-3 py-2 text-[10px] text-[#6f8cb1]">
+          <div className="border-t border-[#1a2654] px-3 py-2 text-[#6f8cb1]" style={{ fontSize: hintSize }}>
             {zh ? `最多选择 ${maxSelection} 个电芯` : `Up to ${maxSelection} cells`}
           </div>
         </Command>
       </PopoverContent>
     </Popover>
+    </div>
   )
 }
 
@@ -1054,7 +1092,14 @@ export function CellHistoryReplayPanel({
 }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
+  const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
   const zh = language === "zh"
+  const chartFontSize = scale.chart(9, 12)
+  const summaryTitleSize = scale.fluid(14, 17)
+  const summaryTextSize = scale.fluid(11, 13.5)
+  const detailMetricLabelSize = scale.fluid(11, 13)
+  const detailMetricValueSize = scale.fluid(12, 14.5)
+  const detailCellTitleSize = scale.clampText(0.9, 0.98, 1.14)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [availableSize, setAvailableSize] = useState({ width: 0, height: 0 })
   const [historyBundle, setHistoryBundle] = useState<CachedHistoryBundle | null>(null)
@@ -1779,9 +1824,10 @@ export function CellHistoryReplayPanel({
                   key={`detail-legend-${item.key}`}
                   type="button"
                   onClick={() => handleToggleDetailMetric(item.key)}
-                  className={`flex items-center gap-1 text-[10px] transition-all ${
+                  className={`flex items-center gap-1 transition-all ${
                     detailVisibleMetrics[item.key] ? "text-[#96bdd4]" : "text-[#547084]"
                   }`}
+                  style={{ fontSize: scale.fluid(10, 12) }}
                 >
                   <span className="block h-[2px] w-4" style={{ backgroundColor: item.color, boxShadow: detailVisibleMetrics[item.key] ? `0 0 8px ${item.color}` : "none", opacity: detailVisibleMetrics[item.key] ? 1 : 0.4 }} />
                   <span className={detailVisibleMetrics[item.key] ? "" : "line-through"}>{item.label}</span>
@@ -1825,14 +1871,14 @@ export function CellHistoryReplayPanel({
                               key={`${cell.cell}-${item.label}`}
                               className="flex items-center gap-1.5 rounded-[8px] border border-[#22d3ee]/18 bg-[rgba(13,31,58,0.5)] px-2.5 py-1"
                             >
-                              <span className="text-[11px] font-medium text-[#4a7090]">{item.label}</span>
-                              <span className={`text-[12px] font-bold tabular-nums ${item.color}`}>{item.value}</span>
+                              <span className="font-medium text-[#4a7090]" style={{ fontSize: detailMetricLabelSize }}>{item.label}</span>
+                              <span className={`font-bold tabular-nums ${item.color}`} style={{ fontSize: detailMetricValueSize }}>{item.value}</span>
                             </div>
                           ))}
                         </div>
                         <div className="flex shrink-0 items-center gap-2 px-1 py-1">
                           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: cell.color, boxShadow: `0 0 10px ${cell.color}` }} />
-                          <div className="text-[0.95rem] font-semibold tracking-[0.05em] text-[#eefbff]">{zh ? `电芯 #${cell.cell}` : `Cell #${cell.cell}`}</div>
+                          <div className="font-semibold tracking-[0.05em] text-[#eefbff]" style={{ fontSize: detailCellTitleSize }}>{zh ? `电芯 #${cell.cell}` : `Cell #${cell.cell}`}</div>
                         </div>
                   </div>
                   <div className="min-h-0 flex-1">
@@ -1842,7 +1888,7 @@ export function CellHistoryReplayPanel({
                               <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
                               <XAxis
                                 dataKey="time"
-                                tick={isLast ? { fill: "#88a8be", fontSize: 9 } : false}
+                                tick={isLast ? { fill: "#88a8be", fontSize: chartFontSize } : false}
                                 axisLine={false}
                                 tickLine={false}
                                 tickFormatter={(value) => formatAxisTimeLabel(String(value))}
@@ -1852,7 +1898,7 @@ export function CellHistoryReplayPanel({
                               />
                               <YAxis
                                 yAxisId="voltage"
-                                tick={{ fill: "#88a8be", fontSize: 9 }}
+                                tick={{ fill: "#88a8be", fontSize: chartFontSize }}
                                 axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
                                 tickLine={false}
                                 tickFormatter={(value) => `${Number(value).toFixed(2)}V`}
@@ -1862,7 +1908,7 @@ export function CellHistoryReplayPanel({
                               <YAxis
                                 yAxisId="temp"
                                 orientation="right"
-                                tick={{ fill: "#88a8be", fontSize: 9 }}
+                                tick={{ fill: "#88a8be", fontSize: chartFontSize }}
                                 axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
                                 tickLine={false}
                                 tickFormatter={(value) => `${Number(value).toFixed(0)}°C`}
@@ -2047,7 +2093,7 @@ export function CellHistoryReplayPanel({
                             <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
                             <XAxis dataKey="time" tick={false} axisLine={false} tickLine={false} interval={trendXAxisInterval} height={0} />
                             <YAxis
-                              tick={{ fill: "#88a8be", fontSize: 9 }}
+                              tick={{ fill: "#88a8be", fontSize: chartFontSize }}
                               axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
                               tickLine={false}
                               width={52}
@@ -2092,7 +2138,7 @@ export function CellHistoryReplayPanel({
                                 <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
                                 <XAxis
                                   dataKey="time"
-                                  tick={isLast ? { fill: "#88a8be", fontSize: 9 } : false}
+                                  tick={isLast ? { fill: "#88a8be", fontSize: chartFontSize } : false}
                                   axisLine={false}
                                   tickLine={false}
                                   ticks={isLast ? trendXAxisTicks : undefined}
@@ -2100,7 +2146,7 @@ export function CellHistoryReplayPanel({
                                   height={isLast ? 22 : 0}
                                 />
                                 <YAxis
-                                  tick={{ fill: "#88a8be", fontSize: 9 }}
+                                  tick={{ fill: "#88a8be", fontSize: chartFontSize }}
                                   axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
                                   tickLine={false}
                                   tickFormatter={(value) => `${Number(value).toFixed(0)}°C`}
@@ -2140,8 +2186,8 @@ export function CellHistoryReplayPanel({
                   <div className="grid w-[172px] shrink-0 grid-rows-[1.28fr_repeat(3,minmax(0,1fr))] overflow-hidden rounded-[12px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))] self-stretch">
                   <div className="flex min-h-0 flex-[1.28] items-start border-b border-[#214260]/90 px-3 py-2">
                     <div className="w-full">
-                      <div className="text-[14px] font-semibold leading-5 tracking-[0.04em] text-[#dff7ff]">{voltageTrendSummary.header}</div>
-                      <div className="mt-3 space-y-2 text-[11px] leading-5 text-[#dff7ff]">
+                      <div className="font-semibold leading-5 tracking-[0.04em] text-[#dff7ff]" style={{ fontSize: summaryTitleSize }}>{voltageTrendSummary.header}</div>
+                      <div className="mt-3 space-y-2 leading-5 text-[#dff7ff]" style={{ fontSize: summaryTextSize }}>
                         <div>{voltageTrendSummary.maxText}</div>
                         <div className="text-[#bfe8ff]">{voltageTrendSummary.minText}</div>
                       </div>
@@ -2152,8 +2198,8 @@ export function CellHistoryReplayPanel({
                     return (
                       <div key={`${chart.key}-summary`} className={`flex min-h-0 flex-1 items-start px-3 py-2 ${!isLast ? "border-b border-[#214260]/90" : ""}`}>
                         <div className="w-full">
-                          <div className="text-[14px] font-semibold leading-5 tracking-[0.04em] text-[#dff7ff]">{chart.header}</div>
-                          <div className="mt-3 space-y-2 text-[11px] leading-5 text-[#dff7ff]">
+                          <div className="font-semibold leading-5 tracking-[0.04em] text-[#dff7ff]" style={{ fontSize: summaryTitleSize }}>{chart.header}</div>
+                          <div className="mt-3 space-y-2 leading-5 text-[#dff7ff]" style={{ fontSize: summaryTextSize }}>
                             <div>{chart.maxText}</div>
                             <div className="text-[#bfe8ff]">{chart.minText}</div>
                           </div>
