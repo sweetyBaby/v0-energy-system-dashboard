@@ -686,9 +686,9 @@ export function ComprehensiveEfficiencyPanel({
           </h3>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           <div className="flex gap-1 rounded-xl bg-[#16204b]/90 p-1">
-            {displayRangeOptions.map((item) => (
+            {displayRangeOptions.filter((item) => item.key !== "custom").map((item) => (
               <button
                 key={item.key}
                 onClick={() => setRange(item.key)}
@@ -704,47 +704,64 @@ export function ComprehensiveEfficiencyPanel({
             ))}
           </div>
 
-          <div className="flex gap-0.5 rounded-lg border border-[#1a2654] bg-[#0a1225] p-0.5">
-            <button
-              onClick={() => setViewMode("chart")}
-              className={`flex items-center justify-center rounded-md p-1.5 transition-all ${
-                viewMode === "chart"
-                  ? "bg-[#11d8bf] shadow-[0_0_10px_rgba(17,216,191,0.25)]"
-                  : "hover:bg-[#1a2654]/60"
-              }`}
-              aria-label={displayChartLabel}
-              title={displayChartLabel}
-            >
-              <ViewIconChart active={viewMode === "chart"} />
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={`flex items-center justify-center rounded-md p-1.5 transition-all ${
-                viewMode === "table"
-                  ? "bg-[#11d8bf] shadow-[0_0_10px_rgba(17,216,191,0.25)]"
-                  : "hover:bg-[#1a2654]/60"
-              }`}
-              aria-label={displayTableLabel}
-              title={displayTableLabel}
-            >
-              <ViewIconTable active={viewMode === "table"} />
-            </button>
-          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {displayRangeOptions.filter((item) => item.key === "custom").map((item) => (
+              <button
+                key={item.key}
+                onClick={() => setRange(item.key)}
+                className={`rounded-lg px-3 py-1.5 transition-all ${
+                  range === item.key
+                    ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
+                    : "bg-[#16204b]/90 text-[#7b8ab8] hover:text-[#e8f4fc]"
+                }`}
+                style={{ fontSize: `${controlFontSize}px` }}
+              >
+                {item.label}
+              </button>
+            ))}
 
-          {range === "custom" && (
-            <CustomRangePicker
-              value={customRange}
-              onChange={setCustomRange}
-              maxDate={maxAvailableDate}
-              maxDays={31}
-              buttonLabel={formatRangeLabel(customRange)}
-              hint={displayCustomHint}
-              maxRangeError={displayMaxRangeError}
-              quickSelectLabel={displayQuickSelectLabel}
-            />
-          )}
+            {range === "custom" && (
+              <CustomRangePicker
+                value={customRange}
+                onChange={setCustomRange}
+                maxDate={maxAvailableDate}
+                maxDays={31}
+                buttonLabel={formatRangeLabel(customRange)}
+                hint={displayCustomHint}
+                maxRangeError={displayMaxRangeError}
+                quickSelectLabel={displayQuickSelectLabel}
+              />
+            )}
+
+            <div className="flex gap-0.5 rounded-lg border border-[#1a2654] bg-[#0a1225] p-0.5">
+              <button
+                onClick={() => setViewMode("chart")}
+                className={`flex items-center justify-center rounded-md p-1.5 transition-all ${
+                  viewMode === "chart"
+                    ? "bg-[#11d8bf] shadow-[0_0_10px_rgba(17,216,191,0.25)]"
+                    : "hover:bg-[#1a2654]/60"
+                }`}
+                aria-label={displayChartLabel}
+                title={displayChartLabel}
+              >
+                <ViewIconChart active={viewMode === "chart"} />
+              </button>
+              <button
+                onClick={() => setViewMode("table")}
+                className={`flex items-center justify-center rounded-md p-1.5 transition-all ${
+                  viewMode === "table"
+                    ? "bg-[#11d8bf] shadow-[0_0_10px_rgba(17,216,191,0.25)]"
+                    : "hover:bg-[#1a2654]/60"
+                }`}
+                aria-label={displayTableLabel}
+                title={displayTableLabel}
+              >
+                <ViewIconTable active={viewMode === "table"} />
+              </button>
+            </div>
+          </div>
+          </div>
         </div>
-      </div>
 
       {viewMode === "chart" ? (
         <div
