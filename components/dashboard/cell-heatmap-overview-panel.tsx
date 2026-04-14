@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
@@ -228,21 +228,45 @@ function HeatmapLegend({
   zh: boolean
 }) {
   const gradient = mode === "voltage" ? VOLTAGE_GRADIENT : TEMPERATURE_GRADIENT
+  const labelFontSize = "clamp(10px, 0.42vw, 13px)"
+  const valueFontSize = "clamp(10.5px, 0.46vw, 14px)"
+  const legendGap = "clamp(4px, 0.26vw, 8px)"
+  const labelValueGap = "clamp(2px, 0.18vw, 5px)"
 
   return (
-    <div className="flex h-full shrink-0 items-center gap-1 py-0.5 pr-0">
+    <div className="flex h-full shrink-0 items-center py-0.5 pr-0" style={{ columnGap: legendGap }}>
       <div
         className="h-full w-2.5 rounded-full border border-white/5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
         style={{ background: gradient }}
       />
-      <div className="flex h-full flex-col justify-between text-right tracking-[0.02em] [&>div>span:first-child]:font-extrabold [&>div>span:first-child]:text-[#e6f2ff] [&>div>span:first-child]:[text-shadow:0_0_10px_rgba(125,211,252,0.6)] [&>div>span:last-child]:font-semibold [&>div>span:last-child]:text-[#b7d3ff] [&>div>span:last-child]:[text-shadow:0_0_10px_rgba(96,165,250,0.35)]">
-        <div className="flex items-center justify-end gap-1 whitespace-nowrap text-[9.5px] leading-none">
-          <span className="font-semibold text-[#8ca4cd]">{zh ? "高" : "H"}</span>
-          <span className="tabular-nums text-[#6f89b8]">{maxLabel}</span>
+      <div className="flex h-full flex-col justify-between text-right tracking-[0.02em]">
+        <div className="flex flex-col items-end justify-start leading-none" style={{ rowGap: labelValueGap }}>
+          <span
+            className="font-extrabold text-[#e6f2ff] [text-shadow:0_0_10px_rgba(125,211,252,0.6)]"
+            style={{ fontSize: labelFontSize }}
+          >
+            {zh ? "高" : "H"}
+          </span>
+          <span
+            className="whitespace-nowrap font-semibold tabular-nums text-[#b7d3ff] [text-shadow:0_0_10px_rgba(96,165,250,0.35)]"
+            style={{ fontSize: valueFontSize }}
+          >
+            {maxLabel}
+          </span>
         </div>
-        <div className="flex items-center justify-end gap-1 whitespace-nowrap text-[9.5px] leading-none">
-          <span className="font-semibold text-[#8ca4cd]">{zh ? "低" : "L"}</span>
-          <span className="tabular-nums text-[#6f89b8]">{minLabel}</span>
+        <div className="flex flex-col items-end justify-end leading-none" style={{ rowGap: labelValueGap }}>
+          <span
+            className="whitespace-nowrap font-semibold tabular-nums text-[#b7d3ff] [text-shadow:0_0_10px_rgba(96,165,250,0.35)]"
+            style={{ fontSize: valueFontSize }}
+          >
+            {minLabel}
+          </span>
+          <span
+            className="font-extrabold text-[#e6f2ff] [text-shadow:0_0_10px_rgba(125,211,252,0.6)]"
+            style={{ fontSize: labelFontSize }}
+          >
+            {zh ? "低" : "L"}
+          </span>
         </div>
       </div>
     </div>
@@ -442,12 +466,12 @@ export function CellHeatmapOverviewPanel() {
                 <HeatmapGrid
                   cellMap={cellMap}
                   getColor={(cell) => tempColor(cell[sensorKey])}
-                  getValue={(cell) => formatCellValue(cell[sensorKey], 1, "°")}
+                  getValue={(cell) => formatCellValue(cell[sensorKey], 1, "\u00B0")}
                 />
                 <HeatmapLegend
                   mode="temperature"
-                  maxLabel={formatLegendValue(stats.max, 1, "°C")}
-                  minLabel={formatLegendValue(stats.min, 1, "°C")}
+                  maxLabel={formatLegendValue(stats.max, 1, "\u00B0C")}
+                  minLabel={formatLegendValue(stats.min, 1, "\u00B0C")}
                   zh={zh}
                 />
               </div>
