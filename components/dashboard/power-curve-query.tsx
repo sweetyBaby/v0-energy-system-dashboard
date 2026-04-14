@@ -19,6 +19,7 @@ import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { useLanguage } from "@/components/language-provider"
+import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { useFluidScale } from "@/hooks/use-fluid-scale"
 import {
   fetchPowerRange,
@@ -112,6 +113,7 @@ export function PowerCurveQuery() {
   const chartId = useId().replace(/:/g, "")
   const { language } = useLanguage()
   const { selectedProject } = useProject()
+  const { isCompactViewport } = useDashboardViewport()
   const currentDay = useMemo(() => toDayStart(new Date()), [])
   const yesterday = useMemo(() => addDays(currentDay, -1), [currentDay])
   const defaultCustomRange = useMemo<DateRange>(
@@ -507,8 +509,13 @@ export function PowerCurveQuery() {
   }
 
   return (
-    <div ref={panelScale.ref} className="flex h-full w-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+    <div
+      ref={panelScale.ref}
+      className={`flex h-full w-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] ${
+        isCompactViewport ? "p-3" : "p-4"
+      }`}
+    >
+      <div className={`flex flex-wrap items-start justify-between ${isCompactViewport ? "mb-3 gap-2" : "mb-4 gap-3"}`}>
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
           <h3 className="font-semibold text-[#00d4aa]" style={{ fontSize: `${titleFontSize}px` }}>{title}</h3>
@@ -527,7 +534,7 @@ export function PowerCurveQuery() {
                 <button
                   key={type.key}
                   onClick={() => setQueryType(type.key)}
-                  className={`rounded-lg px-3 py-1.5 transition-all ${
+                  className={`rounded-lg transition-all ${isCompactViewport ? "px-2.5 py-[5px]" : "px-3 py-1.5"} ${
                     queryType === type.key
                       ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
                       : "text-[#7b8ab8] hover:text-[#e8f4fc]"
@@ -563,7 +570,9 @@ export function PowerCurveQuery() {
         onPointerUp={(event) => stopTimelineDrag(event.pointerId)}
         onPointerCancel={(event) => stopTimelineDrag(event.pointerId)}
         onLostPointerCapture={(event) => stopTimelineDrag(event.pointerId)}
-        className={`relative h-72 flex-1 overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
+        className={`relative flex-1 overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
+          isCompactViewport ? "min-h-[220px]" : "min-h-[288px]"
+        } ${
           canPan ? (isDraggingTimeline ? "cursor-grabbing" : "cursor-grab") : ""
         }`}
         style={{ touchAction: canPan ? "none" : "auto" }}

@@ -14,6 +14,7 @@ import {
   type RealtimeSnapshotView,
 } from "@/lib/api/project"
 import { useLanguage } from "@/components/language-provider"
+import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 
 type DashboardHeaderTab = {
   key: string
@@ -195,17 +196,21 @@ export function DashboardHeader({
   activeTab,
   onTabChange,
   tabs,
+  compact = false,
 }: {
   activeTab: string
   onTabChange: (tab: string) => void
   tabs: DashboardHeaderTab[]
+  compact?: boolean
 }) {
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const { selectedProject, setSelectedProject } = useProject()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const { language, setLanguage } = useLanguage()
   const controlRef = useRef<HTMLDivElement>(null)
+  const { isCompactWidth, isShortHeight } = useDashboardViewport()
   const zh = language === "zh"
+  const useCompactHeader = compact || isCompactWidth || isShortHeight
 
   useEffect(() => {
     setCurrentTime(new Date())
@@ -246,7 +251,11 @@ export function DashboardHeader({
   }
 
   return (
-    <header className="relative z-30 h-[72px] shrink-0 overflow-visible border-b border-[#16344f] bg-[linear-gradient(180deg,#06111f_0%,#040b16_100%)] shadow-[0_12px_30px_rgba(0,0,0,0.32)]">
+    <header
+      className={`relative z-30 shrink-0 overflow-visible border-b border-[#16344f] bg-[linear-gradient(180deg,#06111f_0%,#040b16_100%)] shadow-[0_12px_30px_rgba(0,0,0,0.32)] ${
+        useCompactHeader ? "h-[64px] lg:h-[68px]" : "h-[68px] 2xl:h-[72px]"
+      }`}
+    >
       <style>{`
         @keyframes hdr-scan {
           0% { transform: translateX(-18%); opacity: 0; }
@@ -278,31 +287,46 @@ export function DashboardHeader({
       <div className="pointer-events-none absolute left-0 top-0 h-1 w-1 bg-[#68e6ff] shadow-[0_0_8px_rgba(104,230,255,1)]" />
       <div className="pointer-events-none absolute right-0 top-0 h-1 w-1 bg-[#68e6ff] shadow-[0_0_8px_rgba(104,230,255,1)]" />
 
-      <div className="pointer-events-none absolute left-[320px] right-[360px] top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-[#46dfff]/30 to-transparent" />
-      <div className="pointer-events-none absolute left-[420px] right-[440px] top-1/2 h-[22px] -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,rgba(53,208,255,0.2),transparent_72%)]" />
+      {!useCompactHeader ? (
+        <>
+          <div className="pointer-events-none absolute left-[320px] right-[360px] top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-[#46dfff]/30 to-transparent" />
+          <div className="pointer-events-none absolute left-[420px] right-[440px] top-1/2 h-[22px] -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,rgba(53,208,255,0.2),transparent_72%)]" />
+        </>
+      ) : null}
 
       <div
         className={`relative grid h-full items-center gap-2 px-3 sm:gap-3 sm:px-4 ${
           zh
-            ? "grid-cols-[minmax(220px,320px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(260px,360px)_minmax(0,1fr)_auto]"
-            : "grid-cols-[minmax(220px,290px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)_auto]"
+            ? useCompactHeader
+              ? "grid-cols-[minmax(188px,248px)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(220px,300px)_minmax(0,1fr)_auto]"
+              : "grid-cols-[minmax(220px,320px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(260px,360px)_minmax(0,1fr)_auto]"
+            : useCompactHeader
+              ? "grid-cols-[minmax(188px,236px)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(220px,290px)_minmax(0,1fr)_auto]"
+              : "grid-cols-[minmax(220px,290px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)_auto]"
         }`}
       >
         <div className="relative flex min-w-0 items-center gap-2 sm:gap-3">
           <div
-            className="relative flex h-[36px] w-[36px] shrink-0 items-center justify-center border border-[#27f0dd]/45 bg-[linear-gradient(180deg,rgba(7,45,54,0.98),rgba(4,20,28,0.98))] shadow-[0_0_18px_rgba(39,240,221,0.18),inset_0_0_0_1px_rgba(140,255,240,0.06)]"
+            className={`relative flex shrink-0 items-center justify-center border border-[#27f0dd]/45 bg-[linear-gradient(180deg,rgba(7,45,54,0.98),rgba(4,20,28,0.98))] shadow-[0_0_18px_rgba(39,240,221,0.18),inset_0_0_0_1px_rgba(140,255,240,0.06)] ${
+              useCompactHeader ? "h-[32px] w-[32px]" : "h-[36px] w-[36px]"
+            }`}
             style={{ clipPath: "polygon(8px 0%,100% 0%,100% calc(100% - 8px),calc(100% - 8px) 100%,0% 100%,0% 8px)" }}
           >
             <span className="pointer-events-none absolute inset-x-[6px] top-[4px] h-px bg-gradient-to-r from-transparent via-[#8ffef0]/75 to-transparent" />
             <span className="pointer-events-none absolute inset-[4px] border border-[#8ffef0]/10" />
-            <Zap className="h-[16px] w-[16px] text-[#27f0dd]" style={{ filter: "drop-shadow(0 0 6px rgba(39,240,221,0.7))" }} />
+            <Zap
+              className={useCompactHeader ? "h-[14px] w-[14px] text-[#27f0dd]" : "h-[16px] w-[16px] text-[#27f0dd]"}
+              style={{ filter: "drop-shadow(0 0 6px rgba(39,240,221,0.7))" }}
+            />
           </div>
 
-          <div className="h-[8px] w-[8px] shrink-0 rounded-full bg-[#15ffaf] shadow-[0_0_10px_rgba(21,255,175,0.8)]" style={{ animation: "hdr-pulse 1.9s ease-in-out infinite" }} />
+          {!useCompactHeader ? (
+            <div className="h-[8px] w-[8px] shrink-0 rounded-full bg-[#15ffaf] shadow-[0_0_10px_rgba(21,255,175,0.8)]" style={{ animation: "hdr-pulse 1.9s ease-in-out infinite" }} />
+          ) : null}
 
           <div
             className={`relative min-w-0 flex-1 overflow-hidden border border-[#235f7f]/70 bg-[linear-gradient(180deg,rgba(8,29,44,0.98),rgba(4,14,27,1))] py-1.5 shadow-[0_0_28px_rgba(18,94,132,0.16),inset_0_0_0_1px_rgba(126,220,255,0.05)] ${
-              zh ? "px-4" : "px-2.5 sm:px-3 xl:px-4"
+              zh ? (useCompactHeader ? "px-3" : "px-4") : (useCompactHeader ? "px-2.5 sm:px-3" : "px-2.5 sm:px-3 xl:px-4")
             }`}
             style={{ clipPath: "polygon(12px 0%,100% 0%,calc(100% - 14px) 100%,0% 100%)" }}
           >
@@ -312,8 +336,12 @@ export function DashboardHeader({
               <h1
                 className={`relative mt-0.5 whitespace-nowrap font-bold ${
                   zh
-                    ? "text-[0.92rem] tracking-[0.14em] xl:text-[1rem] xl:tracking-[0.18em]"
-                    : "text-[0.56rem] tracking-[0em] sm:text-[0.62rem] sm:tracking-[0.01em] xl:text-[0.82rem] xl:tracking-[0.1em]"
+                    ? useCompactHeader
+                      ? "text-[0.8rem] tracking-[0.08em] lg:text-[0.9rem] lg:tracking-[0.12em]"
+                      : "text-[0.92rem] tracking-[0.14em] xl:text-[1rem] xl:tracking-[0.18em]"
+                    : useCompactHeader
+                      ? "text-[0.52rem] tracking-[0em] sm:text-[0.58rem] sm:tracking-[0.01em] lg:text-[0.72rem] lg:tracking-[0.06em]"
+                      : "text-[0.56rem] tracking-[0em] sm:text-[0.62rem] sm:tracking-[0.01em] xl:text-[0.82rem] xl:tracking-[0.1em]"
                 }`}
                 style={{
                   ...(zh ? {} : { fontSize: "clamp(0.56rem,0.84vw,0.82rem)", letterSpacing: "0.02em" }),
@@ -339,7 +367,9 @@ export function DashboardHeader({
 
         <div className="relative min-w-0">
           <div
-            className="relative flex h-[40px] items-center overflow-hidden border border-[#2a6688]/72 bg-[linear-gradient(180deg,rgba(9,28,44,0.98),rgba(4,14,28,1))] px-1.5 shadow-[0_0_28px_rgba(36,204,255,0.12),inset_0_0_0_1px_rgba(129,224,255,0.04)] sm:h-[42px] sm:px-2"
+            className={`relative flex items-center overflow-hidden border border-[#2a6688]/72 bg-[linear-gradient(180deg,rgba(9,28,44,0.98),rgba(4,14,28,1))] px-1.5 shadow-[0_0_28px_rgba(36,204,255,0.12),inset_0_0_0_1px_rgba(129,224,255,0.04)] sm:px-2 ${
+              useCompactHeader ? "h-[36px] lg:h-[38px]" : "h-[40px] sm:h-[42px]"
+            }`}
             style={{ clipPath: "polygon(12px 0%,calc(100% - 12px) 0%,100% 50%,calc(100% - 12px) 100%,12px 100%,0% 50%)" }}
           >
             <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#6ee9ff]/75 to-transparent" />
@@ -353,13 +383,21 @@ export function DashboardHeader({
                   <button
                     key={tab.key}
                     onClick={() => onTabChange(tab.key)}
-                    className={`group relative h-[28px] shrink-0 whitespace-nowrap px-2.5 font-semibold transition-all sm:h-[30px] sm:px-3 xl:h-[32px] xl:px-3.5 ${
+                    className={`group relative shrink-0 whitespace-nowrap font-semibold transition-all ${
+                      useCompactHeader ? "h-[26px] px-2 sm:h-[28px] sm:px-2.5" : "h-[28px] px-2.5 sm:h-[30px] sm:px-3 xl:h-[32px] xl:px-3.5"
+                    } ${
                       isActive
                         ? "border border-[#2cead7]/60 bg-[linear-gradient(180deg,rgba(12,102,122,0.96),rgba(7,48,67,0.94))] text-[#e8ffff] shadow-[0_0_18px_rgba(44,234,215,0.2),inset_0_0_0_1px_rgba(139,255,247,0.12)]"
                         : "border border-[#163d59]/55 bg-[linear-gradient(180deg,rgba(8,24,39,0.86),rgba(4,14,26,0.88))] text-[#8fb7cb] hover:border-[#2a88ad]/55 hover:text-[#d9f7ff]"
                     }`}
                     style={{
-                      fontSize: zh ? "clamp(11px, 0.36vw + 9px, 15px)" : "clamp(10px, 0.34vw + 8.5px, 14px)",
+                      fontSize: useCompactHeader
+                        ? zh
+                          ? "clamp(10px, 0.3vw + 8px, 13px)"
+                          : "clamp(9px, 0.28vw + 7.5px, 12px)"
+                        : zh
+                          ? "clamp(11px, 0.36vw + 9px, 15px)"
+                          : "clamp(10px, 0.34vw + 8.5px, 14px)",
                       letterSpacing: zh ? "0.08em" : "0.04em",
                       clipPath: isActive
                         ? "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)"
@@ -382,7 +420,7 @@ export function DashboardHeader({
 
         <div className="relative z-40 flex items-center gap-1.5 xl:gap-2" ref={controlRef}>
           <div
-            className="relative hidden h-[32px] items-center gap-2 px-3 2xl:flex"
+            className={`relative hidden items-center 2xl:flex ${useCompactHeader ? "h-[30px] gap-2 px-3" : "h-[36px] gap-2.5 px-3.5"}`}
             style={{
               clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)",
               border: "1px solid rgba(53,188,245,0.34)",
@@ -391,16 +429,31 @@ export function DashboardHeader({
             }}
           >
             <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#6ee9ff]/75 to-transparent" />
-            <span className="h-1.5 w-1.5 rounded-full bg-[#15ffaf] shadow-[0_0_8px_rgba(21,255,175,0.85)]" />
-            <span className="font-mono text-[11px] tabular-nums tracking-[0.1em] text-[#7de6ff]">
+            <span className={`${useCompactHeader ? "h-1.5 w-1.5" : "h-2 w-2"} rounded-full bg-[#15ffaf] shadow-[0_0_8px_rgba(21,255,175,0.85)]`} />
+            <span
+              className="font-mono tabular-nums tracking-[0.12em] text-[#7de6ff]"
+              style={{ fontSize: useCompactHeader ? "11px" : "clamp(12px, 0.34vw + 8px, 15px)" }}
+            >
               {currentTime ? formatDate(currentTime) : "----/--/-- --:--:--"}
             </span>
           </div>
 
-          <div className={`relative ${zh ? "w-[132px] sm:w-[144px] xl:w-[160px]" : "w-[182px] sm:w-[204px] xl:w-[236px]"}`}>
+          <div
+            className={`relative ${
+              zh
+                ? useCompactHeader
+                  ? "w-[116px] sm:w-[126px] lg:w-[138px]"
+                  : "w-[132px] sm:w-[144px] xl:w-[160px]"
+                : useCompactHeader
+                  ? "w-[148px] sm:w-[170px] lg:w-[196px]"
+                  : "w-[182px] sm:w-[204px] xl:w-[236px]"
+            }`}
+          >
             <button
               onClick={() => setDropdownOpen((prev) => !prev)}
-              className="group relative flex h-[32px] w-full items-center justify-between gap-2 border border-[#225d7a]/75 bg-[linear-gradient(180deg,rgba(7,24,39,0.96),rgba(4,13,25,0.98))] px-3 text-left shadow-[0_0_18px_rgba(56,207,255,0.08),inset_0_0_0_1px_rgba(126,220,255,0.04)] transition-all hover:border-[#38cfff]/70 hover:shadow-[0_0_22px_rgba(56,207,255,0.18),inset_0_0_0_1px_rgba(126,220,255,0.08)]"
+              className={`group relative flex w-full items-center justify-between gap-2 border border-[#225d7a]/75 bg-[linear-gradient(180deg,rgba(7,24,39,0.96),rgba(4,13,25,0.98))] px-3 text-left shadow-[0_0_18px_rgba(56,207,255,0.08),inset_0_0_0_1px_rgba(126,220,255,0.04)] transition-all hover:border-[#38cfff]/70 hover:shadow-[0_0_22px_rgba(56,207,255,0.18),inset_0_0_0_1px_rgba(126,220,255,0.08)] ${
+                useCompactHeader ? "h-[30px]" : "h-[32px]"
+              }`}
               style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
               aria-expanded={dropdownOpen}
               aria-label={zh ? "切换项目" : "Switch project"}
@@ -444,7 +497,7 @@ export function DashboardHeader({
           </div>
 
           <div
-            className="relative flex h-[32px] items-center overflow-hidden"
+            className={`relative flex items-center overflow-hidden ${useCompactHeader ? "h-[30px]" : "h-[32px]"}`}
             style={{
               clipPath: "polygon(0% 0%,calc(100% - 10px) 0%,100% 100%,0% 100%)",
               border: "1px solid rgba(53,188,245,0.45)",

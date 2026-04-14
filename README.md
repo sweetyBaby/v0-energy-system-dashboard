@@ -1,5 +1,12 @@
 # v0-energy-system-dashboard
 
+## Project Docs
+
+- [Frontend design and architecture](docs/frontend-design-architecture.md)
+- [Docker deployment](docs/docker-deploy.md)
+- [Company server deployment](docs/company-server-deploy.md)
+- [Release standard](docs/release-standard.md)
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
 
 ## Built with v0

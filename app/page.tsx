@@ -21,6 +21,7 @@ import { ReportCenterPanel } from "@/components/dashboard/report-center-panel"
 import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { LanguageProvider } from "@/components/language-provider"
+import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 import {
   fetchDailyTrendRange,
@@ -141,8 +142,17 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const [analysisError, setAnalysisError] = useState<string | null>(null)
   const { language } = useLanguage()
   const { selectedProject } = useProject()
-  const overviewScale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18.5 })
-  const contentScale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
+  const { isCompactViewport } = useDashboardViewport()
+  const overviewScale = useFluidScale<HTMLDivElement>(isCompactViewport ? 760 : 1180, isCompactViewport ? 1440 : 1920, {
+    axis: isCompactViewport ? "min" : "width",
+    minRootPx: isCompactViewport ? 13 : 14,
+    maxRootPx: 18.5,
+  })
+  const contentScale = useFluidScale<HTMLDivElement>(isCompactViewport ? 760 : 1180, isCompactViewport ? 1440 : 1920, {
+    ...DASHBOARD_CONTENT_SCALE,
+    axis: isCompactViewport ? "min" : "width",
+    minRootPx: isCompactViewport ? 13.5 : DASHBOARD_CONTENT_SCALE.minRootPx,
+  })
   const zh = language === "zh"
   const pageControlLabelSize = contentScale.fluid(11, 14)
   const pageControlButtonSize = contentScale.fluid(12, 15)
@@ -293,10 +303,10 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
 
   const renderRunningStatusPage = () => (
     <div className="grid h-full min-h-0 grid-cols-12 gap-4 overflow-hidden">
-      <div className="col-span-12 min-h-0 xl:col-span-6">
+      <div className="col-span-12 min-h-0 lg:col-span-6">
         <BCUStatusQuery mode="realtime" />
       </div>
-      <div className="col-span-12 min-h-0 xl:col-span-6">
+      <div className="col-span-12 min-h-0 lg:col-span-6">
         <CellHeatmapOverviewPanel />
       </div>
     </div>
@@ -333,10 +343,10 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         )}
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-12 gap-4">
-        <div className="col-span-12 min-h-0 xl:col-span-6">
+        <div className="col-span-12 min-h-0 lg:col-span-6">
           <BCUStatusQuery mode={bcuMode} date={bcuMode === "history" ? historyDate : undefined} />
         </div>
-        <div className="col-span-12 min-h-0 xl:col-span-6">
+        <div className="col-span-12 min-h-0 lg:col-span-6">
           <AlarmLogPanel mode={bcuMode} date={bcuMode === "history" ? historyDate : undefined} />
         </div>
       </div>
@@ -347,13 +357,21 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div
         ref={activeTab === "realtime" ? undefined : contentScale.ref}
-        className={activeTab === "realtime" ? "min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-0" : "min-h-0 flex-1 overflow-hidden p-3"}
+        className={
+          activeTab === "realtime"
+            ? `min-h-0 flex-1 overflow-hidden pt-0 ${isCompactViewport ? "px-2 pb-2" : "px-3 pb-3"}`
+            : `min-h-0 flex-1 overflow-hidden ${isCompactViewport ? "p-2" : "p-3"}`
+        }
         style={activeTab === "realtime" ? undefined : contentScale.rootStyle}
       >
         {activeTab === "realtime" && (
           <div
             ref={overviewScale.ref}
-            className="grid h-full grid-cols-12 grid-rows-[minmax(240px,1fr)_minmax(0,1fr)] gap-3"
+            className={`grid h-full grid-cols-12 ${
+              isCompactViewport
+                ? "grid-rows-[minmax(208px,0.82fr)_minmax(0,1fr)] gap-2.5"
+                : "grid-rows-[minmax(240px,1fr)_minmax(0,1fr)] gap-3"
+            }`}
             style={overviewScale.rootStyle}
           >
             <OverviewDataLoader />
@@ -367,16 +385,16 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(8,20,40,0.02)_0%,rgba(8,20,40,0.00)_32%,rgba(5,12,28,0.12)_72%,rgba(3,8,20,0.24)_100%)]" />
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00d4aa]/50 to-transparent" />
 
-              <div className="relative grid h-full grid-cols-12 items-stretch gap-3 px-3 pb-3 pt-6">
+              <div className={`relative grid h-full grid-cols-12 items-stretch ${isCompactViewport ? "gap-2.5 px-2.5 pb-2.5 pt-4" : "gap-3 px-3 pb-3 pt-6"}`}>
                 <div className="col-span-3 min-h-0 h-full">
                   <RealtimeStatusBoard />
                 </div>
 
                 <div className="col-span-6 flex min-h-0 items-end justify-center">
-                  <div className="w-full max-w-[660px] px-5 pb-1 pt-3">
+                  <div className={`w-full ${isCompactViewport ? "max-w-[620px] px-3 pb-0.5 pt-2" : "max-w-[660px] px-5 pb-1 pt-3"}`}>
                     <div className="grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)_minmax(0,1.05fr)]">
                       {projectStats.map((stat, index) => (
-                        <div key={index} className="relative flex min-h-[122px] min-w-0 flex-col items-center justify-end gap-2 px-3 py-1">
+                        <div key={index} className={`relative flex min-w-0 flex-col items-center justify-end px-3 py-1 ${isCompactViewport ? "min-h-[100px] gap-1.5" : "min-h-[122px] gap-2"}`}>
                           {index < projectStats.length - 1 && (
                             <div className="pointer-events-none absolute inset-y-3 right-0 w-px bg-gradient-to-b from-transparent via-[#b8d8f0]/35 to-transparent" />
                           )}
@@ -418,10 +436,10 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
               </div>
             </div>
 
-            <div className="col-span-12 min-h-0 xl:col-span-6">
+            <div className="col-span-12 min-h-0 lg:col-span-6">
               <ComprehensiveEfficiencyPanel />
             </div>
-            <div className="col-span-12 min-h-0 xl:col-span-6">
+            <div className="col-span-12 min-h-0 lg:col-span-6">
               <PowerCurveQuery />
             </div>
           </div>
@@ -516,14 +534,14 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         )}
 
         {activeTab === "analysis" && (
-          <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-            <div className="flex shrink-0 flex-wrap items-center gap-3 overflow-visible">
+          <div className={`flex h-full min-h-0 flex-col overflow-hidden ${isCompactViewport ? "gap-2" : "gap-3"}`}>
+            <div className={`flex shrink-0 flex-wrap items-center overflow-visible ${isCompactViewport ? "gap-2" : "gap-3"}`}>
               <div className="flex flex-wrap items-center gap-1 rounded-[14px] border border-[#1d4c69] bg-[linear-gradient(180deg,rgba(9,25,48,0.92),rgba(8,20,38,0.96))] p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
                 {ANALYSIS_RANGES.map((range) => (
                   <button
                     key={range.key}
                     onClick={() => setAnalysisRange(range.key)}
-                    className={`rounded-[10px] px-3.5 py-1.5 tracking-[0.03em] transition-all ${
+                    className={`rounded-[10px] tracking-[0.03em] transition-all ${isCompactViewport ? "px-3 py-[5px]" : "px-3.5 py-1.5"} ${
                       analysisRange === range.key
                         ? "border border-[#00d4aa]/60 bg-[linear-gradient(180deg,rgba(27,220,191,0.96),rgba(7,193,164,0.88))] font-semibold text-[#041c16] shadow-[0_0_16px_rgba(0,212,170,0.22)]"
                         : "border border-transparent text-[#8aaed2] hover:border-[#22d3ee]/20 hover:bg-[#112347] hover:text-[#e3f4ff]"
@@ -553,8 +571,8 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                 </div>
               )}
             </div>
-            <div className="grid min-h-0 flex-1 grid-cols-12 gap-4">
-              <div className="col-span-12 min-h-0 xl:col-span-4">
+            <div className={`grid min-h-0 flex-1 grid-cols-12 ${isCompactViewport ? "gap-3" : "gap-4"}`}>
+              <div className={isCompactViewport ? "col-span-4 min-h-0" : "col-span-12 min-h-0 xl:col-span-6 2xl:col-span-4"}>
                 <VoltageDifferenceAnalysis
                   range={analysisRangeDays}
                   summary={analysisTrendData?.summary ?? null}
@@ -563,7 +581,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                   error={analysisError}
                 />
               </div>
-              <div className="col-span-12 min-h-0 xl:col-span-4">
+              <div className={isCompactViewport ? "col-span-4 min-h-0" : "col-span-12 min-h-0 xl:col-span-6 2xl:col-span-4"}>
                 <TemperatureDifferenceAnalysis
                   range={analysisRangeDays}
                   summary={analysisTrendData?.summary ?? null}
@@ -572,7 +590,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                   error={analysisError}
                 />
               </div>
-              <div className="col-span-12 min-h-0 xl:col-span-4">
+              <div className={isCompactViewport ? "col-span-4 min-h-0" : "col-span-12 min-h-0 xl:col-span-6 2xl:col-span-4"}>
                 <CellVoltageAnalysis
                   range={analysisRangeDays}
                   summary={analysisTrendData?.summary ?? null}
@@ -601,6 +619,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
 
 export default function EnergyStorageDashboard() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("realtime")
+  const { isCompactViewport } = useDashboardViewport()
   const tabs = (Object.keys(TAB_META) as DashboardTab[])
     .filter((key) => key !== "bms")
     .map((key) => ({
@@ -611,10 +630,15 @@ export default function EnergyStorageDashboard() {
   return (
     <LanguageProvider>
       <ProjectProvider>
-        <div className="relative flex h-screen flex-col overflow-hidden bg-[#060b16] text-[#e8f4fc]">
+        <div className="relative flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#060b16] text-[#e8f4fc]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.12),transparent_24%),radial-gradient(circle_at_24%_32%,rgba(59,130,246,0.08),transparent_26%),radial-gradient(circle_at_80%_18%,rgba(34,211,238,0.06),transparent_22%)]" />
           <div className="relative z-10 flex h-full flex-col overflow-hidden">
-            <DashboardHeader activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as DashboardTab)} tabs={tabs} />
+            <DashboardHeader
+              activeTab={activeTab}
+              onTabChange={(tab) => setActiveTab(tab as DashboardTab)}
+              tabs={tabs}
+              compact={isCompactViewport}
+            />
             <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <DashboardTabs activeTab={activeTab} />
             </main>

@@ -5,6 +5,7 @@ import { LineChart as LineChartIcon, Table } from "lucide-react"
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
+import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { DASHBOARD_DENSE_PANEL_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 import type { DailyTrendRangePoint, DailyTrendRangeSummary } from "@/lib/api/daily-trend-range"
 
@@ -47,6 +48,7 @@ export function VoltageDifferenceAnalysis({
 }) {
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
   const { t, language } = useLanguage()
+  const { isCompactViewport } = useDashboardViewport()
   const zh = language === "zh"
   const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_DENSE_PANEL_SCALE)
   const titleSize = scale.clampText(0.9, 0.98, 1.18)
@@ -87,8 +89,12 @@ export function VoltageDifferenceAnalysis({
   const placeholderText = error ? error : zh ? "暂无压差分析数据" : "No voltage diff analysis data"
 
   return (
-    <div ref={scale.ref} className="flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4" style={scale.rootStyle}>
-      <div className="mb-3 flex items-center justify-between">
+    <div
+      ref={scale.ref}
+      className={`flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] ${isCompactViewport ? "p-3" : "p-4"}`}
+      style={scale.rootStyle}
+    >
+      <div className={`flex items-center justify-between ${isCompactViewport ? "mb-2" : "mb-3"}`}>
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
           <h3 className="font-semibold text-[#00d4aa]" style={{ fontSize: titleSize }}>
@@ -113,7 +119,7 @@ export function VoltageDifferenceAnalysis({
         </div>
       </div>
 
-      <div className="mb-3 grid grid-cols-2 gap-2">
+      <div className={`grid grid-cols-2 gap-2 ${isCompactViewport ? "mb-2" : "mb-3"}`}>
         {[
           { label: zh ? "最大压差" : "Max Diff", value: formatMetric(stats.maxVoltageDiff, 3, " V"), color: "#ef4444" },
           { label: zh ? "最小压差" : "Min Diff", value: formatMetric(stats.minVoltageDiff, 3, " V"), color: "#22d3ee" },

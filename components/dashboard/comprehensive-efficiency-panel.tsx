@@ -21,6 +21,7 @@ import { useProject } from "@/components/dashboard/dashboard-header"
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
+import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { useFluidScale } from "@/hooks/use-fluid-scale"
 import {
   fetchOverviewDailyList,
@@ -90,6 +91,7 @@ export function ComprehensiveEfficiencyPanel({
 }: ComprehensiveEfficiencyPanelProps) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
+  const { isCompactViewport } = useDashboardViewport()
   const chartId = useId().replace(/:/g, "")
   const currentDay = useMemo(() => toDayStart(new Date()), [])
   const maxAvailableDate = useMemo(() => addDays(currentDay, -1), [currentDay])
@@ -656,8 +658,12 @@ export function ComprehensiveEfficiencyPanel({
   )
 
   const wrapperClassName = compact
-    ? "flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#22d3ee]/25 bg-[rgba(5,12,26,0.62)] p-3 backdrop-blur-[3px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset]"
-    : "flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] p-3"
+    ? `flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#22d3ee]/25 bg-[rgba(5,12,26,0.62)] backdrop-blur-[3px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset] ${
+        isCompactViewport ? "p-2.5" : "p-3"
+      }`
+    : `flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] ${
+        isCompactViewport ? "p-2.5" : "p-3"
+      }`
   const titleFontSize = panelScale.fluid(compact ? 14 : 16, compact ? 18 : 22)
   const controlFontSize = panelScale.fluid(12, 14.5)
   const axisFontSize = panelScale.chart(10, 12.5)
@@ -678,7 +684,7 @@ export function ComprehensiveEfficiencyPanel({
 
   return (
     <div ref={panelScale.ref} className={wrapperClassName}>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <div className={`flex flex-wrap items-center justify-between gap-2 ${isCompactViewport ? "mb-1.5" : "mb-2"}`}>
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
           <h3 className="font-semibold text-[#00d4aa]" style={{ fontSize: `${titleFontSize}px` }}>
@@ -692,7 +698,7 @@ export function ComprehensiveEfficiencyPanel({
               <button
                 key={item.key}
                 onClick={() => setRange(item.key)}
-                className={`rounded-lg px-3 py-1.5 transition-all ${
+                className={`rounded-lg transition-all ${isCompactViewport ? "px-2.5 py-[5px]" : "px-3 py-1.5"} ${
                   range === item.key
                     ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
                     : "text-[#7b8ab8] hover:bg-[#1d2a5f]/80 hover:text-[#e8f4fc]"
@@ -905,7 +911,7 @@ export function ComprehensiveEfficiencyPanel({
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-xl border border-[#1a2654]/80 bg-[linear-gradient(180deg,rgba(13,20,51,0.95),rgba(11,18,44,0.92))] p-2 [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]">
           {loading ? (
-            <div className="flex h-full min-h-[240px] items-center justify-center">
+            <div className={`flex h-full items-center justify-center ${isCompactViewport ? "min-h-[200px]" : "min-h-[240px]"}`}>
               <HistoryStyleLoadingIndicator text={displayLoadingText} />
             </div>
           ) : activeData.length === 0 ? (

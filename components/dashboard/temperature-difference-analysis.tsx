@@ -5,6 +5,7 @@ import { Table, LineChart as LineChartIcon } from "lucide-react"
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
+import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { DASHBOARD_DENSE_PANEL_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 import type { DailyTrendRangePoint, DailyTrendRangeSummary } from "@/lib/api/daily-trend-range"
 
@@ -47,6 +48,7 @@ export function TemperatureDifferenceAnalysis({
 }) {
   const [viewMode, setViewMode] = useState<"chart" | "table">("chart")
   const { t, language } = useLanguage()
+  const { isCompactViewport } = useDashboardViewport()
   const zh = language === "zh"
   const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_DENSE_PANEL_SCALE)
   const titleSize = scale.clampText(0.9, 0.98, 1.18)
@@ -90,8 +92,12 @@ export function TemperatureDifferenceAnalysis({
   const placeholderText = error ? error : zh ? "暂无温差分析数据" : "No temperature diff analysis data"
 
   return (
-    <div ref={scale.ref} className="flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4" style={scale.rootStyle}>
-      <div className="mb-3 flex items-center justify-between">
+    <div
+      ref={scale.ref}
+      className={`flex h-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] ${isCompactViewport ? "p-3" : "p-4"}`}
+      style={scale.rootStyle}
+    >
+      <div className={`flex items-center justify-between ${isCompactViewport ? "mb-2" : "mb-3"}`}>
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#f97316]" />
           <h3 className="font-semibold text-[#f97316]" style={{ fontSize: titleSize }}>
@@ -116,7 +122,7 @@ export function TemperatureDifferenceAnalysis({
         </div>
       </div>
 
-      <div className="mb-3 grid grid-cols-4 gap-2">
+      <div className={`grid gap-2 ${isCompactViewport ? "mb-2 grid-cols-2" : "mb-3 grid-cols-4"}`}>
         {[
           { label: zh ? "最高温度" : "Max Temp", value: formatMetric(stats.maxTemp, 1, " °C"), color: "#ef4444" },
           { label: zh ? "最低温度" : "Min Temp", value: formatMetric(stats.minTemp, 1, " °C"), color: "#22d3ee" },
