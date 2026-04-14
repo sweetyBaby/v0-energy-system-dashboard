@@ -61,6 +61,7 @@ export type OperationsCursor = {
 }
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000
+const MERGE_ALIGNMENT_TOLERANCE_MS = 30 * 1000
 const SYNC_SUFFIX = "_sync"
 
 const buildQueryPath = (path: string, params: Record<string, string | number | undefined>) => {
@@ -138,6 +139,40 @@ const trimRecentWindow = (points: OperationTrendPoint[]) => {
   return points.filter((point) => point.timestamp >= threshold)
 }
 
+const hasPrimaryTrendMetrics = (point: OperationTrendPoint) =>
+  point.current != null || point.voltage != null || point.soc != null || point.power != null
+
+const getAlignmentTimestamps = (merged: Map<number, OperationTrendPoint>) => {
+  const primaryTimestamps: number[] = []
+
+  for (const [timestamp, point] of merged) {
+    if (hasPrimaryTrendMetrics(point)) {
+      primaryTimestamps.push(timestamp)
+    }
+  }
+
+  return primaryTimestamps.length > 0 ? primaryTimestamps : Array.from(merged.keys())
+}
+
+const findNearestTimestamp = (timestamps: number[], target: number) => {
+  let nearest = target
+  let nearestDistance = Number.POSITIVE_INFINITY
+
+  for (const timestamp of timestamps) {
+    const distance = Math.abs(timestamp - target)
+
+    if (distance < nearestDistance) {
+      nearest = timestamp
+      nearestDistance = distance
+    }
+  }
+
+  return nearestDistance <= MERGE_ALIGNMENT_TOLERANCE_MS ? nearest : target
+}
+
+const resolveMergedTimestamp = (merged: Map<number, OperationTrendPoint>, target: number) =>
+  findNearestTimestamp(getAlignmentTimestamps(merged), target)
+
 export const mergeOperationTrendData = (
   base: OperationTrendPoint[],
   updates: Partial<RecentBundle | IncrementalBundle>,
@@ -164,20 +199,22 @@ export const mergeOperationTrendData = (
     const timestamp = parseTimestamp(point.time)
     if (!timestamp) continue
 
-    const next = merged.get(timestamp) ?? emptyTrendPoint(point.time, timestamp)
+    const resolvedTimestamp = resolveMergedTimestamp(merged, timestamp)
+    const next = merged.get(resolvedTimestamp) ?? emptyTrendPoint(point.time, resolvedTimestamp)
     next.maxCell = point.maxCellVolt == null ? null : Number(point.maxCellVolt) / 1000
     next.minCell = point.minCellVolt == null ? null : Number(point.minCellVolt) / 1000
-    merged.set(timestamp, next)
+    merged.set(resolvedTimestamp, next)
   }
 
   for (const point of updates.cellTemperaturePoints ?? []) {
     const timestamp = parseTimestamp(point.time)
     if (!timestamp) continue
 
-    const next = merged.get(timestamp) ?? emptyTrendPoint(point.time, timestamp)
+    const resolvedTimestamp = resolveMergedTimestamp(merged, timestamp)
+    const next = merged.get(resolvedTimestamp) ?? emptyTrendPoint(point.time, resolvedTimestamp)
     next.maxTemp = toFiniteNumber(point.maxCellTemp)
     next.minTemp = toFiniteNumber(point.minCellTemp)
-    merged.set(timestamp, next)
+    merged.set(resolvedTimestamp, next)
   }
 
   return trimRecentWindow(sortTrendPoints(Array.from(merged.values())))

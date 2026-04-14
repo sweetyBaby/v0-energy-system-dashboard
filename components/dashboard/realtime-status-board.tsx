@@ -108,7 +108,7 @@ export function RealtimeStatusBoard() {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const [liveBlink, setLiveBlink] = useState(true)
-  const [liveTime, setLiveTime] = useState(() => formatRealtimeClock(new Date()))
+  const [liveTime, setLiveTime] = useState("--:--")
   const { realtimeSnapshot } = selectedProject
   const containerRef = useRef<HTMLDivElement>(null)
   const base = useContainerBase(containerRef)

@@ -332,6 +332,8 @@ function TrendStackedChart({
   const timeAxisReservedWidth = hideCellSeries ? 92 : 108
   const timeAxisUsableWidth = Math.max(chartWidth - timeAxisReservedWidth, 320)
   const visibleTickCount = Math.max(2, Math.floor(timeAxisUsableWidth / timeAxisLabelWidth))
+  const xAxisRightPadding = Math.max(14, Math.round(timeAxisLabelWidth * 0.42))
+  const xAxisLeftPadding = 4
   const xAxisTicks = useMemo(
     () => buildDynamicTimeTicks(data.map((item) => item.time), visibleTickCount),
     [data, visibleTickCount],
@@ -361,7 +363,12 @@ function TrendStackedChart({
             )}
 
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} syncId={syncId} syncMethod="value" margin={{ top: chartTop, right: 10, left: 0, bottom: isLast ? 2 : 0 }}>
+              <LineChart
+                data={data}
+                syncId={syncId}
+                syncMethod="index"
+                margin={{ top: chartTop, right: xAxisRightPadding, left: xAxisLeftPadding, bottom: isLast ? 2 : 0 }}
+              >
                 <CartesianGrid stroke="#1a2654" strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="time"
@@ -372,6 +379,7 @@ function TrendStackedChart({
                   ticks={isLast ? xAxisTicks : undefined}
                   interval={isLast ? 0 : Math.max(xAxisTicks.length - 1, 0)}
                   minTickGap={6}
+                  padding={{ left: xAxisLeftPadding, right: xAxisRightPadding }}
                 />
                 <YAxis
                   domain={section.domain}
