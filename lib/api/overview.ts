@@ -7,11 +7,14 @@ export type DailyListRequest = {
   params: {
     beginTime: string
     endTime: string
+    type?: "year"
+    year?: string
   }
 }
 
 export type RawDailyListRow = {
-  reportDate: string
+  reportDate: string | null
+  month?: string | null
   chargeAh: number | null
   dischargeAh: number | null
   chargeWh: number | null
@@ -42,11 +45,35 @@ export type EfficiencyPoint = {
   energyEfficiency: number | null
 }
 
-const formatDateLabel = (value: string) => {
+type NormalizeOverviewOptions = {
+  groupBy?: "day" | "month"
+  language?: "zh" | "en"
+}
+
+const parseReportDate = (value: string | null | undefined) => {
+  if (!value) return null
+
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
+  if (Number.isNaN(date.getTime())) return null
+  return date
+}
+
+const parseMonthValue = (value: string | null | undefined) => {
+  if (!value) return null
+
+  const month = Number.parseInt(value, 10)
+  if (Number.isNaN(month) || month < 1 || month > 12) return null
+  return month
+}
+
+const formatDateLabel = (value: string | null | undefined) => {
+  const date = parseReportDate(value)
+  if (!date) return API_PLACEHOLDER
   return `${date.getMonth() + 1}/${date.getDate()}`
 }
+
+const formatMonthLabel = (month: number, language: "zh" | "en") =>
+  language === "zh" ? `${month}\u6708` : `M${month}`
 
 const convertWhToKwh = (value: number | null | undefined) => {
   if (value == null || Number.isNaN(value)) return null
@@ -58,21 +85,57 @@ const normalizeNumber = (value: number | null | undefined, digits = 1) => {
   return Number(value.toFixed(digits))
 }
 
-/**
- * 拉取综合能效统计日报。
- * 请求体与接口文档保持一致：projectId + params.beginTime + params.endTime。
- */
 export const fetchOverviewDailyList = async (payload: DailyListRequest) => {
   return apiClient.postRaw<DailyListResponse>(apiEndpoints.overview.dailyList, payload)
 }
 
-/**
- * 将 `/ems/daily/list` 响应行映射为图表/表格统一数据。
- * 电量统一按 kWh 展示，效率字段保留百分比数值。
- */
-export const normalizeOverviewDailyRows = (rows: RawDailyListRow[]): EfficiencyPoint[] =>
-  [...rows]
-    .sort((a, b) => new Date(a.reportDate).getTime() - new Date(b.reportDate).getTime())
+export const normalizeOverviewDailyRows = (
+  rows: RawDailyListRow[],
+  options: NormalizeOverviewOptions = {},
+): EfficiencyPoint[] => {
+  const groupBy = options.groupBy ?? "day"
+  const language = options.language ?? "zh"
+
+  if (groupBy === "month") {
+    return [...rows]
+      .map((row) => {
+        const monthFromField = parseMonthValue(row.month)
+        const monthFromDate = parseReportDate(row.reportDate)?.getMonth()
+        const month = monthFromField ?? (monthFromDate == null ? null : monthFromDate + 1)
+
+        if (month == null) {
+          return null
+        }
+
+        return {
+          month,
+          chargeCapacity: normalizeNumber(row.chargeAh),
+          dischargeCapacity: normalizeNumber(row.dischargeAh),
+          chargeEnergy: convertWhToKwh(row.chargeWh),
+          dischargeEnergy: convertWhToKwh(row.dischargeWh),
+          capacityEfficiency: normalizeNumber(row.chargeEfficiencyCe, 2),
+          energyEfficiency: normalizeNumber(row.chargeEfficiencyEe, 2),
+        }
+      })
+      .filter((row): row is NonNullable<typeof row> => row != null)
+      .sort((a, b) => a.month - b.month)
+      .map((row) => ({
+        label: formatMonthLabel(row.month, language),
+        chargeCapacity: row.chargeCapacity,
+        dischargeCapacity: row.dischargeCapacity,
+        chargeEnergy: row.chargeEnergy,
+        dischargeEnergy: row.dischargeEnergy,
+        capacityEfficiency: row.capacityEfficiency,
+        energyEfficiency: row.energyEfficiency,
+      }))
+  }
+
+  return [...rows]
+    .sort((a, b) => {
+      const aTime = parseReportDate(a.reportDate)?.getTime() ?? Number.POSITIVE_INFINITY
+      const bTime = parseReportDate(b.reportDate)?.getTime() ?? Number.POSITIVE_INFINITY
+      return aTime - bTime
+    })
     .map((row) => ({
       label: formatDateLabel(row.reportDate),
       chargeCapacity: normalizeNumber(row.chargeAh),
@@ -82,9 +145,9 @@ export const normalizeOverviewDailyRows = (rows: RawDailyListRow[]): EfficiencyP
       capacityEfficiency: normalizeNumber(row.chargeEfficiencyCe, 2),
       energyEfficiency: normalizeNumber(row.chargeEfficiencyEe, 2),
     }))
+}
 
 export const formatNullableMetric = (value: number | null | undefined, digits = 1, suffix = "") => {
   if (value == null || Number.isNaN(value)) return API_PLACEHOLDER
   return `${value.toFixed(digits)}${suffix}`
 }
-

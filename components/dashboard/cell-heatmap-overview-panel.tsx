@@ -147,17 +147,23 @@ function HeatmapCard({
   accentColor: string
   children: ReactNode
 }) {
+  const railWidth = "clamp(30px, min(2vw, 3.2vh), 42px)"
+  const titleFontSize = "clamp(10.5px, min(0.82vw, 1.38vh), 15px)"
+
   return (
     <section className="min-h-0 overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1433]/90">
       <div className="flex h-full min-h-0 items-stretch gap-1.5 p-1.5">
-        <div className="relative flex w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-white/5 bg-[linear-gradient(180deg,rgba(11,20,48,0.96),rgba(8,17,39,0.72))]">
+        <div
+          className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-md border border-white/5 bg-[linear-gradient(180deg,rgba(11,20,48,0.96),rgba(8,17,39,0.72))]"
+          style={{ width: railWidth }}
+        >
           <div
             className="pointer-events-none absolute inset-y-1 left-0 w-px"
             style={{ background: `linear-gradient(to bottom, transparent, ${accentColor}, transparent)` }}
           />
           <h3
-            className="whitespace-nowrap text-[10.5px] font-semibold tracking-[0.08em]"
-            style={{ color: accentColor, transform: "rotate(-90deg)" }}
+            className="whitespace-nowrap font-semibold tracking-[0.08em]"
+            style={{ color: accentColor, transform: "rotate(-90deg)", fontSize: titleFontSize }}
           >
             {title}
           </h3>
@@ -177,9 +183,9 @@ function HeatmapGrid({
   getColor: (cell: HeatmapCellMetrics) => string
   getValue: (cell: HeatmapCellMetrics) => string
 }) {
-  const idFontSize = "clamp(7px, min(0.58vw, 1.02vh), 10.4px)"
-  const valueFontSize = "clamp(9.6px, min(0.92vw, 1.5vh), 13.8px)"
-  const valueMarginTop = "clamp(1px, 0.12vw, 4px)"
+  const idFontSize = "clamp(7.4px, min(0.66vw, 1.12vh), 12px)"
+  const valueFontSize = "clamp(10.2px, min(1.06vw, 1.72vh), 16px)"
+  const valueMarginTop = "clamp(1.5px, 0.18vw, 5px)"
 
   return (
     <div
@@ -202,7 +208,15 @@ function HeatmapGrid({
               className="flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center rounded-[10px] px-[2px] py-[1px]"
               style={{ backgroundColor }}
             >
-              <div className="leading-none tabular-nums" style={{ color, opacity: 0.72, fontSize: idFontSize }}>
+              <div
+                className="font-medium leading-none tabular-nums"
+                style={{
+                  color,
+                  opacity: 0.9,
+                  fontSize: idFontSize,
+                  textShadow: "0 0 8px rgba(15,23,42,0.22)",
+                }}
+              >
                 #{cellId}
               </div>
               <div className="font-semibold leading-none tabular-nums" style={{ color, fontSize: valueFontSize, marginTop: valueMarginTop }}>
@@ -228,41 +242,46 @@ function HeatmapLegend({
   zh: boolean
 }) {
   const gradient = mode === "voltage" ? VOLTAGE_GRADIENT : TEMPERATURE_GRADIENT
-  const labelFontSize = "clamp(10px, 0.42vw, 13px)"
-  const valueFontSize = "clamp(10.5px, 0.46vw, 14px)"
-  const legendGap = "clamp(4px, 0.26vw, 8px)"
-  const labelValueGap = "clamp(2px, 0.18vw, 5px)"
+  const labelFontSize = "clamp(10.5px, min(0.54vw, 0.96vh), 15px)"
+  const valueFontSize = "clamp(11.2px, min(0.66vw, 1.08vh), 16.5px)"
+  const legendGap = "clamp(5px, 0.32vw, 10px)"
+  const labelValueGap = "clamp(3px, 0.22vw, 6px)"
+  const legendBarWidth = "clamp(10px, 0.65vw, 14px)"
+  const legendTextColumnWidth = "clamp(44px, 3.1vw, 72px)"
 
   return (
     <div className="flex h-full shrink-0 items-center py-0.5 pr-0" style={{ columnGap: legendGap }}>
       <div
-        className="h-full w-2.5 rounded-full border border-white/5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
-        style={{ background: gradient }}
+        className="h-full rounded-full border border-white/5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
+        style={{ background: gradient, width: legendBarWidth }}
       />
-      <div className="flex h-full flex-col justify-between text-right tracking-[0.02em]">
-        <div className="flex flex-col items-end justify-start leading-none" style={{ rowGap: labelValueGap }}>
+      <div
+        className="flex h-full min-w-max flex-col justify-between text-left tracking-[0.02em]"
+        style={{ width: legendTextColumnWidth }}
+      >
+        <div className="flex w-full flex-col items-start justify-start leading-none text-left" style={{ rowGap: labelValueGap }}>
           <span
-            className="font-extrabold text-[#e6f2ff] [text-shadow:0_0_10px_rgba(125,211,252,0.6)]"
+            className="block w-full whitespace-nowrap text-left font-extrabold text-[#e6f2ff] [text-shadow:0_0_10px_rgba(125,211,252,0.6)]"
             style={{ fontSize: labelFontSize }}
           >
             {zh ? "高" : "H"}
           </span>
           <span
-            className="whitespace-nowrap font-semibold tabular-nums text-[#b7d3ff] [text-shadow:0_0_10px_rgba(96,165,250,0.35)]"
+            className="block w-full whitespace-nowrap text-left font-semibold tabular-nums text-[#b7d3ff] [text-shadow:0_0_10px_rgba(96,165,250,0.35)]"
             style={{ fontSize: valueFontSize }}
           >
             {maxLabel}
           </span>
         </div>
-        <div className="flex flex-col items-end justify-end leading-none" style={{ rowGap: labelValueGap }}>
+        <div className="flex w-full flex-col items-start justify-end leading-none text-left" style={{ rowGap: labelValueGap }}>
           <span
-            className="whitespace-nowrap font-semibold tabular-nums text-[#b7d3ff] [text-shadow:0_0_10px_rgba(96,165,250,0.35)]"
+            className="block w-full whitespace-nowrap text-left font-semibold tabular-nums text-[#b7d3ff] [text-shadow:0_0_10px_rgba(96,165,250,0.35)]"
             style={{ fontSize: valueFontSize }}
           >
             {minLabel}
           </span>
           <span
-            className="font-extrabold text-[#e6f2ff] [text-shadow:0_0_10px_rgba(125,211,252,0.6)]"
+            className="block w-full whitespace-nowrap text-left font-extrabold text-[#e6f2ff] [text-shadow:0_0_10px_rgba(125,211,252,0.6)]"
             style={{ fontSize: labelFontSize }}
           >
             {zh ? "低" : "L"}

@@ -175,13 +175,27 @@ export function ComprehensiveEfficiencyPanel({
       setLoading(true)
 
       try {
+        const requestParams =
+          range === "year"
+            ? {
+                ...activeRequestRange,
+                type: "year" as const,
+                year: String(currentDay.getFullYear()),
+              }
+            : activeRequestRange
+
         const response = await fetchOverviewDailyList({
           projectId: selectedProject.projectId,
-          params: activeRequestRange,
+          params: requestParams,
         })
 
         if (!cancelled) {
-          setActiveData(normalizeOverviewDailyRows(response.rows ?? []))
+          setActiveData(
+            normalizeOverviewDailyRows(response.rows ?? [], {
+              groupBy: range === "year" ? "month" : "day",
+              language,
+            }),
+          )
         }
       } catch (error) {
         if (!cancelled) {
@@ -201,7 +215,7 @@ export function ComprehensiveEfficiencyPanel({
     return () => {
       cancelled = true
     }
-  }, [activeRequestRange, selectedProject.projectId])
+  }, [activeRequestRange, language, range, selectedProject.projectId])
 
   const legacyRangeOptions = [
     { key: "week" as const, label: language === "zh" ? "近7天" : "7 Days" },
