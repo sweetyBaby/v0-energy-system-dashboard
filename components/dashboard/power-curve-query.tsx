@@ -271,7 +271,7 @@ export function PowerCurveQuery() {
     return chartData.slice(viewportRange.startIndex, viewportRange.endIndex + 1)
   }, [chartData, viewportRange])
   const visiblePointCount = visibleChartData.length
-  const singleDayTickStep = isCompactViewport ? HOUR_MS * 2 : HOUR_MS
+  const singleDayTickStep = HOUR_MS * 2
   const singleDayAxis = useMemo(() => {
     let domainStart = singleDayStart
     let domainEnd = singleDayEnd
@@ -804,7 +804,10 @@ export function PowerCurveQuery() {
           <div className="flex h-full items-center justify-center text-[#7b8ab8]" style={{ fontSize: `${emptyFontSize}px` }}>{emptyStateText}</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={visibleChartData} margin={{ top: 10, right: 14, left: 4, bottom: 0 }}>
+            <LineChart
+              data={visibleChartData}
+              margin={{ top: 10, right: 14, left: 4, bottom: isSingleDayQuery ? 18 : 0 }}
+            >
               <defs>
                 <linearGradient id={`${chartId}-power-fill`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.34} />
@@ -830,7 +833,7 @@ export function PowerCurveQuery() {
                           isCompactViewport,
                         ),
                       interval: 0 as const,
-                      padding: { left: 8, right: 12 },
+                      padding: { left: 22, right: 22 },
                     }
                   : {
                       dataKey: "label",
@@ -863,15 +866,12 @@ export function PowerCurveQuery() {
                           return null
                         }
 
-                        const textAnchor =
-                          value === singleDayAxis.start ? "start" : value === singleDayAxis.end ? "end" : "middle"
-
                         return (
                           <text
                             x={tickProps.x}
                             y={tickProps.y}
-                            dy={12}
-                            textAnchor={textAnchor}
+                            dy={14}
+                            textAnchor="middle"
                             fill="#88a4d7"
                             fontSize={axisFontSize}
                           >
@@ -881,7 +881,7 @@ export function PowerCurveQuery() {
                       }
                     : { fill: "#88a4d7", fontSize: axisFontSize }
                 }
-                tickMargin={10}
+                tickMargin={16}
                 minTickGap={isSingleDayQuery ? 8 : 28}
               />
               <YAxis

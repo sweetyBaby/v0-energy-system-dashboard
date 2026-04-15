@@ -103,6 +103,8 @@ const seededSigned = (seed: number, index: number) => {
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 
 const round = (value: number, digits = 1) => Number(value.toFixed(digits))
+const HOUR_MS = 60 * 60 * 1000
+const COMPACT_TIME_AXIS_BREAKPOINT = 980
 
 const formatFiveMin = (slot: number) => {
   const totalMinutes = slot * 5
@@ -111,19 +113,38 @@ const formatFiveMin = (slot: number) => {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
 }
 
-const buildDynamicTimeTicks = (times: string[], visibleTickCount: number) => {
-  if (times.length <= 2) {
-    return Array.from(new Set(times))
+const getDayStartTimestamp = (timestamp: number) => {
+  const date = new Date(timestamp)
+  date.setHours(0, 0, 0, 0)
+  return date.getTime()
+}
+
+const formatHourAxisTick = (timestamp: number) => {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) {
+    return ""
   }
 
-  if (times.length <= visibleTickCount) {
-    return Array.from(new Set(times))
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`
+}
+
+const buildHourlyTimeTicks = (start: number, end: number, stepMs: number) => {
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    return []
   }
 
-  const step = Math.max(1, Math.ceil((times.length - 1) / Math.max(visibleTickCount - 1, 1)))
-  return Array.from(
-    new Set(times.filter((time, index) => index === 0 || index === times.length - 1 || index % step === 0)),
-  )
+  if (end <= start) {
+    return [start]
+  }
+
+  const ticks: number[] = []
+  const firstTick = Math.ceil(start / stepMs) * stepMs
+
+  for (let tick = firstTick; tick <= end; tick += stepMs) {
+    ticks.push(tick)
+  }
+
+  return ticks.length > 0 ? ticks : [start]
 }
 
 const getDailyLoadFactor = (hour: number) => {
@@ -328,15 +349,26 @@ function TrendStackedChart({
     return () => observer.disconnect()
   }, [])
 
-  const timeAxisLabelWidth = history ? (chartWidth < 980 ? 76 : 88) : chartWidth < 980 ? 64 : 76
-  const timeAxisReservedWidth = hideCellSeries ? 92 : 108
-  const timeAxisUsableWidth = Math.max(chartWidth - timeAxisReservedWidth, 320)
-  const visibleTickCount = Math.max(2, Math.floor(timeAxisUsableWidth / timeAxisLabelWidth))
+  const timeAxisStepMs = chartWidth < COMPACT_TIME_AXIS_BREAKPOINT ? HOUR_MS * 2 : HOUR_MS
+  const timeAxisLabelWidth = history ? (chartWidth < COMPACT_TIME_AXIS_BREAKPOINT ? 76 : 88) : chartWidth < COMPACT_TIME_AXIS_BREAKPOINT ? 64 : 76
   const xAxisRightPadding = Math.max(14, Math.round(timeAxisLabelWidth * 0.42))
   const xAxisLeftPadding = 4
+  const xAxisDomain = useMemo<[number, number]>(() => {
+    if (data.length === 0) {
+      const now = Date.now()
+      const start = history ? now - HOUR_MS : getDayStartTimestamp(now)
+      return [start, Math.max(now, start + HOUR_MS)]
+    }
+
+    const firstTimestamp = data[0]?.timestamp ?? 0
+    const latestTimestamp = data[data.length - 1]?.timestamp ?? firstTimestamp
+    const start = history ? firstTimestamp : getDayStartTimestamp(latestTimestamp)
+    const end = Math.max(latestTimestamp, start + HOUR_MS)
+    return [start, end]
+  }, [data, history])
   const xAxisTicks = useMemo(
-    () => buildDynamicTimeTicks(data.map((item) => item.time), visibleTickCount),
-    [data, visibleTickCount],
+    () => buildHourlyTimeTicks(xAxisDomain[0], xAxisDomain[1], timeAxisStepMs),
+    [xAxisDomain, timeAxisStepMs],
   )
 
   return (
@@ -371,15 +403,18 @@ function TrendStackedChart({
               >
                 <CartesianGrid stroke="#1a2654" strokeDasharray="3 3" vertical={false} />
                 <XAxis
-                  dataKey="time"
+                  type="number"
+                  dataKey="timestamp"
                   tick={!isLast ? false : { fill: "#7b8ab8", fontSize: axisFontSize }}
                   axisLine={isLast ? { stroke: "#1a2654", strokeOpacity: 0.4 } : false}
                   tickLine={false}
                   height={isLast ? 18 : 0}
+                  domain={xAxisDomain}
                   ticks={isLast ? xAxisTicks : undefined}
-                  interval={isLast ? 0 : Math.max(xAxisTicks.length - 1, 0)}
+                  interval={0}
                   minTickGap={6}
                   padding={{ left: xAxisLeftPadding, right: xAxisRightPadding }}
+                  tickFormatter={(value) => formatHourAxisTick(Number(value))}
                 />
                 <YAxis
                   domain={section.domain}
@@ -400,6 +435,7 @@ function TrendStackedChart({
                   contentStyle={TOOLTIP_STYLE}
                   cursor={{ stroke: "#93c5fd", strokeWidth: 1, strokeOpacity: 0.65 }}
                   position={{ y: 4 }}
+                  labelFormatter={(value) => formatClock(new Date(Number(value)))}
                   labelStyle={{ color: "#7b8ab8", fontSize: tooltipFontSize }}
                   itemStyle={{ fontSize: tooltipFontSize, padding: "2px 0" }}
                   formatter={(value, name) => {

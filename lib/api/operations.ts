@@ -60,7 +60,6 @@ export type OperationsCursor = {
   cellTemperatureNanos?: number
 }
 
-const FIVE_MINUTES_MS = 5 * 60 * 1000
 const MERGE_ALIGNMENT_TOLERANCE_MS = 30 * 1000
 const SYNC_SUFFIX = "_sync"
 
@@ -129,13 +128,19 @@ const sortTrendPoints = (points: OperationTrendPoint[]) =>
     .filter((point) => point.timestamp > 0)
     .sort((left, right) => left.timestamp - right.timestamp)
 
-const trimRecentWindow = (points: OperationTrendPoint[]) => {
+const getLocalDayStartTimestamp = (timestamp: number) => {
+  const date = new Date(timestamp)
+  date.setHours(0, 0, 0, 0)
+  return date.getTime()
+}
+
+const trimRealtimeWindow = (points: OperationTrendPoint[]) => {
   if (points.length === 0) {
     return points
   }
 
   const latestTimestamp = points[points.length - 1].timestamp
-  const threshold = latestTimestamp - FIVE_MINUTES_MS
+  const threshold = getLocalDayStartTimestamp(latestTimestamp)
   return points.filter((point) => point.timestamp >= threshold)
 }
 
@@ -217,7 +222,7 @@ export const mergeOperationTrendData = (
     merged.set(resolvedTimestamp, next)
   }
 
-  return trimRecentWindow(sortTrendPoints(Array.from(merged.values())))
+  return trimRealtimeWindow(sortTrendPoints(Array.from(merged.values())))
 }
 
 const getLatestTimestamp = <T extends { time: string }>(points: T[]) => {
