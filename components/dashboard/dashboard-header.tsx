@@ -296,13 +296,9 @@ export function DashboardHeader({
 
       <div
         className={`relative grid h-full items-center gap-2 px-3 sm:gap-3 sm:px-4 ${
-          zh
-            ? useCompactHeader
-              ? "grid-cols-[minmax(188px,248px)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(220px,300px)_minmax(0,1fr)_auto]"
-              : "grid-cols-[minmax(220px,320px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(260px,360px)_minmax(0,1fr)_auto]"
-            : useCompactHeader
-              ? "grid-cols-[minmax(204px,264px)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(236px,316px)_minmax(0,1fr)_auto]"
-              : "grid-cols-[minmax(236px,316px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(296px,388px)_minmax(0,1fr)_auto]"
+          useCompactHeader
+            ? "grid-cols-[minmax(204px,264px)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(236px,316px)_minmax(0,1fr)_auto]"
+            : "grid-cols-[minmax(236px,316px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(296px,388px)_minmax(0,1fr)_auto]"
         }`}
       >
         <div className="relative flex min-w-0 items-center gap-2 sm:gap-3">
@@ -332,33 +328,57 @@ export function DashboardHeader({
           >
             <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#7de9ff]/70 to-transparent" />
             <span className="pointer-events-none absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-[#20e1c4]/40 to-transparent" />
-            <div className="flex min-w-0 flex-col items-start">
-              <span className="pointer-events-none absolute left-3 top-1/2 h-8 w-28 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(103,232,249,0.18),transparent_72%)] blur-md" />
-              <h1
-                className={`relative whitespace-nowrap font-black leading-[1.08] ${
-                  useCompactHeader
-                    ? "text-[0.94rem] tracking-[0.08em] lg:text-[1.06rem] lg:tracking-[0.1em]"
-                    : "text-[1.04rem] tracking-[0.1em] xl:text-[1.18rem] xl:tracking-[0.12em]"
-                }`}
-                style={{
-                  fontFamily: '"Segoe UI Semibold","Microsoft YaHei UI","Microsoft YaHei",sans-serif',
-                  color: "#effdff",
-                  backgroundImage: "linear-gradient(180deg,#f7feff 0%,#c7f4ff 48%,#70ffd8 100%)",
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  textShadow: "0 0 14px rgba(111,236,255,0.34)",
-                  filter: "drop-shadow(0 0 16px rgba(60,223,255,0.42)) drop-shadow(0 0 26px rgba(60,223,255,0.18))",
-                }}
-              >
-                {zh ? "Enercloud" : "Enercloud"}
-              </h1>
-              <div className="relative mt-1 h-[2px] w-full overflow-hidden rounded-full bg-[linear-gradient(90deg,rgba(34,64,95,0.18),rgba(41,123,174,0.55),rgba(34,64,95,0.18))]">
-                <span
-                  className="absolute inset-y-0 w-[24%] bg-[linear-gradient(90deg,transparent,rgba(169,244,255,0.95),transparent)]"
-                  style={{ animation: "hdr-title-sweep 3.8s ease-in-out infinite" }}
-                />
+            <span className="pointer-events-none absolute left-3 top-1/2 h-10 w-32 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(103,232,249,0.18),transparent_72%)] blur-md" />
+            <span className="pointer-events-none absolute right-5 top-1/2 h-12 w-28 -translate-y-1/2 bg-[radial-gradient(circle,rgba(70,223,255,0.12),transparent_72%)] blur-lg" />
+            <div className="relative flex min-w-0 items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h1
+                  className={`relative whitespace-nowrap font-black leading-[1.04] ${
+                    useCompactHeader
+                      ? "text-[0.96rem] tracking-[0.08em] lg:text-[1.08rem] lg:tracking-[0.11em]"
+                      : "text-[1.08rem] tracking-[0.1em] xl:text-[1.24rem] xl:tracking-[0.13em]"
+                  }`}
+                  style={{
+                    fontFamily: '"Segoe UI Semibold","Microsoft YaHei UI","Microsoft YaHei",sans-serif',
+                    color: "#effdff",
+                    backgroundImage: "linear-gradient(180deg,#f8feff 0%,#d6f9ff 45%,#7effd7 100%)",
+                    WebkitBackgroundClip: "text",
+                    backgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    textShadow: "0 0 14px rgba(111,236,255,0.34)",
+                    filter: "drop-shadow(0 0 16px rgba(60,223,255,0.42)) drop-shadow(0 0 26px rgba(60,223,255,0.18))",
+                  }}
+                >
+                  {zh ? "Enercloud" : "Enercloud"}
+                </h1>
               </div>
+
+              <div className="pointer-events-none flex shrink-0 items-center gap-2">
+                <div className="hidden min-[280px]:flex flex-col items-end gap-1.5">
+                  <span className="h-[2px] w-16 rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.95),rgba(126,255,215,0.85))] shadow-[0_0_12px_rgba(94,235,255,0.35)]" />
+                  <span className="h-[2px] w-11 rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.78),rgba(126,255,215,0.65))]" />
+                  <span className="h-[2px] w-7 rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.52),rgba(126,255,215,0.45))]" />
+                </div>
+                <div
+                  className={`relative overflow-hidden border border-[#2ecfdf]/28 bg-[linear-gradient(180deg,rgba(13,42,61,0.78),rgba(7,24,38,0.9))] shadow-[0_0_18px_rgba(51,202,255,0.12),inset_0_0_0_1px_rgba(125,243,255,0.06)] ${
+                    useCompactHeader ? "h-4 w-6" : "h-[18px] w-7"
+                  }`}
+                  style={{ clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)" }}
+                >
+                  <span className="absolute inset-x-1.5 top-0 h-px bg-gradient-to-r from-transparent via-[#8ef6ff]/70 to-transparent" />
+                  <span className="absolute left-1.5 top-1/2 h-[3px] w-[3px] -translate-y-1/2 rounded-full bg-[#8ef6ff] shadow-[0_0_8px_rgba(142,246,255,0.9)]" />
+                  <span className="absolute right-1.5 top-1/2 h-px w-2.5 -translate-y-1/2 bg-[linear-gradient(90deg,rgba(142,246,255,0.18),rgba(126,255,215,0.8))]" />
+                </div>
+              </div>
+            </div>
+
+            <div className="relative mt-1 h-[2px] w-full overflow-hidden rounded-full bg-[linear-gradient(90deg,rgba(34,64,95,0.14),rgba(41,123,174,0.6),rgba(65,230,214,0.34),rgba(34,64,95,0.08))]">
+              <span
+                className="absolute inset-y-0 w-[24%] bg-[linear-gradient(90deg,transparent,rgba(169,244,255,0.95),transparent)]"
+                style={{ animation: "hdr-title-sweep 3.8s ease-in-out infinite" }}
+              />
+              <span className="absolute right-[16%] top-1/2 h-[4px] w-[4px] -translate-y-1/2 rounded-full bg-[#88fbff] shadow-[0_0_10px_rgba(136,251,255,0.9)]" />
+              <span className="absolute right-[8%] top-1/2 h-[4px] w-[4px] -translate-y-1/2 rounded-full bg-[#58ffd0] shadow-[0_0_10px_rgba(88,255,208,0.8)]" />
             </div>
           </div>
         </div>
