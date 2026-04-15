@@ -326,35 +326,32 @@ export function DashboardHeader({
 
           <div
             className={`relative min-w-0 flex-1 overflow-hidden border border-[#235f7f]/70 bg-[linear-gradient(180deg,rgba(8,29,44,0.98),rgba(4,14,27,1))] pt-1.5 pb-2 shadow-[0_0_28px_rgba(18,94,132,0.16),inset_0_0_0_1px_rgba(126,220,255,0.05)] ${
-              zh
-                ? (useCompactHeader ? "px-3" : "px-4")
-                : (useCompactHeader ? "pl-2.5 pr-4 sm:pl-3 sm:pr-5" : "pl-2.5 pr-4 sm:pl-3 sm:pr-5 xl:px-4")
+              useCompactHeader ? "px-3" : "px-4"
             }`}
             style={{ clipPath: "polygon(12px 0%,100% 0%,calc(100% - 14px) 100%,0% 100%)" }}
           >
             <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#7de9ff]/70 to-transparent" />
             <span className="pointer-events-none absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-[#20e1c4]/40 to-transparent" />
             <div className="flex min-w-0 flex-col items-start">
+              <span className="pointer-events-none absolute left-3 top-1/2 h-8 w-28 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(103,232,249,0.18),transparent_72%)] blur-md" />
               <h1
-                className={`relative whitespace-nowrap font-bold leading-[1.15] ${
-                  zh
-                    ? useCompactHeader
-                      ? "text-[0.84rem] tracking-[0.07em] lg:text-[0.96rem] lg:tracking-[0.11em]"
-                      : "text-[0.98rem] tracking-[0.12em] xl:text-[1.08rem] xl:tracking-[0.16em]"
-                    : useCompactHeader
-                      ? "text-[0.68rem] tracking-[0.01em] sm:text-[0.74rem] sm:tracking-[0.015em] lg:text-[0.88rem] lg:tracking-[0.03em]"
-                      : "text-[0.76rem] tracking-[0.01em] sm:text-[0.82rem] sm:tracking-[0.015em] xl:text-[0.98rem] xl:tracking-[0.04em]"
+                className={`relative whitespace-nowrap font-black leading-[1.08] ${
+                  useCompactHeader
+                    ? "text-[0.94rem] tracking-[0.08em] lg:text-[1.06rem] lg:tracking-[0.1em]"
+                    : "text-[1.04rem] tracking-[0.1em] xl:text-[1.18rem] xl:tracking-[0.12em]"
                 }`}
                 style={{
-                  color: "#e2f8ff",
-                  backgroundImage: "linear-gradient(90deg,#b6fbff,#ffffff,#7effd7)",
+                  fontFamily: '"Segoe UI Semibold","Microsoft YaHei UI","Microsoft YaHei",sans-serif',
+                  color: "#effdff",
+                  backgroundImage: "linear-gradient(180deg,#f7feff 0%,#c7f4ff 48%,#70ffd8 100%)",
                   WebkitBackgroundClip: "text",
                   backgroundClip: "text",
                   WebkitTextFillColor: "transparent",
-                  filter: "drop-shadow(0 0 20px rgba(60,223,255,0.56))",
+                  textShadow: "0 0 14px rgba(111,236,255,0.34)",
+                  filter: "drop-shadow(0 0 16px rgba(60,223,255,0.42)) drop-shadow(0 0 26px rgba(60,223,255,0.18))",
                 }}
               >
-                {zh ? "Energy Azure Enercloud" : "Energy Azure Enercloud"}
+                {zh ? "Enercloud" : "Enercloud"}
               </h1>
               <div className="relative mt-1 h-[2px] w-full overflow-hidden rounded-full bg-[linear-gradient(90deg,rgba(34,64,95,0.18),rgba(41,123,174,0.55),rgba(34,64,95,0.18))]">
                 <span
