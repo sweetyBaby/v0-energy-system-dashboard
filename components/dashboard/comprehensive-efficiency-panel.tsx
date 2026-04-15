@@ -236,9 +236,9 @@ export function ComprehensiveEfficiencyPanel({
   const seriesConfig: Array<{ key: SeriesKey; name: string; color: string }> = [
     { key: "chargeCapacity", name: legendText.chargeCapacity, color: "#7dd3fc" },
     { key: "dischargeCapacity", name: legendText.dischargeCapacity, color: "#fda4af" },
+    { key: "capacityEfficiency", name: legendText.capacityEfficiency, color: "#ffd60a" },
     { key: "chargeEnergy", name: legendText.chargeEnergy, color: "#99f6e4" },
     { key: "dischargeEnergy", name: legendText.dischargeEnergy, color: "#c4b5fd" },
-    { key: "capacityEfficiency", name: legendText.capacityEfficiency, color: "#ffd60a" },
     { key: "energyEfficiency", name: legendText.energyEfficiency, color: "#4ade80" },
   ]
 
@@ -404,12 +404,6 @@ export function ComprehensiveEfficiencyPanel({
         : Math.max(0, Math.floor(visiblePointCount / 8) - 1)
   const canZoom = activeData.length > 8
   const canPan = Boolean(viewportRange && visiblePointCount < activeData.length)
-  const orderedSeriesConfig = useMemo(() => {
-    const visibleSeries = seriesConfig.filter((series) => !hiddenSeries.includes(series.key))
-    const hiddenSeriesItems = seriesConfig.filter((series) => hiddenSeries.includes(series.key))
-    return [...visibleSeries, ...hiddenSeriesItems]
-  }, [hiddenSeries, seriesConfig])
-
   useEffect(() => {
     setViewportRange(null)
     dragStateRef.current = null
@@ -632,7 +626,7 @@ export function ComprehensiveEfficiencyPanel({
 
   const renderLegend = () => (
     <div className="flex flex-wrap items-center justify-center gap-2 px-2 pt-3">
-      {orderedSeriesConfig.map((series) => {
+      {seriesConfig.map((series) => {
         const hidden = hiddenSeries.includes(series.key)
 
         return (
@@ -847,76 +841,103 @@ export function ComprehensiveEfficiencyPanel({
                   />
                   <Tooltip cursor={{ fill: "rgba(255,255,255,0.03)" }} content={renderTooltip} />
                   <Legend wrapperStyle={{ paddingTop: "4px" }} content={renderLegend} />
-                  {!hiddenSeries.includes("chargeCapacity") && (
-                    <Bar
-                      yAxisId="quantity"
-                      dataKey="chargeCapacity"
-                      name={displayLegendText.chargeCapacity}
-                      fill={`url(#${chartId}-charge-capacity)`}
-                      radius={[0, 0, 0, 0]}
-                      barSize={10}
-                      fillOpacity={0.95}
-                    />
-                  )}
-                  {!hiddenSeries.includes("dischargeCapacity") && (
-                    <Bar
-                      yAxisId="quantity"
-                      dataKey="dischargeCapacity"
-                      name={displayLegendText.dischargeCapacity}
-                      fill={`url(#${chartId}-discharge-capacity)`}
-                      radius={[0, 0, 0, 0]}
-                      barSize={10}
-                      fillOpacity={0.95}
-                    />
-                  )}
-                  {!hiddenSeries.includes("chargeEnergy") && (
-                    <Bar
-                      yAxisId="quantity"
-                      dataKey="chargeEnergy"
-                      name={displayLegendText.chargeEnergy}
-                      fill={`url(#${chartId}-charge-energy)`}
-                      radius={[0, 0, 0, 0]}
-                      barSize={10}
-                      fillOpacity={0.95}
-                    />
-                  )}
-                  {!hiddenSeries.includes("dischargeEnergy") && (
-                    <Bar
-                      yAxisId="quantity"
-                      dataKey="dischargeEnergy"
-                      name={displayLegendText.dischargeEnergy}
-                      fill={`url(#${chartId}-discharge-energy)`}
-                      radius={[0, 0, 0, 0]}
-                      barSize={10}
-                      fillOpacity={0.95}
-                    />
-                  )}
-                  {!hiddenSeries.includes("capacityEfficiency") && (
-                    <Line
-                      yAxisId="efficiency"
-                      type="monotone"
-                      dataKey="capacityEfficiency"
-                      name={displayLegendText.capacityEfficiency}
-                      stroke="#ffd60a"
-                      strokeWidth={2.5}
-                      dot={{ r: 4, fill: "#08122a", stroke: "#ffd60a", strokeWidth: 3 }}
-                      activeDot={{ r: 5, fill: "#08122a", stroke: "#ffd60a", strokeWidth: 3 }}
-                      connectNulls
-                    />
-                  )}
-                  {!hiddenSeries.includes("energyEfficiency") && (
-                    <Line
-                      yAxisId="efficiency"
-                      type="monotone"
-                      dataKey="energyEfficiency"
-                      name={displayLegendText.energyEfficiency}
-                      stroke="#4ade80"
-                      strokeWidth={2.5}
-                      dot={{ r: 4, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
-                      activeDot={{ r: 5, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
-                      connectNulls
-                    />
-                  )}
+                  {seriesConfig.map((series) => {
+                    if (hiddenSeries.includes(series.key)) {
+                      return null
+                    }
+
+                    if (series.key === "chargeCapacity") {
+                      return (
+                        <Bar
+                          key={series.key}
+                          yAxisId="quantity"
+                          dataKey={series.key}
+                          name={displayLegendText[series.key]}
+                          fill={`url(#${chartId}-charge-capacity)`}
+                          radius={[0, 0, 0, 0]}
+                          barSize={10}
+                          fillOpacity={0.95}
+                        />
+                      )
+                    }
+
+                    if (series.key === "dischargeCapacity") {
+                      return (
+                        <Bar
+                          key={series.key}
+                          yAxisId="quantity"
+                          dataKey={series.key}
+                          name={displayLegendText[series.key]}
+                          fill={`url(#${chartId}-discharge-capacity)`}
+                          radius={[0, 0, 0, 0]}
+                          barSize={10}
+                          fillOpacity={0.95}
+                        />
+                      )
+                    }
+
+                    if (series.key === "capacityEfficiency") {
+                      return (
+                        <Line
+                          key={series.key}
+                          yAxisId="efficiency"
+                          type="monotone"
+                          dataKey={series.key}
+                          name={displayLegendText[series.key]}
+                          stroke="#ffd60a"
+                          strokeWidth={2.5}
+                          dot={{ r: 4, fill: "#08122a", stroke: "#ffd60a", strokeWidth: 3 }}
+                          activeDot={{ r: 5, fill: "#08122a", stroke: "#ffd60a", strokeWidth: 3 }}
+                          connectNulls
+                        />
+                      )
+                    }
+
+                    if (series.key === "chargeEnergy") {
+                      return (
+                        <Bar
+                          key={series.key}
+                          yAxisId="quantity"
+                          dataKey={series.key}
+                          name={displayLegendText[series.key]}
+                          fill={`url(#${chartId}-charge-energy)`}
+                          radius={[0, 0, 0, 0]}
+                          barSize={10}
+                          fillOpacity={0.95}
+                        />
+                      )
+                    }
+
+                    if (series.key === "dischargeEnergy") {
+                      return (
+                        <Bar
+                          key={series.key}
+                          yAxisId="quantity"
+                          dataKey={series.key}
+                          name={displayLegendText[series.key]}
+                          fill={`url(#${chartId}-discharge-energy)`}
+                          radius={[0, 0, 0, 0]}
+                          barSize={10}
+                          fillOpacity={0.95}
+                        />
+                      )
+                    }
+
+                    return (
+                      <Line
+                        key={series.key}
+                        yAxisId="efficiency"
+                        type="monotone"
+                        dataKey={series.key}
+                        name={displayLegendText[series.key]}
+                        stroke="#4ade80"
+                        strokeWidth={2.5}
+                        dot={{ r: 4, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
+                        activeDot={{ r: 5, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
+                        connectNulls
+                      />
+                    )
+                  })}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
