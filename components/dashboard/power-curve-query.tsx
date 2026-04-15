@@ -34,6 +34,7 @@ type QueryType = "today" | "yesterday" | "week" | "custom"
 type ChartPoint = {
   key: string
   label: string
+  timestamp: number
   power: number | null
   tooltipLabel: string
 }
@@ -50,6 +51,11 @@ type DragState = {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const HOUR_MS = 60 * 60 * 1000
+const SINGLE_DAY_MIN_WINDOW_MS = {
+  compact: 6 * HOUR_MS,
+  regular: 4 * HOUR_MS,
+}
 const TODAY_POLL_MS = 6_000
 const TOOLTIP_SURFACE = {
   background: "linear-gradient(180deg, rgba(8,18,42,0.98), rgba(9,20,46,0.94))",
@@ -71,6 +77,48 @@ const formatDateOnly = (date: Date) =>
 
 const formatTimeLabel = (date: Date) =>
   `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`
+
+const formatHourTick = (timestamp: number, dayStart: number, dayEnd: number) => {
+  if (timestamp === dayEnd) {
+    return "24:00"
+  }
+
+  const hour = Math.round((timestamp - dayStart) / HOUR_MS)
+  return `${String(hour).padStart(2, "0")}:00`
+}
+
+const formatSingleDayHourLabel = (
+  timestamp: number,
+  dayStart: number,
+  dayEnd: number,
+  compact: boolean,
+) => {
+  const hour = Math.round((timestamp - dayStart) / (60 * 60 * 1000))
+
+  if (!compact || timestamp === dayStart || timestamp === dayEnd || hour % 2 === 0) {
+    return formatHourTick(timestamp, dayStart, dayEnd)
+  }
+
+  return ""
+}
+
+const formatSingleDayAxisLabel = (
+  timestamp: number,
+  axisStart: number,
+  axisEnd: number,
+  dayStart: number,
+  dayEnd: number,
+  compact: boolean,
+) => {
+  const isBoundary = timestamp === axisStart || timestamp === axisEnd
+  const isAlignedHour = timestamp % HOUR_MS === 0
+
+  if (isBoundary && !isAlignedHour) {
+    return formatTimeLabel(new Date(timestamp))
+  }
+
+  return formatSingleDayHourLabel(timestamp, dayStart, dayEnd, compact)
+}
 
 const formatDateTimeLabel = (date: Date) =>
   `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`
@@ -94,6 +142,53 @@ const formatRangeLabel = (range: DateRange | undefined, language: "zh" | "en") =
 const toSeconds = (timestamp: number) => Math.floor(timestamp / 1000)
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
+const findRangeIndicesByTime = (points: ChartPoint[], startTime: number, endTime: number) => {
+  if (points.length === 0) {
+    return { startIndex: 0, endIndex: 0 }
+  }
+
+  let startIndex = points.findIndex((point) => point.timestamp >= startTime)
+  if (startIndex === -1) {
+    startIndex = points.length - 1
+  } else if (startIndex > 0 && points[startIndex].timestamp > startTime) {
+    startIndex -= 1
+  }
+
+  let endIndex = points.length - 1
+  while (endIndex > startIndex && points[endIndex].timestamp > endTime) {
+    endIndex -= 1
+  }
+
+  if (endIndex < startIndex) {
+    endIndex = startIndex
+  }
+
+  return { startIndex, endIndex }
+}
+
+const dedupeSingleDayTicks = (ticks: number[], stepMs: number, axisStart: number, axisEnd: number) => {
+  if (ticks.length <= 2) {
+    return ticks
+  }
+
+  const minGap = Math.max(Math.floor(stepMs * 0.6), 20 * 60 * 1000)
+  const filtered = [...ticks]
+
+  if (axisStart !== filtered[0] || axisEnd !== filtered[filtered.length - 1]) {
+    return filtered
+  }
+
+  if (filtered.length > 2 && filtered[1] - filtered[0] < minGap) {
+    filtered.splice(1, 1)
+  }
+
+  if (filtered.length > 2 && filtered[filtered.length - 1] - filtered[filtered.length - 2] < minGap) {
+    filtered.splice(filtered.length - 2, 1)
+  }
+
+  return filtered
+}
+
 const toChartPoints = (points: PowerPoint[], queryType: QueryType): ChartPoint[] => {
   const multiDay = queryType === "week" || queryType === "custom"
 
@@ -103,6 +198,7 @@ const toChartPoints = (points: PowerPoint[], queryType: QueryType): ChartPoint[]
     return {
       key: point.isoTime,
       label: multiDay ? `${formatDayLabel(date)} ${formatTimeLabel(date)}` : formatTimeLabel(date),
+      timestamp: point.timestamp,
       power: point.power,
       tooltipLabel: formatDateTimeLabel(date),
     }
@@ -161,6 +257,12 @@ export function PowerCurveQuery() {
   const axisFontSize = panelScale.chart(10, 12.5)
   const emptyFontSize = panelScale.fluid(14, 17)
   const chartData = useMemo(() => toChartPoints(points, queryType), [points, queryType])
+  const isSingleDayQuery = queryType === "today" || queryType === "yesterday"
+  const singleDayStart = useMemo(
+    () => (queryType === "today" ? currentDay.getTime() : yesterday.getTime()),
+    [currentDay, queryType, yesterday],
+  )
+  const singleDayEnd = useMemo(() => singleDayStart + DAY_MS, [singleDayStart])
   const visibleChartData = useMemo(() => {
     if (!viewportRange) {
       return chartData
@@ -169,8 +271,61 @@ export function PowerCurveQuery() {
     return chartData.slice(viewportRange.startIndex, viewportRange.endIndex + 1)
   }, [chartData, viewportRange])
   const visiblePointCount = visibleChartData.length
+  const singleDayTickStep = isCompactViewport ? HOUR_MS * 2 : HOUR_MS
+  const singleDayAxis = useMemo(() => {
+    let domainStart = singleDayStart
+    let domainEnd = singleDayEnd
+
+    if (isSingleDayQuery && chartData.length > 0 && viewportRange) {
+      const firstPoint = chartData[viewportRange.startIndex]
+      const lastPoint = chartData[viewportRange.endIndex]
+
+      if (firstPoint && lastPoint) {
+        const isFullRange = viewportRange.startIndex === 0 && viewportRange.endIndex === chartData.length - 1
+
+        if (!isFullRange) {
+          domainStart = Math.max(singleDayStart, firstPoint.timestamp)
+          domainEnd = Math.min(singleDayEnd, Math.max(domainStart + singleDayTickStep, lastPoint.timestamp))
+        }
+      }
+    }
+
+    const ticks: number[] = []
+    const firstTick =
+      domainStart === singleDayStart
+        ? domainStart
+        : Math.ceil(domainStart / singleDayTickStep) * singleDayTickStep
+
+    if (domainStart !== singleDayStart) {
+      ticks.push(domainStart)
+    }
+
+    for (let tick = firstTick; tick <= domainEnd; tick += singleDayTickStep) {
+      if (ticks[ticks.length - 1] !== tick) {
+        ticks.push(tick)
+      }
+    }
+
+    if (domainStart === singleDayStart && ticks[0] !== singleDayStart) {
+      ticks.unshift(singleDayStart)
+    }
+
+    if (ticks.length === 0) {
+      ticks.push(domainEnd)
+    } else if (ticks[ticks.length - 1] !== domainEnd) {
+      ticks.push(domainEnd)
+    }
+
+    const resolvedTicks = dedupeSingleDayTicks(ticks, singleDayTickStep, domainStart, domainEnd)
+
+    return {
+      start: domainStart,
+      end: domainEnd,
+      ticks: resolvedTicks,
+    }
+  }, [chartData, isSingleDayQuery, singleDayEnd, singleDayStart, singleDayTickStep, viewportRange])
   const xInterval =
-    queryType === "today" || queryType === "yesterday"
+    isSingleDayQuery
       ? Math.max(1, Math.floor(visiblePointCount / 8))
       : Math.max(1, Math.floor(visiblePointCount / 10))
   const canZoom = chartData.length > 24
@@ -406,6 +561,65 @@ export function PowerCurveQuery() {
         startIndex: 0,
         endIndex: chartData.length - 1,
       }
+
+    if (isSingleDayQuery) {
+      const fullWindowMs = singleDayEnd - singleDayStart
+      const minWindowMs = isCompactViewport ? SINGLE_DAY_MIN_WINDOW_MS.compact : SINGLE_DAY_MIN_WINDOW_MS.regular
+      const rangeStartTime = chartData[currentRange.startIndex]?.timestamp ?? singleDayStart
+      const rangeEndTime = chartData[currentRange.endIndex]?.timestamp ?? singleDayEnd
+      const currentWindowMs = Math.max(HOUR_MS, rangeEndTime - rangeStartTime)
+      const nextWindowMs = clamp(
+        Math.round(currentWindowMs * (event.deltaY > 0 ? 1.25 : 0.8)),
+        minWindowMs,
+        fullWindowMs,
+      )
+
+      if (nextWindowMs === currentWindowMs && viewportRange) {
+        return
+      }
+
+      const relativeX = clamp((event.clientX - rect.left) / Math.max(rect.width, 1), 0, 1)
+      const anchorIndex = clamp(
+        currentRange.startIndex + Math.round((currentRange.endIndex - currentRange.startIndex) * relativeX),
+        0,
+        chartData.length - 1,
+      )
+      const anchorTime = chartData[anchorIndex]?.timestamp ?? singleDayStart
+
+      let targetStart = Math.round(anchorTime - relativeX * nextWindowMs)
+      let targetEnd = targetStart + nextWindowMs
+
+      if (targetStart < singleDayStart) {
+        targetStart = singleDayStart
+        targetEnd = targetStart + nextWindowMs
+      }
+
+      if (targetEnd > singleDayEnd) {
+        targetEnd = singleDayEnd
+        targetStart = targetEnd - nextWindowMs
+      }
+
+      if (nextWindowMs >= fullWindowMs) {
+        setViewportRange({
+          startIndex: 0,
+          endIndex: chartData.length - 1,
+        })
+        return
+      }
+
+      const nextRange = findRangeIndicesByTime(chartData, targetStart, targetEnd)
+
+      if (
+        nextRange.startIndex === currentRange.startIndex &&
+        nextRange.endIndex === currentRange.endIndex
+      ) {
+        return
+      }
+
+      setViewportRange(nextRange)
+      return
+    }
+
     const currentSize = currentRange.endIndex - currentRange.startIndex + 1
     const nextSize = clamp(
       currentSize + (event.deltaY > 0 ? Math.max(2, Math.ceil(currentSize * 0.2)) : -Math.max(2, Math.ceil(currentSize * 0.2))),
@@ -570,12 +784,16 @@ export function PowerCurveQuery() {
         onPointerUp={(event) => stopTimelineDrag(event.pointerId)}
         onPointerCancel={(event) => stopTimelineDrag(event.pointerId)}
         onLostPointerCapture={(event) => stopTimelineDrag(event.pointerId)}
-        className={`relative flex-1 overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
+        className={`relative flex-1 select-none overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
           isCompactViewport ? "min-h-[220px]" : "min-h-[288px]"
         } ${
           canPan ? (isDraggingTimeline ? "cursor-grabbing" : "cursor-grab") : ""
         }`}
-        style={{ touchAction: canPan ? "none" : "auto" }}
+        style={{
+          touchAction: canPan ? "none" : "auto",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+        }}
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(0,212,170,0.08),transparent_28%),radial-gradient(circle_at_84%_10%,rgba(86,130,255,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent)]" />
         {loading ? (
@@ -586,7 +804,7 @@ export function PowerCurveQuery() {
           <div className="flex h-full items-center justify-center text-[#7b8ab8]" style={{ fontSize: `${emptyFontSize}px` }}>{emptyStateText}</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={visibleChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <LineChart data={visibleChartData} margin={{ top: 10, right: 14, left: 4, bottom: 0 }}>
               <defs>
                 <linearGradient id={`${chartId}-power-fill`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.34} />
@@ -596,13 +814,75 @@ export function PowerCurveQuery() {
               </defs>
               <CartesianGrid strokeDasharray="3 5" stroke="rgba(45,74,126,0.72)" vertical={false} />
               <XAxis
-                dataKey="label"
+                {...(isSingleDayQuery
+                  ? {
+                      type: "number" as const,
+                      dataKey: "timestamp",
+                      domain: [singleDayAxis.start, singleDayAxis.end] as [number, number],
+                      ticks: singleDayAxis.ticks,
+                      tickFormatter: (value: number) =>
+                        formatSingleDayAxisLabel(
+                          value,
+                          singleDayAxis.start,
+                          singleDayAxis.end,
+                          singleDayStart,
+                          singleDayEnd,
+                          isCompactViewport,
+                        ),
+                      interval: 0 as const,
+                      padding: { left: 8, right: 12 },
+                    }
+                  : {
+                      dataKey: "label",
+                      interval: xInterval,
+                    })}
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
+                tick={
+                  isSingleDayQuery
+                    ? (tickProps: { x?: number; y?: number; payload?: { value?: number } }) => {
+                        const value =
+                          typeof tickProps.payload?.value === "number"
+                            ? tickProps.payload.value
+                            : Number(tickProps.payload?.value ?? Number.NaN)
+
+                        if (!Number.isFinite(value)) {
+                          return null
+                        }
+
+                        const label = formatSingleDayAxisLabel(
+                          value,
+                          singleDayAxis.start,
+                          singleDayAxis.end,
+                          singleDayStart,
+                          singleDayEnd,
+                          isCompactViewport,
+                        )
+
+                        if (!label) {
+                          return null
+                        }
+
+                        const textAnchor =
+                          value === singleDayAxis.start ? "start" : value === singleDayAxis.end ? "end" : "middle"
+
+                        return (
+                          <text
+                            x={tickProps.x}
+                            y={tickProps.y}
+                            dy={12}
+                            textAnchor={textAnchor}
+                            fill="#88a4d7"
+                            fontSize={axisFontSize}
+                          >
+                            {label}
+                          </text>
+                        )
+                      }
+                    : { fill: "#88a4d7", fontSize: axisFontSize }
+                }
                 tickMargin={10}
-                interval={xInterval}
-                minTickGap={queryType === "today" || queryType === "yesterday" ? 18 : 28}
+                minTickGap={isSingleDayQuery ? 8 : 28}
               />
               <YAxis
                 axisLine={false}
