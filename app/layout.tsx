@@ -3,7 +3,7 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Energy Azure Enercloud",
+  title: "Enercloud",
   description: "用于储能系统实时监测、综合效能分析、历史追溯和报表管理的大屏平台。",
   generator: "v0.app",
   icons: {
