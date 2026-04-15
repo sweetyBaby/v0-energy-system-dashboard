@@ -301,8 +301,8 @@ export function DashboardHeader({
               ? "grid-cols-[minmax(188px,248px)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(220px,300px)_minmax(0,1fr)_auto]"
               : "grid-cols-[minmax(220px,320px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(260px,360px)_minmax(0,1fr)_auto]"
             : useCompactHeader
-              ? "grid-cols-[minmax(188px,236px)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(220px,290px)_minmax(0,1fr)_auto]"
-              : "grid-cols-[minmax(220px,290px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)_auto]"
+              ? "grid-cols-[minmax(204px,264px)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(236px,316px)_minmax(0,1fr)_auto]"
+              : "grid-cols-[minmax(236px,316px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(296px,388px)_minmax(0,1fr)_auto]"
         }`}
       >
         <div className="relative flex min-w-0 items-center gap-2 sm:gap-3">
@@ -325,8 +325,10 @@ export function DashboardHeader({
           ) : null}
 
           <div
-            className={`relative min-w-0 flex-1 overflow-hidden border border-[#235f7f]/70 bg-[linear-gradient(180deg,rgba(8,29,44,0.98),rgba(4,14,27,1))] py-1.5 shadow-[0_0_28px_rgba(18,94,132,0.16),inset_0_0_0_1px_rgba(126,220,255,0.05)] ${
-              zh ? (useCompactHeader ? "px-3" : "px-4") : (useCompactHeader ? "px-2.5 sm:px-3" : "px-2.5 sm:px-3 xl:px-4")
+            className={`relative min-w-0 flex-1 overflow-hidden border border-[#235f7f]/70 bg-[linear-gradient(180deg,rgba(8,29,44,0.98),rgba(4,14,27,1))] pt-1.5 pb-2 shadow-[0_0_28px_rgba(18,94,132,0.16),inset_0_0_0_1px_rgba(126,220,255,0.05)] ${
+              zh
+                ? (useCompactHeader ? "px-3" : "px-4")
+                : (useCompactHeader ? "pl-2.5 pr-4 sm:pl-3 sm:pr-5" : "pl-2.5 pr-4 sm:pl-3 sm:pr-5 xl:px-4")
             }`}
             style={{ clipPath: "polygon(12px 0%,100% 0%,calc(100% - 14px) 100%,0% 100%)" }}
           >
@@ -334,17 +336,16 @@ export function DashboardHeader({
             <span className="pointer-events-none absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-[#20e1c4]/40 to-transparent" />
             <div className="flex min-w-0 flex-col items-start">
               <h1
-                className={`relative mt-0.5 whitespace-nowrap font-bold ${
+                className={`relative whitespace-nowrap font-bold leading-[1.15] ${
                   zh
                     ? useCompactHeader
-                      ? "text-[0.8rem] tracking-[0.08em] lg:text-[0.9rem] lg:tracking-[0.12em]"
-                      : "text-[0.92rem] tracking-[0.14em] xl:text-[1rem] xl:tracking-[0.18em]"
+                      ? "text-[0.84rem] tracking-[0.07em] lg:text-[0.96rem] lg:tracking-[0.11em]"
+                      : "text-[0.98rem] tracking-[0.12em] xl:text-[1.08rem] xl:tracking-[0.16em]"
                     : useCompactHeader
-                      ? "text-[0.52rem] tracking-[0em] sm:text-[0.58rem] sm:tracking-[0.01em] lg:text-[0.72rem] lg:tracking-[0.06em]"
-                      : "text-[0.56rem] tracking-[0em] sm:text-[0.62rem] sm:tracking-[0.01em] xl:text-[0.82rem] xl:tracking-[0.1em]"
+                      ? "text-[0.68rem] tracking-[0.01em] sm:text-[0.74rem] sm:tracking-[0.015em] lg:text-[0.88rem] lg:tracking-[0.03em]"
+                      : "text-[0.76rem] tracking-[0.01em] sm:text-[0.82rem] sm:tracking-[0.015em] xl:text-[0.98rem] xl:tracking-[0.04em]"
                 }`}
                 style={{
-                  ...(zh ? {} : { fontSize: "clamp(0.56rem,0.84vw,0.82rem)", letterSpacing: "0.02em" }),
                   color: "#e2f8ff",
                   backgroundImage: "linear-gradient(90deg,#b6fbff,#ffffff,#7effd7)",
                   WebkitBackgroundClip: "text",
@@ -353,7 +354,7 @@ export function DashboardHeader({
                   filter: "drop-shadow(0 0 20px rgba(60,223,255,0.56))",
                 }}
               >
-                {zh ? "BMS 数据监测云平台" : "BMS Data Monitoring Cloud Platform"}
+                {zh ? "Energy Azure Enercloud" : "Energy Azure Enercloud"}
               </h1>
               <div className="relative mt-1 h-[2px] w-full overflow-hidden rounded-full bg-[linear-gradient(90deg,rgba(34,64,95,0.18),rgba(41,123,174,0.55),rgba(34,64,95,0.18))]">
                 <span
