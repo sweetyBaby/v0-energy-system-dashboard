@@ -6,6 +6,7 @@ import {
   Bar,
   CartesianGrid,
   ComposedChart,
+  Customized,
   Legend,
   type LegendProps,
   Line,
@@ -29,6 +30,7 @@ import {
   formatNullableMetric,
   normalizeOverviewDailyRows,
   type EfficiencyPoint,
+  type EfficiencyPointChild,
 } from "@/lib/api/overview"
 
 type RangeKey = "week" | "month" | "year" | "custom"
@@ -41,6 +43,11 @@ type SeriesKey =
   | "capacityEfficiency"
   | "energyEfficiency"
 type TableColumnKey = "period" | SeriesKey
+type BarMetricKey = "chargeCapacity" | "dischargeCapacity" | "chargeEnergy" | "dischargeEnergy"
+type StackDeviceMeta = {
+  deviceId: string
+  label: string
+}
 
 type ViewportRange = {
   startIndex: number
@@ -78,6 +85,72 @@ const addDays = (date: Date, days: number) => {
 const formatRequestDate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+const STACK_BAR_OPACITY = [0.96, 0.84, 0.72, 0.6, 0.5]
+const BAR_METRIC_KEYS: BarMetricKey[] = ["chargeCapacity", "dischargeCapacity", "chargeEnergy", "dischargeEnergy"]
+
+const buildStackDataKey = (seriesKey: BarMetricKey, deviceId: string) =>
+  `${seriesKey}__${deviceId.replace(/[^a-zA-Z0-9_-]/g, "_")}`
+
+type ActiveTooltipBandProps = {
+  isTooltipActive?: boolean
+  activeCoordinate?: {
+    x?: number
+  }
+  offset?: {
+    left?: number
+    top?: number
+    width?: number
+    height?: number
+  }
+  tooltipAxisBandSize?: number
+  fillId: string
+}
+
+function ActiveTooltipBand({
+  isTooltipActive,
+  activeCoordinate,
+  offset,
+  tooltipAxisBandSize,
+  fillId,
+}: ActiveTooltipBandProps) {
+  if (
+    !isTooltipActive ||
+    typeof activeCoordinate?.x !== "number" ||
+    typeof offset?.left !== "number" ||
+    typeof offset?.top !== "number" ||
+    typeof offset?.width !== "number" ||
+    typeof offset?.height !== "number"
+  ) {
+    return null
+  }
+
+  const rawBandWidth = typeof tooltipAxisBandSize === "number" ? tooltipAxisBandSize : 0
+  const bandWidth = Math.max(rawBandWidth, 18)
+  const chartLeft = offset.left
+  const chartRight = offset.left + offset.width
+  const bandLeft = Math.max(activeCoordinate.x - bandWidth / 2, chartLeft)
+  const bandRight = Math.min(activeCoordinate.x + bandWidth / 2, chartRight)
+  const width = bandRight - bandLeft
+
+  if (width <= 0) {
+    return null
+  }
+
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={bandLeft}
+        y={offset.top}
+        width={width}
+        height={offset.height}
+        fill={`url(#${fillId})`}
+        stroke="rgba(238,245,255,0.14)"
+        strokeWidth={1}
+        rx={4}
+      />
+    </g>
+  )
+}
 
 function ViewIconChart({ active }: { active: boolean }) {
   return <LineChartIcon className="h-[16px] w-[16px]" style={{ color: active ? "#07162b" : "#6f86b7" }} />
@@ -426,13 +499,51 @@ export function ComprehensiveEfficiencyPanel({
   const displayBcuLabel = "BCU"
   const displayAllBcuLabel = language === "zh" ? "全部BCU" : "All BCUs"
 
+  const isAllBcuSelected = selectedDeviceId === BCU_SELECTOR_ALL_VALUE
+  const stackedBarDevices = useMemo<StackDeviceMeta[]>(() => {
+    const deviceMap = new Map(selectedProject.devices.map((device, index) => [device.deviceId, device.deviceName || `BCU ${index + 1}`]))
+    const orderedDeviceIds = selectedProject.devices.map((device) => device.deviceId).filter(Boolean)
+    const responseDeviceIds = Array.from(
+      new Set(
+        activeData.flatMap((point) => point.children.map((child) => child.deviceId)).filter((deviceId) => deviceId.length > 0),
+      ),
+    )
+    const mergedDeviceIds = [...orderedDeviceIds, ...responseDeviceIds.filter((deviceId) => !orderedDeviceIds.includes(deviceId))]
+
+    return mergedDeviceIds.map((deviceId, index) => ({
+      deviceId,
+      label: deviceMap.get(deviceId) ?? `BCU ${index + 1}`,
+    }))
+  }, [activeData, selectedProject.devices])
+  const useStackedBars = isAllBcuSelected && stackedBarDevices.length > 0 && activeData.some((point) => point.children.length > 0)
+  const chartData = useMemo(
+    () =>
+      activeData.map((point) => {
+        if (!useStackedBars) {
+          return point
+        }
+
+        const childMetricMap = new Map(point.children.map((child) => [child.deviceId, child]))
+        const stackedPoint: EfficiencyPoint = { ...point }
+
+        stackedBarDevices.forEach((device) => {
+          const child = childMetricMap.get(device.deviceId)
+          BAR_METRIC_KEYS.forEach((metricKey) => {
+            stackedPoint[buildStackDataKey(metricKey, device.deviceId)] = child?.[metricKey] ?? null
+          })
+        })
+
+        return stackedPoint
+      }),
+    [activeData, stackedBarDevices, useStackedBars],
+  )
   const visibleChartData = useMemo(() => {
     if (!viewportRange) {
-      return activeData
+      return chartData
     }
 
-    return activeData.slice(viewportRange.startIndex, viewportRange.endIndex + 1)
-  }, [activeData, viewportRange])
+    return chartData.slice(viewportRange.startIndex, viewportRange.endIndex + 1)
+  }, [chartData, viewportRange])
 
   const visiblePointCount = visibleChartData.length
   const xInterval =
@@ -494,42 +605,148 @@ export function ComprehensiveEfficiencyPanel({
     })
   }
 
-  const renderTooltip = ({ active, payload, label }: TooltipProps<ValueType, NameType>) => {
+  const renderTooltip = ({ active, payload, label, coordinate, viewBox }: TooltipProps<ValueType, NameType>) => {
     if (!active || !payload?.length) return null
 
+    const tooltipPoint = payload[0]?.payload as EfficiencyPoint | undefined
+    if (!tooltipPoint) return null
+
+    const visibleSeries = seriesConfig.filter((series) => !hiddenSeries.includes(series.key))
+    const tooltipDeviceMap = new Map(stackedBarDevices.map((device) => [device.deviceId, device.label]))
+    const tooltipHasDenseBreakdown = useStackedBars && tooltipPoint.children.length >= 7
+    const prefersExtraWideLayout = useStackedBars && (visibleSeries.length >= 5 || tooltipHasDenseBreakdown)
+    const estimatedWideTooltipWidth = tooltipHasDenseBreakdown ? 920 : prefersExtraWideLayout ? 820 : 620
+    const chartRightEdge =
+      viewBox && typeof viewBox.x === "number" && typeof viewBox.width === "number" ? viewBox.x + viewBox.width : null
+    const tooltipNeedsCompactLayout =
+      useStackedBars &&
+      (
+        (chartRightEdge != null && typeof coordinate?.x === "number" && coordinate.x > chartRightEdge - estimatedWideTooltipWidth) ||
+        (typeof viewBox?.width === "number" && viewBox.width < (tooltipHasDenseBreakdown ? 860 : prefersExtraWideLayout ? 760 : 620))
+      )
+    const tooltipUsesWideLayout = useStackedBars && (visibleSeries.length > 2 || tooltipHasDenseBreakdown) && !tooltipNeedsCompactLayout
+    const tooltipColumnClass = tooltipUsesWideLayout
+      ? tooltipHasDenseBreakdown
+        ? "grid-cols-2"
+        : prefersExtraWideLayout
+          ? "grid-cols-3"
+          : "grid-cols-2"
+      : "grid-cols-1"
+    const tooltipWideWidth = tooltipHasDenseBreakdown
+      ? "min(92vw, 960px)"
+      : prefersExtraWideLayout
+        ? "min(88vw, 840px)"
+        : "min(78vw, 620px)"
+
     return (
-      <div className="min-w-[220px] overflow-hidden" style={TOOLTIP_SURFACE}>
-        <div className="border-b border-white/8 bg-[linear-gradient(90deg,rgba(17,216,191,0.14),transparent)] px-3 py-2">
+      <div
+        className={tooltipUsesWideLayout ? "overflow-hidden" : "min-w-[220px] overflow-hidden"}
+        style={{
+          ...TOOLTIP_SURFACE,
+          width: tooltipUsesWideLayout ? tooltipWideWidth : undefined,
+          maxWidth: tooltipUsesWideLayout ? tooltipWideWidth : tooltipNeedsCompactLayout ? "290px" : "340px",
+        }}
+      >
+        <div
+          className={`border-b border-white/8 bg-[linear-gradient(90deg,rgba(17,216,191,0.14),transparent)] ${
+            tooltipNeedsCompactLayout ? "px-2.5 py-2" : "px-3 py-2"
+          }`}
+        >
           <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#7da0d8]">{displayTooltipPeriodLabel}</div>
           <div className="mt-1 text-sm font-semibold text-[#e9f4ff]">{label}</div>
         </div>
 
-        <div className="grid gap-2 px-3 py-3">
-          {payload.map((entry) => {
-            const key = entry.dataKey as SeriesKey
+        <div
+          className={`grid ${tooltipNeedsCompactLayout ? "gap-1.5 px-2.5 py-2.5" : "gap-2 px-3 py-3"} ${
+            tooltipUsesWideLayout ? `${tooltipColumnClass} items-start` : "grid-cols-1"
+          }`}
+        >
+          {visibleSeries.map((series) => {
+            const key = series.key
             const meta = seriesMap[key]
-            const numericValue = typeof entry.value === "number" ? entry.value : Number(entry.value ?? 0)
+            const rawValue = tooltipPoint[key]
+            const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue ?? 0)
             const displayValue =
-              Number.isNaN(numericValue) || entry.value == null
+              Number.isNaN(numericValue) || rawValue == null
                 ? "--"
                 : numericValue.toFixed(key === "capacityEfficiency" || key === "energyEfficiency" ? 2 : 1)
+            const childBreakdown =
+              useStackedBars && BAR_METRIC_KEYS.includes(key as BarMetricKey)
+                ? tooltipPoint.children
+                    .map((child) => {
+                      const childValue = child[key as BarMetricKey]
+
+                      return {
+                        deviceId: child.deviceId,
+                        label: tooltipDeviceMap.get(child.deviceId) ?? child.deviceId,
+                        value:
+                          childValue == null || Number.isNaN(childValue)
+                            ? "--"
+                            : childValue.toFixed(key === "chargeEnergy" || key === "dischargeEnergy" ? 1 : 1),
+                      }
+                    })
+                    .filter((child) => child.value !== "--")
+                : []
+            const childBreakdownColumnCount =
+              !tooltipNeedsCompactLayout && childBreakdown.length >= 7 ? 2 : 1
+            const childBreakdownItemsPerColumn = Math.ceil(childBreakdown.length / childBreakdownColumnCount)
+            const childBreakdownColumns = Array.from({ length: childBreakdownColumnCount }, (_, columnIndex) =>
+              childBreakdown.slice(
+                columnIndex * childBreakdownItemsPerColumn,
+                (columnIndex + 1) * childBreakdownItemsPerColumn,
+              ),
+            ).filter((column) => column.length > 0)
 
             return (
               <div
                 key={key}
-                className="flex items-center justify-between gap-3 rounded-xl border border-white/6 bg-white/[0.03] px-2.5 py-2"
+                className={`rounded-xl border border-white/6 bg-white/[0.03] ${
+                  tooltipNeedsCompactLayout ? "px-2 py-1.5" : "px-2.5 py-2"
+                }`}
               >
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: meta.color, boxShadow: `0 0 12px ${meta.color}99` }}
-                  />
-                  <span className="text-[12px] text-[#bed3f6]">{displayLegendText[key]}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`${tooltipNeedsCompactLayout ? "h-2 w-2" : "h-2.5 w-2.5"} rounded-full`}
+                      style={{ backgroundColor: meta.color, boxShadow: `0 0 12px ${meta.color}99` }}
+                    />
+                    <span className={`${tooltipNeedsCompactLayout ? "text-[11px]" : "text-[12px]"} text-[#bed3f6]`}>
+                      {displayLegendText[key]}
+                    </span>
+                  </div>
+                  <span className={`font-mono font-semibold text-[#f2f8ff] ${tooltipNeedsCompactLayout ? "text-[11px]" : "text-[12px]"}`}>
+                    {displayValue}
+                    <span className="ml-1 text-[#86a7d4]">{meta.unit}</span>
+                  </span>
                 </div>
-                <span className="font-mono text-[12px] font-semibold text-[#f2f8ff]">
-                  {displayValue}
-                  <span className="ml-1 text-[#86a7d4]">{meta.unit}</span>
-                </span>
+
+                {childBreakdown.length > 0 ? (
+                  <div className={`border-t border-white/6 ${tooltipNeedsCompactLayout ? "mt-1.5 pt-1.5" : "mt-2 pt-2"}`}>
+                    <div
+                      className={`grid ${tooltipNeedsCompactLayout ? "gap-1" : "gap-x-3 gap-y-1.5"}`}
+                      style={{
+                        gridTemplateColumns: `repeat(${childBreakdownColumns.length}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {childBreakdownColumns.map((column, columnIndex) => (
+                        <div key={`${key}-column-${columnIndex}`} className={`grid ${tooltipNeedsCompactLayout ? "gap-1" : "gap-1.5"}`}>
+                          {column.map((child) => (
+                            <div
+                              key={`${key}-${child.deviceId}`}
+                              className={`flex items-start justify-between gap-2 ${tooltipNeedsCompactLayout ? "text-[10.5px]" : "text-[11px]"}`}
+                            >
+                              <span className="min-w-0 flex-1 break-words text-[#7da0d8]">{child.label}</span>
+                              <span className="shrink-0 whitespace-nowrap font-mono text-[#dce9ff]">
+                                {child.value}
+                                <span className="ml-1 text-[#6f86b7]">{meta.unit}</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )
           })}
@@ -698,10 +915,10 @@ export function ComprehensiveEfficiencyPanel({
   )
 
   const wrapperClassName = compact
-    ? `flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#22d3ee]/25 bg-[rgba(5,12,26,0.62)] backdrop-blur-[3px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset] ${
+    ? `flex h-full min-h-0 flex-col overflow-visible rounded-[22px] border border-[#22d3ee]/25 bg-[rgba(5,12,26,0.62)] backdrop-blur-[3px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset] ${
         isCompactViewport ? "p-2.5" : "p-3"
       }`
-    : `flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a2654] bg-[#0d1233] ${
+    : `flex h-full min-h-0 flex-col overflow-visible rounded-lg border border-[#1a2654] bg-[#0d1233] ${
         isCompactViewport ? "p-2.5" : "p-3"
       }`
   const titleFontSize = panelScale.fluid(compact ? 14 : 16, compact ? 18 : 22)
@@ -814,7 +1031,7 @@ export function ComprehensiveEfficiencyPanel({
           onPointerUp={(event) => stopTimelineDrag(event.pointerId)}
           onPointerCancel={(event) => stopTimelineDrag(event.pointerId)}
           onLostPointerCapture={(event) => stopTimelineDrag(event.pointerId)}
-          className={`relative min-h-0 flex-1 select-none overflow-hidden rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
+          className={`relative z-10 min-h-0 flex-1 select-none overflow-visible rounded-[20px] border border-[#1e2e63]/75 bg-[linear-gradient(180deg,rgba(8,18,42,0.92),rgba(10,20,47,0.78))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
             canPan ? (isDraggingTimeline ? "cursor-grabbing" : "cursor-grab") : ""
           }`}
           style={{ touchAction: canPan ? "none" : "auto", userSelect: "none" }}
@@ -837,7 +1054,10 @@ export function ComprehensiveEfficiencyPanel({
               }}
             >
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={visibleChartData} margin={{ top: 18, right: 12, left: 0, bottom: 8 }}>
+                <ComposedChart
+                  data={visibleChartData}
+                  margin={{ top: 18, right: 12, left: 0, bottom: 8 }}
+                >
                   <defs>
                     <linearGradient id={`${chartId}-charge-capacity`} x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#8ee7ff" stopOpacity={0.95} />
@@ -855,7 +1075,13 @@ export function ComprehensiveEfficiencyPanel({
                       <stop offset="0%" stopColor="#d9c8ff" stopOpacity={0.96} />
                       <stop offset="100%" stopColor="#8f7cff" stopOpacity={0.58} />
                     </linearGradient>
+                    <linearGradient id={`${chartId}-tooltip-band`} x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#eef5ff" stopOpacity={0.05} />
+                      <stop offset="50%" stopColor="#eef5ff" stopOpacity={0.12} />
+                      <stop offset="100%" stopColor="#eef5ff" stopOpacity={0.05} />
+                    </linearGradient>
                   </defs>
+                  <Customized component={<ActiveTooltipBand fillId={`${chartId}-tooltip-band`} />} />
                   <CartesianGrid stroke="rgba(45,74,126,0.72)" strokeDasharray="3 5" vertical={false} />
                   <XAxis
                     dataKey="label"
@@ -882,41 +1108,16 @@ export function ComprehensiveEfficiencyPanel({
                     tickMargin={8}
                     tickFormatter={(value: number) => `${value}%`}
                   />
-                  <Tooltip cursor={{ fill: "rgba(255,255,255,0.03)" }} content={renderTooltip} />
+                  <Tooltip
+                    cursor={false}
+                    allowEscapeViewBox={{ x: true, y: true }}
+                    wrapperStyle={{ zIndex: 60, pointerEvents: "none" }}
+                    content={renderTooltip}
+                  />
                   <Legend wrapperStyle={{ paddingTop: "4px" }} content={renderLegend} />
                   {seriesConfig.map((series) => {
                     if (hiddenSeries.includes(series.key)) {
                       return null
-                    }
-
-                    if (series.key === "chargeCapacity") {
-                      return (
-                        <Bar
-                          key={series.key}
-                          yAxisId="quantity"
-                          dataKey={series.key}
-                          name={displayLegendText[series.key]}
-                          fill={`url(#${chartId}-charge-capacity)`}
-                          radius={[0, 0, 0, 0]}
-                          barSize={10}
-                          fillOpacity={0.95}
-                        />
-                      )
-                    }
-
-                    if (series.key === "dischargeCapacity") {
-                      return (
-                        <Bar
-                          key={series.key}
-                          yAxisId="quantity"
-                          dataKey={series.key}
-                          name={displayLegendText[series.key]}
-                          fill={`url(#${chartId}-discharge-capacity)`}
-                          radius={[0, 0, 0, 0]}
-                          barSize={10}
-                          fillOpacity={0.95}
-                        />
-                      )
                     }
 
                     if (series.key === "capacityEfficiency") {
@@ -936,48 +1137,61 @@ export function ComprehensiveEfficiencyPanel({
                       )
                     }
 
-                    if (series.key === "chargeEnergy") {
+                    if (series.key === "energyEfficiency") {
                       return (
-                        <Bar
+                        <Line
                           key={series.key}
-                          yAxisId="quantity"
+                          yAxisId="efficiency"
+                          type="monotone"
                           dataKey={series.key}
                           name={displayLegendText[series.key]}
-                          fill={`url(#${chartId}-charge-energy)`}
-                          radius={[0, 0, 0, 0]}
-                          barSize={10}
-                          fillOpacity={0.95}
+                          stroke="#4ade80"
+                          strokeWidth={2.5}
+                          dot={{ r: 4, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
+                          activeDot={{ r: 5, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
+                          connectNulls
                         />
                       )
                     }
 
-                    if (series.key === "dischargeEnergy") {
-                      return (
+                    const fillId =
+                      series.key === "chargeCapacity"
+                        ? `${chartId}-charge-capacity`
+                        : series.key === "dischargeCapacity"
+                          ? `${chartId}-discharge-capacity`
+                          : series.key === "chargeEnergy"
+                            ? `${chartId}-charge-energy`
+                            : `${chartId}-discharge-energy`
+
+                    if (useStackedBars) {
+                      return stackedBarDevices.map((device, index) => (
                         <Bar
-                          key={series.key}
+                          key={`${series.key}-${device.deviceId}`}
                           yAxisId="quantity"
-                          dataKey={series.key}
+                          dataKey={buildStackDataKey(series.key as BarMetricKey, device.deviceId)}
+                          stackId={series.key}
                           name={displayLegendText[series.key]}
-                          fill={`url(#${chartId}-discharge-energy)`}
+                          fill={`url(#${fillId})`}
                           radius={[0, 0, 0, 0]}
                           barSize={10}
-                          fillOpacity={0.95}
+                          fillOpacity={STACK_BAR_OPACITY[index] ?? 0.42}
+                          stroke="rgba(8,18,42,0.62)"
+                          strokeWidth={1}
+                          legendType="none"
                         />
-                      )
+                      ))
                     }
 
                     return (
-                      <Line
+                      <Bar
                         key={series.key}
-                        yAxisId="efficiency"
-                        type="monotone"
+                        yAxisId="quantity"
                         dataKey={series.key}
                         name={displayLegendText[series.key]}
-                        stroke="#4ade80"
-                        strokeWidth={2.5}
-                        dot={{ r: 4, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
-                        activeDot={{ r: 5, fill: "#08122a", stroke: "#4ade80", strokeWidth: 3 }}
-                        connectNulls
+                        fill={`url(#${fillId})`}
+                        radius={[0, 0, 0, 0]}
+                        barSize={10}
+                        fillOpacity={0.95}
                       />
                     )
                   })}
