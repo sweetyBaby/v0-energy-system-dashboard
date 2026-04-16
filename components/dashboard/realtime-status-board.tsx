@@ -824,7 +824,7 @@ export function RealtimeStatusBoard() {
             <button
               type="button"
               onClick={goPrev}
-              aria-label={language === "zh" ? "涓婁竴寮燘CU" : "Previous BCU"}
+              aria-label={language === "zh" ? "上一个BCU" : "Previous BCU"}
               className="relative shrink-0 transition-transform duration-200 hover:scale-[1.06]"
               style={{ width: `${base * 2.6}px`, height: `${base * 2.1}px` }}
             >

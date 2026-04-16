@@ -651,14 +651,7 @@ export function ComprehensiveEfficiencyPanel({
                 boxShadow: hidden ? "none" : `0 0 12px ${series.color}88`,
               }}
             />
-            <span
-              style={{
-                textDecoration: hidden ? "line-through" : "none",
-                textDecorationThickness: "1.5px",
-              }}
-            >
-              {displayLegendText[series.key]}
-            </span>
+            <span>{displayLegendText[series.key]}</span>
           </button>
         )
       })}
