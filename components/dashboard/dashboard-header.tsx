@@ -3,12 +3,15 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { Check, ChevronDown, Globe, Zap } from "lucide-react"
 import {
+  fetchProjectOptionsByDevice,
   fetchProjectDetail,
   fetchProjectRealtime,
+  getMockProjectOptions,
   normalizeOverviewMetricsFromRealtime,
   normalizeProjectDetail,
   normalizeRealtimeSnapshot,
   type OverviewMetrics,
+  type ProjectOption,
   type RawProjectDetail,
   type RawProjectRealtime,
   type RealtimeSnapshotView,
@@ -22,14 +25,6 @@ type DashboardHeaderTab = {
     zh: string
     en: string
   }
-}
-
-type ProjectOption = {
-  id: string
-  projectId: string
-  name: string
-  nameEn: string
-  image: string
 }
 
 export type Project = ProjectOption & {
@@ -49,33 +44,68 @@ export const projects: ProjectOption[] = [
   {
     id: "jintan",
     projectId: "360c0347c09c4735900b9df32f3b8ff7",
-    name: "金坛储能中心",
-    nameEn: "Jintan Energy Storage Center",
-    image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
+    projectName: "金坛储能中心",
+    projectNameEn: "Jintan Energy Storage Center",
+    picPath: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
+    devices: [
+      {
+        deviceId: "8f97b65308af41eb895ffe9c58e978e3",
+        deviceName: "BCU1",
+        deviceType: null,
+      },
+      {
+        deviceId: "8f97b65308af41eb895ffe9c58e978e2",
+        deviceName: "BCU2",
+        deviceType: null,
+      },
+      {
+        deviceId: "8f97b65308af41eb895ffe9c58e978e8",
+        deviceName: "BCU3",
+        deviceType: null,
+      },
+    ],
   },
   {
     id: "ordos",
     projectId: "9964201b369549b4b04c29bfe3863daa",
-    name: "鄂尔多斯储能中心",
-    nameEn: "Ordos Energy Storage Center",
-    image: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
+    projectName: "鄂尔多斯储能中心",
+    projectNameEn: "Ordos Energy Storage Center",
+    picPath: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
+    devices: [
+      {
+        deviceId: "f189b7aa2d1b44e9ae0c65e5039a2d7f",
+        deviceName: "BCU-鄂尔多斯",
+        deviceType: null,
+      },
+    ],
   },
 ]
 
+const fallbackProjects = getMockProjectOptions()
+const defaultProjectOption: ProjectOption = fallbackProjects[0] ?? projects[0] ?? {
+  id: "project-default",
+  projectId: "project-default",
+  projectName: "Project",
+  projectNameEn: "Project",
+  picPath: "",
+  devices: [],
+}
+
 const buildProjectView = (
   project: ProjectOption,
-  detail: RawProjectDetail | null,
-  realtime: RawProjectRealtime | null,
-  realtimeRequestSucceeded: boolean
+  detail: RawProjectDetail | null = null,
+  realtime: RawProjectRealtime | null = null,
+  realtimeRequestSucceeded = false
 ): Project => ({
   ...project,
-  ...normalizeProjectDetail(detail, project.image),
-  projectName: detail?.projectName ? String(detail.projectName) : project.name,
+  ...normalizeProjectDetail(detail, project.picPath),
+  projectName: detail?.projectName ? String(detail.projectName) : project.projectName,
   overviewMetrics: realtime ? normalizeOverviewMetricsFromRealtime(realtime) : normalizeOverviewMetricsFromRealtime(null),
   realtimeSnapshot: normalizeRealtimeSnapshot(realtime, realtimeRequestSucceeded),
 })
 
 const ProjectContext = createContext<{
+  projectOptions: ProjectOption[]
   selectedProject: Project
   setSelectedProject: (project: ProjectOption) => void
   projectDetail: RawProjectDetail | null
@@ -84,7 +114,8 @@ const ProjectContext = createContext<{
   loadCurrentProjectRealtime: () => Promise<void>
   clearCurrentProjectOverviewData: () => void
 }>({
-  selectedProject: buildProjectView(projects[0], null),
+  projectOptions: fallbackProjects,
+  selectedProject: buildProjectView(defaultProjectOption),
   setSelectedProject: () => {},
   projectDetail: null,
   isProjectLoading: false,
@@ -96,13 +127,45 @@ const ProjectContext = createContext<{
 export const useProject = () => useContext(ProjectContext)
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
-  const [selectedProjectId, setSelectedProjectId] = useState(projects[0].id)
+  const [projectOptions, setProjectOptions] = useState<ProjectOption[]>(fallbackProjects)
+  const [selectedProjectId, setSelectedProjectId] = useState(defaultProjectOption.id)
   const [projectDetails, setProjectDetails] = useState<Record<string, RawProjectDetail | null>>({})
   const [projectRealtime, setProjectRealtime] = useState<Record<string, RawProjectRealtime | null>>({})
   const [projectRealtimeSuccess, setProjectRealtimeSuccess] = useState<Record<string, boolean>>({})
   const [isProjectLoading, setIsProjectLoading] = useState(false)
 
-  const projectOption = projects.find((project) => project.id === selectedProjectId) ?? projects[0]
+  useEffect(() => {
+    let cancelled = false
+
+    const loadProjectOptions = async () => {
+      try {
+        const nextProjectOptions = await fetchProjectOptionsByDevice()
+        if (!cancelled && nextProjectOptions.length > 0) {
+          setProjectOptions(nextProjectOptions)
+        }
+      } catch (error) {
+        console.error("Failed to load project selector options", error)
+      }
+    }
+
+    void loadProjectOptions()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (projectOptions.length === 0) return
+
+    const hasSelectedProject = projectOptions.some((project) => project.id === selectedProjectId)
+    if (!hasSelectedProject) {
+      setSelectedProjectId(projectOptions[0].id)
+    }
+  }, [projectOptions, selectedProjectId])
+
+  const projectOption =
+    projectOptions.find((project) => project.id === selectedProjectId) ?? projectOptions[0] ?? defaultProjectOption
   const projectDetail = projectDetails[projectOption.id] ?? null
   const selectedRealtime = projectRealtime[projectOption.id] ?? null
   const selectedRealtimeSuccess = projectRealtimeSuccess[projectOption.id] ?? false
@@ -178,6 +241,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   return (
     <ProjectContext.Provider
       value={{
+        projectOptions,
         selectedProject,
         setSelectedProject,
         projectDetail,
@@ -204,7 +268,7 @@ export function DashboardHeader({
   compact?: boolean
 }) {
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
-  const { selectedProject, setSelectedProject } = useProject()
+  const { projectOptions, selectedProject, setSelectedProject } = useProject()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const { language, setLanguage } = useLanguage()
   const controlRef = useRef<HTMLDivElement>(null)
@@ -480,7 +544,7 @@ export function DashboardHeader({
               <span className="pointer-events-none absolute inset-x-4 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3bd2ff]/60 to-transparent" />
               <div className="min-w-0 flex-1">
                 <div className="whitespace-nowrap text-[10.5px] font-semibold tracking-[0.02em] text-[#e7fbff] sm:text-[11.5px] sm:tracking-[0.04em] xl:text-[12px] xl:tracking-[0.05em]" style={{ textShadow: "0 0 12px rgba(104,230,255,0.35)" }}>
-                  {zh ? selectedProject.name : selectedProject.nameEn}
+                  {zh ? selectedProject.projectName : selectedProject.projectNameEn}
                 </div>
               </div>
               <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#68dfff] transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
@@ -489,7 +553,7 @@ export function DashboardHeader({
             {dropdownOpen && (
               <div className="absolute right-0 top-full z-50 mt-2 min-w-full overflow-hidden rounded-[12px] border border-[#2a6d8e]/70 bg-[linear-gradient(180deg,rgba(4,16,30,0.98),rgba(2,10,20,0.98))] shadow-[0_16px_48px_rgba(0,0,0,0.56),0_0_24px_rgba(40,180,255,0.08)]">
                 <div className="h-px bg-gradient-to-r from-transparent via-[#50dcff]/70 to-transparent" />
-                {projects.map((project) => {
+                {projectOptions.map((project) => {
                   const isActive = selectedProject.id === project.id
 
                   return (
@@ -505,7 +569,7 @@ export function DashboardHeader({
                           : "text-[#a7c8df] hover:bg-[rgba(18,44,72,0.72)]"
                       }`}
                     >
-                      <span className="whitespace-nowrap">{zh ? project.name : project.nameEn}</span>
+                      <span className="whitespace-nowrap">{zh ? project.projectName : project.projectNameEn}</span>
                       {isActive && <Check className="h-3.5 w-3.5 shrink-0" />}
                     </button>
                   )

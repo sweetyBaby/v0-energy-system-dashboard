@@ -2,6 +2,144 @@ import { apiClient } from "@/lib/api-client"
 import { apiEndpoints } from "@/lib/api/endpoints"
 
 export const API_PLACEHOLDER = "--"
+const DEFAULT_PROJECT_IMAGE = "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop"
+
+export type ProjectOption = {
+  id: string
+  projectId: string
+  projectName: string
+  projectNameEn: string
+  picPath: string
+  devices: ProjectDevice[]
+}
+
+export type ProjectDevice = {
+  deviceId: string
+  deviceName: string
+  deviceType: string | null
+}
+
+export type RawProjectListByDeviceRow = {
+  createBy?: string | null
+  createTime?: string | null
+  updateBy?: string | null
+  updateTime?: string | null
+  remark?: string | null
+  projectId?: string | null
+  projectName?: string | null
+  projectNameEn?: string | null
+  region?: string | null
+  company?: string | null
+  ratedPower?: string | null
+  commissioningDate?: string | null
+  tariffInfo?: string | null
+  status?: string | null
+  delFlag?: string | null
+  picPath?: string | null
+  ratedCapacity?: string | null
+  workingDate?: string | null
+  totalChargeAh?: number | null
+  totalDischargeAh?: number | null
+  devices?:
+    | Array<{
+        deviceId?: string | null
+        deviceName?: string | null
+        deviceType?: string | null
+      }>
+    | null
+}
+
+export type ProjectListByDeviceResponse = {
+  total: number
+  rows: RawProjectListByDeviceRow[]
+  code: number
+  msg: string
+}
+
+const PROJECT_LIST_BY_DEVICE_USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_PROJECT_LIST !== "false"
+
+const PROJECT_LIST_IMAGES: Record<string, string> = {
+  "360c0347c09c4735900b9df32f3b8ff7":
+    "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
+  "9964201b369549b4b04c29bfe3863daa":
+    "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
+}
+
+export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse = {
+  total: 2,
+  rows: [
+    {
+      createBy: null,
+      createTime: null,
+      updateBy: null,
+      updateTime: null,
+      remark: null,
+      projectId: "360c0347c09c4735900b9df32f3b8ff7",
+      projectName: "金坛储能中心",
+      projectNameEn: "Jintan Energy Storage Center",
+      region: "常州",
+      company: null,
+      ratedPower: null,
+      commissioningDate: null,
+      tariffInfo: null,
+      status: null,
+      delFlag: null,
+      picPath: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
+      ratedCapacity: "75kW / 150kWh",
+      workingDate: "2025-11-15",
+      totalChargeAh: null,
+      totalDischargeAh: null,
+      devices: [
+        {
+          deviceId: "8f97b65308af41eb895ffe9c58e978e3",
+          deviceName: "BCU1",
+          deviceType: null,
+        },
+        {
+        deviceId: "8f97b65308af41eb895ffe9c58e978e2",
+        deviceName: "BCU2",
+        deviceType: null,
+      },
+      {
+        deviceId: "8f97b65308af41eb895ffe9c58e978e8",
+        deviceName: "BCU3",
+        deviceType: null,
+      },
+      ],
+    },
+    {
+      createBy: null,
+      createTime: null,
+      updateBy: null,
+      updateTime: null,
+      remark: null,
+      projectId: "9964201b369549b4b04c29bfe3863daa",
+      projectName: "鄂尔多斯储能中心",
+      projectNameEn: "Ordos Energy Storage Center",
+      region: "鄂尔多斯",
+      company: null,
+      ratedPower: null,
+      commissioningDate: null,
+      tariffInfo: null,
+      status: null,
+      delFlag: null,
+      picPath: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
+      ratedCapacity: null,
+      workingDate: null,
+      totalChargeAh: null,
+      totalDischargeAh: null,
+      devices: [
+        {
+          deviceId: "f189b7aa2d1b44e9ae0c65e5039a2d7f",
+          deviceName: "BCU-鄂尔多斯",
+          deviceType: null,
+        },
+      ],
+    },
+  ],
+  code: 200,
+  msg: "查询成功",
+}
 
 /**
  * 总览右侧卡片使用的四类指标。
@@ -113,6 +251,7 @@ export type RawProjectRealtime = {
   soh?: number | null
   yesterday?: RawRealtimePeriod | null
   month?: RawRealtimePeriod | null
+  year?: RawRealtimePeriod | null
   all?: RawRealtimePeriod | null
 }
 
@@ -161,6 +300,26 @@ const hasValue = (value: unknown) => {
   return true
 }
 
+const normalizeProjectOptionId = (row: RawProjectListByDeviceRow, index: number) => {
+  if (hasValue(row.projectId)) return String(row.projectId).trim()
+  if (hasValue(row.devices?.[0]?.deviceId)) return String(row.devices?.[0]?.deviceId).trim()
+  return `project-${index + 1}`
+}
+
+const normalizeProjectDevices = (
+  devices: RawProjectListByDeviceRow["devices"]
+): ProjectDevice[] => {
+  if (!devices?.length) return []
+
+  return devices
+    .filter((device) => hasValue(device?.deviceId) || hasValue(device?.deviceName))
+    .map((device, index) => ({
+      deviceId: hasValue(device?.deviceId) ? String(device?.deviceId).trim() : `device-${index + 1}`,
+      deviceName: hasValue(device?.deviceName) ? String(device?.deviceName).trim() : `Device ${index + 1}`,
+      deviceType: hasValue(device?.deviceType) ? String(device?.deviceType).trim() : null,
+    }))
+}
+
 export const formatApiValue = (value: unknown) => {
   if (!hasValue(value)) return API_PLACEHOLDER
 
@@ -170,6 +329,37 @@ export const formatApiValue = (value: unknown) => {
 
   return String(value).trim()
 }
+
+export const normalizeProjectOptionsFromListByDevice = (
+  rows: RawProjectListByDeviceRow[] | null | undefined
+): ProjectOption[] => {
+  if (!rows?.length) return []
+
+  return rows.map((row, index) => {
+    const optionId = normalizeProjectOptionId(row, index)
+    const projectId = hasValue(row.projectId) ? String(row.projectId).trim() : optionId
+    const devices = normalizeProjectDevices(row.devices)
+    const picPath = hasValue(row.picPath)
+      ? String(row.picPath).trim()
+      : PROJECT_LIST_IMAGES[projectId] ?? DEFAULT_PROJECT_IMAGE
+
+    return {
+      id: optionId,
+      projectId,
+      projectName: hasValue(row.projectName) ? String(row.projectName).trim() : `Project ${index + 1}`,
+      projectNameEn: hasValue(row.projectNameEn)
+        ? String(row.projectNameEn).trim()
+        : hasValue(row.projectName)
+          ? String(row.projectName).trim()
+          : `Project ${index + 1}`,
+      picPath,
+      devices,
+    }
+  })
+}
+
+export const getMockProjectOptions = () =>
+  normalizeProjectOptionsFromListByDevice(MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE.rows)
 
 const formatFixedValue = (value: unknown, digits = 1) => {
   if (!hasValue(value)) return API_PLACEHOLDER
@@ -276,6 +466,19 @@ export const fetchProjectDetail = async (projectId: string) => {
  * 拉取总览页实时数据。
  * 右侧充放电卡片和左侧实时状态板统一使用这条接口。
  */
+export const fetchProjectListByDevice = async () => {
+  if (PROJECT_LIST_BY_DEVICE_USE_MOCK) {
+    return MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE
+  }
+
+  return apiClient.getRaw<ProjectListByDeviceResponse>(apiEndpoints.project.listByDevice)
+}
+
+export const fetchProjectOptionsByDevice = async () => {
+  const response = await fetchProjectListByDevice()
+  return normalizeProjectOptionsFromListByDevice(response.rows)
+}
+
 export const fetchProjectRealtime = async (projectId: string) => {
   const response = await apiClient.get<RawProjectRealtime>(apiEndpoints.overview.realtime(projectId))
   return response.data ?? null

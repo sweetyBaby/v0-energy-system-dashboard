@@ -3,6 +3,13 @@
  * UI components should not hardcode `/ems/...` paths directly.
  */
 export const apiEndpoints = {
+  project: {
+    /**
+     * Header project selector list.
+     * This endpoint returns `{ code, msg, total, rows }`.
+     */
+    listByDevice: "/ems/project/listByDevice",
+  },
   overview: {
     /**
      * Overview project detail.
