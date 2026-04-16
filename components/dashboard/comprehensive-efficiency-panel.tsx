@@ -16,6 +16,7 @@ import {
   YAxis,
 } from "recharts"
 import { LineChartIcon, Table } from "lucide-react"
+import { BcuSelector, BCU_SELECTOR_ALL_VALUE } from "@/components/dashboard/bcu-selector"
 import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
@@ -105,6 +106,7 @@ export function ComprehensiveEfficiencyPanel({
 
   const [range, setRange] = useState<RangeKey>("week")
   const [viewMode, setViewMode] = useState<ViewMode>("chart")
+  const [selectedDeviceId, setSelectedDeviceId] = useState(BCU_SELECTOR_ALL_VALUE)
   const [hiddenSeries, setHiddenSeries] = useState<SeriesKey[]>([
     "chargeCapacity",
     "dischargeCapacity",
@@ -162,6 +164,31 @@ export function ComprehensiveEfficiencyPanel({
     return null
   }, [currentDay, customRange, maxAvailableDate, range])
 
+  const deviceOptions = useMemo(
+    () =>
+      selectedProject.devices.map((device, index) => ({
+        value: device.deviceId || `device-${index + 1}`,
+        label: device.deviceName || `BCU ${index + 1}`,
+      })),
+    [selectedProject.devices],
+  )
+
+  useEffect(() => {
+    if (deviceOptions.length <= 1 && selectedDeviceId !== BCU_SELECTOR_ALL_VALUE) {
+      setSelectedDeviceId(BCU_SELECTOR_ALL_VALUE)
+      return
+    }
+
+    if (selectedDeviceId === BCU_SELECTOR_ALL_VALUE) {
+      return
+    }
+
+    const hasSelectedDevice = deviceOptions.some((device) => device.value === selectedDeviceId)
+    if (!hasSelectedDevice) {
+      setSelectedDeviceId(BCU_SELECTOR_ALL_VALUE)
+    }
+  }, [deviceOptions, selectedDeviceId])
+
   useEffect(() => {
     let cancelled = false
 
@@ -175,14 +202,24 @@ export function ComprehensiveEfficiencyPanel({
       setLoading(true)
 
       try {
+        const deviceParams =
+          selectedDeviceId === BCU_SELECTOR_ALL_VALUE
+            ? {}
+            : {
+                deviceId: selectedDeviceId,
+              }
         const requestParams =
           range === "year"
             ? {
                 ...activeRequestRange,
+                ...deviceParams,
                 type: "year" as const,
                 year: String(currentDay.getFullYear()),
               }
-            : activeRequestRange
+            : {
+                ...activeRequestRange,
+                ...deviceParams,
+              }
 
         const response = await fetchOverviewDailyList({
           projectId: selectedProject.projectId,
@@ -215,7 +252,7 @@ export function ComprehensiveEfficiencyPanel({
     return () => {
       cancelled = true
     }
-  }, [activeRequestRange, language, range, selectedProject.projectId])
+  }, [activeRequestRange, currentDay, language, range, selectedDeviceId, selectedProject.projectId])
 
   const legacyRangeOptions = [
     { key: "week" as const, label: language === "zh" ? "近7天" : "7 Days" },
@@ -386,6 +423,8 @@ export function ComprehensiveEfficiencyPanel({
   const displayChartLabel = language === "zh" ? "图表" : "Chart"
   const displayTableLabel = language === "zh" ? "表格" : "Table"
   const displayQuickSelectLabel = language === "zh" ? "昨天" : "Yesterday"
+  const displayBcuLabel = "BCU"
+  const displayAllBcuLabel = language === "zh" ? "全部BCU" : "All BCUs"
 
   const visibleChartData = useMemo(() => {
     if (!viewportRange) {
@@ -409,7 +448,7 @@ export function ComprehensiveEfficiencyPanel({
     dragStateRef.current = null
     setIsDraggingTimeline(false)
     setDragPreviewOffset(0)
-  }, [customRange?.from?.getTime(), customRange?.to?.getTime(), range, selectedProject.projectId])
+  }, [customRange?.from?.getTime(), customRange?.to?.getTime(), range, selectedDeviceId, selectedProject.projectId])
 
   useEffect(() => {
     if (activeData.length === 0) {
@@ -694,6 +733,17 @@ export function ComprehensiveEfficiencyPanel({
         </div>
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <BcuSelector
+            value={selectedDeviceId}
+            onChange={setSelectedDeviceId}
+            options={deviceOptions}
+            allLabel={displayAllBcuLabel}
+            hideWhenSingleOption
+            label={displayBcuLabel}
+            compact={isCompactViewport}
+            fontSize={controlFontSize}
+          />
+
           <div className="flex flex-wrap items-center gap-1 rounded-xl border border-[#203166] bg-[#16204b]/90 p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
             {displayRangeOptions.map((item) => (
               <button

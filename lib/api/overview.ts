@@ -7,6 +7,7 @@ export type DailyListRequest = {
   params: {
     beginTime: string
     endTime: string
+    deviceId?: string
     type?: "year"
     year?: string
   }
