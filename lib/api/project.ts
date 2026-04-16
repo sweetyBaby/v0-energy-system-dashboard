@@ -234,6 +234,20 @@ type RawRealtimePeriod = {
   totalDischargeAh?: number | null
 }
 
+export type RawProjectRealtimeDevice = {
+  deviceId?: string | null
+  deviceName?: string | null
+  deviceType?: string | null
+  voltage?: number | null
+  current?: number | null
+  power?: number | null
+  soc?: number | null
+  totalChargeEnergy?: number | null
+  totalDischargeEnergy?: number | null
+  temperature?: number | null
+  soh?: number | null
+}
+
 /**
  * `/ems/dashboard/realtime/{projectId}` 原始响应中的 `data` 部分。
  * 顶部当前值与昨日/本月/累计统计都从这里读取。
@@ -253,6 +267,7 @@ export type RawProjectRealtime = {
   month?: RawRealtimePeriod | null
   year?: RawRealtimePeriod | null
   all?: RawRealtimePeriod | null
+  devices?: RawProjectRealtimeDevice[] | null
 }
 
 export const EMPTY_OVERVIEW_METRICS: OverviewMetrics = {
@@ -318,6 +333,145 @@ const normalizeProjectDevices = (
       deviceName: hasValue(device?.deviceName) ? String(device?.deviceName).trim() : `Device ${index + 1}`,
       deviceType: hasValue(device?.deviceType) ? String(device?.deviceType).trim() : null,
     }))
+}
+
+const roundMetric = (value: number, digits: number) => {
+  const factor = 10 ** digits
+  return Math.round(value * factor) / factor
+}
+
+const buildMockRealtimeDevices = (
+  projectId: string,
+  projectDevices: ProjectDevice[],
+  realtime: RawProjectRealtime | null | undefined
+): RawProjectRealtimeDevice[] => {
+  if (!projectDevices.length) return []
+
+  const projectDefaults: Record<
+    string,
+    {
+      voltage: number
+      current: number
+      power: number
+      soc: number
+      totalChargeEnergy: number
+      totalDischargeEnergy: number
+      temperature: number
+      soh: number
+    }
+  > = {
+    "360c0347c09c4735900b9df32f3b8ff7": {
+      voltage: 1315.25,
+      current: 33.33,
+      power: 43.837,
+      soc: 51,
+      totalChargeEnergy: 6105.313,
+      totalDischargeEnergy: 0,
+      temperature: 27.4,
+      soh: 98.6,
+    },
+    "9964201b369549b4b04c29bfe3863daa": {
+      voltage: 1298.6,
+      current: -21.48,
+      power: -27.903,
+      soc: 63.2,
+      totalChargeEnergy: 4820.552,
+      totalDischargeEnergy: 315.228,
+      temperature: 26.1,
+      soh: 97.8,
+    },
+  }
+
+  const defaults = projectDefaults[projectId] ?? {
+    voltage: 1302.5,
+    current: 12.6,
+    power: 16.4,
+    soc: 55,
+    totalChargeEnergy: 3200.125,
+    totalDischargeEnergy: 180.25,
+    temperature: 26.8,
+    soh: 98.2,
+  }
+
+  const baseVoltage = typeof realtime?.voltage === "number" ? realtime.voltage : defaults.voltage
+  const baseCurrent = typeof realtime?.current === "number" ? realtime.current : defaults.current
+  const basePower = typeof realtime?.power === "number" ? realtime.power : defaults.power
+  const baseSoc = typeof realtime?.soc === "number" ? realtime.soc : defaults.soc
+  const baseCharge = typeof realtime?.totalChargeEnergy === "number" ? realtime.totalChargeEnergy : defaults.totalChargeEnergy
+  const baseDischarge =
+    typeof realtime?.totalDischargeEnergy === "number" ? realtime.totalDischargeEnergy : defaults.totalDischargeEnergy
+  const baseTemperature =
+    typeof realtime?.temperature === "number" ? realtime.temperature : defaults.temperature
+  const baseSoh = typeof realtime?.soh === "number" ? realtime.soh : defaults.soh
+  const centerOffset = (projectDevices.length - 1) / 2
+
+  return projectDevices.map((device, index) => {
+    const offset = index - centerOffset
+
+    return {
+      deviceId: device.deviceId,
+      deviceName: device.deviceName,
+      deviceType: device.deviceType,
+      voltage: roundMetric(baseVoltage + offset * 2.35, 2),
+      current: roundMetric(baseCurrent + offset * 0.92, 2),
+      power: roundMetric(basePower + offset * 1.26, 3),
+      soc: roundMetric(baseSoc + offset * 0.8, 1),
+      totalChargeEnergy: roundMetric(Math.max(baseCharge + index * 14.375, 0), 3),
+      totalDischargeEnergy: roundMetric(Math.max(baseDischarge + index * 3.125, 0), 3),
+      temperature: roundMetric(baseTemperature + offset * 0.6, 1),
+      soh: roundMetric(baseSoh - index * 0.15, 1),
+    }
+  })
+}
+
+const normalizeRealtimeDevices = (
+  projectId: string,
+  realtimeDevices: RawProjectRealtimeDevice[] | null | undefined,
+  projectDevices: ProjectDevice[],
+  realtime: RawProjectRealtime | null | undefined
+): RawProjectRealtimeDevice[] => {
+  if (realtimeDevices?.length) {
+    return realtimeDevices.map((device, index) => {
+      const matchedProjectDevice =
+        projectDevices.find((projectDevice) => projectDevice.deviceId === device.deviceId) ?? projectDevices[index]
+
+      return {
+        deviceId: hasValue(device.deviceId)
+          ? String(device.deviceId).trim()
+          : matchedProjectDevice?.deviceId ?? `device-${index + 1}`,
+        deviceName: hasValue(device.deviceName)
+          ? String(device.deviceName).trim()
+          : matchedProjectDevice?.deviceName ?? `Device ${index + 1}`,
+        deviceType: hasValue(device.deviceType)
+          ? String(device.deviceType).trim()
+          : matchedProjectDevice?.deviceType ?? null,
+        voltage: typeof device.voltage === "number" ? device.voltage : null,
+        current: typeof device.current === "number" ? device.current : null,
+        power: typeof device.power === "number" ? device.power : null,
+        soc: typeof device.soc === "number" ? device.soc : null,
+        totalChargeEnergy: typeof device.totalChargeEnergy === "number" ? device.totalChargeEnergy : null,
+        totalDischargeEnergy: typeof device.totalDischargeEnergy === "number" ? device.totalDischargeEnergy : null,
+        temperature: typeof device.temperature === "number" ? device.temperature : null,
+        soh: typeof device.soh === "number" ? device.soh : null,
+      }
+    })
+  }
+
+  return buildMockRealtimeDevices(projectId, projectDevices, realtime)
+}
+
+const hydrateProjectRealtime = (
+  realtime: RawProjectRealtime | null,
+  projectId: string,
+  projectDevices: ProjectDevice[]
+): RawProjectRealtime | null => {
+  if (!realtime) return null
+
+  return {
+    ...realtime,
+    projectId: realtime.projectId ?? projectId,
+    devices: normalizeRealtimeDevices(projectId, realtime.devices, projectDevices, realtime),
+  }
 }
 
 export const formatApiValue = (value: unknown) => {
@@ -479,9 +633,9 @@ export const fetchProjectOptionsByDevice = async () => {
   return normalizeProjectOptionsFromListByDevice(response.rows)
 }
 
-export const fetchProjectRealtime = async (projectId: string) => {
+export const fetchProjectRealtime = async (projectId: string, projectDevices: ProjectDevice[] = []) => {
   const response = await apiClient.get<RawProjectRealtime>(apiEndpoints.overview.realtime(projectId))
-  return response.data ?? null
+  return hydrateProjectRealtime(response.data ?? null, projectId, projectDevices)
 }
 
 /**

@@ -194,7 +194,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
   const loadCurrentProjectRealtime = useCallback(async () => {
     try {
-      const response = await fetchProjectRealtime(projectOption.projectId)
+      const response = await fetchProjectRealtime(projectOption.projectId, projectOption.devices)
 
       setProjectRealtime((current) => ({
         ...current,
@@ -216,7 +216,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
       console.error(`Failed to load realtime overview for ${projectOption.projectId}`, error)
     }
-  }, [projectOption.id, projectOption.projectId])
+  }, [projectOption.devices, projectOption.id, projectOption.projectId])
 
   const clearCurrentProjectOverviewData = useCallback(() => {
     setProjectDetails((current) => ({
