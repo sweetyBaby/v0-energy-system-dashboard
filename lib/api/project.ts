@@ -131,7 +131,7 @@ export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse =
       devices: [
         {
           deviceId: "f189b7aa2d1b44e9ae0c65e5039a2d7f",
-          deviceName: "BCU-鄂尔多斯",
+          deviceName: "BCU-1",
           deviceType: null,
         },
       ],
@@ -183,6 +183,12 @@ export type RealtimeSnapshotView = {
   powerKw: string
   stringCurrent: string
   soh: string
+}
+
+export type DeviceRealtimeSnapshotView = RealtimeSnapshotView & {
+  deviceId: string
+  deviceName: string
+  deviceType: string | null
 }
 
 /**
@@ -302,6 +308,13 @@ export const EMPTY_REALTIME_SNAPSHOT: RealtimeSnapshotView = {
   powerKw: API_PLACEHOLDER,
   stringCurrent: API_PLACEHOLDER,
   soh: API_PLACEHOLDER,
+}
+
+export const EMPTY_DEVICE_REALTIME_SNAPSHOT: DeviceRealtimeSnapshotView = {
+  deviceId: API_PLACEHOLDER,
+  deviceName: API_PLACEHOLDER,
+  deviceType: null,
+  ...EMPTY_REALTIME_SNAPSHOT,
 }
 
 const hasValue = (value: unknown) => {
@@ -605,6 +618,54 @@ export const normalizeRealtimeSnapshot = (
     stringCurrent: formatFixedValue(realtime?.current),
     soh: formatFixedValue(realtime?.soh),
   }
+}
+
+export const normalizeRealtimeDeviceSnapshots = (
+  realtime: RawProjectRealtime | null | undefined,
+  projectDevices: ProjectDevice[] = [],
+  requestSucceeded: boolean
+): DeviceRealtimeSnapshotView[] => {
+  const candidateDevices =
+    realtime?.devices?.length
+      ? realtime.devices
+      : projectDevices.map((device) => ({
+          deviceId: device.deviceId,
+          deviceName: device.deviceName,
+          deviceType: device.deviceType,
+        }))
+
+  if (!candidateDevices.length) return []
+
+  return candidateDevices.map((device, index) => {
+    const matchedProjectDevice =
+      projectDevices.find((projectDevice) => projectDevice.deviceId === device.deviceId) ?? projectDevices[index]
+    const power = typeof device.power === "number" ? device.power : null
+    const current = typeof device.current === "number" ? device.current : null
+    const socPercent =
+      typeof device.soc === "number" && !Number.isNaN(device.soc)
+        ? Math.max(0, Math.min(100, Math.round(device.soc)))
+        : null
+
+    return {
+      deviceId: hasValue(device.deviceId)
+        ? String(device.deviceId).trim()
+        : matchedProjectDevice?.deviceId ?? `device-${index + 1}`,
+      deviceName: hasValue(device.deviceName)
+        ? String(device.deviceName).trim()
+        : matchedProjectDevice?.deviceName ?? `BCU-${index + 1}`,
+      deviceType: hasValue(device.deviceType)
+        ? String(device.deviceType).trim()
+        : matchedProjectDevice?.deviceType ?? null,
+      isOnline: requestSucceeded,
+      packStatus: normalizePackStatus(power, current, requestSucceeded),
+      soc: formatFixedValue(device.soc),
+      socPercent,
+      packVoltage: formatFixedValue(device.voltage),
+      powerKw: formatFixedValue(device.power),
+      stringCurrent: formatFixedValue(device.current),
+      soh: formatFixedValue(device.soh),
+    }
+  })
 }
 
 /**

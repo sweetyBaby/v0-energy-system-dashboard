@@ -7,9 +7,11 @@ import {
   fetchProjectDetail,
   fetchProjectRealtime,
   getMockProjectOptions,
+  normalizeRealtimeDeviceSnapshots,
   normalizeOverviewMetricsFromRealtime,
   normalizeProjectDetail,
   normalizeRealtimeSnapshot,
+  type DeviceRealtimeSnapshotView,
   type OverviewMetrics,
   type ProjectOption,
   type RawProjectDetail,
@@ -38,6 +40,7 @@ export type Project = ProjectOption & {
   status: string
   overviewMetrics: OverviewMetrics
   realtimeSnapshot: RealtimeSnapshotView
+  deviceRealtimeSnapshots: DeviceRealtimeSnapshotView[]
 }
 
 export const projects: ProjectOption[] = [
@@ -74,7 +77,7 @@ export const projects: ProjectOption[] = [
     devices: [
       {
         deviceId: "f189b7aa2d1b44e9ae0c65e5039a2d7f",
-        deviceName: "BCU-鄂尔多斯",
+        deviceName: "BCU-1",
         deviceType: null,
       },
     ],
@@ -102,6 +105,7 @@ const buildProjectView = (
   projectName: detail?.projectName ? String(detail.projectName) : project.projectName,
   overviewMetrics: realtime ? normalizeOverviewMetricsFromRealtime(realtime) : normalizeOverviewMetricsFromRealtime(null),
   realtimeSnapshot: normalizeRealtimeSnapshot(realtime, realtimeRequestSucceeded),
+  deviceRealtimeSnapshots: normalizeRealtimeDeviceSnapshots(realtime, project.devices, realtimeRequestSucceeded),
 })
 
 const ProjectContext = createContext<{
