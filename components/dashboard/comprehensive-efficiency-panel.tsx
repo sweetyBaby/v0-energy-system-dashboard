@@ -49,6 +49,11 @@ type StackDeviceMeta = {
   label: string
 }
 
+type TableBreakdownEntry = {
+  label: string
+  value: string
+}
+
 type ViewportRange = {
   startIndex: number
   endIndex: number
@@ -90,6 +95,8 @@ const BAR_METRIC_KEYS: BarMetricKey[] = ["chargeCapacity", "dischargeCapacity", 
 
 const buildStackDataKey = (seriesKey: BarMetricKey, deviceId: string) =>
   `${seriesKey}__${deviceId.replace(/[^a-zA-Z0-9_-]/g, "_")}`
+
+const TABLE_BREAKDOWN_KEYS: BarMetricKey[] = ["chargeCapacity", "dischargeCapacity", "chargeEnergy", "dischargeEnergy"]
 
 type ActiveTooltipBandProps = {
   isTooltipActive?: boolean
@@ -516,6 +523,38 @@ export function ComprehensiveEfficiencyPanel({
     }))
   }, [activeData, selectedProject.devices])
   const useStackedBars = isAllBcuSelected && stackedBarDevices.length > 0 && activeData.some((point) => point.children.length > 0)
+  const stackedBarDeviceMap = useMemo(
+    () => new Map(stackedBarDevices.map((device) => [device.deviceId, device.label])),
+    [stackedBarDevices],
+  )
+  const showTableBreakdown = useStackedBars
+
+  const getTableMetricValue = (item: EfficiencyPoint, key: SeriesKey) => {
+    if (key === "chargeCapacity") return renderTableMetric(item.chargeCapacity)
+    if (key === "dischargeCapacity") return renderTableMetric(item.dischargeCapacity)
+    if (key === "capacityEfficiency") return renderTableMetric(item.capacityEfficiency, 2)
+    if (key === "chargeEnergy") return renderTableMetric(item.chargeEnergy)
+    if (key === "dischargeEnergy") return renderTableMetric(item.dischargeEnergy)
+    return renderTableMetric(item.energyEfficiency, 2)
+  }
+
+  const getTableMetricBreakdown = (item: EfficiencyPoint, key: SeriesKey): TableBreakdownEntry[] => {
+    if (!showTableBreakdown || !TABLE_BREAKDOWN_KEYS.includes(key as BarMetricKey)) {
+      return []
+    }
+
+    return item.children
+      .map((child) => {
+        const childValue = child[key as BarMetricKey]
+
+        return {
+          label: stackedBarDeviceMap.get(child.deviceId) ?? child.deviceId,
+          value: renderTableMetric(childValue),
+        }
+      })
+      .filter((entry) => entry.value !== "--")
+  }
+
   const chartData = useMemo(
     () =>
       activeData.map((point) => {
@@ -614,42 +653,61 @@ export function ComprehensiveEfficiencyPanel({
     const visibleSeries = seriesConfig.filter((series) => !hiddenSeries.includes(series.key))
     const tooltipDeviceMap = new Map(stackedBarDevices.map((device) => [device.deviceId, device.label]))
     const tooltipHasDenseBreakdown = useStackedBars && tooltipPoint.children.length >= 7
-    const prefersExtraWideLayout = useStackedBars && (visibleSeries.length >= 5 || tooltipHasDenseBreakdown)
-    const estimatedWideTooltipWidth = tooltipHasDenseBreakdown ? 920 : prefersExtraWideLayout ? 820 : 620
+    const chartLeftEdge =
+      viewBox && typeof viewBox.x === "number"
+        ? viewBox.x
+        : null
     const chartRightEdge =
-      viewBox && typeof viewBox.x === "number" && typeof viewBox.width === "number" ? viewBox.x + viewBox.width : null
-    const tooltipNeedsCompactLayout =
-      useStackedBars &&
-      (
-        (chartRightEdge != null && typeof coordinate?.x === "number" && coordinate.x > chartRightEdge - estimatedWideTooltipWidth) ||
-        (typeof viewBox?.width === "number" && viewBox.width < (tooltipHasDenseBreakdown ? 860 : prefersExtraWideLayout ? 760 : 620))
-      )
-    const tooltipUsesWideLayout = useStackedBars && (visibleSeries.length > 2 || tooltipHasDenseBreakdown) && !tooltipNeedsCompactLayout
-    const tooltipColumnClass = tooltipUsesWideLayout
-      ? tooltipHasDenseBreakdown
-        ? "grid-cols-2"
-        : prefersExtraWideLayout
-          ? "grid-cols-3"
-          : "grid-cols-2"
-      : "grid-cols-1"
-    const tooltipWideWidth = tooltipHasDenseBreakdown
-      ? "min(92vw, 960px)"
-      : prefersExtraWideLayout
-        ? "min(88vw, 840px)"
-        : "min(78vw, 620px)"
+      viewBox && typeof viewBox.x === "number" && typeof viewBox.width === "number"
+        ? viewBox.x + viewBox.width
+        : null
+    const chartWidth = typeof viewBox?.width === "number" ? viewBox.width : null
+    const desiredTooltipColumns =
+      visibleSeries.length >= 5 ? 3 : visibleSeries.length >= 3 ? 2 : 1
+    const tooltipCardMinWidthPx = tooltipHasDenseBreakdown ? 282 : 248
+    const tooltipGapPx = 12
+    const tooltipShellPaddingPx = 24
+    const tooltipViewportMarginPx = 18
+    const tooltipColumnCount = Math.min(desiredTooltipColumns, Math.max(visibleSeries.length, 1))
+
+    const tooltipUsesWideLayout = tooltipColumnCount > 1
+    const tooltipUsesCompactSpacing = tooltipColumnCount === 1
+    const tooltipWidthPx = tooltipUsesWideLayout
+      ? tooltipColumnCount * tooltipCardMinWidthPx + (tooltipColumnCount - 1) * tooltipGapPx + tooltipShellPaddingPx
+      : Math.min(tooltipHasDenseBreakdown ? 360 : 340, chartWidth != null ? Math.max(chartWidth - 24, 300) : 360)
+    const tooltipAnchorX =
+      typeof coordinate?.x === "number"
+        ? coordinate.x
+        : chartLeftEdge ?? 0
+    let tooltipShiftX = 0
+
+    if (chartRightEdge != null) {
+      const projectedRight = tooltipAnchorX + tooltipWidthPx + tooltipViewportMarginPx
+      if (projectedRight > chartRightEdge) {
+        tooltipShiftX -= projectedRight - chartRightEdge
+      }
+    }
+
+    if (chartLeftEdge != null) {
+      const projectedLeft = tooltipAnchorX + tooltipShiftX
+      if (projectedLeft < chartLeftEdge + 8) {
+        tooltipShiftX += chartLeftEdge + 8 - projectedLeft
+      }
+    }
 
     return (
       <div
         className={tooltipUsesWideLayout ? "overflow-hidden" : "min-w-[220px] overflow-hidden"}
         style={{
           ...TOOLTIP_SURFACE,
-          width: tooltipUsesWideLayout ? tooltipWideWidth : undefined,
-          maxWidth: tooltipUsesWideLayout ? tooltipWideWidth : tooltipNeedsCompactLayout ? "290px" : "340px",
+          width: `${tooltipWidthPx}px`,
+          maxWidth: `${tooltipWidthPx}px`,
+          transform: tooltipShiftX === 0 ? undefined : `translateX(${tooltipShiftX}px)`,
         }}
       >
         <div
           className={`border-b border-white/8 bg-[linear-gradient(90deg,rgba(17,216,191,0.14),transparent)] ${
-            tooltipNeedsCompactLayout ? "px-2.5 py-2" : "px-3 py-2"
+            tooltipUsesCompactSpacing ? "px-2.5 py-2" : "px-3 py-2"
           }`}
         >
           <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#7da0d8]">{displayTooltipPeriodLabel}</div>
@@ -657,9 +715,12 @@ export function ComprehensiveEfficiencyPanel({
         </div>
 
         <div
-          className={`grid ${tooltipNeedsCompactLayout ? "gap-1.5 px-2.5 py-2.5" : "gap-2 px-3 py-3"} ${
-            tooltipUsesWideLayout ? `${tooltipColumnClass} items-start` : "grid-cols-1"
+          className={`grid ${tooltipUsesCompactSpacing ? "gap-1.5 px-2.5 py-2.5" : "gap-2 px-3 py-3"} ${
+            tooltipUsesWideLayout ? "items-start" : "grid-cols-1"
           }`}
+          style={{
+            gridTemplateColumns: `repeat(${tooltipColumnCount}, minmax(0, 1fr))`,
+          }}
         >
           {visibleSeries.map((series) => {
             const key = series.key
@@ -688,7 +749,7 @@ export function ComprehensiveEfficiencyPanel({
                     .filter((child) => child.value !== "--")
                 : []
             const childBreakdownColumnCount =
-              !tooltipNeedsCompactLayout && childBreakdown.length >= 7 ? 2 : 1
+              tooltipColumnCount >= 2 && childBreakdown.length >= 5 ? 2 : 1
             const childBreakdownItemsPerColumn = Math.ceil(childBreakdown.length / childBreakdownColumnCount)
             const childBreakdownColumns = Array.from({ length: childBreakdownColumnCount }, (_, columnIndex) =>
               childBreakdown.slice(
@@ -701,39 +762,39 @@ export function ComprehensiveEfficiencyPanel({
               <div
                 key={key}
                 className={`rounded-xl border border-white/6 bg-white/[0.03] ${
-                  tooltipNeedsCompactLayout ? "px-2 py-1.5" : "px-2.5 py-2"
+                  tooltipUsesCompactSpacing ? "px-2 py-1.5" : "px-2.5 py-2"
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <span
-                      className={`${tooltipNeedsCompactLayout ? "h-2 w-2" : "h-2.5 w-2.5"} rounded-full`}
+                      className={`${tooltipUsesCompactSpacing ? "h-2 w-2" : "h-2.5 w-2.5"} rounded-full`}
                       style={{ backgroundColor: meta.color, boxShadow: `0 0 12px ${meta.color}99` }}
                     />
-                    <span className={`${tooltipNeedsCompactLayout ? "text-[11px]" : "text-[12px]"} text-[#bed3f6]`}>
+                    <span className={`${tooltipUsesCompactSpacing ? "text-[11px]" : "text-[12px]"} text-[#bed3f6]`}>
                       {displayLegendText[key]}
                     </span>
                   </div>
-                  <span className={`font-mono font-semibold text-[#f2f8ff] ${tooltipNeedsCompactLayout ? "text-[11px]" : "text-[12px]"}`}>
+                  <span className={`font-mono font-semibold text-[#f2f8ff] ${tooltipUsesCompactSpacing ? "text-[11px]" : "text-[12px]"}`}>
                     {displayValue}
                     <span className="ml-1 text-[#86a7d4]">{meta.unit}</span>
                   </span>
                 </div>
 
                 {childBreakdown.length > 0 ? (
-                  <div className={`border-t border-white/6 ${tooltipNeedsCompactLayout ? "mt-1.5 pt-1.5" : "mt-2 pt-2"}`}>
+                  <div className={`border-t border-white/6 ${tooltipUsesCompactSpacing ? "mt-1.5 pt-1.5" : "mt-2 pt-2"}`}>
                     <div
-                      className={`grid ${tooltipNeedsCompactLayout ? "gap-1" : "gap-x-3 gap-y-1.5"}`}
+                      className={`grid ${tooltipUsesCompactSpacing ? "gap-1" : "gap-x-3 gap-y-1.5"}`}
                       style={{
                         gridTemplateColumns: `repeat(${childBreakdownColumns.length}, minmax(0, 1fr))`,
                       }}
                     >
                       {childBreakdownColumns.map((column, columnIndex) => (
-                        <div key={`${key}-column-${columnIndex}`} className={`grid ${tooltipNeedsCompactLayout ? "gap-1" : "gap-1.5"}`}>
+                        <div key={`${key}-column-${columnIndex}`} className={`grid ${tooltipUsesCompactSpacing ? "gap-1" : "gap-1.5"}`}>
                           {column.map((child) => (
                             <div
                               key={`${key}-${child.deviceId}`}
-                              className={`flex items-start justify-between gap-2 ${tooltipNeedsCompactLayout ? "text-[10.5px]" : "text-[11px]"}`}
+                              className={`flex items-start justify-between gap-2 ${tooltipUsesCompactSpacing ? "text-[10.5px]" : "text-[11px]"}`}
                             >
                               <span className="min-w-0 flex-1 break-words text-[#7da0d8]">{child.label}</span>
                               <span className="shrink-0 whitespace-nowrap font-mono text-[#dce9ff]">
@@ -1211,13 +1272,13 @@ export function ComprehensiveEfficiencyPanel({
           ) : (
             <table className="w-full table-fixed border-separate border-spacing-y-1.5" style={{ fontSize: `${tableCellFontSize}px` }}>
               <colgroup>
-                <col className="w-[12%]" />
-                <col className="w-[16%]" />
-                <col className="w-[16%]" />
-                <col className="w-[16%]" />
-                <col className="w-[16%]" />
-                <col className="w-[12%]" />
-                <col className="w-[12%]" />
+                <col className={showTableBreakdown ? "w-[10%]" : "w-[12%]"} />
+                <col className={showTableBreakdown ? "w-[18%]" : "w-[16%]"} />
+                <col className={showTableBreakdown ? "w-[18%]" : "w-[16%]"} />
+                <col className={showTableBreakdown ? "w-[12%]" : "w-[16%]"} />
+                <col className={showTableBreakdown ? "w-[18%]" : "w-[16%]"} />
+                <col className={showTableBreakdown ? "w-[18%]" : "w-[12%]"} />
+                <col className={showTableBreakdown ? "w-[12%]" : "w-[12%]"} />
               </colgroup>
               <thead>
                 <tr className="text-[#7b8ab8]">
@@ -1242,18 +1303,8 @@ export function ComprehensiveEfficiencyPanel({
                       {item.label}
                     </td>
                     {displayTableColumns.slice(1).map((column, index) => {
-                      const value =
-                        column.key === "chargeCapacity"
-                          ? renderTableMetric(item.chargeCapacity)
-                          : column.key === "dischargeCapacity"
-                            ? renderTableMetric(item.dischargeCapacity)
-                            : column.key === "capacityEfficiency"
-                              ? renderTableMetric(item.capacityEfficiency, 2)
-                              : column.key === "chargeEnergy"
-                                ? renderTableMetric(item.chargeEnergy)
-                                : column.key === "dischargeEnergy"
-                                  ? renderTableMetric(item.dischargeEnergy)
-                                  : renderTableMetric(item.energyEfficiency, 2)
+                      const value = getTableMetricValue(item, column.key)
+                      const breakdown = getTableMetricBreakdown(item, column.key)
 
                       return (
                         <td
@@ -1261,7 +1312,19 @@ export function ComprehensiveEfficiencyPanel({
                           className={`${index === displayTableColumns.length - 2 ? "rounded-r-lg border-r" : ""} border-y border-[#1a2654]/70 bg-[#10183b]/78 px-2 py-3 text-right font-mono transition-colors group-hover:bg-[#162252] ${column.tone}`}
                           style={{ fontSize: `${tableValueFontSize}px` }}
                         >
-                          {value}
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="font-semibold">{value}</div>
+                            {breakdown.length > 0 ? (
+                              <div className="w-full border-t border-white/8 pt-1.5 text-[0.82em]">
+                                {breakdown.map((entry) => (
+                                  <div key={`${item.label}-${column.key}-${entry.label}`} className="flex items-start justify-between gap-2 py-[1px]">
+                                    <span className="min-w-0 flex-1 truncate pr-2 text-left font-medium text-[#7da0d8]">{entry.label}</span>
+                                    <span className="shrink-0 text-[#dce9ff]">{entry.value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
                         </td>
                       )
                     })}
