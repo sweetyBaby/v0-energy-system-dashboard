@@ -497,7 +497,6 @@ export function ComprehensiveEfficiencyPanel({
     language === "zh" ? "自定义日期范围最多 31 天，且结束日期不能超过昨天" : "Custom date range cannot exceed 31 days or go beyond yesterday"
   const displaySelectRangeLabel = language === "zh" ? "选择日期范围" : "Select range"
   const displayEmptyStateText = language === "zh" ? "当前时间范围暂无数据" : "No data for the selected range"
-  const displayTooltipPeriodLabel = language === "zh" ? "统计时段" : "Period"
   const displayLoadingText = language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."
   const displayTitle = language === "zh" ? "综合能效统计" : "Efficiency Analytics"
   const displayChartLabel = language === "zh" ? "图表" : "Chart"
@@ -652,7 +651,8 @@ export function ComprehensiveEfficiencyPanel({
 
     const visibleSeries = seriesConfig.filter((series) => !hiddenSeries.includes(series.key))
     const tooltipDeviceMap = new Map(stackedBarDevices.map((device) => [device.deviceId, device.label]))
-    const tooltipHasDenseBreakdown = useStackedBars && tooltipPoint.children.length >= 7
+    const showTooltipBreakdown = useStackedBars && !isAllBcuSelected
+    const tooltipHasDenseBreakdown = showTooltipBreakdown && tooltipPoint.children.length >= 7
     const chartLeftEdge =
       viewBox && typeof viewBox.x === "number"
         ? viewBox.x
@@ -662,19 +662,9 @@ export function ComprehensiveEfficiencyPanel({
         ? viewBox.x + viewBox.width
         : null
     const chartWidth = typeof viewBox?.width === "number" ? viewBox.width : null
-    const desiredTooltipColumns =
-      visibleSeries.length >= 5 ? 3 : visibleSeries.length >= 3 ? 2 : 1
-    const tooltipCardMinWidthPx = tooltipHasDenseBreakdown ? 282 : 248
-    const tooltipGapPx = 12
-    const tooltipShellPaddingPx = 24
+    const tooltipWidthLimit = tooltipHasDenseBreakdown ? 288 : 264
     const tooltipViewportMarginPx = 18
-    const tooltipColumnCount = Math.min(desiredTooltipColumns, Math.max(visibleSeries.length, 1))
-
-    const tooltipUsesWideLayout = tooltipColumnCount > 1
-    const tooltipUsesCompactSpacing = tooltipColumnCount === 1
-    const tooltipWidthPx = tooltipUsesWideLayout
-      ? tooltipColumnCount * tooltipCardMinWidthPx + (tooltipColumnCount - 1) * tooltipGapPx + tooltipShellPaddingPx
-      : Math.min(tooltipHasDenseBreakdown ? 360 : 340, chartWidth != null ? Math.max(chartWidth - 24, 300) : 360)
+    const tooltipWidthPx = Math.min(tooltipWidthLimit, chartWidth != null ? Math.max(chartWidth - 24, 228) : tooltipWidthLimit)
     const tooltipAnchorX =
       typeof coordinate?.x === "number"
         ? coordinate.x
@@ -697,30 +687,20 @@ export function ComprehensiveEfficiencyPanel({
 
     return (
       <div
-        className={tooltipUsesWideLayout ? "overflow-hidden" : "min-w-[220px] overflow-hidden"}
+        className="min-w-[220px] overflow-hidden"
         style={{
           ...TOOLTIP_SURFACE,
           width: `${tooltipWidthPx}px`,
           maxWidth: `${tooltipWidthPx}px`,
           transform: tooltipShiftX === 0 ? undefined : `translateX(${tooltipShiftX}px)`,
         }}
-      >
-        <div
-          className={`border-b border-white/8 bg-[linear-gradient(90deg,rgba(17,216,191,0.14),transparent)] ${
-            tooltipUsesCompactSpacing ? "px-2.5 py-2" : "px-3 py-2"
-          }`}
         >
-          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#7da0d8]">{displayTooltipPeriodLabel}</div>
-          <div className="mt-1 text-sm font-semibold text-[#e9f4ff]">{label}</div>
+        <div className="border-b border-white/8 bg-[linear-gradient(90deg,rgba(17,216,191,0.12),transparent)] px-2.5 py-1.5">
+          <div className="text-[13px] font-semibold leading-tight text-[#e9f4ff]">{label}</div>
         </div>
 
         <div
-          className={`grid ${tooltipUsesCompactSpacing ? "gap-1.5 px-2.5 py-2.5" : "gap-2 px-3 py-3"} ${
-            tooltipUsesWideLayout ? "items-start" : "grid-cols-1"
-          }`}
-          style={{
-            gridTemplateColumns: `repeat(${tooltipColumnCount}, minmax(0, 1fr))`,
-          }}
+          className="grid grid-cols-1 gap-1.5 px-2.5 py-2"
         >
           {visibleSeries.map((series) => {
             const key = series.key
@@ -731,8 +711,8 @@ export function ComprehensiveEfficiencyPanel({
               Number.isNaN(numericValue) || rawValue == null
                 ? "--"
                 : numericValue.toFixed(key === "capacityEfficiency" || key === "energyEfficiency" ? 2 : 1)
-            const childBreakdown =
-              useStackedBars && BAR_METRIC_KEYS.includes(key as BarMetricKey)
+            const childBreakdown: Array<{ deviceId: string; label: string; value: string }> =
+              showTooltipBreakdown && BAR_METRIC_KEYS.includes(key as BarMetricKey)
                 ? tooltipPoint.children
                     .map((child) => {
                       const childValue = child[key as BarMetricKey]
@@ -748,61 +728,41 @@ export function ComprehensiveEfficiencyPanel({
                     })
                     .filter((child) => child.value !== "--")
                 : []
-            const childBreakdownColumnCount =
-              tooltipColumnCount >= 2 && childBreakdown.length >= 5 ? 2 : 1
-            const childBreakdownItemsPerColumn = Math.ceil(childBreakdown.length / childBreakdownColumnCount)
-            const childBreakdownColumns = Array.from({ length: childBreakdownColumnCount }, (_, columnIndex) =>
-              childBreakdown.slice(
-                columnIndex * childBreakdownItemsPerColumn,
-                (columnIndex + 1) * childBreakdownItemsPerColumn,
-              ),
-            ).filter((column) => column.length > 0)
 
             return (
               <div
                 key={key}
-                className={`rounded-xl border border-white/6 bg-white/[0.03] ${
-                  tooltipUsesCompactSpacing ? "px-2 py-1.5" : "px-2.5 py-2"
-                }`}
+                className="rounded-xl border border-white/6 bg-white/[0.03] px-2 py-1.5"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <span
-                      className={`${tooltipUsesCompactSpacing ? "h-2 w-2" : "h-2.5 w-2.5"} rounded-full`}
+                      className="h-2 w-2 rounded-full"
                       style={{ backgroundColor: meta.color, boxShadow: `0 0 12px ${meta.color}99` }}
                     />
-                    <span className={`${tooltipUsesCompactSpacing ? "text-[11px]" : "text-[12px]"} text-[#bed3f6]`}>
+                    <span className="text-[11px] leading-tight text-[#bed3f6]">
                       {displayLegendText[key]}
                     </span>
                   </div>
-                  <span className={`font-mono font-semibold text-[#f2f8ff] ${tooltipUsesCompactSpacing ? "text-[11px]" : "text-[12px]"}`}>
+                  <span className="font-mono text-[11px] font-semibold leading-tight text-[#f2f8ff]">
                     {displayValue}
                     <span className="ml-1 text-[#86a7d4]">{meta.unit}</span>
                   </span>
                 </div>
 
                 {childBreakdown.length > 0 ? (
-                  <div className={`border-t border-white/6 ${tooltipUsesCompactSpacing ? "mt-1.5 pt-1.5" : "mt-2 pt-2"}`}>
-                    <div
-                      className={`grid ${tooltipUsesCompactSpacing ? "gap-1" : "gap-x-3 gap-y-1.5"}`}
-                      style={{
-                        gridTemplateColumns: `repeat(${childBreakdownColumns.length}, minmax(0, 1fr))`,
-                      }}
-                    >
-                      {childBreakdownColumns.map((column, columnIndex) => (
-                        <div key={`${key}-column-${columnIndex}`} className={`grid ${tooltipUsesCompactSpacing ? "gap-1" : "gap-1.5"}`}>
-                          {column.map((child) => (
-                            <div
-                              key={`${key}-${child.deviceId}`}
-                              className={`flex items-start justify-between gap-2 ${tooltipUsesCompactSpacing ? "text-[10.5px]" : "text-[11px]"}`}
-                            >
-                              <span className="min-w-0 flex-1 break-words text-[#7da0d8]">{child.label}</span>
-                              <span className="shrink-0 whitespace-nowrap font-mono text-[#dce9ff]">
-                                {child.value}
-                                <span className="ml-1 text-[#6f86b7]">{meta.unit}</span>
-                              </span>
-                            </div>
-                          ))}
+                  <div className="mt-1.5 border-t border-white/6 pt-1.5">
+                    <div className="grid grid-cols-1 gap-1">
+                      {childBreakdown.map((child) => (
+                        <div
+                          key={`${key}-${child.deviceId}`}
+                          className="flex items-start justify-between gap-2 text-[10.5px]"
+                        >
+                          <span className="min-w-0 flex-1 break-words leading-tight text-[#7da0d8]">{child.label}</span>
+                          <span className="shrink-0 whitespace-nowrap font-mono leading-tight text-[#dce9ff]">
+                            {child.value}
+                            <span className="ml-1 text-[#6f86b7]">{meta.unit}</span>
+                          </span>
                         </div>
                       ))}
                     </div>
