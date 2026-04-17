@@ -1,9 +1,8 @@
 "use client"
 
-import { useEffect, useId, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from "react"
 import type { DateRange } from "react-day-picker"
 import {
-  Area,
   CartesianGrid,
   Line,
   LineChart,
@@ -25,8 +24,8 @@ import {
   fetchPowerRange,
   fetchTodayPowerDaily,
   fetchTodayPowerIncremental,
-  mergePowerPoints,
-  type PowerPoint,
+  mergePowerSeries,
+  type PowerDeviceSeries,
 } from "@/lib/api/power"
 
 type QueryType = "today" | "yesterday" | "week" | "custom"
@@ -35,8 +34,16 @@ type ChartPoint = {
   key: string
   label: string
   timestamp: number
-  power: number | null
   tooltipLabel: string
+  [key: string]: string | number | null
+}
+
+type PowerSeriesMeta = {
+  deviceId: string
+  deviceName: string
+  deviceType: string | null
+  dataKey: string
+  color: string
 }
 
 type ViewportRange = {
@@ -57,6 +64,7 @@ const SINGLE_DAY_MIN_WINDOW_MS = {
   regular: 4 * HOUR_MS,
 }
 const TODAY_POLL_MS = 6_000
+const POWER_SERIES_COLORS = ["#7dd3fc", "#ffd60a", "#fda4af", "#4ade80", "#c4b5fd", "#99f6e4"]
 const TOOLTIP_SURFACE = {
   background: "linear-gradient(180deg, rgba(8,18,42,0.98), rgba(9,20,46,0.94))",
   border: "1px solid rgba(67, 115, 184, 0.42)",
@@ -141,6 +149,7 @@ const formatRangeLabel = (range: DateRange | undefined, language: "zh" | "en") =
 
 const toSeconds = (timestamp: number) => Math.floor(timestamp / 1000)
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+const buildPowerDataKey = (deviceId: string) => `power__${deviceId.replace(/[^a-zA-Z0-9_-]/g, "_")}`
 
 const findRangeIndicesByTime = (points: ChartPoint[], startTime: number, endTime: number) => {
   if (points.length === 0) {
@@ -189,24 +198,41 @@ const dedupeSingleDayTicks = (ticks: number[], stepMs: number, axisStart: number
   return filtered
 }
 
-const toChartPoints = (points: PowerPoint[], queryType: QueryType): ChartPoint[] => {
+const toChartPoints = (seriesList: PowerSeriesMeta[], seriesMap: Map<string, PowerDeviceSeries>, queryType: QueryType): ChartPoint[] => {
   const multiDay = queryType === "week" || queryType === "custom"
+  const merged = new Map<number, ChartPoint>()
 
-  return points.map((point) => {
-    const date = new Date(point.timestamp)
+  seriesList.forEach((series) => {
+    const points = seriesMap.get(series.deviceId)?.points ?? []
 
-    return {
-      key: point.isoTime,
-      label: multiDay ? `${formatDayLabel(date)} ${formatTimeLabel(date)}` : formatTimeLabel(date),
-      timestamp: point.timestamp,
-      power: point.power,
-      tooltipLabel: formatDateTimeLabel(date),
-    }
+    points.forEach((point) => {
+      const date = new Date(point.timestamp)
+      const current = merged.get(point.timestamp) ?? {
+        key: point.isoTime,
+        label: multiDay ? `${formatDayLabel(date)} ${formatTimeLabel(date)}` : formatTimeLabel(date),
+        timestamp: point.timestamp,
+        tooltipLabel: formatDateTimeLabel(date),
+      }
+
+      current[series.dataKey] = point.power
+      merged.set(point.timestamp, current)
+    })
   })
+
+  return Array.from(merged.values())
+    .sort((left, right) => left.timestamp - right.timestamp)
+    .map((point) => {
+      seriesList.forEach((series) => {
+        if (!(series.dataKey in point)) {
+          point[series.dataKey] = null
+        }
+      })
+
+      return point
+    })
 }
 
 export function PowerCurveQuery() {
-  const chartId = useId().replace(/:/g, "")
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const { isCompactViewport } = useDashboardViewport()
@@ -222,7 +248,8 @@ export function PowerCurveQuery() {
 
   const [queryType, setQueryType] = useState<QueryType>("today")
   const [customRange, setCustomRange] = useState<DateRange | undefined>(defaultCustomRange)
-  const [points, setPoints] = useState<PowerPoint[]>([])
+  const [powerSeries, setPowerSeries] = useState<PowerDeviceSeries[]>([])
+  const [hiddenDeviceIds, setHiddenDeviceIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [latestTimeLabel, setLatestTimeLabel] = useState("--")
   const [viewportRange, setViewportRange] = useState<ViewportRange | null>(null)
@@ -256,7 +283,40 @@ export function PowerCurveQuery() {
   const badgeFontSize = panelScale.fluid(11, 13)
   const axisFontSize = panelScale.chart(10, 12.5)
   const emptyFontSize = panelScale.fluid(14, 17)
-  const chartData = useMemo(() => toChartPoints(points, queryType), [points, queryType])
+  const powerSeriesMap = useMemo(
+    () => new Map(powerSeries.map((series) => [series.deviceId, series])),
+    [powerSeries],
+  )
+  const chartSeries = useMemo<PowerSeriesMeta[]>(() => {
+    const orderedDeviceIds = selectedProject.devices.map((device) => device.deviceId).filter(Boolean)
+    const responseDeviceIds = powerSeries.map((series) => series.deviceId)
+    const mergedDeviceIds = [
+      ...orderedDeviceIds.filter((deviceId) => responseDeviceIds.includes(deviceId)),
+      ...responseDeviceIds.filter((deviceId) => !orderedDeviceIds.includes(deviceId)),
+    ]
+
+    return mergedDeviceIds.map((deviceId, index) => {
+      const series = powerSeriesMap.get(deviceId)
+      const fallbackDevice = selectedProject.devices.find((device) => device.deviceId === deviceId)
+
+      return {
+        deviceId,
+        deviceName: series?.deviceName || fallbackDevice?.deviceName || `BCU-${index + 1}`,
+        deviceType: series?.deviceType ?? fallbackDevice?.deviceType ?? null,
+        dataKey: buildPowerDataKey(deviceId),
+        color: POWER_SERIES_COLORS[index % POWER_SERIES_COLORS.length],
+      }
+    })
+  }, [powerSeries, powerSeriesMap, selectedProject.devices])
+  const chartData = useMemo(
+    () => toChartPoints(chartSeries, powerSeriesMap, queryType),
+    [chartSeries, powerSeriesMap, queryType],
+  )
+  const visibleChartSeries = useMemo(
+    () => chartSeries.filter((series) => !hiddenDeviceIds.includes(series.deviceId)),
+    [chartSeries, hiddenDeviceIds],
+  )
+  const hasMultipleSeries = chartSeries.length > 1
   const isSingleDayQuery = queryType === "today" || queryType === "yesterday"
   const singleDayStart = useMemo(
     () => (queryType === "today" ? currentDay.getTime() : yesterday.getTime()),
@@ -332,6 +392,22 @@ export function PowerCurveQuery() {
   const canPan = Boolean(viewportRange && visiblePointCount < chartData.length)
 
   useEffect(() => {
+    setHiddenDeviceIds([])
+  }, [selectedProject.projectId])
+
+  useEffect(() => {
+    setHiddenDeviceIds((prev) => {
+      if (prev.length === 0) {
+        return prev
+      }
+
+      const validDeviceIds = new Set(chartSeries.map((series) => series.deviceId))
+      const next = prev.filter((deviceId) => validDeviceIds.has(deviceId))
+      return next.length === prev.length ? prev : next
+    })
+  }, [chartSeries])
+
+  useEffect(() => {
     setViewportRange(null)
     previousChartLengthRef.current = 0
     dragStateRef.current = null
@@ -377,16 +453,24 @@ export function PowerCurveQuery() {
   }, [chartData.length])
 
   useEffect(() => {
-    if (points.length === 0) {
+    const latestTimestamp = powerSeries.reduce<number | undefined>((latest, series) => {
+      const seriesLatest = series.points[series.points.length - 1]?.timestamp
+      if (seriesLatest == null) {
+        return latest
+      }
+
+      return latest == null || seriesLatest > latest ? seriesLatest : latest
+    }, undefined)
+
+    if (latestTimestamp == null) {
       setLatestTimeLabel("--")
       latestTimestampRef.current = undefined
       return
     }
 
-    const latest = points[points.length - 1]
-    latestTimestampRef.current = latest.timestamp
-    setLatestTimeLabel(formatTimeLabel(new Date(latest.timestamp)))
-  }, [points])
+    latestTimestampRef.current = latestTimestamp
+    setLatestTimeLabel(formatTimeLabel(new Date(latestTimestamp)))
+  }, [powerSeries])
 
   useEffect(() => {
     if (intervalRef.current) {
@@ -407,7 +491,7 @@ export function PowerCurveQuery() {
       })
 
       if (!cancelled) {
-        setPoints(data)
+        setPowerSeries(data)
       }
     }
 
@@ -420,8 +504,7 @@ export function PowerCurveQuery() {
         return
       }
 
-      setPoints(initialData)
-      latestTimestampRef.current = initialData[initialData.length - 1]?.timestamp
+      setPowerSeries(initialData)
 
       intervalRef.current = setInterval(async () => {
         try {
@@ -437,9 +520,8 @@ export function PowerCurveQuery() {
             return
           }
 
-          setPoints((prev) => {
-            const merged = mergePowerPoints(prev, incremental)
-            latestTimestampRef.current = merged[merged.length - 1]?.timestamp
+          setPowerSeries((prev) => {
+            const merged = mergePowerSeries(prev, incremental)
             return merged
           })
         } catch (error) {
@@ -466,7 +548,7 @@ export function PowerCurveQuery() {
         } else if (customRange?.from && customRange.to) {
           await loadHistorical(formatDateOnly(customRange.from), formatDateOnly(customRange.to))
         } else {
-          setPoints([])
+          setPowerSeries([])
         }
       } catch (error) {
         if (abortController.signal.aborted) {
@@ -474,7 +556,7 @@ export function PowerCurveQuery() {
         }
 
         if (!cancelled) {
-          setPoints([])
+          setPowerSeries([])
         }
 
         console.error(`Failed to load power curve for ${selectedProject.projectId}`, error)
@@ -498,11 +580,71 @@ export function PowerCurveQuery() {
     }
   }, [customRange, queryType, selectedProject.projectId, yesterday])
 
-  const renderTooltip = ({ active, payload }: TooltipProps<ValueType, NameType>) => {
-    if (!active || !payload?.length) return null
+  const toggleSeries = (deviceId: string) => {
+    setHiddenDeviceIds((prev) => {
+      if (prev.includes(deviceId)) {
+        return prev.filter((value) => value !== deviceId)
+      }
 
-    const power = typeof payload[0]?.value === "number" ? payload[0].value : Number(payload[0]?.value ?? 0)
-    const currentPoint = payload[0]?.payload as ChartPoint | undefined
+      if (chartSeries.length - prev.length <= 1) {
+        return prev
+      }
+
+      return [...prev, deviceId]
+    })
+  }
+
+  const renderLegend = () => (
+    <div className="flex flex-wrap items-center justify-center gap-2 px-2 pt-2">
+      {chartSeries.map((series) => {
+        const hidden = hiddenDeviceIds.includes(series.deviceId)
+        const isOnlyVisible = !hidden && visibleChartSeries.length === 1
+
+        return (
+          <button
+            key={series.deviceId}
+            type="button"
+            onClick={() => toggleSeries(series.deviceId)}
+            aria-pressed={!hidden}
+            aria-disabled={isOnlyVisible}
+            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 transition-all ${
+              hidden
+                ? "border-white/8 bg-white/[0.02] text-[#6f86b7]"
+                : "border-white/10 bg-[linear-gradient(180deg,rgba(18,34,72,0.92),rgba(11,24,53,0.92))] text-[#dce9ff]"
+            } ${isOnlyVisible ? "cursor-default" : ""}`}
+            style={{
+              fontSize: `${controlFontSize}px`,
+              textDecoration: "none",
+              boxShadow: hidden ? "none" : `inset 0 0 0 1px ${series.color}1f, 0 0 14px ${series.color}22`,
+            }}
+          >
+            <span
+              className="block h-2.5 w-2.5 rounded-full"
+              style={{
+                backgroundColor: series.color,
+                boxShadow: hidden ? "none" : `0 0 12px ${series.color}88`,
+              }}
+            />
+            <span style={{ textDecoration: "none" }}>{series.deviceName}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  const renderTooltip = ({ active, payload }: TooltipProps<ValueType, NameType>) => {
+    if (!active) return null
+
+    const activeEntry = payload?.find((entry) => {
+      if (typeof entry?.value === "number") {
+        return true
+      }
+
+      return entry?.value != null && !Number.isNaN(Number(entry.value))
+    })
+    const power = typeof activeEntry?.value === "number" ? activeEntry.value : Number(activeEntry?.value ?? 0)
+    const currentPoint = payload?.[0]?.payload as ChartPoint | undefined
+    if (!currentPoint) return null
     const modeLabel =
       power > 0
         ? language === "zh"
@@ -516,33 +658,47 @@ export function PowerCurveQuery() {
             ? "静置功率"
             : "Idle Power"
 
+    const tooltipItems = visibleChartSeries.map((series) => {
+      const matched = payload?.find((entry) => entry.dataKey === series.dataKey)
+      const rawValue = matched?.value
+      const numericValue =
+        typeof rawValue === "number" ? rawValue : rawValue == null ? null : Number(rawValue)
+
+      return {
+        ...series,
+        value: numericValue == null || Number.isNaN(numericValue) ? null : numericValue,
+      }
+    })
+
     return (
-      <div className="min-w-[220px] overflow-hidden" style={TOOLTIP_SURFACE}>
+      <div className="min-w-[220px] overflow-hidden" style={TOOLTIP_SURFACE} data-mode={modeLabel} data-power={power}>
         <div className="border-b border-white/8 bg-[linear-gradient(90deg,rgba(17,216,191,0.14),transparent)] px-3 py-2">
-          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#7da0d8]">
-            {language === "zh" ? "时间点" : "Timestamp"}
-          </div>
-          <div className="mt-1 text-sm font-semibold text-[#e9f4ff]">{currentPoint?.tooltipLabel ?? "--"}</div>
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#7da0d8]">{language === "zh" ? "时间点" : "Timestamp"}</div>
+          <div className="mt-1 text-sm font-semibold text-[#e9f4ff]">{currentPoint.tooltipLabel}</div>
         </div>
 
         <div className="grid gap-2 px-3 py-3">
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/6 bg-white/[0.03] px-2.5 py-2">
-            <div className="flex items-center gap-2">
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{
-                  backgroundColor: power >= 0 ? "#22d3ee" : "#ffd60a",
-                  boxShadow: `0 0 12px ${power >= 0 ? "#22d3ee99" : "#ffd60a88"}`,
-                }}
-              />
-              <span className="text-[12px] text-[#bed3f6]">{modeLabel}</span>
+          {tooltipItems.map((item) => (
+            <div
+              key={item.deviceId}
+              className="flex items-center justify-between gap-3 rounded-xl border border-white/6 bg-white/[0.03] px-2.5 py-2"
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{
+                    backgroundColor: item.color,
+                    boxShadow: `0 0 12px ${item.color}99`,
+                  }}
+                />
+                <span className="text-[12px] text-[#bed3f6]">{item.deviceName}</span>
+              </div>
+              <span className="font-mono text-[12px] font-semibold text-[#f2f8ff]">
+                {item.value == null ? "--" : `${item.value > 0 ? "+" : ""}${item.value.toFixed(2)}`}
+                <span className="ml-1 text-[#86a7d4]">kW</span>
+              </span>
             </div>
-            <span className="font-mono text-[12px] font-semibold text-[#f2f8ff]">
-              {power > 0 ? "+" : ""}
-              {power.toFixed(2)}
-              <span className="ml-1 text-[#86a7d4]">kW</span>
-            </span>
-          </div>
+          ))}
         </div>
       </div>
     )
@@ -726,10 +882,10 @@ export function PowerCurveQuery() {
     <div
       ref={panelScale.ref}
       className={`flex h-full w-full flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] ${
-        isCompactViewport ? "p-3" : "p-4"
+        isCompactViewport ? "p-2.5" : "p-3"
       }`}
     >
-      <div className={`flex flex-wrap items-start justify-between ${isCompactViewport ? "mb-3 gap-2" : "mb-4 gap-3"}`}>
+      <div className={`flex flex-wrap items-center justify-between gap-2 ${isCompactViewport ? "mb-1.5" : "mb-2"}`}>
         <div className="flex items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
           <h3 className="font-semibold text-[#00d4aa]" style={{ fontSize: `${titleFontSize}px` }}>{title}</h3>
@@ -803,129 +959,120 @@ export function PowerCurveQuery() {
         ) : chartData.length === 0 ? (
           <div className="flex h-full items-center justify-center text-[#7b8ab8]" style={{ fontSize: `${emptyFontSize}px` }}>{emptyStateText}</div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={visibleChartData}
-              margin={{ top: 10, right: 14, left: 4, bottom: isSingleDayQuery ? 18 : 0 }}
-            >
-              <defs>
-                <linearGradient id={`${chartId}-power-fill`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.34} />
-                  <stop offset="55%" stopColor="#22d3ee" stopOpacity={0.1} />
-                  <stop offset="100%" stopColor="#22d3ee" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 5" stroke="rgba(45,74,126,0.72)" vertical={false} />
-              <XAxis
-                {...(isSingleDayQuery
-                  ? {
-                      type: "number" as const,
-                      dataKey: "timestamp",
-                      domain: [singleDayAxis.start, singleDayAxis.end] as [number, number],
-                      ticks: singleDayAxis.ticks,
-                      tickFormatter: (value: number) =>
-                        formatSingleDayAxisLabel(
-                          value,
-                          singleDayAxis.start,
-                          singleDayAxis.end,
-                          singleDayStart,
-                          singleDayEnd,
-                          isCompactViewport,
-                        ),
-                      interval: 0 as const,
-                      padding: { left: 22, right: 22 },
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="min-h-0 flex-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={visibleChartData}
+                  margin={{ top: 18, right: 14, left: 4, bottom: isSingleDayQuery ? 18 : 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 5" stroke="rgba(45,74,126,0.72)" vertical={false} />
+                  <XAxis
+                    {...(isSingleDayQuery
+                      ? {
+                          type: "number" as const,
+                          dataKey: "timestamp",
+                          domain: [singleDayAxis.start, singleDayAxis.end] as [number, number],
+                          ticks: singleDayAxis.ticks,
+                          tickFormatter: (value: number) =>
+                            formatSingleDayAxisLabel(
+                              value,
+                              singleDayAxis.start,
+                              singleDayAxis.end,
+                              singleDayStart,
+                              singleDayEnd,
+                              isCompactViewport,
+                            ),
+                          interval: 0 as const,
+                          padding: { left: 22, right: 22 },
+                        }
+                      : {
+                          dataKey: "label",
+                          interval: xInterval,
+                        })}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={
+                      isSingleDayQuery
+                        ? (tickProps: { x?: number; y?: number; payload?: { value?: number } }) => {
+                            const value =
+                              typeof tickProps.payload?.value === "number"
+                                ? tickProps.payload.value
+                                : Number(tickProps.payload?.value ?? Number.NaN)
+
+                            if (!Number.isFinite(value)) {
+                              return <g />
+                            }
+
+                            const label = formatSingleDayAxisLabel(
+                              value,
+                              singleDayAxis.start,
+                              singleDayAxis.end,
+                              singleDayStart,
+                              singleDayEnd,
+                              isCompactViewport,
+                            )
+
+                            if (!label) {
+                              return <g />
+                            }
+
+                            return (
+                              <text
+                                x={tickProps.x}
+                                y={tickProps.y}
+                                dy={14}
+                                textAnchor="middle"
+                                fill="#88a4d7"
+                                fontSize={axisFontSize}
+                              >
+                                {label}
+                              </text>
+                            )
+                          }
+                        : { fill: "#88a4d7", fontSize: axisFontSize }
                     }
-                  : {
-                      dataKey: "label",
-                      interval: xInterval,
-                    })}
-                axisLine={false}
-                tickLine={false}
-                tick={
-                  isSingleDayQuery
-                    ? (tickProps: { x?: number; y?: number; payload?: { value?: number } }) => {
-                        const value =
-                          typeof tickProps.payload?.value === "number"
-                            ? tickProps.payload.value
-                            : Number(tickProps.payload?.value ?? Number.NaN)
-
-                        if (!Number.isFinite(value)) {
-                          return null
-                        }
-
-                        const label = formatSingleDayAxisLabel(
-                          value,
-                          singleDayAxis.start,
-                          singleDayAxis.end,
-                          singleDayStart,
-                          singleDayEnd,
-                          isCompactViewport,
-                        )
-
-                        if (!label) {
-                          return null
-                        }
-
-                        return (
-                          <text
-                            x={tickProps.x}
-                            y={tickProps.y}
-                            dy={14}
-                            textAnchor="middle"
-                            fill="#88a4d7"
-                            fontSize={axisFontSize}
-                          >
-                            {label}
-                          </text>
-                        )
-                      }
-                    : { fill: "#88a4d7", fontSize: axisFontSize }
-                }
-                tickMargin={16}
-                minTickGap={isSingleDayQuery ? 8 : 28}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
-                tickMargin={8}
-                width={56}
-                label={{
-                  value: powerSeriesLabel,
-                  angle: -90,
-                  position: "insideLeft",
-                  offset: 4,
-                  style: {
-                    fill: "#88a4d7",
-                    fontSize: axisFontSize,
-                  },
-                }}
-              />
-              <ReferenceLine y={0} stroke="#3f6490" strokeDasharray="4 4" strokeOpacity={0.72} />
-              <Tooltip cursor={{ stroke: "#2b4f7d", strokeDasharray: "4 4" }} content={renderTooltip} />
-              <Area type="monotone" dataKey="power" stroke="none" fill={`url(#${chartId}-power-fill)`} isAnimationActive={false} />
-              <Line
-                type="monotone"
-                dataKey="power"
-                stroke="#22d3ee"
-                strokeOpacity={0.18}
-                strokeWidth={8}
-                dot={false}
-                activeDot={false}
-                isAnimationActive={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="power"
-                name={powerSeriesLabel}
-                stroke="#22d3ee"
-                strokeWidth={2.4}
-                dot={false}
-                activeDot={{ r: 5, fill: "#08122a", stroke: "#22d3ee", strokeWidth: 2.5 }}
-                isAnimationActive={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+                    tickMargin={16}
+                    minTickGap={isSingleDayQuery ? 8 : 28}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#88a4d7", fontSize: axisFontSize }}
+                    tickMargin={8}
+                    width={56}
+                    label={{
+                      value: powerSeriesLabel,
+                      angle: -90,
+                      position: "insideLeft",
+                      offset: 4,
+                      style: {
+                        fill: "#88a4d7",
+                        fontSize: axisFontSize,
+                      },
+                    }}
+                  />
+                  <ReferenceLine y={0} stroke="#3f6490" strokeDasharray="4 4" strokeOpacity={0.72} />
+                  <Tooltip cursor={{ stroke: "#2b4f7d", strokeDasharray: "4 4" }} content={renderTooltip} />
+                  {visibleChartSeries.map((series) => (
+                    <Line
+                      key={series.deviceId}
+                      type="monotone"
+                      dataKey={series.dataKey}
+                      name={series.deviceName}
+                      stroke={series.color}
+                      strokeWidth={2.2}
+                      dot={false}
+                      connectNulls={false}
+                      activeDot={{ r: 5, fill: series.color, stroke: "#eef5ff", strokeWidth: 1.4 }}
+                      isAnimationActive={false}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            {hasMultipleSeries ? renderLegend() : null}
+          </div>
         )}
       </div>
     </div>
