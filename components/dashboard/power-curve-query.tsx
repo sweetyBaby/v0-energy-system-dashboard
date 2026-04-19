@@ -899,12 +899,12 @@ export function PowerCurveQuery() {
 
         <div className="flex flex-col items-end gap-2">
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="flex gap-1 rounded-xl bg-[#16204b]/90 p-1">
+            <div className={`flex items-center gap-1 rounded-xl bg-[#16204b]/90 p-0.5 ${isCompactViewport ? "h-[34px]" : "h-[36px]"}`}>
               {queryTypes.map((type) => (
                 <button
                   key={type.key}
                   onClick={() => setQueryType(type.key)}
-                  className={`rounded-lg transition-all ${isCompactViewport ? "px-2.5 py-[5px]" : "px-3 py-1.5"} ${
+                  className={`h-full rounded-lg transition-all ${isCompactViewport ? "px-2.5" : "px-3"} ${
                     queryType === type.key
                       ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
                       : "text-[#7b8ab8] hover:text-[#e8f4fc]"
@@ -926,6 +926,7 @@ export function PowerCurveQuery() {
                 hint={customHint}
                 maxRangeError={maxRangeError}
                 quickSelectLabel={language === "zh" ? "昨天" : "Yesterday"}
+                compact={isCompactViewport}
               />
             )}
           </div>

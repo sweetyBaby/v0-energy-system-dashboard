@@ -292,10 +292,11 @@ function HeatmapLegend({
   )
 }
 
-export function CellHeatmapOverviewPanel() {
+export function CellHeatmapOverviewPanel({ deviceId }: { deviceId?: string }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const zh = language === "zh"
+  const normalizedDeviceId = deviceId?.trim() || undefined
 
   const [cells, setCells] = useState<HeatmapCellMetrics[]>(() => createEmptyHeatmapCells())
   const [isLoading, setIsLoading] = useState(true)
@@ -316,6 +317,7 @@ export function CellHeatmapOverviewPanel() {
 
       try {
         const nextCells = await fetchLatestHeatmap(selectedProject.projectId, {
+          deviceId: normalizedDeviceId,
           signal: currentController.signal,
         })
 
@@ -357,7 +359,7 @@ export function CellHeatmapOverviewPanel() {
         clearInterval(timer)
       }
     }
-  }, [selectedProject.projectId, zh])
+  }, [normalizedDeviceId, selectedProject.projectId, zh])
 
   const hasData = useMemo(() => hasAnyHeatmapValue(cells), [cells])
   const cellMap = useMemo(() => toCellMap(cells), [cells])

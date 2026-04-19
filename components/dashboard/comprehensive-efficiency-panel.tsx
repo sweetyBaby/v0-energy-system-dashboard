@@ -982,12 +982,12 @@ export function ComprehensiveEfficiencyPanel({
             fontSize={controlFontSize}
           />
 
-          <div className="flex flex-wrap items-center gap-1 rounded-xl border border-[#203166] bg-[#16204b]/90 p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
+          <div className={`flex items-center gap-1 rounded-xl border border-[#203166] bg-[#16204b]/90 p-0.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)] ${isCompactViewport ? "h-[34px]" : "h-[36px]"}`}>
             {displayRangeOptions.map((item) => (
               <button
                 key={item.key}
                 onClick={() => setRange(item.key)}
-                className={`rounded-lg transition-all ${isCompactViewport ? "px-2.5 py-[5px]" : "px-3 py-1.5"} ${
+                className={`h-full rounded-lg transition-all ${isCompactViewport ? "px-2.5" : "px-3"} ${
                   range === item.key
                     ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
                     : "text-[#7b8ab8] hover:bg-[#1d2a5f]/80 hover:text-[#e8f4fc]"
@@ -1010,6 +1010,7 @@ export function ComprehensiveEfficiencyPanel({
                 hint={displayCustomHint}
                 maxRangeError={displayMaxRangeError}
                 quickSelectLabel={displayQuickSelectLabel}
+                compact={isCompactViewport}
               />
             )}
 

@@ -1,10 +1,11 @@
 ﻿"use client"
 
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState } from "react"
 import type { DateRange } from "react-day-picker"
 import { Battery, Calendar, Wrench, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
+import { BcuSelector } from "@/components/dashboard/bcu-selector"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { CellHeatmapOverviewPanel } from "@/components/dashboard/cell-heatmap-overview-panel"
 import { CellHistoryMultiPicker, CellHistoryReplayPanel, type CellHistoryOverviewStats } from "@/components/dashboard/cell-history-replay-panel"
@@ -135,7 +136,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const [cellHistoryDate, setCellHistoryDate] = useState(yesterday)
   const [cellHistoryViewMode, setCellHistoryViewMode] = useState<CellHistoryViewMode>("overview")
   const [selectedHistoryCell, setSelectedHistoryCell] = useState<number | null>(null)
-  const [selectedHistoryCells, setSelectedHistoryCells] = useState<number[]>([1])
+  const [selectedHistoryCells, setSelectedHistoryCells] = useState<number[]>([])
   const [cellHistoryStats, setCellHistoryStats] = useState<CellHistoryOverviewStats | null>(null)
   const [analysisTrendData, setAnalysisTrendData] = useState<DailyTrendRangeResult | null>(null)
   const [isAnalysisLoading, setIsAnalysisLoading] = useState(false)
@@ -156,9 +157,20 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const zh = language === "zh"
   const pageControlLabelSize = contentScale.fluid(11, 14)
   const pageControlButtonSize = contentScale.fluid(12, 15)
-  const pageIconButtonSize = contentScale.fluid(12, 15)
-  const pageIconButtonEdge = contentScale.fluid(28, 34)
   const pageControlGroupHeight = contentScale.fluid(32, 40)
+  const pageBcuOptions = useMemo(
+    () =>
+      selectedProject.devices.map((device, index) => ({
+        value: device.deviceId || `device-${index + 1}`,
+        label: device.deviceName || `BCU ${index + 1}`,
+      })),
+    [selectedProject.devices]
+  )
+  const firstPageBcuId = pageBcuOptions[0]?.value ?? ""
+  const [runningStatusDeviceId, setRunningStatusDeviceId] = useState(firstPageBcuId)
+  const [alarmDeviceId, setAlarmDeviceId] = useState(firstPageBcuId)
+  const [cellHistoryDeviceId, setCellHistoryDeviceId] = useState(firstPageBcuId)
+  const [analysisDeviceId, setAnalysisDeviceId] = useState(firstPageBcuId)
   const analysisCurrentDay = useMemo(() => toDayStart(new Date()), [])
   const analysisMaxDate = useMemo(() => addDays(analysisCurrentDay, -1), [analysisCurrentDay])
   const defaultAnalysisCustomRange = useMemo<DateRange>(
@@ -187,6 +199,18 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     () => (analysisRange === "custom" ? getRangeLength(analysisCustomRange) ?? 0 : analysisRange),
     [analysisCustomRange, analysisRange]
   )
+  const displayAllBcuLabel = zh ? "全部BCU" : "All BCUs"
+
+  useEffect(() => {
+    const validDeviceIds = new Set(pageBcuOptions.map((option) => option.value))
+    const resolveDeviceId = (currentValue: string) =>
+      currentValue && validDeviceIds.has(currentValue) ? currentValue : firstPageBcuId
+
+    setRunningStatusDeviceId((currentValue) => resolveDeviceId(currentValue))
+    setAlarmDeviceId((currentValue) => resolveDeviceId(currentValue))
+    setCellHistoryDeviceId((currentValue) => resolveDeviceId(currentValue))
+    setAnalysisDeviceId((currentValue) => resolveDeviceId(currentValue))
+  }, [firstPageBcuId, pageBcuOptions])
 
   const formatAnalysisRangeLabel = (range: DateRange | undefined) => {
     if (!range?.from) {
@@ -240,7 +264,10 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           selectedProject.projectId,
           analysisDateRange.startDate,
           analysisDateRange.endDate,
-          { signal: abortController.signal }
+          {
+            deviceId: analysisDeviceId || undefined,
+            signal: abortController.signal,
+          }
         )
 
         if (cancelled) {
@@ -272,7 +299,22 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
       cancelled = true
       abortController.abort()
     }
-  }, [activeTab, analysisDateRange, selectedProject.projectId, zh])
+  }, [activeTab, analysisDateRange, analysisDeviceId, selectedProject.projectId, zh])
+
+  const renderPageBcuSelector = (value: string, onChange: (value: string) => void) => (
+    <BcuSelector
+      value={value}
+      onChange={onChange}
+      options={pageBcuOptions}
+      allLabel={displayAllBcuLabel}
+      includeAllOption={false}
+      hideWhenSingleOption
+      label="BCU"
+      compact
+      fontSize={pageControlButtonSize}
+      className="shrink-0"
+    />
+  )
 
   const projectStats = [
     {
@@ -302,12 +344,22 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   ]
 
   const renderRunningStatusPage = () => (
-    <div className="grid h-full min-h-0 grid-cols-12 gap-4 overflow-hidden">
-      <div className="col-span-12 min-h-0 lg:col-span-6">
-        <BCUStatusQuery mode="realtime" />
-      </div>
-      <div className="col-span-12 min-h-0 lg:col-span-6">
-        <CellHeatmapOverviewPanel />
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-12 gap-4 overflow-hidden">
+        <div className="col-span-12 min-h-0 lg:col-span-6">
+          <BCUStatusQuery
+            mode="realtime"
+            deviceId={runningStatusDeviceId || undefined}
+            headerExtra={
+              pageBcuOptions.length > 1
+                ? renderPageBcuSelector(runningStatusDeviceId, setRunningStatusDeviceId)
+                : undefined
+            }
+          />
+        </div>
+        <div className="col-span-12 min-h-0 lg:col-span-6">
+          <CellHeatmapOverviewPanel deviceId={runningStatusDeviceId || undefined} />
+        </div>
       </div>
     </div>
   )
@@ -319,35 +371,52 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 100%, 0 100%)" }}
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
-        <div className="flex gap-1">
-          {(["realtime", "history"] as BcuMode[]).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setBcuMode(mode)}
-              className={`flex items-center gap-1.5 rounded px-3 py-1 font-medium tracking-[0.03em] transition-all ${
-                bcuMode === mode
-                  ? "border border-[#00d4aa]/55 bg-[linear-gradient(180deg,rgba(0,212,170,0.90),rgba(0,195,160,0.82))] font-semibold text-[#021a12] shadow-[0_0_12px_rgba(0,212,170,0.25)]"
-                  : "text-[#5a8aaa] hover:text-[#c0dff5]"
-              }`}
-              style={{ fontSize: pageControlButtonSize }}
-            >
-              {bcuMode === mode && mode === "realtime" && (
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#021a12]" />
-              )}
-              {mode === "realtime" ? (zh ? "实时监控" : "Live") : (zh ? "历史查询" : "History")}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <div
+            className="flex shrink-0 items-center gap-1 rounded-[12px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]"
+            style={{ height: pageControlGroupHeight }}
+          >
+            {(["realtime", "history"] as BcuMode[]).map((mode) => {
+              const active = bcuMode === mode
+              return (
+                <button
+                  key={mode}
+                  onClick={() => setBcuMode(mode)}
+                  className={`flex items-center justify-center gap-1.5 rounded-[8px] font-medium tracking-[0.03em] transition-all ${
+                    active
+                      ? "border border-[#45f1d0]/45 bg-[linear-gradient(180deg,rgba(20,221,190,0.94),rgba(7,193,164,0.88))] text-[#04241c] shadow-[0_0_10px_rgba(34,211,238,0.18)]"
+                      : "border border-transparent bg-transparent text-[#6d90ad] hover:border-[#22d3ee]/22 hover:text-[#d5efff]"
+                  }`}
+                  style={{ height: pageControlGroupHeight - 4, paddingInline: 14, fontSize: pageControlButtonSize }}
+                >
+                  {active && mode === "realtime" && (
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#04241c]" />
+                  )}
+                  {mode === "realtime" ? (zh ? "实时监控" : "Live") : (zh ? "历史查询" : "History")}
+                </button>
+              )
+            })}
+          </div>
+          {bcuMode === "history" && (
+            <HistoryDatePicker value={historyDate} onChange={setHistoryDate} max={yesterday} />
+          )}
+          {renderPageBcuSelector(alarmDeviceId, setAlarmDeviceId)}
         </div>
-        {bcuMode === "history" && (
-          <HistoryDatePicker value={historyDate} onChange={setHistoryDate} max={yesterday} />
-        )}
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-12 gap-4">
         <div className="col-span-12 min-h-0 lg:col-span-6">
-          <BCUStatusQuery mode={bcuMode} date={bcuMode === "history" ? historyDate : undefined} />
+          <BCUStatusQuery
+            mode={bcuMode}
+            date={bcuMode === "history" ? historyDate : undefined}
+            deviceId={alarmDeviceId || undefined}
+          />
         </div>
         <div className="col-span-12 min-h-0 lg:col-span-6">
-          <AlarmLogPanel mode={bcuMode} date={bcuMode === "history" ? historyDate : undefined} />
+          <AlarmLogPanel
+            mode={bcuMode}
+            date={bcuMode === "history" ? historyDate : undefined}
+            deviceId={alarmDeviceId || undefined}
+          />
         </div>
       </div>
     </div>
@@ -467,11 +536,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         {activeTab === "cell-history" && (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
             <div className="flex shrink-0 items-center gap-1.5 overflow-hidden px-1 py-0.5">
-              <div className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-                {cellHistoryViewMode === "detail" && (
-                  <CellHistoryMultiPicker value={selectedHistoryCells} onChange={setSelectedHistoryCells} />
-                )}
-                <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={yesterday} compact />
+              <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
                 <div
                   className="flex shrink-0 items-center gap-1 rounded-[12px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]"
                   style={{ height: pageControlGroupHeight }}
@@ -479,32 +544,15 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                   {([
                     {
                       key: "overview",
-                      labelZh: "总览",
-                      labelEn: "Overview",
-                      icon: (
-                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="4" y="4" width="6" height="6" rx="1.2" />
-                          <rect x="14" y="4" width="6" height="6" rx="1.2" />
-                          <rect x="4" y="14" width="6" height="6" rx="1.2" />
-                          <rect x="14" y="14" width="6" height="6" rx="1.2" />
-                        </svg>
-                      ),
+                      labelZh: "历史总览",
+                      labelEn: "History Overview",
                     },
                     {
                       key: "detail",
-                      labelZh: "明细",
-                      labelEn: "Detail",
-                      icon: (
-                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M5 18V9" />
-                          <path d="M10 18V6" />
-                          <path d="M15 18v-4" />
-                          <path d="M20 18V11" />
-                          <path d="M4 18h17" />
-                        </svg>
-                      ),
+                      labelZh: "历史明细",
+                      labelEn: "History Detail",
                     },
-                  ] as { key: CellHistoryViewMode; labelZh: string; labelEn: string; icon: ReactNode }[]).map((item) => {
+                  ] as { key: CellHistoryViewMode; labelZh: string; labelEn: string }[]).map((item) => {
                     const active = cellHistoryViewMode === item.key
 
                     return (
@@ -524,18 +572,30 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                             ? "border border-[#45f1d0]/45 bg-[linear-gradient(180deg,rgba(20,221,190,0.94),rgba(7,193,164,0.88))] text-[#04241c] shadow-[0_0_10px_rgba(34,211,238,0.18)]"
                             : "border border-transparent bg-transparent text-[#6d90ad] hover:border-[#22d3ee]/22 hover:text-[#d5efff]"
                         }`}
-                        style={{ width: pageIconButtonEdge, height: pageIconButtonEdge, fontSize: pageIconButtonSize }}
+                        style={{ height: pageControlGroupHeight - 4, paddingInline: 14, fontSize: pageControlButtonSize }}
                       >
-                        <span className={active ? "scale-100" : "scale-[0.95]"}>{item.icon}</span>
+                        <span>{zh ? item.labelZh : item.labelEn}</span>
                       </button>
                     )
                   })}
                 </div>
+                <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={yesterday} compact fontSize={pageControlButtonSize} />
+                {renderPageBcuSelector(cellHistoryDeviceId, setCellHistoryDeviceId)}
+                {cellHistoryViewMode === "detail" && (
+                  <CellHistoryMultiPicker
+                    value={selectedHistoryCells}
+                    onChange={setSelectedHistoryCells}
+                    onClear={() => setSelectedHistoryCells([])}
+                    compact
+                    fontSize={pageControlButtonSize}
+                  />
+                )}
               </div>
             </div>
             <div className="min-h-0 flex-1 overflow-hidden">
               <CellHistoryReplayPanel
                 date={cellHistoryDate}
+                deviceId={cellHistoryDeviceId || undefined}
                 selectedCell={selectedHistoryCell}
                 detailCells={selectedHistoryCells}
                 viewMode={cellHistoryViewMode}
@@ -549,12 +609,12 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         {activeTab === "analysis" && (
           <div className={`flex h-full min-h-0 flex-col overflow-hidden ${isCompactViewport ? "gap-2" : "gap-3"}`}>
             <div className={`flex shrink-0 flex-wrap items-center overflow-visible ${isCompactViewport ? "gap-2" : "gap-3"}`}>
-              <div className="flex flex-wrap items-center gap-1 rounded-[14px] border border-[#1d4c69] bg-[linear-gradient(180deg,rgba(9,25,48,0.92),rgba(8,20,38,0.96))] p-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
+              <div className={`flex items-center gap-1 rounded-[14px] border border-[#1d4c69] bg-[linear-gradient(180deg,rgba(9,25,48,0.92),rgba(8,20,38,0.96))] p-0.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)] ${isCompactViewport ? "h-[34px]" : "h-[36px]"}`}>
                 {ANALYSIS_RANGES.map((range) => (
                   <button
                     key={range.key}
                     onClick={() => setAnalysisRange(range.key)}
-                    className={`rounded-[10px] tracking-[0.03em] transition-all ${isCompactViewport ? "px-3 py-[5px]" : "px-3.5 py-1.5"} ${
+                    className={`h-full rounded-[10px] tracking-[0.03em] transition-all ${isCompactViewport ? "px-3" : "px-3.5"} ${
                       analysisRange === range.key
                         ? "border border-[#00d4aa]/60 bg-[linear-gradient(180deg,rgba(27,220,191,0.96),rgba(7,193,164,0.88))] font-semibold text-[#041c16] shadow-[0_0_16px_rgba(0,212,170,0.22)]"
                         : "border border-transparent text-[#8aaed2] hover:border-[#22d3ee]/20 hover:bg-[#112347] hover:text-[#e3f4ff]"
@@ -580,9 +640,11 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                         : "Custom date range cannot exceed 31 days or go beyond yesterday"
                     }
                     quickSelectLabel={zh ? "昨天" : "Yesterday"}
+                    compact={isCompactViewport}
                   />
                 </div>
               )}
+              {renderPageBcuSelector(analysisDeviceId, setAnalysisDeviceId)}
             </div>
             <div className={`grid min-h-0 flex-1 grid-cols-12 ${isCompactViewport ? "gap-3" : "gap-4"}`}>
               <div className={isCompactViewport ? "col-span-4 min-h-0" : "col-span-12 min-h-0 xl:col-span-6 2xl:col-span-4"}>

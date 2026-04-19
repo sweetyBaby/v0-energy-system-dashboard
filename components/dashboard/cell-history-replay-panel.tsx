@@ -420,10 +420,12 @@ function LegendItem({ label, color, dashed = false, compact = false }: { label: 
 function ChartPlaceholder({ text }: { text: string }) {
   const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   return (
-    <div ref={scale.ref} className="flex h-full min-h-0 items-center justify-center px-4" style={scale.rootStyle}>
-      <div className="rounded-[12px] border border-[#214260]/70 bg-[rgba(8,18,40,0.52)] px-4 py-2.5 text-center text-[#7b8ab8] shadow-[inset_0_0_18px_rgba(63,231,255,0.03)]" style={{ fontSize: scale.fluid(12, 14) }}>
-        {text}
-      </div>
+    <div
+      ref={scale.ref}
+      className="relative z-10 flex h-full min-h-0 w-full flex-1 items-center justify-center self-stretch px-4 text-center text-[#7b8ab8]"
+      style={{ ...scale.rootStyle, fontSize: scale.fluid(12, 14) }}
+    >
+      {text}
     </div>
   )
 }
@@ -462,7 +464,7 @@ function HistoryLoadingIndicator({
   return (
     <div
       ref={scale.ref}
-      className={`relative overflow-hidden rounded-[20px] border border-[#29547f]/80 bg-[linear-gradient(180deg,rgba(12,27,58,0.9),rgba(8,18,40,0.96))] shadow-[0_18px_40px_rgba(0,0,0,0.24),inset_0_0_24px_rgba(63,231,255,0.05)] ${
+      className={`relative mx-auto overflow-hidden rounded-[20px] border border-[#29547f]/80 bg-[linear-gradient(180deg,rgba(12,27,58,0.9),rgba(8,18,40,0.96))] shadow-[0_18px_40px_rgba(0,0,0,0.24),inset_0_0_24px_rgba(63,231,255,0.05)] ${
         isOverlay ? "min-w-[240px] px-6 py-5" : "min-w-[220px] px-5 py-4"
       }`}
       style={scale.rootStyle}
@@ -910,54 +912,90 @@ export function CellHistoryCellPicker({ value, onChange }: { value: number | nul
 export function CellHistoryMultiPicker({
   value,
   onChange,
+  onClear,
   maxSelection = 3,
+  compact = false,
+  fontSize,
 }: {
   value: number[]
   onChange: (value: number[]) => void
+  onClear?: () => void
   maxSelection?: number
+  compact?: boolean
+  fontSize?: number
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
   const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
-  const controlSize = scale.fluid(12, 14.5)
+  const controlSize = fontSize ?? (compact ? scale.fluid(11, 13.5) : scale.fluid(12, 15))
   const hintSize = scale.fluid(10, 12)
-  const triggerHeight = scale.fluid(36, 42)
-  const iconSize = scale.fluid(14, 17)
+  const footerControlSize = compact ? scale.fluid(10.8, 13) : scale.fluid(11.4, 14)
+  const triggerHeight = compact ? "34px" : "36px"
+  const iconSize = compact ? scale.fluid(14, 16) : scale.fluid(14, 17)
   const [open, setOpen] = useState(false)
-  const limitReached = value.length >= maxSelection
+  const [draftValue, setDraftValue] = useState<number[]>(value)
+  const [toastText, setToastText] = useState<string | null>(null)
+  const [toastVisible, setToastVisible] = useState(false)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const limitReached = draftValue.length >= maxSelection
+  const displayValue = open ? draftValue : value
   const label =
-    value.length > 0
-      ? `${zh ? "电芯" : "Cells"} ${value.join(", ")}`
+    displayValue.length > 0
+      ? `${zh ? "电芯" : "Cells"} ${displayValue.join(", ")}`
       : zh
         ? "选择电芯"
         : "Select Cells"
 
+  useEffect(() => {
+    if (!open) return
+    setDraftValue(value)
+  }, [open, value])
+
+  useEffect(() => {
+    return () => {
+      toastTimerRef.current.forEach((timer) => clearTimeout(timer))
+    }
+  }, [])
+
+  const showClearToast = () => {
+    toastTimerRef.current.forEach((timer) => clearTimeout(timer))
+    toastTimerRef.current = []
+    setToastText(zh ? "请选择电芯查看历史明细" : "Please select cells to view detail history")
+    setToastVisible(true)
+    toastTimerRef.current.push(setTimeout(() => setToastVisible(false), 2200))
+    toastTimerRef.current.push(setTimeout(() => setToastText(null), 2600))
+  }
+
   const handleToggleCell = (cell: number) => {
-    if (value.includes(cell)) {
-      onChange(value.filter((item) => item !== cell))
+    if (draftValue.includes(cell)) {
+      setDraftValue(draftValue.filter((item) => item !== cell))
       return
     }
 
     if (!limitReached) {
-      onChange([...value, cell].sort((a, b) => a - b))
+      setDraftValue([...draftValue, cell].sort((a, b) => a - b))
     }
   }
 
   return (
-    <div ref={scale.ref} style={scale.rootStyle}>
+    <div ref={scale.ref} className="relative" style={scale.rootStyle}>
       <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex min-w-[220px] items-center justify-between gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3 text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60" style={{ height: triggerHeight, fontSize: controlSize }}>
+        <button className={`flex min-w-[200px] items-center justify-between border border-[#26456e] bg-[#101840] text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60 ${compact ? "gap-1.5 rounded-[11px] px-2.5" : "gap-2 rounded-xl px-3"}`} style={{ height: triggerHeight, fontSize: controlSize }}>
           <div className="flex min-w-0 items-center gap-2">
             <span className="font-medium">{label}</span>
             <span className="rounded-full border border-[#2f568a] bg-[#0b1735] px-1.5 py-0.5 text-[#8feaff]" style={{ fontSize: hintSize }}>
-              {value.length}/{maxSelection}
+              {displayValue.length}/{maxSelection}
             </span>
           </div>
           <ChevronsUpDown className="shrink-0 text-[#7b8ab8]" style={{ width: iconSize, height: iconSize }} />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="z-50 w-[260px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]" style={{ fontSize: controlSize }}>
+      <PopoverContent
+        align="start"
+        className="z-50 w-[260px] overflow-hidden rounded-2xl border border-[#3f6f9c] bg-[#0d1233] p-0 text-[#e8f4fc] shadow-[0_0_0_1px_rgba(112,180,255,0.16),0_18px_34px_rgba(0,0,0,0.28)]"
+        style={{ fontSize: controlSize }}
+      >
         <Command className="bg-[#0d1233] text-[#e8f4fc]">
           <CommandInput placeholder={zh ? "搜索电芯..." : "Search cells..."} className="text-[#e8f4fc] placeholder:text-[#5f79ad]" />
           <CommandList className={pickerScrollbarClass}>
@@ -965,7 +1003,7 @@ export function CellHistoryMultiPicker({
             <CommandGroup>
               {Array.from({ length: CELL_COUNT }, (_, index) => {
                 const cell = index + 1
-                const selected = value.includes(cell)
+                const selected = draftValue.includes(cell)
                 const disabled = !selected && limitReached
 
                 return (
@@ -983,12 +1021,56 @@ export function CellHistoryMultiPicker({
               })}
             </CommandGroup>
           </CommandList>
-          <div className="border-t border-[#1a2654] px-3 py-2 text-[#6f8cb1]" style={{ fontSize: hintSize }}>
-            {zh ? `最多选择 ${maxSelection} 个电芯` : `Up to ${maxSelection} cells`}
+          <div className="flex items-center justify-between border-t border-[#1a2654] px-3 py-2" style={{ fontSize: footerControlSize }}>
+            <span className="text-[#6f8cb1]">{zh ? `最多选择 ${maxSelection} 个电芯` : `Up to ${maxSelection} cells`}</span>
+            <div className="flex items-center gap-3">
+              {(value.length > 0 || draftValue.length > 0) && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    setDraftValue([])
+                    onClear?.()
+                    setOpen(false)
+                    showClearToast()
+                  }}
+                  className="text-[#f87171] transition-colors hover:text-[#fca5a5]"
+                >
+                  {zh ? "清空" : "Clear all"}
+                </button>
+              )}
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  if (draftValue.length === 0) return
+                  onChange(draftValue)
+                  setOpen(false)
+                }}
+                disabled={draftValue.length === 0}
+                className={`rounded-md px-2.5 py-1 font-medium transition-all ${
+                  draftValue.length === 0
+                    ? "cursor-not-allowed bg-[#14304b] text-[#547084]"
+                    : "bg-[#16d5c0] text-[#06211d] hover:bg-[#36e6d2]"
+                }`}
+              >
+                {zh ? "确定" : "Apply"}
+              </button>
+            </div>
           </div>
         </Command>
       </PopoverContent>
     </Popover>
+      {toastText ? (
+        <div
+          className="pointer-events-none absolute left-1/2 top-full z-[80] mt-2 -translate-x-1/2 transition-opacity duration-300"
+          style={{ opacity: toastVisible ? 1 : 0 }}
+        >
+          <div className="whitespace-nowrap rounded-xl border border-[#2e5d86]/75 bg-[linear-gradient(180deg,rgba(10,27,56,0.98),rgba(7,18,38,0.98))] px-4 py-2 text-center text-[#bfefff] shadow-[0_14px_30px_rgba(0,0,0,0.28),inset_0_0_18px_rgba(63,231,255,0.05)]" style={{ fontSize: controlSize }}>
+            {toastText}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -1098,6 +1180,7 @@ export type CellHistoryOverviewStats = {
 
 export function CellHistoryReplayPanel({
   date,
+  deviceId,
   selectedCell,
   detailCells = [],
   viewMode = "overview",
@@ -1105,6 +1188,7 @@ export function CellHistoryReplayPanel({
   onOverviewStats,
 }: {
   date: string
+  deviceId?: string
   selectedCell: number | null
   detailCells?: number[]
   viewMode?: "overview" | "detail"
@@ -1141,20 +1225,31 @@ export function CellHistoryReplayPanel({
     t2: true,
     t3: true,
   })
+  const normalizedDeviceId = deviceId?.trim() || undefined
   const effectiveDetailCells = useMemo(() => {
+    if (viewMode === "detail") {
+      return detailCells.slice(0, 3)
+    }
+
     const limitedCells = detailCells.slice(0, 3)
     if (limitedCells.length > 0) return limitedCells
     if (selectedCell != null) return [selectedCell]
-    return [1]
-  }, [detailCells, selectedCell])
+    return []
+  }, [detailCells, selectedCell, viewMode])
   const detailRequestKey = useMemo(
-    () => `${selectedProject.projectId}::${date}::${effectiveDetailCells.join(",")}`,
-    [date, effectiveDetailCells, selectedProject.projectId]
+    () => `${selectedProject.projectId}::${normalizedDeviceId ?? ""}::${date}::${effectiveDetailCells.join(",")}`,
+    [date, effectiveDetailCells, normalizedDeviceId, selectedProject.projectId]
   )
   const hasMatchingHistoryBundle = historyBundle !== null && historyBundle.requestKey === detailRequestKey
 
   useEffect(() => {
     if (viewMode !== "detail") {
+      return
+    }
+
+    if (effectiveDetailCells.length === 0) {
+      setIsHistoryLoading(false)
+      setHistoryError(null)
       return
     }
 
@@ -1173,6 +1268,7 @@ export function CellHistoryReplayPanel({
 
       try {
         const nextBundle = await fetchDailyCellHistory(selectedProject.projectId, date, {
+          deviceId: normalizedDeviceId,
           includeBcuHistory: viewMode !== "detail",
           ...(viewMode === "detail" ? { detailCellIndexes: effectiveDetailCells } : {}),
           signal: abortController.signal,
@@ -1206,7 +1302,7 @@ export function CellHistoryReplayPanel({
       cancelled = true
       abortController.abort()
     }
-  }, [detailRequestKey, effectiveDetailCells, hasMatchingHistoryBundle, selectedProject.projectId, date, viewMode, zh])
+  }, [date, detailRequestKey, effectiveDetailCells, hasMatchingHistoryBundle, normalizedDeviceId, selectedProject.projectId, viewMode, zh])
 
   useEffect(() => {
     if (viewMode !== "overview") {
@@ -1223,6 +1319,7 @@ export function CellHistoryReplayPanel({
 
       try {
         const nextTrendBundle = await fetchDailyCellHistoryTrendBundle(selectedProject.projectId, date, {
+          deviceId: normalizedDeviceId,
           signal: abortController.signal,
         })
 
@@ -1251,7 +1348,7 @@ export function CellHistoryReplayPanel({
       cancelled = true
       abortController.abort()
     }
-  }, [date, selectedProject.projectId, viewMode, zh])
+  }, [date, normalizedDeviceId, selectedProject.projectId, viewMode, zh])
 
   useEffect(() => {
     if (viewMode !== "overview") {
@@ -1268,6 +1365,7 @@ export function CellHistoryReplayPanel({
 
       try {
         const nextDailyEnergySummary = await fetchDailyCellHistoryEnergySummary(selectedProject.projectId, date, {
+          deviceId: normalizedDeviceId,
           signal: abortController.signal,
         })
 
@@ -1296,7 +1394,7 @@ export function CellHistoryReplayPanel({
       cancelled = true
       abortController.abort()
     }
-  }, [date, selectedProject.projectId, viewMode, zh])
+  }, [date, normalizedDeviceId, selectedProject.projectId, viewMode, zh])
 
   useEffect(() => {
     if (viewMode !== "overview") {
@@ -1313,6 +1411,7 @@ export function CellHistoryReplayPanel({
 
       try {
         const nextBcuHistory = await fetchDailyCellHistoryBcu(selectedProject.projectId, date, {
+          deviceId: normalizedDeviceId,
           signal: abortController.signal,
         })
 
@@ -1341,7 +1440,7 @@ export function CellHistoryReplayPanel({
       cancelled = true
       abortController.abort()
     }
-  }, [date, selectedProject.projectId, viewMode, zh])
+  }, [date, normalizedDeviceId, selectedProject.projectId, viewMode, zh])
 
   const activeHistoryBundle = hasMatchingHistoryBundle ? historyBundle.bundle : null
   const historyData = activeHistoryBundle?.historyData ?? EMPTY_HISTORY_DATA
@@ -1851,12 +1950,20 @@ export function CellHistoryReplayPanel({
                   style={{ fontSize: scale.fluid(10, 12) }}
                 >
                   <span className="block h-[2px] w-4" style={{ backgroundColor: item.color, boxShadow: detailVisibleMetrics[item.key] ? `0 0 8px ${item.color}` : "none", opacity: detailVisibleMetrics[item.key] ? 1 : 0.4 }} />
-                  <span className={detailVisibleMetrics[item.key] ? "" : "line-through"}>{item.label}</span>
+                  <span>{item.label}</span>
                 </button>
               ))}
             </div>
           }
         >
+          {effectiveDetailCells.length === 0 ? (
+            <div className="flex h-full min-h-0">
+              <div className="relative flex h-full min-h-0 flex-1 overflow-hidden rounded-[14px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))] shadow-[inset_0_0_24px_rgba(63,231,255,0.04)]">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(110,231,255,0.08),transparent_44%),radial-gradient(circle_at_bottom,rgba(255,211,107,0.05),transparent_32%)]" />
+                <ChartPlaceholder text={zh ? "请选择电芯查看历史明细" : "Select cells to view detail history"} />
+              </div>
+            </div>
+          ) : (
           <div
             className="grid h-full min-h-0 gap-1"
             style={{ gridTemplateRows: `repeat(${detailCellSummaries.length}, minmax(0, 1fr))` }}
@@ -1902,7 +2009,7 @@ export function CellHistoryReplayPanel({
                           <div className="font-semibold tracking-[0.05em] text-[#eefbff]" style={{ fontSize: detailCellTitleSize }}>{zh ? `电芯 #${cell.cell}` : `Cell #${cell.cell}`}</div>
                         </div>
                   </div>
-                  <div className="min-h-0 flex-1">
+                  <div className="flex min-h-0 flex-1">
                     {hasCellTrendData ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={detailReplayData} syncId="cell-history-detail-replay" syncMethod="index" margin={{ top: 12, right: 14, left: 0, bottom: isLast ? 6 : 0 }}>
@@ -1988,7 +2095,7 @@ export function CellHistoryReplayPanel({
                         </LineChart>
                       </ResponsiveContainer>
                     ) : isHistoryLoading ? (
-                      <div className="flex h-full min-h-0 items-center justify-center px-4">
+                      <div className="flex h-full min-h-0 w-full flex-1 self-stretch items-center justify-center px-4">
                         <HistoryLoadingIndicator text={detailHistoryLoadingText} />
                       </div>
                     ) : (
@@ -1999,6 +2106,7 @@ export function CellHistoryReplayPanel({
               )
             })}
           </div>
+          )}
         </NeonSection>
         {showHistoryRefreshOverlay ? <HistoryLoadingOverlay text={detailHistoryLoadingText} dimmed /> : null}
       </div>
@@ -2107,7 +2215,7 @@ export function CellHistoryReplayPanel({
                 <div className="flex min-h-0 flex-1 items-stretch gap-2">
                   <div className="grid min-h-0 flex-1 grid-rows-[1.28fr_repeat(3,minmax(0,1fr))] overflow-hidden">
                   <div className="relative min-h-0 flex-[1.28] border-b border-[#214260]/90">
-                    <div className="h-full min-h-0">
+                    <div className="flex h-full min-h-0">
                       {hasVoltageTrendData ? (
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={voltageTrendData} syncId={trendSyncId} syncMethod="index" margin={{ top: 8, right: 18, left: 0, bottom: 0 }}>
@@ -2152,7 +2260,7 @@ export function CellHistoryReplayPanel({
                     const isLast = index === temperatureTrendCharts.length - 1
                     return (
                       <div key={chart.key} className={`relative min-h-0 flex-1 ${!isLast ? "border-b border-[#214260]/90" : ""}`}>
-                        <div className="h-full min-h-0">
+                        <div className="flex h-full min-h-0">
                           {chart.data.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                               <LineChart data={chart.data} syncId={trendSyncId} syncMethod="index" margin={{ top: 8, right: 18, left: 0, bottom: isLast ? 6 : 0 }}>

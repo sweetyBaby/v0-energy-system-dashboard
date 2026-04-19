@@ -1,7 +1,7 @@
 "use client"
 
 import { AlertCircle, DatabaseZap, WifiOff } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   CartesianGrid,
   Line,
@@ -162,37 +162,41 @@ const getDailySoc = (hour: number) => {
   return 44 - ((hour - 18.5) / 5.5) * 3
 }
 
-const createHistorySeries = (date?: string): OperationTrendPoint[] => {
+const createHistorySeries = (date?: string, deviceId?: string): OperationTrendPoint[] => {
   const targetDate = date ? new Date(`${date}T00:00:00`) : toDayStart(addDays(new Date(), -1))
   const safeDate = Number.isNaN(targetDate.getTime()) ? toDayStart(addDays(new Date(), -1)) : targetDate
-  const seed = hashSeed(date || formatDateKey(safeDate))
+  const seedBase = `${date || formatDateKey(safeDate)}::${deviceId || "default"}`
+  const seed = hashSeed(seedBase)
+  const deviceSeed = hashSeed(deviceId)
+  const deviceOffset = ((deviceSeed % 7) - 3) * 0.22
   const points: OperationTrendPoint[] = []
 
   for (let slot = 0; slot < 288; slot += 1) {
     const hour = slot / 12
-    const load = getDailyLoadFactor(hour)
-    const soc = getDailySoc(hour)
+    const deviceWave = seededSigned(deviceSeed, slot + 23)
+    const load = clamp(getDailyLoadFactor(hour + deviceOffset * 0.4) + deviceWave * 0.015, 0.05, 0.96)
+    const soc = getDailySoc(hour) + deviceOffset * 3.4 + deviceWave * 0.45
     const noise = seededSigned(seed, slot)
 
-    const ambient = 24.5 + Math.sin(((hour - 6) / 24) * Math.PI * 2) * 3 + noise * 0.15
+    const ambient = 24.5 + Math.sin(((hour - 6) / 24) * Math.PI * 2 + deviceOffset * 0.3) * 3 + noise * 0.15 + deviceOffset * 0.55
     const maxTemp = ambient + 4 + load * 3.8 + Math.abs(seededSigned(seed, slot + 80)) * 0.6
     const minTemp = ambient + 1.6 + load * 1.8 + Math.abs(seededSigned(seed, slot + 81)) * 0.2
 
     let current: number
-    if (hour < 5.5) current = -3 + Math.sin(hour * 1.4) * 2 + noise * 1.5
-    else if (hour < 8.5) current = 35 + ((hour - 5.5) / 3) * 40 + Math.sin(hour * 2.1) * 4 + noise * 3
-    else if (hour < 18.5) current = -(55 + load * 60 + Math.sin(((hour - 8.5) / 10) * Math.PI * 2) * 8 + noise * 4)
-    else if (hour < 21.5) current = -(20 + ((21.5 - hour) / 3) * 22 + noise * 2.5)
-    else current = -5 + Math.sin(hour * 1.2) * 2 + noise * 1.5
+    if (hour < 5.5) current = -3 + Math.sin(hour * 1.4 + deviceOffset * 0.5) * 2 + noise * 1.5 + deviceOffset * 3
+    else if (hour < 8.5) current = 35 + ((hour - 5.5) / 3) * 40 + Math.sin(hour * 2.1 + deviceOffset * 0.4) * 4 + noise * 3 + deviceOffset * 6
+    else if (hour < 18.5) current = -(55 + load * 60 + Math.sin(((hour - 8.5) / 10) * Math.PI * 2 + deviceOffset * 0.2) * 8 + noise * 4 - deviceOffset * 7)
+    else if (hour < 21.5) current = -(20 + ((21.5 - hour) / 3) * 22 + noise * 2.5 - deviceOffset * 4)
+    else current = -5 + Math.sin(hour * 1.2 + deviceOffset * 0.35) * 2 + noise * 1.5 + deviceOffset * 2
 
     current = clamp(current, -148, 148)
 
-    const cellBase = 25.8 + soc * 0.028
+    const cellBase = 25.8 + soc * 0.028 + deviceOffset * 0.12
     const chargeBoost = hour >= 6 && hour < 8.5 ? 0.75 : 0
     const dischargeSag = hour >= 8.5 && hour < 18.5 ? load * 1.85 : load * 0.65
     const cellCenter = cellBase + chargeBoost - dischargeSag + seededSigned(seed, slot + 160) * 0.18
     const cellSpread = 0.42 + load * 0.48
-    const packVoltage = cellCenter * 50 + (current >= 0 ? current * 0.3 : current * 0.45)
+    const packVoltage = cellCenter * 50 + (current >= 0 ? current * 0.3 : current * 0.45) + deviceOffset * 8
     const pointDate = new Date(safeDate)
     pointDate.setHours(0, slot * 5, 0, 0)
 
@@ -491,12 +495,16 @@ function TrendStackedChart({
 export function BCUStatusQuery({
   mode = "realtime",
   date,
+  deviceId,
+  headerExtra,
   hideCellSeries = false,
   panelVariant = "default",
   historyData,
 }: {
   mode?: BCUStatusMode
   date?: string
+  deviceId?: string
+  headerExtra?: ReactNode
   hideCellSeries?: boolean
   panelVariant?: "default" | "overview"
   historyData?: OperationTrendPoint[]
@@ -509,7 +517,8 @@ export function BCUStatusQuery({
   const [isRealtimeLoading, setIsRealtimeLoading] = useState(mode === "realtime")
   const [realtimeError, setRealtimeError] = useState<string | null>(null)
   const cursorRef = useRef<OperationsCursor>({})
-  const histData = useMemo(() => createHistorySeries(date), [date])
+  const normalizedDeviceId = deviceId?.trim() || undefined
+  const histData = useMemo(() => createHistorySeries(date, normalizedDeviceId), [date, normalizedDeviceId])
   const effectiveHistoryData = historyData ?? histData
   const liveTimeLabel = rtOverview[rtOverview.length - 1]?.time.slice(0, 5) ?? "--:--"
   const isOverviewVariant = panelVariant === "overview"
@@ -565,6 +574,7 @@ export function BCUStatusQuery({
 
     const loadRecent = async () => {
       const bundle = await fetchOperationsRecentBundle(selectedProject.projectId, {
+        deviceId: normalizedDeviceId,
         signal: abortController.signal,
       })
 
@@ -580,6 +590,7 @@ export function BCUStatusQuery({
     const pollIncremental = async () => {
       try {
         const bundle = await fetchOperationsIncrementalBundle(selectedProject.projectId, cursorRef.current, {
+          deviceId: normalizedDeviceId,
           signal: abortController.signal,
         })
 
@@ -631,7 +642,7 @@ export function BCUStatusQuery({
         clearInterval(timer)
       }
     }
-  }, [mode, selectedProject.projectId, zh])
+  }, [mode, normalizedDeviceId, selectedProject.projectId, zh])
 
   return (
     <div
@@ -659,6 +670,7 @@ export function BCUStatusQuery({
             </span>
           ) : null}
         </div>
+        {headerExtra ? <div className="ml-auto flex shrink-0 items-center gap-2">{headerExtra}</div> : null}
       </div>
 
       <div className="relative min-h-0 flex-1">

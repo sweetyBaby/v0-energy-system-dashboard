@@ -149,13 +149,17 @@ export const fetchDailyTrendRange = async (
   projectId: string,
   startDate: string,
   endDate: string,
-  options?: { signal?: AbortSignal }
+  options?: { deviceId?: string; signal?: AbortSignal }
 ): Promise<DailyTrendRangeResult> => {
   const params = new URLSearchParams({
     projectId,
     startDate,
     endDate,
   })
+
+  if (options?.deviceId) {
+    params.set("deviceId", options.deviceId)
+  }
 
   const response = await apiClient.get<RawDailyTrendRangeData>(
     `${apiEndpoints.analysis.dailyTrendRange}?${params.toString()}`,

@@ -9,6 +9,7 @@ type HeatmapApiResponse<T> = {
 }
 
 type RequestOptions = {
+  deviceId?: string
   signal?: AbortSignal
 }
 
@@ -99,6 +100,7 @@ const assertSuccessfulResponse = (response: HeatmapApiResponse<LatestHeatmapPayl
 const fetchLatestPayload = async (path: string, projectId: string, options: RequestOptions = {}) => {
   const queryPath = buildQueryPath(path, {
     measurement: toMeasurement(projectId),
+    deviceId: options.deviceId,
   })
 
   const response = await apiClient.getRaw<HeatmapApiResponse<LatestHeatmapPayload>>(queryPath, {

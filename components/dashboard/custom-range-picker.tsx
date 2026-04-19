@@ -52,6 +52,7 @@ export function CustomRangePicker({
   maxRangeError,
   quickSelectLabel,
   align = "end",
+  compact = false,
 }: {
   value: DateRange | undefined
   onChange: (range: DateRange | undefined) => void
@@ -62,6 +63,7 @@ export function CustomRangePicker({
   maxRangeError: string
   quickSelectLabel?: string
   align?: "start" | "center" | "end"
+  compact?: boolean
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -123,7 +125,7 @@ export function CustomRangePicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          className="flex min-h-[2.5rem] items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3.5 py-2 text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60"
+          className={`flex items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60 ${compact ? "h-[34px] px-2.5" : "h-[36px] px-3.5"}`}
           style={{ fontSize: triggerFontSize }}
         >
           <CalendarDays className="shrink-0 text-[#8db7ff]" style={{ width: triggerIconSize, height: triggerIconSize }} />

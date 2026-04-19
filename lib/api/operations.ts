@@ -8,6 +8,7 @@ type OperationsApiResponse<T> = {
 }
 
 type RequestOptions = {
+  deviceId?: string
   signal?: AbortSignal
 }
 
@@ -250,6 +251,7 @@ export const getOperationsCursorFromBundle = (bundle: RecentBundle | Incremental
 export const fetchAuxRecent = async (projectId: string, options: RequestOptions = {}) => {
   const path = buildQueryPath(apiEndpoints.operations.auxRecent, {
     measurement: toMeasurement(projectId),
+    deviceId: options.deviceId,
   })
 
   const response = await apiClient.getRaw<OperationsApiResponse<AuxRealtimePoint[]>>(path, {
@@ -266,6 +268,7 @@ export const fetchAuxIncremental = async (
 ) => {
   const path = buildQueryPath(apiEndpoints.operations.auxIncremental, {
     measurement: toMeasurement(projectId),
+    deviceId: options.deviceId,
     since,
   })
 
@@ -279,6 +282,7 @@ export const fetchAuxIncremental = async (
 export const fetchCellVoltageRecent = async (projectId: string, options: RequestOptions = {}) => {
   const path = buildQueryPath(apiEndpoints.operations.cellVoltageRecent, {
     measurement: toMeasurement(projectId),
+    deviceId: options.deviceId,
   })
 
   const response = await apiClient.getRaw<OperationsApiResponse<CellVoltagePoint[]>>(path, {
@@ -295,6 +299,7 @@ export const fetchCellVoltageIncremental = async (
 ) => {
   const path = buildQueryPath(apiEndpoints.operations.cellVoltageIncremental, {
     measurement: toMeasurement(projectId),
+    deviceId: options.deviceId,
     since,
   })
 
@@ -308,6 +313,7 @@ export const fetchCellVoltageIncremental = async (
 export const fetchCellTemperatureRecent = async (projectId: string, options: RequestOptions = {}) => {
   const path = buildQueryPath(apiEndpoints.operations.cellTemperatureRecent, {
     measurement: toMeasurement(projectId),
+    deviceId: options.deviceId,
   })
 
   const response = await apiClient.getRaw<OperationsApiResponse<CellTemperaturePoint[]>>(path, {
@@ -324,6 +330,7 @@ export const fetchCellTemperatureIncremental = async (
 ) => {
   const path = buildQueryPath(apiEndpoints.operations.cellTemperatureIncremental, {
     measurement: toMeasurement(projectId),
+    deviceId: options.deviceId,
     seconds: cursor.cellTemperatureSeconds,
     nanos: cursor.cellTemperatureNanos,
   })

@@ -1,7 +1,8 @@
 ﻿"use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { BarChart2, ChevronDown, Filter, List } from "lucide-react"
+import { useProject } from "@/components/dashboard/dashboard-header"
 import { useLanguage } from "@/components/language-provider"
 import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 
@@ -213,6 +214,31 @@ function makeRTAlarm(offsetSec = 0): AlarmEntry {
 const STATUS_COLOR: Record<string, string> = {
   "未恢复": "#ef4444", "已确认": "#f97316", "已恢复": "#00d4aa",
   "Active": "#ef4444", "Acknowledged": "#f97316", "Recovered": "#00d4aa",
+}
+
+const normalizeAlarmSource = (value: string) => value.trim().toUpperCase().replace(/[\s_-]/g, "")
+
+const getBcuSequence = (value?: string | null) => {
+  if (!value) {
+    return null
+  }
+
+  const match = normalizeAlarmSource(value).match(/^BCU0*(\d+)$/)
+  if (!match) {
+    return null
+  }
+
+  const sequence = Number(match[1])
+  return Number.isFinite(sequence) ? sequence : null
+}
+
+const matchesAlarmDevice = (source: string, deviceName?: string | null) => {
+  const deviceSequence = getBcuSequence(deviceName)
+  if (deviceSequence == null) {
+    return true
+  }
+
+  return getBcuSequence(source) === deviceSequence
 }
 
 type LevelFilter = "all" | "lv45" | "lv3" | "lv12"
@@ -671,11 +697,14 @@ function AlarmRow({
 export function AlarmLogPanel({
   mode = "realtime",
   date,
+  deviceId,
 }: {
   mode?: "realtime" | "history"
   date?: string
+  deviceId?: string
 }) {
   const { language } = useLanguage()
+  const { selectedProject } = useProject()
   const zh = language === "zh"
   const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const titleSize = scale.clampText(0.9, 0.98, 1.18)
@@ -689,6 +718,10 @@ export function AlarmLogPanel({
   const [viewMode,    setViewMode]    = useState<"gantt" | "table">("gantt")
   const [levelFilter, setLevelFilter] = useState<LevelFilter>("all")
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("all")
+  const selectedDeviceName = useMemo(
+    () => selectedProject.devices.find((device) => device.deviceId === deviceId)?.deviceName ?? null,
+    [deviceId, selectedProject.devices]
+  )
 
   // ── 实时告警状态（动态更新） ────────────────────────────────────────────────
   const [liveAlarms, setLiveAlarms] = useState<AlarmEntry[]>(() =>
@@ -723,11 +756,17 @@ export function AlarmLogPanel({
     .map(a => a.statusZh === "未恢复"
       ? { ...a, statusZh: "已确认" as const, statusEn: "Acknowledged" as const }
       : a)
+  const realtimeFiltered = selectedDeviceName
+    ? liveAlarms.filter((alarm) => matchesAlarmDevice(alarm.source, selectedDeviceName))
+    : liveAlarms
+  const historyFiltered = selectedDeviceName
+    ? dateFiltered.filter((alarm) => matchesAlarmDevice(alarm.source, selectedDeviceName))
+    : dateFiltered
 
-  const timelineEvents = deriveTimelineEvents(dateFiltered)
+  const timelineEvents = deriveTimelineEvents(historyFiltered)
 
   // ── 当前模式数据源 ──────────────────────────────────────────────────────────
-  const baseData = mode === "realtime" ? liveAlarms : dateFiltered
+  const baseData = mode === "realtime" ? realtimeFiltered : historyFiltered
 
   const sorted = [...baseData].sort((a, b) => {
     if (mode === "realtime") {
@@ -824,7 +863,7 @@ export function AlarmLogPanel({
           <div className="min-h-[140px] flex-1 overflow-hidden">
             <AlarmTimeline events={timelineEvents} zh={zh} />
           </div>
-          <AlarmTypeStats alarms={dateFiltered} zh={zh} />
+          <AlarmTypeStats alarms={historyFiltered} zh={zh} />
         </div>
       )}
 
