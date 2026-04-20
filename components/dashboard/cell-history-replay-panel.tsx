@@ -1620,10 +1620,10 @@ export function CellHistoryReplayPanel({
   const temperatureTrendCharts = useMemo(
     () =>
       ([
-        { key: "t1", title: "T1", label: zh ? "前端探头" : "Front Probe" },
-        { key: "t2", title: "T2", label: zh ? "中部探头" : "Middle Probe" },
-        { key: "t3", title: "T3", label: zh ? "后端探头" : "Rear Probe" },
-      ] as const).map(({ key, title, label }) => {
+        { key: "t1", title: "T1" },
+        { key: "t2", title: "T2" },
+        { key: "t3", title: "T3" },
+      ] as const).map(({ key, title }) => {
         const extremeTrend = temperatureExtremeTrends?.[key] ?? []
         const safeExtremeTrend = extremeTrend.filter((item) => isFiniteNumber(item.max) && isFiniteNumber(item.min))
         if (safeExtremeTrend.length > 0) {
@@ -1645,11 +1645,11 @@ export function CellHistoryReplayPanel({
             }
           )
 
-          return { key, title, label, data }
+          return { key, title, data }
         }
 
         if (viewMode === "overview" || historyData.length === 0) {
-          return { key, title, label, data: [] }
+          return { key, title, data: [] }
         }
 
         const baseData = historyData.flatMap((point) => {
@@ -1686,7 +1686,7 @@ export function CellHistoryReplayPanel({
           }
         )
 
-        return { key, title, label, data }
+        return { key, title, data }
       }),
     [historyData, temperatureExtremeTrends, viewMode, zh]
   )
@@ -1732,8 +1732,8 @@ export function CellHistoryReplayPanel({
           return {
             key: chart.key,
             title: chart.title,
-            subtitle: chart.label,
-            header: zh ? `${chart.title}（${chart.label}）` : `${chart.title} (${chart.label})`,
+            subtitle: chart.title,
+            header: chart.title,
             maxText: "--",
             minText: "--",
           }
@@ -1744,8 +1744,8 @@ export function CellHistoryReplayPanel({
         return {
           key: chart.key,
           title: chart.title,
-          subtitle: chart.label,
-          header: zh ? `${chart.title}（${chart.label}）` : `${chart.title} (${chart.label})`,
+          subtitle: chart.title,
+          header: chart.title,
           maxText: zh ? `最高温度：${highest.max.toFixed(1)}°C(#${highest.maxCell})` : `Max Temp: ${highest.max.toFixed(1)}°C (#${highest.maxCell})`,
           minText: zh ? `最低温度：${lowest.min.toFixed(1)}°C(#${lowest.minCell})` : `Min Temp: ${lowest.min.toFixed(1)}°C (#${lowest.minCell})`,
         }
