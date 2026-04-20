@@ -300,19 +300,19 @@ export function ComprehensiveEfficiencyPanel({
                 ...activeRequestRange,
                 ...deviceParams,
               }
+        const normalizeOptions = {
+          groupBy: range === "year" ? ("month" as const) : ("day" as const),
+          language,
+        }
 
         const response = await fetchOverviewDailyList({
           projectId: selectedProject.projectId,
+          deviceId: selectedDeviceId === BCU_SELECTOR_ALL_VALUE ? "" : selectedDeviceId,
           params: requestParams,
         })
 
         if (!cancelled) {
-          setActiveData(
-            normalizeOverviewDailyRows(response.rows ?? [], {
-              groupBy: range === "year" ? "month" : "day",
-              language,
-            }),
-          )
+          setActiveData(normalizeOverviewDailyRows(response.rows ?? [], normalizeOptions))
         }
       } catch (error) {
         if (!cancelled) {
@@ -332,7 +332,7 @@ export function ComprehensiveEfficiencyPanel({
     return () => {
       cancelled = true
     }
-  }, [activeRequestRange, currentDay, language, range, selectedDeviceId, selectedProject.projectId])
+  }, [activeRequestRange, currentDay, deviceOptions, language, range, selectedDeviceId, selectedProject.projectId])
 
   const legacyRangeOptions = [
     { key: "week" as const, label: language === "zh" ? "近7天" : "7 Days" },
@@ -506,22 +506,27 @@ export function ComprehensiveEfficiencyPanel({
   const displayAllBcuLabel = language === "zh" ? "全部BCU" : "All BCUs"
 
   const isAllBcuSelected = selectedDeviceId === BCU_SELECTOR_ALL_VALUE
+  const stackedBreakdownDeviceIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          activeData.flatMap((point) => point.children.map((child) => child.deviceId)).filter((deviceId) => deviceId.length > 0),
+        ),
+      ),
+    [activeData],
+  )
   const stackedBarDevices = useMemo<StackDeviceMeta[]>(() => {
     const deviceMap = new Map(selectedProject.devices.map((device, index) => [device.deviceId, device.deviceName || `BCU ${index + 1}`]))
     const orderedDeviceIds = selectedProject.devices.map((device) => device.deviceId).filter(Boolean)
-    const responseDeviceIds = Array.from(
-      new Set(
-        activeData.flatMap((point) => point.children.map((child) => child.deviceId)).filter((deviceId) => deviceId.length > 0),
-      ),
-    )
+    const responseDeviceIds = stackedBreakdownDeviceIds
     const mergedDeviceIds = [...orderedDeviceIds, ...responseDeviceIds.filter((deviceId) => !orderedDeviceIds.includes(deviceId))]
 
     return mergedDeviceIds.map((deviceId, index) => ({
       deviceId,
       label: deviceMap.get(deviceId) ?? `BCU ${index + 1}`,
     }))
-  }, [activeData, selectedProject.devices])
-  const useStackedBars = isAllBcuSelected && stackedBarDevices.length > 0 && activeData.some((point) => point.children.length > 0)
+  }, [selectedProject.devices, stackedBreakdownDeviceIds])
+  const useStackedBars = isAllBcuSelected && stackedBreakdownDeviceIds.length > 0
   const stackedBarDeviceMap = useMemo(
     () => new Map(stackedBarDevices.map((device) => [device.deviceId, device.label])),
     [stackedBarDevices],
@@ -651,7 +656,7 @@ export function ComprehensiveEfficiencyPanel({
 
     const visibleSeries = seriesConfig.filter((series) => !hiddenSeries.includes(series.key))
     const tooltipDeviceMap = new Map(stackedBarDevices.map((device) => [device.deviceId, device.label]))
-    const showTooltipBreakdown = useStackedBars && !isAllBcuSelected
+    const showTooltipBreakdown = useStackedBars
     const tooltipHasDenseBreakdown = showTooltipBreakdown && tooltipPoint.children.length >= 7
     const chartLeftEdge =
       viewBox && typeof viewBox.x === "number"
@@ -781,6 +786,10 @@ export function ComprehensiveEfficiencyPanel({
       return
     }
 
+    if (event.target instanceof Element && event.target.closest("[data-efficiency-legend='true']")) {
+      return
+    }
+
     event.preventDefault()
     const rect = chartShellRef.current.getBoundingClientRect()
 
@@ -852,6 +861,10 @@ export function ComprehensiveEfficiencyPanel({
       return
     }
 
+    if (event.target instanceof Element && event.target.closest("[data-efficiency-legend='true']")) {
+      return
+    }
+
     event.preventDefault()
     dragStateRef.current = {
       pointerId: event.pointerId,
@@ -902,7 +915,7 @@ export function ComprehensiveEfficiencyPanel({
   }
 
   const renderLegend = () => (
-    <div className="flex flex-wrap items-center justify-center gap-2 px-2 pt-3">
+    <div data-efficiency-legend="true" className="flex flex-wrap items-center justify-center gap-2 px-2 pt-3">
       {seriesConfig.map((series) => {
         const hidden = hiddenSeries.includes(series.key)
 

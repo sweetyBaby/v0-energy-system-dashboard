@@ -4,10 +4,10 @@ import { API_PLACEHOLDER, getMockProjectOptions } from "@/lib/api/project"
 
 export type DailyListRequest = {
   projectId: string
+  deviceId?: string
   params: {
     beginTime: string
     endTime: string
-    deviceId?: string
     type?: "year"
     year?: string
   }
@@ -15,12 +15,16 @@ export type DailyListRequest = {
 
 export type RawDailyListChildRow = {
   deviceId: string | null
+  reportDate?: string | null
+  month?: string | null
+  year?: string | null
   chargeAh: number | null
   dischargeAh: number | null
   chargeWh: number | null
   dischargeWh: number | null
   chargeEfficiencyCe: number | null
   chargeEfficiencyEe: number | null
+  children?: RawDailyListChildRow[] | null
 }
 
 export type RawDailyListRow = {
@@ -94,7 +98,6 @@ type MockBcuDevice = {
   deviceIndex: number
 }
 
-const OVERVIEW_DAILY_LIST_USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_OVERVIEW_DAILY_LIST !== "false"
 const MOCK_OVERVIEW_PROJECTS = getMockProjectOptions()
 
 const parseReportDate = (value: string | null | undefined) => {
@@ -146,6 +149,72 @@ const normalizeOverviewChildRows = (children: RawDailyListChildRow[] | null | un
     }))
 }
 
+const hasNumericValue = (value: number | null | undefined): value is number => value != null && !Number.isNaN(value)
+
+const sumChildMetric = (
+  children: RawDailyListChildRow[] | null | undefined,
+  selector: (child: RawDailyListChildRow) => number | null | undefined,
+): number | null => {
+  if (!children?.length) return null
+
+  const values = children.map(selector).filter(hasNumericValue)
+  if (values.length === 0) return null
+
+  return values.reduce((sum, value) => sum + value, 0)
+}
+
+const resolveCapacityMetric = (
+  topLevelValue: number | null | undefined,
+  children: RawDailyListChildRow[] | null | undefined,
+  selector: (child: RawDailyListChildRow) => number | null | undefined,
+) => normalizeNumber(hasNumericValue(topLevelValue) ? topLevelValue : sumChildMetric(children, selector))
+
+const resolveEnergyMetric = (
+  topLevelValue: number | null | undefined,
+  children: RawDailyListChildRow[] | null | undefined,
+  selector: (child: RawDailyListChildRow) => number | null | undefined,
+) => convertWhToKwh(hasNumericValue(topLevelValue) ? topLevelValue : sumChildMetric(children, selector))
+
+type MonthlyOverviewSourceRow = Pick<
+  RawDailyListRow,
+  "reportDate" | "month" | "chargeAh" | "dischargeAh" | "chargeWh" | "dischargeWh" | "chargeEfficiencyCe" | "chargeEfficiencyEe"
+> & {
+  children?: RawDailyListChildRow[] | null
+}
+
+const toMonthlyOverviewSourceRow = (
+  row: Pick<
+    RawDailyListChildRow,
+    "reportDate" | "month" | "chargeAh" | "dischargeAh" | "chargeWh" | "dischargeWh" | "chargeEfficiencyCe" | "chargeEfficiencyEe" | "children"
+  >,
+): MonthlyOverviewSourceRow => ({
+  reportDate: row.reportDate ?? null,
+  month: row.month ?? null,
+  chargeAh: row.chargeAh,
+  dischargeAh: row.dischargeAh,
+  chargeWh: row.chargeWh,
+  dischargeWh: row.dischargeWh,
+  chargeEfficiencyCe: row.chargeEfficiencyCe,
+  chargeEfficiencyEe: row.chargeEfficiencyEe,
+  children: row.children ?? null,
+})
+
+const hasMonthGroupingValue = (row: { reportDate?: string | null; month?: string | null }) =>
+  parseMonthValue(row.month ?? null) != null || parseReportDate(row.reportDate ?? null) != null
+
+const resolveMonthlyOverviewRows = (rows: RawDailyListRow[]): MonthlyOverviewSourceRow[] =>
+  rows.flatMap((row) => {
+    if (hasMonthGroupingValue(row)) {
+      return [toMonthlyOverviewSourceRow(row)]
+    }
+
+    const monthlyChildren = (row.children ?? [])
+      .filter((child) => hasMonthGroupingValue(child))
+      .map((child) => toMonthlyOverviewSourceRow(child))
+
+    return monthlyChildren
+  })
+
 const formatIsoDate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
 
@@ -187,14 +256,11 @@ const sumMetric = (values: Array<number | null | undefined>, digits = 2) => {
 
 const normalizeDailyListPayload = (payload: DailyListRequest): DailyListRequest => ({
   ...payload,
-  params: {
-    ...payload.params,
-    deviceId: payload.params.deviceId?.trim() ?? "",
-  },
+  deviceId: payload.deviceId?.trim() ?? "",
 })
 
 const resolveMockDevices = (payload: DailyListRequest): MockBcuDevice[] => {
-  const requestedDeviceId = payload.params.deviceId?.trim()
+  const requestedDeviceId = payload.deviceId?.trim()
   const matchedProject = MOCK_OVERVIEW_PROJECTS.find((project) => project.projectId === payload.projectId)
   const projectDevices = matchedProject?.devices ?? []
 
@@ -277,7 +343,7 @@ const buildMockAggregateRow = (
     updateTime: null,
     remark: null,
     id: null,
-    deviceId: payload.params.deviceId?.trim() || null,
+    deviceId: payload.deviceId?.trim() || null,
     projectId: payload.projectId,
     reportDate: rowDate ? formatIsoDate(rowDate) : null,
     month: month ?? undefined,
@@ -301,7 +367,7 @@ const buildMockAggregateRow = (
     avgVoltage: roundValue((maxVoltage + minVoltage) / 2, 2),
     projectName: null,
     delFlag: null,
-    children: payload.params.deviceId?.trim() ? [] : children,
+    children: payload.deviceId?.trim() ? [] : children,
   }
 }
 
@@ -350,11 +416,6 @@ const buildMockOverviewDailyListResponse = (payload: DailyListRequest): DailyLis
 
 export const fetchOverviewDailyList = async (payload: DailyListRequest) => {
   const normalizedPayload = normalizeDailyListPayload(payload)
-
-  if (OVERVIEW_DAILY_LIST_USE_MOCK) {
-    return buildMockOverviewDailyListResponse(normalizedPayload)
-  }
-
   return apiClient.postRaw<DailyListResponse>(apiEndpoints.overview.dailyList, normalizedPayload)
 }
 
@@ -366,7 +427,7 @@ export const normalizeOverviewDailyRows = (
   const language = options.language ?? "zh"
 
   if (groupBy === "month") {
-    return [...rows]
+    return resolveMonthlyOverviewRows(rows)
       .map((row) => {
         const monthFromField = parseMonthValue(row.month)
         const monthFromDate = parseReportDate(row.reportDate)?.getMonth()
@@ -378,10 +439,10 @@ export const normalizeOverviewDailyRows = (
 
         return {
           month,
-          chargeCapacity: normalizeNumber(row.chargeAh),
-          dischargeCapacity: normalizeNumber(row.dischargeAh),
-          chargeEnergy: convertWhToKwh(row.chargeWh),
-          dischargeEnergy: convertWhToKwh(row.dischargeWh),
+          chargeCapacity: resolveCapacityMetric(row.chargeAh, row.children, (child) => child.chargeAh),
+          dischargeCapacity: resolveCapacityMetric(row.dischargeAh, row.children, (child) => child.dischargeAh),
+          chargeEnergy: resolveEnergyMetric(row.chargeWh, row.children, (child) => child.chargeWh),
+          dischargeEnergy: resolveEnergyMetric(row.dischargeWh, row.children, (child) => child.dischargeWh),
           capacityEfficiency: normalizeNumber(row.chargeEfficiencyCe, 2),
           energyEfficiency: normalizeNumber(row.chargeEfficiencyEe, 2),
           children: normalizeOverviewChildRows(row.children),
@@ -409,10 +470,10 @@ export const normalizeOverviewDailyRows = (
     })
     .map((row) => ({
       label: formatDateLabel(row.reportDate),
-      chargeCapacity: normalizeNumber(row.chargeAh),
-      dischargeCapacity: normalizeNumber(row.dischargeAh),
-      chargeEnergy: convertWhToKwh(row.chargeWh),
-      dischargeEnergy: convertWhToKwh(row.dischargeWh),
+      chargeCapacity: resolveCapacityMetric(row.chargeAh, row.children, (child) => child.chargeAh),
+      dischargeCapacity: resolveCapacityMetric(row.dischargeAh, row.children, (child) => child.dischargeAh),
+      chargeEnergy: resolveEnergyMetric(row.chargeWh, row.children, (child) => child.chargeWh),
+      dischargeEnergy: resolveEnergyMetric(row.dischargeWh, row.children, (child) => child.dischargeWh),
       capacityEfficiency: normalizeNumber(row.chargeEfficiencyCe, 2),
       energyEfficiency: normalizeNumber(row.chargeEfficiencyEe, 2),
       children: normalizeOverviewChildRows(row.children),
