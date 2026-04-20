@@ -698,6 +698,54 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   )
 }
 
+function DashboardMain({ activeTab }: { activeTab: DashboardTab }) {
+  const { projectOptions, isProjectOptionsLoading, projectOptionsError } = useProject()
+  const { language } = useLanguage()
+  const zh = language === "zh"
+
+  if (projectOptions.length === 0) {
+    const title = isProjectOptionsLoading
+      ? zh
+        ? "项目列表加载中"
+        : "Loading projects"
+      : projectOptionsError
+        ? zh
+          ? "项目列表加载失败"
+          : "Failed to load projects"
+        : zh
+          ? "暂无项目数据"
+          : "No projects available"
+    const description = isProjectOptionsLoading
+      ? zh
+        ? "正在请求 /ems/project/listByDevice"
+        : "Requesting /ems/project/listByDevice"
+      : projectOptionsError
+        ? zh
+          ? "请检查 /ems/project/listByDevice 接口和 API_BASE_URL 配置"
+          : "Check /ems/project/listByDevice and API_BASE_URL"
+        : zh
+          ? "/ems/project/listByDevice 未返回可用项目"
+          : "/ems/project/listByDevice returned no usable projects"
+
+    return (
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 items-center justify-center px-6">
+          <div className="max-w-md border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] px-6 py-5 text-center shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]">
+            <div className="text-base font-semibold tracking-[0.08em] text-[#d9f6ff]">{title}</div>
+            <div className="mt-2 text-sm text-[#7ea4bb]">{description}</div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  return (
+    <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <DashboardTabs activeTab={activeTab} />
+    </main>
+  )
+}
+
 export default function EnergyStorageDashboard() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("realtime")
   const { isCompactViewport } = useDashboardViewport()
@@ -720,9 +768,7 @@ export default function EnergyStorageDashboard() {
               tabs={tabs}
               compact={isCompactViewport}
             />
-            <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <DashboardTabs activeTab={activeTab} />
-            </main>
+            <DashboardMain activeTab={activeTab} />
           </div>
         </div>
       </ProjectProvider>

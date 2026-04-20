@@ -6,7 +6,6 @@ import {
   fetchProjectOptionsByDevice,
   fetchProjectDetail,
   fetchProjectRealtime,
-  getMockProjectOptions,
   normalizeRealtimeDeviceSnapshots,
   normalizeOverviewMetricsFromRealtime,
   normalizeProjectDetail,
@@ -31,6 +30,7 @@ type DashboardHeaderTab = {
 
 export type Project = ProjectOption & {
   projectName: string
+  image?: string
   region: string
   company: string
   ratedPower: string
@@ -43,53 +43,13 @@ export type Project = ProjectOption & {
   deviceRealtimeSnapshots: DeviceRealtimeSnapshotView[]
 }
 
-export const projects: ProjectOption[] = [
-  {
-    id: "jintan",
-    projectId: "360c0347c09c4735900b9df32f3b8ff7",
-    projectName: "金坛储能中心",
-    projectNameEn: "Jintan Energy Storage Center",
-    picPath: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
-    devices: [
-      {
-        deviceId: "8f97b65308af41eb895ffe9c58e978e3",
-        deviceName: "BCU1",
-        deviceType: null,
-      },
-      {
-        deviceId: "8f97b65308af41eb895ffe9c58e978e2",
-        deviceName: "BCU2",
-        deviceType: null,
-      },
-      {
-        deviceId: "8f97b65308af41eb895ffe9c58e978e8",
-        deviceName: "BCU3",
-        deviceType: null,
-      },
-    ],
-  },
-  {
-    id: "ordos",
-    projectId: "9964201b369549b4b04c29bfe3863daa",
-    projectName: "鄂尔多斯储能中心",
-    projectNameEn: "Ordos Energy Storage Center",
-    picPath: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
-    devices: [
-      {
-        deviceId: "f189b7aa2d1b44e9ae0c65e5039a2d7f",
-        deviceName: "BCU-1",
-        deviceType: null,
-      },
-    ],
-  },
-]
 
-const fallbackProjects = getMockProjectOptions()
-const defaultProjectOption: ProjectOption = fallbackProjects[0] ?? projects[0] ?? {
-  id: "project-default",
-  projectId: "project-default",
-  projectName: "Project",
-  projectNameEn: "Project",
+
+const defaultProjectOption: ProjectOption = {
+  id: "",
+  projectId: "",
+  projectName: "Loading projects",
+  projectNameEn: "Loading projects",
   picPath: "",
   devices: [],
 }
@@ -114,15 +74,19 @@ const ProjectContext = createContext<{
   setSelectedProject: (project: ProjectOption) => void
   projectDetail: RawProjectDetail | null
   isProjectLoading: boolean
+  isProjectOptionsLoading: boolean
+  projectOptionsError: string | null
   loadCurrentProjectDetail: () => Promise<void>
   loadCurrentProjectRealtime: () => Promise<void>
   clearCurrentProjectOverviewData: () => void
 }>({
-  projectOptions: fallbackProjects,
+  projectOptions: [],
   selectedProject: buildProjectView(defaultProjectOption),
   setSelectedProject: () => {},
   projectDetail: null,
   isProjectLoading: false,
+  isProjectOptionsLoading: true,
+  projectOptionsError: null,
   loadCurrentProjectDetail: async () => {},
   loadCurrentProjectRealtime: async () => {},
   clearCurrentProjectOverviewData: () => {},
@@ -131,24 +95,45 @@ const ProjectContext = createContext<{
 export const useProject = () => useContext(ProjectContext)
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
-  const [projectOptions, setProjectOptions] = useState<ProjectOption[]>(fallbackProjects)
+  const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState(defaultProjectOption.id)
   const [projectDetails, setProjectDetails] = useState<Record<string, RawProjectDetail | null>>({})
   const [projectRealtime, setProjectRealtime] = useState<Record<string, RawProjectRealtime | null>>({})
   const [projectRealtimeSuccess, setProjectRealtimeSuccess] = useState<Record<string, boolean>>({})
   const [isProjectLoading, setIsProjectLoading] = useState(false)
+  const [isProjectOptionsLoading, setIsProjectOptionsLoading] = useState(true)
+  const [projectOptionsError, setProjectOptionsError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
 
     const loadProjectOptions = async () => {
       try {
+        setIsProjectOptionsLoading(true)
+        setProjectOptionsError(null)
+
         const nextProjectOptions = await fetchProjectOptionsByDevice()
-        if (!cancelled && nextProjectOptions.length > 0) {
-          setProjectOptions(nextProjectOptions)
+        if (cancelled) {
+          return
+        }
+
+        setProjectOptions(nextProjectOptions)
+
+        if (nextProjectOptions.length === 0) {
+          setProjectOptionsError("empty")
         }
       } catch (error) {
+        if (cancelled) {
+          return
+        }
+
+        setProjectOptions([])
+        setProjectOptionsError("failed")
         console.error("Failed to load project selector options", error)
+      } finally {
+        if (!cancelled) {
+          setIsProjectOptionsLoading(false)
+        }
       }
     }
 
@@ -176,6 +161,10 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const selectedProject = buildProjectView(projectOption, projectDetail, selectedRealtime, selectedRealtimeSuccess)
 
   const loadCurrentProjectDetail = useCallback(async () => {
+    if (!projectOption.projectId) {
+      return
+    }
+
     setIsProjectLoading(true)
 
     try {
@@ -197,6 +186,10 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, [projectOption.id, projectOption.projectId])
 
   const loadCurrentProjectRealtime = useCallback(async () => {
+    if (!projectOption.projectId) {
+      return
+    }
+
     try {
       const response = await fetchProjectRealtime(projectOption.projectId, projectOption.devices)
 
@@ -239,6 +232,10 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, [projectOption.id])
 
   const setSelectedProject = useCallback((project: ProjectOption) => {
+    if (!project.id) {
+      return
+    }
+
     setSelectedProjectId(project.id)
   }, [])
 
@@ -250,6 +247,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         setSelectedProject,
         projectDetail,
         isProjectLoading,
+        isProjectOptionsLoading,
+        projectOptionsError,
         loadCurrentProjectDetail,
         loadCurrentProjectRealtime,
         clearCurrentProjectOverviewData,
@@ -272,13 +271,24 @@ export function DashboardHeader({
   compact?: boolean
 }) {
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
-  const { projectOptions, selectedProject, setSelectedProject } = useProject()
+  const { projectOptions, selectedProject, setSelectedProject, isProjectOptionsLoading, projectOptionsError } =
+    useProject()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const { language, setLanguage } = useLanguage()
   const controlRef = useRef<HTMLDivElement>(null)
   const { isCompactWidth, isShortHeight } = useDashboardViewport()
   const zh = language === "zh"
   const useCompactHeader = compact || isCompactWidth || isShortHeight
+  const canSelectProject = projectOptions.length > 0
+  const projectLabel = canSelectProject
+    ? zh
+      ? selectedProject.projectName
+      : selectedProject.projectNameEn
+    : isProjectOptionsLoading
+      ? "Loading projects"
+      : projectOptionsError
+        ? "Failed to load projects"
+        : "No projects"
 
   useEffect(() => {
     setCurrentTime(new Date())
@@ -536,25 +546,33 @@ export function DashboardHeader({
             }`}
           >
             <button
-              onClick={() => setDropdownOpen((prev) => !prev)}
-              className={`group relative flex w-full items-center justify-between gap-2 border border-[#225d7a]/75 bg-[linear-gradient(180deg,rgba(7,24,39,0.96),rgba(4,13,25,0.98))] px-3 text-left shadow-[0_0_18px_rgba(56,207,255,0.08),inset_0_0_0_1px_rgba(126,220,255,0.04)] transition-all hover:border-[#38cfff]/70 hover:shadow-[0_0_22px_rgba(56,207,255,0.18),inset_0_0_0_1px_rgba(126,220,255,0.08)] ${
-                useCompactHeader ? "h-[30px]" : "h-[32px]"
-              }`}
+              onClick={() => {
+                if (!canSelectProject) {
+                  return
+                }
+
+                setDropdownOpen((prev) => !prev)
+              }}
+              className={`group relative flex w-full items-center justify-between gap-2 border border-[#225d7a]/75 bg-[linear-gradient(180deg,rgba(7,24,39,0.96),rgba(4,13,25,0.98))] px-3 text-left shadow-[0_0_18px_rgba(56,207,255,0.08),inset_0_0_0_1px_rgba(126,220,255,0.04)] transition-all ${
+                canSelectProject
+                  ? "hover:border-[#38cfff]/70 hover:shadow-[0_0_22px_rgba(56,207,255,0.18),inset_0_0_0_1px_rgba(126,220,255,0.08)]"
+                  : "cursor-default opacity-75"
+              } ${useCompactHeader ? "h-[30px]" : "h-[32px]"}`}
               style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
-              aria-expanded={dropdownOpen}
+              aria-expanded={canSelectProject ? dropdownOpen : false}
               aria-label={zh ? "切换项目" : "Switch project"}
             >
               <span className="pointer-events-none absolute left-[10px] top-0 h-full w-px bg-gradient-to-b from-[#1df2d7]/0 via-[#1df2d7]/35 to-[#1df2d7]/0" />
               <span className="pointer-events-none absolute inset-x-4 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3bd2ff]/60 to-transparent" />
               <div className="min-w-0 flex-1">
                 <div className="whitespace-nowrap text-[10.5px] font-semibold tracking-[0.02em] text-[#e7fbff] sm:text-[11.5px] sm:tracking-[0.04em] xl:text-[12px] xl:tracking-[0.05em]" style={{ textShadow: "0 0 12px rgba(104,230,255,0.35)" }}>
-                  {zh ? selectedProject.projectName : selectedProject.projectNameEn}
+                  {projectLabel}
                 </div>
               </div>
               <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#68dfff] transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
             </button>
 
-            {dropdownOpen && (
+            {dropdownOpen && canSelectProject && (
               <div className="absolute right-0 top-full z-50 mt-2 min-w-full overflow-hidden rounded-[12px] border border-[#2a6d8e]/70 bg-[linear-gradient(180deg,rgba(4,16,30,0.98),rgba(2,10,20,0.98))] shadow-[0_16px_48px_rgba(0,0,0,0.56),0_0_24px_rgba(40,180,255,0.08)]">
                 <div className="h-px bg-gradient-to-r from-transparent via-[#50dcff]/70 to-transparent" />
                 {projectOptions.map((project) => {

@@ -19,6 +19,12 @@ export type ProjectDevice = {
   deviceType: string | null
 }
 
+export type RawProjectListByDeviceDevice = {
+  deviceId?: string | null
+  deviceName?: string | null
+  deviceType?: string | null
+}
+
 export type RawProjectListByDeviceRow = {
   createBy?: string | null
   createTime?: string | null
@@ -40,13 +46,11 @@ export type RawProjectListByDeviceRow = {
   workingDate?: string | null
   totalChargeAh?: number | null
   totalDischargeAh?: number | null
-  devices?:
-    | Array<{
-        deviceId?: string | null
-        deviceName?: string | null
-        deviceType?: string | null
-      }>
-    | null
+  deviceId?: string | null
+  deviceName?: string | null
+  deviceType?: string | null
+  deviceInfo?: RawProjectListByDeviceDevice | RawProjectListByDeviceDevice[] | null
+  devices?: RawProjectListByDeviceDevice[] | null
 }
 
 export type ProjectListByDeviceResponse = {
@@ -55,8 +59,6 @@ export type ProjectListByDeviceResponse = {
   code: number
   msg: string
 }
-
-const PROJECT_LIST_BY_DEVICE_USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_PROJECT_LIST !== "false"
 
 const PROJECT_LIST_IMAGES: Record<string, string> = {
   "360c0347c09c4735900b9df32f3b8ff7":
@@ -89,7 +91,7 @@ export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse =
       workingDate: "2025-11-15",
       totalChargeAh: null,
       totalDischargeAh: null,
-      devices: [
+      deviceInfo: [
         {
           deviceId: "8f97b65308af41eb895ffe9c58e978e3",
           deviceName: "BCU1",
@@ -128,7 +130,7 @@ export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse =
       workingDate: null,
       totalChargeAh: null,
       totalDischargeAh: null,
-      devices: [
+      deviceInfo: [
         {
           deviceId: "f189b7aa2d1b44e9ae0c65e5039a2d7f",
           deviceName: "BCU-1",
@@ -330,12 +332,39 @@ const hasValue = (value: unknown) => {
 
 const normalizeProjectOptionId = (row: RawProjectListByDeviceRow, index: number) => {
   if (hasValue(row.projectId)) return String(row.projectId).trim()
-  if (hasValue(row.devices?.[0]?.deviceId)) return String(row.devices?.[0]?.deviceId).trim()
+  const devices = resolveProjectListDevices(row)
+  if (hasValue(devices[0]?.deviceId)) return String(devices[0]?.deviceId).trim()
   return `project-${index + 1}`
 }
 
+const resolveProjectListDevices = (row: RawProjectListByDeviceRow): RawProjectListByDeviceDevice[] => {
+  if (Array.isArray(row.deviceInfo)) {
+    return row.deviceInfo
+  }
+
+  if (row.deviceInfo && typeof row.deviceInfo === "object") {
+    return [row.deviceInfo]
+  }
+
+  if (Array.isArray(row.devices)) {
+    return row.devices
+  }
+
+  if (hasValue(row.deviceId) || hasValue(row.deviceName)) {
+    return [
+      {
+        deviceId: row.deviceId,
+        deviceName: row.deviceName,
+        deviceType: row.deviceType,
+      },
+    ]
+  }
+
+  return []
+}
+
 const normalizeProjectDevices = (
-  devices: RawProjectListByDeviceRow["devices"]
+  devices: RawProjectListByDeviceDevice[] | null | undefined
 ): ProjectDevice[] => {
   if (!devices?.length) return []
 
@@ -505,7 +534,7 @@ export const normalizeProjectOptionsFromListByDevice = (
   return rows.map((row, index) => {
     const optionId = normalizeProjectOptionId(row, index)
     const projectId = hasValue(row.projectId) ? String(row.projectId).trim() : optionId
-    const devices = normalizeProjectDevices(row.devices)
+    const devices = normalizeProjectDevices(resolveProjectListDevices(row))
     const picPath = hasValue(row.picPath)
       ? String(row.picPath).trim()
       : PROJECT_LIST_IMAGES[projectId] ?? DEFAULT_PROJECT_IMAGE
@@ -682,10 +711,6 @@ export const fetchProjectDetail = async (projectId: string) => {
  * 右侧充放电卡片和左侧实时状态板统一使用这条接口。
  */
 export const fetchProjectListByDevice = async () => {
-  if (PROJECT_LIST_BY_DEVICE_USE_MOCK) {
-    return MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE
-  }
-
   return apiClient.getRaw<ProjectListByDeviceResponse>(apiEndpoints.project.listByDevice)
 }
 
