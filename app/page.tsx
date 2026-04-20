@@ -211,7 +211,6 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     setCellHistoryDeviceId((currentValue) => resolveDeviceId(currentValue))
     setAnalysisDeviceId((currentValue) => resolveDeviceId(currentValue))
   }, [firstPageBcuId, pageBcuOptions])
-
   const formatAnalysisRangeLabel = (range: DateRange | undefined) => {
     if (!range?.from) {
       return zh ? "选择日期范围" : "Select range"
@@ -367,8 +366,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const renderAlarmMonitoringPage = () => (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       <div
-        className="relative flex shrink-0 items-center gap-3 overflow-hidden border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
-        style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 100%, 0 100%)" }}
+        className="relative flex shrink-0 items-center gap-3 overflow-visible border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
         <div className="flex items-center gap-3">
@@ -535,7 +533,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
 
         {activeTab === "cell-history" && (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-            <div className="flex shrink-0 items-center gap-1.5 overflow-hidden px-1 py-0.5">
+            <div className="flex shrink-0 items-center gap-1.5 overflow-visible px-1 py-0.5">
               <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
                 <div
                   className="flex shrink-0 items-center gap-1 rounded-[12px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]"

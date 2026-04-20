@@ -595,7 +595,7 @@ export function PowerCurveQuery() {
   }
 
   const renderLegend = () => (
-    <div className="flex flex-wrap items-center justify-center gap-2 px-2 pt-2">
+    <div data-power-legend="true" className="flex flex-wrap items-center justify-center gap-2 px-2 pt-2">
       {chartSeries.map((series) => {
         const hidden = hiddenDeviceIds.includes(series.deviceId)
         const isOnlyVisible = !hidden && visibleChartSeries.length === 1
@@ -706,6 +706,10 @@ export function PowerCurveQuery() {
 
   const handleAxisWheel = (event: WheelEvent<HTMLDivElement>) => {
     if (!canZoom || chartData.length <= 1 || !chartShellRef.current) {
+      return
+    }
+
+    if (event.target instanceof Element && event.target.closest("[data-power-legend='true']")) {
       return
     }
 
@@ -834,6 +838,10 @@ export function PowerCurveQuery() {
 
   const handleTimelinePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (!canPan || !chartShellRef.current || !viewportRange) {
+      return
+    }
+
+    if (event.target instanceof Element && event.target.closest("[data-power-legend='true']")) {
       return
     }
 

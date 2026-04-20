@@ -934,9 +934,6 @@ export function CellHistoryMultiPicker({
   const iconSize = compact ? scale.fluid(14, 16) : scale.fluid(14, 17)
   const [open, setOpen] = useState(false)
   const [draftValue, setDraftValue] = useState<number[]>(value)
-  const [toastText, setToastText] = useState<string | null>(null)
-  const [toastVisible, setToastVisible] = useState(false)
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const limitReached = draftValue.length >= maxSelection
   const displayValue = open ? draftValue : value
   const label =
@@ -950,21 +947,6 @@ export function CellHistoryMultiPicker({
     if (!open) return
     setDraftValue(value)
   }, [open, value])
-
-  useEffect(() => {
-    return () => {
-      toastTimerRef.current.forEach((timer) => clearTimeout(timer))
-    }
-  }, [])
-
-  const showClearToast = () => {
-    toastTimerRef.current.forEach((timer) => clearTimeout(timer))
-    toastTimerRef.current = []
-    setToastText(zh ? "请选择电芯查看历史明细" : "Please select cells to view detail history")
-    setToastVisible(true)
-    toastTimerRef.current.push(setTimeout(() => setToastVisible(false), 2200))
-    toastTimerRef.current.push(setTimeout(() => setToastText(null), 2600))
-  }
 
   const handleToggleCell = (cell: number) => {
     if (draftValue.includes(cell)) {
@@ -1032,7 +1014,6 @@ export function CellHistoryMultiPicker({
                     setDraftValue([])
                     onClear?.()
                     setOpen(false)
-                    showClearToast()
                   }}
                   className="text-[#f87171] transition-colors hover:text-[#fca5a5]"
                 >
@@ -1061,16 +1042,6 @@ export function CellHistoryMultiPicker({
         </Command>
       </PopoverContent>
     </Popover>
-      {toastText ? (
-        <div
-          className="pointer-events-none absolute left-1/2 top-full z-[80] mt-2 -translate-x-1/2 transition-opacity duration-300"
-          style={{ opacity: toastVisible ? 1 : 0 }}
-        >
-          <div className="whitespace-nowrap rounded-xl border border-[#2e5d86]/75 bg-[linear-gradient(180deg,rgba(10,27,56,0.98),rgba(7,18,38,0.98))] px-4 py-2 text-center text-[#bfefff] shadow-[0_14px_30px_rgba(0,0,0,0.28),inset_0_0_18px_rgba(63,231,255,0.05)]" style={{ fontSize: controlSize }}>
-            {toastText}
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }

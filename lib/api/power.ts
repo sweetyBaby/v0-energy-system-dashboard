@@ -82,7 +82,6 @@ type MockPowerTemplate = {
 }
 
 const SYNC_SUFFIX = ""
-const POWER_USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_POWER !== "false"
 const MOCK_POWER_PROJECTS = getMockProjectOptions()
 
 const buildQueryPath = (path: string, params: Record<string, string | number | undefined>) => {
@@ -200,15 +199,31 @@ const normalizePowerDevices = (devices: RawPowerDevice[] | null | undefined): Po
     points: normalizePowerPoints(device?.data),
   }))
 
+const isRawPowerPoint = (value: unknown): value is RawPowerPoint =>
+  typeof value === "object" && value !== null && "time" in value
+
+const isRawPowerDevice = (value: unknown): value is RawPowerDevice =>
+  typeof value === "object" &&
+  value !== null &&
+  ("data" in value || "deviceId" in value || "deviceName" in value || "deviceType" in value)
+
 /**
  * Backward compatible payload normalization.
- * Supports the legacy single-series array and the new `devices[].data[]` structure.
+ * Supports direct device arrays, `{ devices: [...] }`, and the legacy single-series array.
  */
 export const normalizePowerSeries = (
-  payload: RawPowerPoint[] | RawPowerDevicesPayload | null | undefined,
+  payload: RawPowerPoint[] | RawPowerDevice[] | RawPowerDevicesPayload | null | undefined,
 ): PowerDeviceSeries[] => {
   if (Array.isArray(payload)) {
-    const points = normalizePowerPoints(payload)
+    if (payload.length === 0) {
+      return []
+    }
+
+    if (payload.some(isRawPowerDevice) && !payload.every(isRawPowerPoint)) {
+      return normalizePowerDevices(payload as RawPowerDevice[])
+    }
+
+    const points = normalizePowerPoints(payload as RawPowerPoint[])
     return points.length === 0
       ? []
       : [
@@ -233,6 +248,8 @@ export const mergePowerPoints = (base: PowerPoint[], incoming: PowerPoint[]) =>
     ...incoming.map((point) => ({ time: point.isoTime, power: point.power })),
   ])
 
+const LEGACY_POWER_DEVICE_ID = "legacy-bcu-1"
+
 /**
  * Merge multi-BCU series data while preserving device order.
  */
@@ -240,22 +257,40 @@ export const mergePowerSeries = (base: PowerDeviceSeries[], incoming: PowerDevic
   const merged = new Map<string, PowerDeviceSeries>()
 
   const register = (series: PowerDeviceSeries) => {
-    const existing = merged.get(series.deviceId)
+    const mergedSeries =
+      series.deviceId === LEGACY_POWER_DEVICE_ID
+        ? (() => {
+            const candidates = Array.from(merged.values()).filter((item) => item.deviceId !== LEGACY_POWER_DEVICE_ID)
+            const populatedCandidates = candidates.filter((item) => item.points.length > 0)
+
+            if (populatedCandidates.length === 1) {
+              return populatedCandidates[0]
+            }
+
+            if (candidates.length === 1) {
+              return candidates[0]
+            }
+
+            return null
+          })()
+        : null
+    const targetDeviceId = mergedSeries?.deviceId ?? series.deviceId
+    const existing = merged.get(targetDeviceId)
 
     if (!existing) {
-      merged.set(series.deviceId, {
-        deviceId: series.deviceId,
-        deviceName: series.deviceName,
-        deviceType: series.deviceType,
+      merged.set(targetDeviceId, {
+        deviceId: targetDeviceId,
+        deviceName: mergedSeries?.deviceName || series.deviceName,
+        deviceType: mergedSeries?.deviceType ?? series.deviceType,
         points: [...series.points],
       })
       return
     }
 
-    merged.set(series.deviceId, {
-      deviceId: series.deviceId,
-      deviceName: series.deviceName || existing.deviceName,
-      deviceType: series.deviceType ?? existing.deviceType,
+    merged.set(targetDeviceId, {
+      deviceId: targetDeviceId,
+      deviceName: existing.deviceName || series.deviceName,
+      deviceType: existing.deviceType ?? series.deviceType,
       points: mergePowerPoints(existing.points, series.points),
     })
   }
@@ -536,18 +571,11 @@ const buildMockPowerPayload = (
  * Backend payload is expected to be `{ devices: [{ deviceId, deviceName, data: [...] }] }`.
  */
 export const fetchTodayPowerDaily = async (projectId: string, options: PowerRequestOptions = {}) => {
-  if (POWER_USE_MOCK) {
-    const now = new Date()
-    const startTime = toDayStart(now).getTime()
-    const endTime = now.getTime()
-    return normalizePowerSeries(buildMockPowerPayload(projectId, startTime, endTime, 5 * 60 * 1000))
-  }
-
   const path = buildQueryPath(apiEndpoints.power.daily, {
     measurement: toRealtimeMeasurement(projectId),
   })
 
-  const response = await apiClient.getRaw<PowerApiResponse<RawPowerPoint[] | RawPowerDevicesPayload>>(path, {
+  const response = await apiClient.getRaw<PowerApiResponse<RawPowerPoint[] | RawPowerDevice[] | RawPowerDevicesPayload>>(path, {
     signal: options.signal,
   })
   return normalizePowerSeries(response.data)
@@ -562,19 +590,12 @@ export const fetchTodayPowerIncremental = async (
   fromSeconds?: number,
   options: PowerRequestOptions = {},
 ) => {
-  if (POWER_USE_MOCK) {
-    const now = new Date()
-    const startTime = toDayStart(now).getTime()
-    const endTime = now.getTime()
-    return normalizePowerSeries(buildMockPowerPayload(projectId, startTime, endTime, 5 * 60 * 1000, fromSeconds))
-  }
-
   const path = buildQueryPath(apiEndpoints.power.incremental, {
     measurement: toRealtimeMeasurement(projectId),
     from: fromSeconds,
   })
 
-  const response = await apiClient.getRaw<PowerApiResponse<RawPowerPoint[] | RawPowerDevicesPayload>>(path, {
+  const response = await apiClient.getRaw<PowerApiResponse<RawPowerPoint[] | RawPowerDevice[] | RawPowerDevicesPayload>>(path, {
     signal: options.signal,
   })
   return normalizePowerSeries(response.data)
@@ -585,30 +606,13 @@ export const fetchTodayPowerIncremental = async (
  * `measurement = projectId`, `start/end = YYYY-MM-DD`.
  */
 export const fetchPowerRange = async ({ projectId, start, end }: PowerRangeQuery, options: PowerRequestOptions = {}) => {
-  if (POWER_USE_MOCK) {
-    const startTime = parseRangeDate(start).getTime()
-    const endTime = parseRangeDate(end, true).getTime()
-    const rangeDays = Math.max(1, Math.round((endTime - startTime) / (24 * 60 * 60 * 1000)) + 1)
-    const stepMs =
-      rangeDays <= 1
-        ? 5 * 60 * 1000
-        : rangeDays <= 3
-          ? 15 * 60 * 1000
-          : rangeDays <= 7
-            ? 30 * 60 * 1000
-            : rangeDays <= 14
-              ? 60 * 60 * 1000
-              : 2 * 60 * 60 * 1000
-    return normalizePowerSeries(buildMockPowerPayload(projectId, startTime, endTime, stepMs))
-  }
-
   const path = buildQueryPath(apiEndpoints.power.range, {
     measurement: toMeasurement(projectId),
     start,
     end,
   })
 
-  const response = await apiClient.getRaw<PowerApiResponse<RawPowerPoint[] | RawPowerDevicesPayload>>(path, {
+  const response = await apiClient.getRaw<PowerApiResponse<RawPowerPoint[] | RawPowerDevice[] | RawPowerDevicesPayload>>(path, {
     signal: options.signal,
   })
   return normalizePowerSeries(response.data)
