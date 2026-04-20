@@ -25,7 +25,7 @@ export type HeatmapCellMetrics = {
 
 const CELL_COUNT = 50
 const SUCCESS_CODE = 200
-const SYNC_SUFFIX = "_sync"
+const SYNC_SUFFIX = ""
 
 const isAbortError = (error: unknown) =>
   error instanceof DOMException

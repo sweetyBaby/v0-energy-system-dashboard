@@ -81,7 +81,7 @@ type MockPowerTemplate = {
   noiseScale: number
 }
 
-const SYNC_SUFFIX = "_sync"
+const SYNC_SUFFIX = ""
 const POWER_USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_POWER !== "false"
 const MOCK_POWER_PROJECTS = getMockProjectOptions()
 

@@ -20,7 +20,7 @@ export const apiEndpoints = {
      * Overview realtime snapshot.
      * Used for SOC, PACK voltage/current, power, SOH and overview cards.
      */
-    realtime: (projectId: string) => `/ems/dashboard/realtime/${projectId}_sync`,
+    realtime: (projectId: string) => `/ems/dashboard/realtime/${projectId}`,
     /**
      * Comprehensive efficiency daily statistics.
      */
@@ -29,12 +29,12 @@ export const apiEndpoints = {
   power: {
     /**
      * Today full power series.
-     * measurement = `${projectId}_sync`
+     * measurement = `${projectId}`
      */
     daily: "/ems/power/daily",
     /**
      * Today incremental power series.
-     * measurement = `${projectId}_sync`
+     * measurement = `${projectId}`
      */
     incremental: "/ems/power/incremental",
     /**
@@ -55,22 +55,22 @@ export const apiEndpoints = {
   heatmap: {
     /**
      * Latest T1 temperature heatmap snapshot.
-     * Query: measurement = `${projectId}_sync`
+     * Query: measurement = `${projectId}`
      */
     temp1Latest: "/ems/temp/temp1/latest",
     /**
      * Latest T2 temperature heatmap snapshot.
-     * Query: measurement = `${projectId}_sync`
+     * Query: measurement = `${projectId}`
      */
     temp2Latest: "/ems/temp/temp2/latest",
     /**
      * Latest T3 temperature heatmap snapshot.
-     * Query: measurement = `${projectId}_sync`
+     * Query: measurement = `${projectId}`
      */
     temp3Latest: "/ems/temp/temp3/latest",
     /**
      * Latest cell voltage heatmap snapshot.
-     * Query: measurement = `${projectId}_sync`
+     * Query: measurement = `${projectId}`
      */
     cellLatest: "/ems/cell/latest",
   },

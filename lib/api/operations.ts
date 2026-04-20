@@ -62,7 +62,7 @@ export type OperationsCursor = {
 }
 
 const MERGE_ALIGNMENT_TOLERANCE_MS = 30 * 1000
-const SYNC_SUFFIX = "_sync"
+const SYNC_SUFFIX = ""
 
 const buildQueryPath = (path: string, params: Record<string, string | number | undefined>) => {
   const search = new URLSearchParams()

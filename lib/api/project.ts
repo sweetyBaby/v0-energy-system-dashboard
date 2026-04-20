@@ -634,18 +634,18 @@ export const normalizeRealtimeSnapshot = (
   const current = typeof realtime?.current === "number" ? realtime.current : null
   const socPercent =
     typeof realtime?.soc === "number" && !Number.isNaN(realtime.soc)
-      ? Math.max(0, Math.min(100, Math.round(realtime.soc)))
+      ? Math.max(0, Math.min(100, Number(realtime.soc.toFixed(1))))
       : null
 
   return {
     isOnline,
     packStatus: normalizePackStatus(power, current, isOnline),
-    soc: formatFixedValue(realtime?.soc),
+    soc: formatFixedValue(realtime?.soc, 1),
     socPercent,
-    packVoltage: formatFixedValue(realtime?.voltage),
-    powerKw: formatFixedValue(realtime?.power),
-    stringCurrent: formatFixedValue(realtime?.current),
-    soh: formatFixedValue(realtime?.soh),
+    packVoltage: formatFixedValue(realtime?.voltage, 2),
+    powerKw: formatFixedValue(realtime?.power, 2),
+    stringCurrent: formatFixedValue(realtime?.current, 2),
+    soh: formatFixedValue(realtime?.soh, 1),
   }
 }
 
@@ -672,7 +672,7 @@ export const normalizeRealtimeDeviceSnapshots = (
     const current = typeof device.current === "number" ? device.current : null
     const socPercent =
       typeof device.soc === "number" && !Number.isNaN(device.soc)
-        ? Math.max(0, Math.min(100, Math.round(device.soc)))
+        ? Math.max(0, Math.min(100, Number(device.soc.toFixed(1))))
         : null
 
     return {
@@ -687,12 +687,12 @@ export const normalizeRealtimeDeviceSnapshots = (
         : matchedProjectDevice?.deviceType ?? null,
       isOnline: requestSucceeded,
       packStatus: normalizePackStatus(power, current, requestSucceeded),
-      soc: formatFixedValue(device.soc),
+      soc: formatFixedValue(device.soc, 1),
       socPercent,
-      packVoltage: formatFixedValue(device.voltage),
-      powerKw: formatFixedValue(device.power),
-      stringCurrent: formatFixedValue(device.current),
-      soh: formatFixedValue(device.soh),
+      packVoltage: formatFixedValue(device.voltage, 2),
+      powerKw: formatFixedValue(device.power, 2),
+      stringCurrent: formatFixedValue(device.current, 2),
+      soh: formatFixedValue(device.soh, 1),
     }
   })
 }

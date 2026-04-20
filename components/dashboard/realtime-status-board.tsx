@@ -62,8 +62,7 @@ const statusColors: Record<
 }
 
 const isPlaceholder = (value: string) => value.trim() === PLACEHOLDER
-const displaySocText = (soc: string, socPercent: number | null) =>
-  isPlaceholder(soc) ? `${PLACEHOLDER}%` : `${Math.round(socPercent ?? 0)}%`
+const displaySocText = (soc: string) => (isPlaceholder(soc) ? `${PLACEHOLDER}%` : `${soc}%`)
 
 function useContainerBase(ref: React.RefObject<HTMLDivElement | null>) {
   const [base, setBase] = useState(12)
@@ -709,7 +708,7 @@ export function RealtimeStatusBoard() {
                               textShadow: "0 0 14px rgba(0,0,0,0.95)",
                             }}
                           >
-                            {displaySocText(snapshot.soc, snapshot.socPercent)}
+                            {displaySocText(snapshot.soc)}
                           </span>
                         </div>
                       </div>
