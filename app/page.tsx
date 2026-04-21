@@ -173,20 +173,20 @@ function CornerDecoration({ position }: { position: "tl" | "tr" | "bl" | "br" })
   )
 }
 
-// Bottom Cloud Platform
+// Bottom Cloud Platform - matching design mockup
 function CloudPlatform() {
   return (
-    <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2">
+    <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2">
       <div className="relative flex flex-col items-center">
-        {/* Cloud Icon */}
-        <svg viewBox="0 0 120 80" className="h-[80px] w-[120px]">
+        {/* Cloud Icon - rounder, more pill-shaped like mockup */}
+        <svg viewBox="0 0 140 70" className="h-[70px] w-[140px]">
           <defs>
             <linearGradient id="cloud-outline" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#4ae8ff" />
-              <stop offset="100%" stopColor="#1a8ccc" />
+              <stop offset="100%" stopColor="#1a7cbb" />
             </linearGradient>
             <filter id="cloud-glow">
-              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feGaussianBlur stdDeviation="4" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="blur" />
@@ -194,49 +194,70 @@ function CloudPlatform() {
               </feMerge>
             </filter>
           </defs>
-          {/* Cloud shape */}
+          {/* Cloud shape - more rounded/pill shaped */}
           <path
-            d="M30 65C18 65 10 56 10 46C10 35 18 26 30 25C32 12 42 5 55 5C68 5 78 12 82 22C92 23 100 31 100 42C100 54 91 65 76 65H30Z"
-            fill="rgba(6,20,40,0.6)"
+            d="M35 55C22 55 12 47 12 36C12 26 20 18 32 17C35 8 46 2 60 2C74 2 86 8 90 18C102 19 115 27 115 40C115 52 104 55 90 55H35Z"
+            fill="rgba(4,16,32,0.8)"
             stroke="url(#cloud-outline)"
-            strokeWidth="2"
+            strokeWidth="2.5"
+            strokeLinejoin="round"
             filter="url(#cloud-glow)"
           />
-          {/* Lightning bolt */}
+          {/* Lightning bolt - centered */}
           <path
-            d="M62 15L47 38H56L48 62L68 33H58L62 15Z"
-            fill="rgba(180,250,255,0.9)"
-            stroke="rgba(74,232,255,0.6)"
+            d="M72 12L54 32H66L56 52L78 28H66L72 12Z"
+            fill="rgba(200,255,255,0.95)"
+            stroke="rgba(74,232,255,0.5)"
             strokeWidth="0.5"
             filter="url(#cloud-glow)"
           />
         </svg>
 
-        {/* Energy beam down */}
-        <div className="relative -mt-2">
-          <svg viewBox="0 0 80 60" className="h-[60px] w-[80px]">
+        {/* Triangular energy beam - matching mockup style */}
+        <div className="relative -mt-1">
+          <svg viewBox="0 0 100 80" className="h-[80px] w-[100px]">
             <defs>
               <linearGradient id="beam-grad" x1="50%" y1="0%" x2="50%" y2="100%">
-                <stop offset="0%" stopColor="rgba(180,250,255,0.8)" />
-                <stop offset="50%" stopColor="rgba(74,232,255,0.4)" />
+                <stop offset="0%" stopColor="rgba(200,255,255,0.9)" />
+                <stop offset="30%" stopColor="rgba(74,232,255,0.6)" />
+                <stop offset="70%" stopColor="rgba(74,232,255,0.2)" />
                 <stop offset="100%" stopColor="rgba(74,232,255,0)" />
               </linearGradient>
+              <filter id="beam-glow">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
             </defs>
-            <polygon points="35,0 45,0 60,60 20,60" fill="url(#beam-grad)">
-              <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite" />
+            {/* Main beam triangle */}
+            <polygon 
+              points="50,0 75,80 25,80" 
+              fill="url(#beam-grad)"
+              filter="url(#beam-glow)"
+            >
+              <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite" />
+            </polygon>
+            {/* Inner bright core */}
+            <polygon 
+              points="50,5 60,80 40,80" 
+              fill="rgba(200,255,255,0.3)"
+            >
+              <animate attributeName="opacity" values="0.3;0.6;0.3" dur="1.5s" repeatCount="indefinite" />
             </polygon>
           </svg>
         </div>
 
-        {/* Concentric ellipse rings */}
-        <div className="relative -mt-4">
-          <svg viewBox="0 0 400 80" className="h-[80px] w-[400px]">
+        {/* Concentric ellipse rings - cleaner like mockup */}
+        <div className="relative -mt-6">
+          <svg viewBox="0 0 500 100" className="h-[100px] w-[500px]">
             <defs>
               <linearGradient id="ring-grad" x1="0%" y1="50%" x2="100%" y2="50%">
                 <stop offset="0%" stopColor="rgba(74,232,255,0)" />
-                <stop offset="20%" stopColor="rgba(74,232,255,0.5)" />
+                <stop offset="15%" stopColor="rgba(74,232,255,0.3)" />
                 <stop offset="50%" stopColor="rgba(180,250,255,0.9)" />
-                <stop offset="80%" stopColor="rgba(74,232,255,0.5)" />
+                <stop offset="85%" stopColor="rgba(74,232,255,0.3)" />
                 <stop offset="100%" stopColor="rgba(74,232,255,0)" />
               </linearGradient>
               <filter id="ring-glow">
@@ -247,18 +268,19 @@ function CloudPlatform() {
                 </feMerge>
               </filter>
             </defs>
-            {/* Multiple rings */}
+            {/* Multiple rings - tighter spacing */}
             {[
-              { rx: 180, ry: 12, cy: 40, opacity: 0.15, width: 0.5 },
-              { rx: 150, ry: 10, cy: 42, opacity: 0.25, width: 0.8 },
-              { rx: 120, ry: 8, cy: 44, opacity: 0.4, width: 1 },
-              { rx: 90, ry: 6, cy: 46, opacity: 0.6, width: 1.2 },
-              { rx: 60, ry: 4, cy: 48, opacity: 0.8, width: 1.5 },
-              { rx: 35, ry: 2.5, cy: 50, opacity: 1, width: 2 },
+              { rx: 220, ry: 18, cy: 50, opacity: 0.12, width: 0.5 },
+              { rx: 190, ry: 15, cy: 52, opacity: 0.18, width: 0.7 },
+              { rx: 160, ry: 12, cy: 54, opacity: 0.25, width: 0.8 },
+              { rx: 130, ry: 10, cy: 56, opacity: 0.35, width: 1 },
+              { rx: 100, ry: 8, cy: 58, opacity: 0.5, width: 1.2 },
+              { rx: 70, ry: 5, cy: 60, opacity: 0.7, width: 1.5 },
+              { rx: 45, ry: 3, cy: 62, opacity: 0.9, width: 2 },
             ].map((ring, i) => (
               <ellipse 
                 key={i}
-                cx="200" 
+                cx="250" 
                 cy={ring.cy} 
                 rx={ring.rx} 
                 ry={ring.ry}
@@ -266,28 +288,43 @@ function CloudPlatform() {
                 stroke="url(#ring-grad)"
                 strokeWidth={ring.width}
                 opacity={ring.opacity}
-                filter={i >= 3 ? "url(#ring-glow)" : undefined}
+                filter={i >= 4 ? "url(#ring-glow)" : undefined}
               >
                 <animate 
                   attributeName="ry" 
-                  values={`${ring.ry};${ring.ry + 1};${ring.ry}`}
-                  dur={`${2 + i * 0.3}s`}
+                  values={`${ring.ry};${ring.ry + 0.5};${ring.ry}`}
+                  dur={`${3 + i * 0.2}s`}
                   repeatCount="indefinite"
                 />
               </ellipse>
             ))}
-            {/* Orbiting particles */}
+            {/* Orbiting particles - matching mockup cyan dots */}
             {[
-              { r: 150, dur: "8s", size: 3 },
-              { r: 90, dur: "5s", size: 2.5 },
-              { r: 60, dur: "3s", size: 2 },
+              { rx: 190, ry: 15, dur: "12s", size: 4, offset: 0 },
+              { rx: 190, ry: 15, dur: "12s", size: 4, offset: 0.5 },
+              { rx: 130, ry: 10, dur: "8s", size: 3.5, offset: 0 },
+              { rx: 130, ry: 10, dur: "8s", size: 3.5, offset: 0.5 },
+              { rx: 70, ry: 5, dur: "5s", size: 3, offset: 0 },
+              { rx: 70, ry: 5, dur: "5s", size: 3, offset: 0.5 },
             ].map((orbit, i) => (
-              <circle key={i} r={orbit.size} fill="#4ae8ff" filter="url(#ring-glow)">
-                <animateMotion 
-                  dur={orbit.dur} 
-                  repeatCount="indefinite"
-                  path={`M${200 - orbit.r},${44 + i * 2} a${orbit.r},${orbit.r * 0.05} 0 1,1 ${orbit.r * 2},0 a${orbit.r},${orbit.r * 0.05} 0 1,1 -${orbit.r * 2},0`}
-                />
+              <g key={i}>
+                <circle r={orbit.size} fill="#4ae8ff" filter="url(#ring-glow)">
+                  <animateMotion 
+                    dur={orbit.dur} 
+                    repeatCount="indefinite"
+                    begin={`${orbit.offset * parseFloat(orbit.dur)}s`}
+                    path={`M${250 - orbit.rx},${52 + (6 - i) * 1.5} a${orbit.rx},${orbit.ry} 0 1,1 ${orbit.rx * 2},0 a${orbit.rx},${orbit.ry} 0 1,1 -${orbit.rx * 2},0`}
+                  />
+                </circle>
+              </g>
+            ))}
+            {/* Static glow dots on rings */}
+            {[
+              { cx: 60, cy: 58 }, { cx: 440, cy: 58 },
+              { cx: 120, cy: 56 }, { cx: 380, cy: 56 },
+            ].map((dot, i) => (
+              <circle key={`dot-${i}`} cx={dot.cx} cy={dot.cy} r="2" fill="#4ae8ff" opacity="0.6" filter="url(#ring-glow)">
+                <animate attributeName="opacity" values="0.4;0.9;0.4" dur={`${1.5 + i * 0.3}s`} repeatCount="indefinite" />
               </circle>
             ))}
           </svg>
@@ -366,7 +403,7 @@ function CitySkyline() {
   )
 }
 
-// Background Grid
+// Background Grid with Data Twin Effects
 function BackgroundGrid() {
   return (
     <>
@@ -382,6 +419,115 @@ function BackgroundGrid() {
           backgroundSize: "60px 60px"
         }} 
       />
+      {/* Data twin particles */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <svg className="h-full w-full">
+          <defs>
+            <filter id="particle-glow">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          {/* Floating particles */}
+          {Array.from({ length: 30 }).map((_, i) => (
+            <circle
+              key={i}
+              r={Math.random() * 2 + 1}
+              fill={`rgba(74,232,255,${0.3 + Math.random() * 0.4})`}
+              filter="url(#particle-glow)"
+            >
+              <animate
+                attributeName="cx"
+                values={`${Math.random() * 100}%;${Math.random() * 100}%;${Math.random() * 100}%`}
+                dur={`${15 + Math.random() * 20}s`}
+                repeatCount="indefinite"
+              />
+              <animate
+                attributeName="cy"
+                values={`${Math.random() * 100}%;${Math.random() * 100}%;${Math.random() * 100}%`}
+                dur={`${20 + Math.random() * 15}s`}
+                repeatCount="indefinite"
+              />
+              <animate
+                attributeName="opacity"
+                values="0.2;0.8;0.2"
+                dur={`${2 + Math.random() * 3}s`}
+                repeatCount="indefinite"
+              />
+            </circle>
+          ))}
+          {/* Data flow lines */}
+          {Array.from({ length: 8 }).map((_, i) => (
+            <line
+              key={`line-${i}`}
+              x1={`${10 + i * 12}%`}
+              y1="0%"
+              x2={`${10 + i * 12}%`}
+              y2="100%"
+              stroke="rgba(74,232,255,0.05)"
+              strokeWidth="1"
+              strokeDasharray="4 20"
+            >
+              <animate
+                attributeName="stroke-dashoffset"
+                values="0;-24"
+                dur={`${2 + i * 0.3}s`}
+                repeatCount="indefinite"
+              />
+            </line>
+          ))}
+        </svg>
+      </div>
+      {/* Horizontal scan line */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div 
+          className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#4ae8ff]/30 to-transparent"
+          style={{ animation: "bgScanLine 8s linear infinite" }}
+        />
+      </div>
+      {/* Radar sweep effect at bottom center */}
+      <div className="pointer-events-none absolute bottom-[10%] left-1/2 -translate-x-1/2">
+        <svg viewBox="0 0 400 200" className="h-[200px] w-[400px] opacity-20">
+          <defs>
+            <linearGradient id="radar-sweep" x1="50%" y1="100%" x2="50%" y2="0%">
+              <stop offset="0%" stopColor="rgba(74,232,255,0.4)" />
+              <stop offset="100%" stopColor="rgba(74,232,255,0)" />
+            </linearGradient>
+          </defs>
+          {/* Radar circles */}
+          {[80, 120, 160].map((r, i) => (
+            <ellipse
+              key={i}
+              cx="200"
+              cy="180"
+              rx={r}
+              ry={r * 0.3}
+              fill="none"
+              stroke="rgba(74,232,255,0.15)"
+              strokeWidth="1"
+            />
+          ))}
+          {/* Sweep line */}
+          <path
+            d="M200,180 L200,40"
+            stroke="url(#radar-sweep)"
+            strokeWidth="2"
+            opacity="0.6"
+          >
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="0 200 180"
+              to="360 200 180"
+              dur="10s"
+              repeatCount="indefinite"
+            />
+          </path>
+        </svg>
+      </div>
     </>
   )
 }
@@ -503,6 +649,12 @@ export default function LoginPage() {
         @keyframes cardPulse {
           0%, 100% { box-shadow: 0 0 20px rgba(74,232,255,0.15), inset 0 0 15px rgba(74,232,255,0.03); }
           50% { box-shadow: 0 0 35px rgba(74,232,255,0.25), inset 0 0 25px rgba(74,232,255,0.05); }
+        }
+        @keyframes bgScanLine {
+          0% { top: 0%; opacity: 0; }
+          5% { opacity: 1; }
+          95% { opacity: 1; }
+          100% { top: 100%; opacity: 0; }
         }
       `}</style>
 
