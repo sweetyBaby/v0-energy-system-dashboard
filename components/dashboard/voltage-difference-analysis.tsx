@@ -50,15 +50,15 @@ export function VoltageDifferenceAnalysis({
   const { t, language } = useLanguage()
   const { isCompactViewport } = useDashboardViewport()
   const zh = language === "zh"
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_DENSE_PANEL_SCALE)
-  const titleSize = scale.clampText(0.9, 0.98, 1.18)
-  const cardLabelSize = scale.fluid(12, 14.5)
-  const cardValueSize = scale.clampText(0.95, 1.08, 1.42)
-  const tableSize = scale.fluid(12, 14)
-  const chartFontSize = scale.chart(10, 13)
-  const tooltipFontSize = scale.chart(11, 14)
-  const iconEdge = scale.fluid(26, 32)
-  const iconSize = scale.fluid(14, 17)
+  const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_DENSE_PANEL_SCALE, maxRootPx: 25 })
+  const titleSize = scale.clampText(0.9, 0.98, 1.5)
+  const cardLabelSize = scale.fluid(12, 17)
+  const cardValueSize = scale.clampText(0.95, 1.08, 1.72)
+  const tableSize = scale.fluid(12, 16)
+  const chartFontSize = scale.chart(10, 15)
+  const tooltipFontSize = scale.chart(11, 16)
+  const iconEdge = scale.fluid(26, 37)
+  const iconSize = scale.fluid(14, 20)
 
   const data = useMemo(
     () =>

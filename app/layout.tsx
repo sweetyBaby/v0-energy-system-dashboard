@@ -1,10 +1,11 @@
 import type { Metadata } from "next"
 import { Analytics } from "@vercel/analytics/next"
+import { LanguageProvider } from "@/components/language-provider"
 import "./globals.css"
 
 export const metadata: Metadata = {
   title: "Enercloud",
-  description: "用于储能系统实时监测、综合效能分析、历史追溯和报表管理的大屏平台。",
+  description: "Real-time monitoring, analytics, replay, and reporting for energy storage systems.",
   generator: "v0.app",
   icons: {
     icon: "/icon.svg",
@@ -20,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="font-sans antialiased">
-        {children}
+        <LanguageProvider>{children}</LanguageProvider>
         <Analytics />
       </body>
     </html>

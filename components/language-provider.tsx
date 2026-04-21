@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, ReactNode } from "react"
 
 type Language = "zh" | "en"
 
@@ -121,6 +121,8 @@ type LanguageContextType = {
   t: (key: string) => string
 }
 
+const LANGUAGE_STORAGE_KEY = "enercloud-language"
+
 const LanguageContext = createContext<LanguageContextType>({
   language: "zh",
   setLanguage: () => { },
@@ -131,6 +133,33 @@ export const useLanguage = () => useContext(LanguageContext)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>("zh")
+
+  useEffect(() => {
+    try {
+      const storedLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY)
+
+      if (storedLanguage === "zh" || storedLanguage === "en") {
+        setLanguage(storedLanguage)
+        return
+      }
+
+      if (window.navigator.language.toLowerCase().startsWith("en")) {
+        setLanguage("en")
+      }
+    } catch {
+      // Ignore storage access failures and keep the default language.
+    }
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.lang = language === "zh" ? "zh-CN" : "en"
+
+    try {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language)
+    } catch {
+      // Ignore storage access failures and keep the current session state only.
+    }
+  }, [language])
 
   const t = (key: string): string => {
     if (translations[key]) {

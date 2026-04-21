@@ -3,6 +3,9 @@
  * UI components should not hardcode `/ems/...` paths directly.
  */
 export const apiEndpoints = {
+  auth: {
+    cloudLogin: "/login/cloud",
+  },
   project: {
     /**
      * Header project selector list.

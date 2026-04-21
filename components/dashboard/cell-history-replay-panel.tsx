@@ -333,7 +333,7 @@ function NeonSection({
   className?: string
   children: ReactNode
 }) {
-  const scale = useFluidScale<HTMLElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
+  const scale = useFluidScale<HTMLElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
   const isBcuHeader = headerVariant === "bcu"
   const defaultAccentBarClass = isBcuHeader
     ? "bg-[#00d4aa]"
@@ -343,10 +343,10 @@ function NeonSection({
     : (compact ? "mb-2" : "mb-3")
   const headerPaddingLeftClass = isBcuHeader ? "pl-4.5" : (compact ? "pl-2.5" : "pl-3")
   const titleStyle = isBcuHeader
-    ? { fontSize: scale.clampText(0.9, 0.98, 1.15) }
-    : { fontSize: compact ? scale.clampText(0.82, 0.9, 1.02) : scale.clampText(0.88, 0.98, 1.12) }
-  const subtitleSize = scale.fluid(10, 12.5)
-  const badgeSize = scale.fluid(10, 12.5)
+    ? { fontSize: scale.clampText(0.9, 0.98, 1.45) }
+    : { fontSize: compact ? scale.clampText(0.82, 0.9, 1.32) : scale.clampText(0.88, 0.98, 1.42) }
+  const subtitleSize = scale.fluid(10, 15)
+  const badgeSize = scale.fluid(10, 15)
 
   return (
     <section
@@ -394,12 +394,12 @@ function NeonSection({
 }
 
 function InnerFrame({ title, accent = "#74ebff", compact = false, children }: { title: string; accent?: string; compact?: boolean; children: ReactNode }) {
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
+  const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
   return (
     <div ref={scale.ref} className={`flex h-full min-h-0 flex-col rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] shadow-[inset_0_0_16px_rgba(25,92,148,0.08)] ${compact ? "p-1.5" : "p-2"}`} style={scale.rootStyle}>
       <div className={`${compact ? "mb-1" : "mb-1.5"} flex items-center gap-2`}>
         <div className="h-5 w-[2px] rounded-full" style={{ backgroundColor: accent, boxShadow: `0 0 10px ${accent}` }} />
-        <div className="font-semibold tracking-[0.06em] text-[#d8f7ff]" style={{ fontSize: compact ? scale.clampText(0.72, 0.78, 0.92) : scale.clampText(0.78, 0.86, 1.02) }}>{title}</div>
+        <div className="font-semibold tracking-[0.06em] text-[#d8f7ff]" style={{ fontSize: compact ? scale.clampText(0.72, 0.78, 1.18) : scale.clampText(0.78, 0.86, 1.3) }}>{title}</div>
       </div>
       <div className="min-h-0 flex-1">{children}</div>
     </div>
@@ -408,9 +408,9 @@ function InnerFrame({ title, accent = "#74ebff", compact = false, children }: { 
 
 
 function LegendItem({ label, color, dashed = false, compact = false }: { label: string; color: string; dashed?: boolean; compact?: boolean }) {
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
+  const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
   return (
-    <div ref={scale.ref} className={`flex items-center ${compact ? "gap-1.5" : "gap-2"} text-[#96bdd4]`} style={{ fontSize: compact ? scale.fluid(10, 12) : scale.fluid(11, 13) }}>
+    <div ref={scale.ref} className={`flex items-center ${compact ? "gap-1.5" : "gap-2"} text-[#96bdd4]`} style={{ fontSize: compact ? scale.fluid(10, 14) : scale.fluid(11, 15) }}>
       <span className={`block h-[2px] ${compact ? "w-4" : "w-5"} ${dashed ? "border-t-2 border-dashed" : ""}`} style={dashed ? { borderColor: color } : { backgroundColor: color, boxShadow: `0 0 8px ${color}` }} />
       <span>{label}</span>
     </div>
@@ -418,12 +418,12 @@ function LegendItem({ label, color, dashed = false, compact = false }: { label: 
 }
 
 function ChartPlaceholder({ text }: { text: string }) {
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
+  const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
   return (
     <div
       ref={scale.ref}
       className="relative z-10 flex h-full min-h-0 w-full flex-1 items-center justify-center self-stretch px-4 text-center text-[#7b8ab8]"
-      style={{ ...scale.rootStyle, fontSize: scale.fluid(12, 14) }}
+      style={{ ...scale.rootStyle, fontSize: scale.fluid(12, 16) }}
     >
       {text}
     </div>
@@ -456,10 +456,10 @@ function HistoryLoadingIndicator({
   variant?: "skeleton" | "overlay"
 }) {
   const isOverlay = variant === "overlay"
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
-  const textSize = scale.fluid(12, 15)
-  const orbEdge = scale.fluid(44, 54)
-  const pulseEdge = scale.fluid(12, 15)
+  const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
+  const textSize = scale.fluid(12, 18)
+  const orbEdge = scale.fluid(44, 63)
+  const pulseEdge = scale.fluid(12, 18)
 
   return (
     <div
@@ -842,7 +842,7 @@ function FleetTooltip({
 
 
 function CellChip({ label, active, warning, onClick }: { label: string; active: boolean; warning: boolean; onClick: () => void }) {
-  const scale = useFluidScale<HTMLButtonElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
+  const scale = useFluidScale<HTMLButtonElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
   return (
     <button
       ref={scale.ref}
@@ -855,7 +855,7 @@ function CellChip({ label, active, warning, onClick }: { label: string; active: 
             ? "border-[#6a4c31] bg-[linear-gradient(180deg,rgba(56,36,25,0.62),rgba(31,22,19,0.9))] text-[#ffd7a6] hover:border-[#a37649]"
             : "border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.92),rgba(8,17,35,0.96))] text-[#a7cae2] hover:border-[#3d709f] hover:text-[#e3f8ff]"
       }`}
-      style={{ fontSize: scale.fluid(10, 12) }}
+      style={{ fontSize: scale.fluid(10, 14) }}
     >
       {label}
     </button>
@@ -865,10 +865,10 @@ function CellChip({ label, active, warning, onClick }: { label: string; active: 
 export function CellHistoryCellPicker({ value, onChange }: { value: number | null; onChange: (value: number | null) => void }) {
   const { language } = useLanguage()
   const zh = language === "zh"
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
-  const controlSize = scale.fluid(12, 14.5)
-  const triggerHeight = scale.fluid(34, 40)
-  const iconSize = scale.fluid(14, 17)
+  const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
+  const controlSize = scale.fluid(12, 17)
+  const triggerHeight = scale.fluid(34, 45)
+  const iconSize = scale.fluid(14, 20)
   const [open, setOpen] = useState(false)
   const label = value === null ? (zh ? "全部电芯" : "All Cells") : `${zh ? "电芯" : "Cell"} ${value}`
 
@@ -926,12 +926,12 @@ export function CellHistoryMultiPicker({
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
-  const controlSize = fontSize ?? (compact ? scale.fluid(11, 13.5) : scale.fluid(12, 15))
-  const hintSize = scale.fluid(10, 12)
-  const footerControlSize = compact ? scale.fluid(10.8, 13) : scale.fluid(11.4, 14)
+  const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
+  const controlSize = fontSize ?? (compact ? scale.fluid(11, 16) : scale.fluid(12, 18))
+  const hintSize = scale.fluid(10, 14)
+  const footerControlSize = compact ? scale.fluid(10.8, 15) : scale.fluid(11.4, 16)
   const triggerHeight = compact ? "34px" : "36px"
-  const iconSize = compact ? scale.fluid(14, 16) : scale.fluid(14, 17)
+  const iconSize = compact ? scale.fluid(14, 18) : scale.fluid(14, 20)
   const [open, setOpen] = useState(false)
   const [draftValue, setDraftValue] = useState<number[]>(value)
   const limitReached = draftValue.length >= maxSelection
@@ -1168,16 +1168,25 @@ export function CellHistoryReplayPanel({
 }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const zh = language === "zh"
-  const chartFontSize = scale.chart(9, 12)
-  const summaryTitleSize = scale.fluid(14, 17)
-  const summaryTextSize = scale.fluid(11, 13.5)
-  const detailMetricLabelSize = scale.fluid(11, 13)
-  const detailMetricValueSize = scale.fluid(12, 14.5)
-  const detailCellTitleSize = scale.clampText(0.9, 0.98, 1.14)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [availableSize, setAvailableSize] = useState({ width: 0, height: 0 })
+  const panelScale = useMemo(() => {
+    const progress = Math.max(0, Math.min(1, (availableSize.width - 1180) / (2560 - 1180)))
+    const rootPx = 14 + (27 - 14) * progress
+    return {
+      fluid: (min: number, max: number) => Math.round((min + (max - min) * progress) * 100) / 100,
+      chart: (min: number, max: number) => Math.round((min + (max - min) * (0.18 + progress * 0.82)) * 100) / 100,
+      clampText: (minRem: number, multiple: number, maxRem: number) =>
+        `clamp(${minRem}rem, calc(${rootPx.toFixed(2)}px * ${multiple}), ${maxRem}rem)`,
+    }
+  }, [availableSize.width])
+  const chartFontSize = panelScale.chart(9, 14)
+  const summaryTitleSize = panelScale.fluid(14, 20)
+  const summaryTextSize = panelScale.fluid(11, 16)
+  const detailMetricLabelSize = panelScale.fluid(11, 15)
+  const detailMetricValueSize = panelScale.fluid(12, 17)
+  const detailCellTitleSize = panelScale.clampText(0.9, 0.98, 1.45)
   const [historyBundle, setHistoryBundle] = useState<CachedHistoryBundle | null>(null)
   const [isHistoryLoading, setIsHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState<string | null>(null)
@@ -1709,7 +1718,7 @@ export function CellHistoryReplayPanel({
       return {
         title: zh ? "电压趋势" : "Voltage",
         subtitle: zh ? "电芯极值" : "Cell Extremes",
-        header: zh ? "电压趋势（电芯极值）" : "Voltage (Cell Extremes)",
+        header: zh ? "电压极值" : "Voltage Extremes",
         maxText: "--",
         minText: "--",
       }
@@ -1720,7 +1729,7 @@ export function CellHistoryReplayPanel({
     return {
       title: zh ? "电压趋势" : "Voltage",
       subtitle: zh ? "电芯极值" : "Cell Extremes",
-      header: zh ? "电压趋势（电芯极值）" : "Voltage (Cell Extremes)",
+      header: zh ? "电压极值" : "Voltage Extremes",
       maxText: zh ? `最高电压：${highest.max.toFixed(3)}V(#${highest.maxCell})` : `Max Voltage: ${highest.max.toFixed(3)}V (#${highest.maxCell})`,
       minText: zh ? `最低电压：${lowest.min.toFixed(3)}V(#${lowest.minCell})` : `Min Voltage: ${lowest.min.toFixed(3)}V (#${lowest.minCell})`,
     }
@@ -1918,7 +1927,7 @@ export function CellHistoryReplayPanel({
                   className={`flex items-center gap-1 transition-all ${
                     detailVisibleMetrics[item.key] ? "text-[#96bdd4]" : "text-[#547084]"
                   }`}
-                  style={{ fontSize: scale.fluid(10, 12) }}
+                  style={{ fontSize: panelScale.fluid(10, 14) }}
                 >
                   <span className="block h-[2px] w-4" style={{ backgroundColor: item.color, boxShadow: detailVisibleMetrics[item.key] ? `0 0 8px ${item.color}` : "none", opacity: detailVisibleMetrics[item.key] ? 1 : 0.4 }} />
                   <span>{item.label}</span>

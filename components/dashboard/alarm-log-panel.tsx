@@ -263,10 +263,10 @@ const DAY_MIN = 24 * 60
 
 // ── 甘特时间轴（拖动平移 + 滚轮缩放，始终铺满容器，无横向滚动条） ─────────────
 function AlarmTimeline({ events, zh }: { events: TimelineEvent[]; zh: boolean }) {
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
-  const labelSize = scale.fluid(11, 13.5)
-  const tickSize = scale.fluid(10, 12.5)
-  const tooltipSize = scale.fluid(11, 13.5)
+  const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
+  const labelSize = scale.fluid(11, 16)
+  const tickSize = scale.fluid(10, 15)
+  const tooltipSize = scale.fluid(11, 16)
   const [viewStart, setViewStart] = useState(0)
   const [viewEnd,   setViewEnd]   = useState(DAY_MIN)
   const [tooltip, setTooltip]     = useState<{ ev: TimelineEvent; mx: number; my: number } | null>(null)
@@ -440,10 +440,10 @@ function AlarmTimeline({ events, zh }: { events: TimelineEvent[]; zh: boolean })
 const LEVELS = [1, 2, 3, 4, 5] as const
 
 function AlarmTypeStats({ alarms, zh }: { alarms: AlarmEntry[]; zh: boolean }) {
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
-  const labelSize = scale.fluid(11, 13.5)
-  const valueSize = scale.fluid(12, 15)
-  const totalSize = scale.fluid(15, 18)
+  const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
+  const labelSize = scale.fluid(11, 16)
+  const valueSize = scale.fluid(12, 18)
+  const totalSize = scale.fluid(15, 21)
   const total = alarms.length
   if (total === 0) return null
   const fmtPct = (count: number) => `${((count / total) * 100).toFixed(2)}%`
@@ -706,12 +706,12 @@ export function AlarmLogPanel({
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const zh = language === "zh"
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
-  const titleSize = scale.clampText(0.9, 0.98, 1.18)
-  const infoSize = scale.fluid(12, 14.5)
-  const badgeSize = scale.fluid(11, 13)
-  const tableFontSize = scale.fluid(11, 13)
-  const headerFontSize = scale.fluid(12, 14)
+  const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
+  const titleSize = scale.clampText(0.9, 0.98, 1.5)
+  const infoSize = scale.fluid(12, 17)
+  const badgeSize = scale.fluid(11, 15)
+  const tableFontSize = scale.fluid(11, 15)
+  const headerFontSize = scale.fluid(12, 16)
 
   const REALTIME_LIMIT = 15
 

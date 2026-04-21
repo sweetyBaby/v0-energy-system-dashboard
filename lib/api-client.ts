@@ -1,9 +1,12 @@
+import { getAuthHeaderValue } from "@/lib/auth-storage"
+
 const SERVER_BASE_URL =
   process.env.API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   "http://localhost:8080"
 
 const BASE_URL = typeof window === "undefined" ? SERVER_BASE_URL : "/api/proxy"
+const ENABLE_AUTH_HEADER = process.env.NEXT_PUBLIC_ENABLE_AUTH_HEADER === "true"
 
 export interface ApiResponse<T = unknown> {
   code: number
@@ -20,10 +23,12 @@ async function requestRaw<T>(
     ? BASE_URL.slice(0, -1)
     : BASE_URL
   const url = `${normalizedBase}${normalizedPath}`
+  const authHeaderValue = ENABLE_AUTH_HEADER ? getAuthHeaderValue() : null
 
   const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
+      ...(authHeaderValue ? { Authorization: authHeaderValue } : {}),
       ...options.headers,
     },
     ...options,
