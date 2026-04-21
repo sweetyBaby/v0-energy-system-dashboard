@@ -1,7 +1,8 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
-import { Check, ChevronDown, Globe, Zap } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Check, ChevronDown, Globe, LogOut, Zap } from "lucide-react"
 import {
   fetchProjectOptionsByDevice,
   fetchProjectDetail,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/api/project"
 import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
+import { clearStoredAuthToken } from "@/lib/auth-storage"
 
 type DashboardHeaderTab = {
   key: string
@@ -270,6 +272,7 @@ export function DashboardHeader({
   tabs: DashboardHeaderTab[]
   compact?: boolean
 }) {
+  const router = useRouter()
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const { projectOptions, selectedProject, setSelectedProject, isProjectOptionsLoading, projectOptionsError } =
     useProject()
@@ -286,9 +289,10 @@ export function DashboardHeader({
       : selectedProject.projectNameEn
     : isProjectOptionsLoading
       ? "Loading projects"
-      : projectOptionsError
-        ? "Failed to load projects"
-        : "No projects"
+        : projectOptionsError
+          ? "Failed to load projects"
+          : "No projects"
+  const logoutLabel = zh ? "退出登录" : "Logout"
 
   useEffect(() => {
     setCurrentTime(new Date())
@@ -631,6 +635,23 @@ export function DashboardHeader({
               )
             })}
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              clearStoredAuthToken()
+              router.replace("/")
+            }}
+            className={`relative flex items-center gap-1.5 overflow-hidden border border-[#7a3942]/75 bg-[linear-gradient(180deg,rgba(46,14,24,0.96),rgba(24,8,14,0.98))] px-3 text-[#ffd7dd] shadow-[0_0_18px_rgba(255,93,122,0.1),inset_0_0_0_1px_rgba(255,180,194,0.05)] transition-all hover:border-[#ff6d88]/70 hover:text-white hover:shadow-[0_0_22px_rgba(255,109,136,0.18),inset_0_0_0_1px_rgba(255,180,194,0.08)] ${
+              useCompactHeader ? "h-[30px]" : "h-[32px]"
+            }`}
+            style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
+            aria-label={logoutLabel}
+          >
+            <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#ff9fb2]/65 to-transparent" />
+            <LogOut className="h-[13px] w-[13px] shrink-0" />
+            <span className="text-[12px] font-semibold tracking-[0.06em]">{logoutLabel}</span>
+          </button>
         </div>
       </div>
     </header>
