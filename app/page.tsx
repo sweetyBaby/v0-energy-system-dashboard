@@ -1,6 +1,6 @@
 "use client"
 
-import { startTransition, useState } from "react"
+import { startTransition, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowRight,
@@ -96,19 +96,28 @@ function EnerCloudIcon({ className }: { className?: string }) {
           <stop offset="0%" stopColor="#c8fffa" />
           <stop offset="100%" stopColor="#3fe4ff" />
         </linearGradient>
+        <filter id="enercloud-glow">
+          <feGaussianBlur stdDeviation="2" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
       <path
         d="M23 54C13 54 8 47 8 39C8 30 14 23 24 22C25 12 33 7 42 7C51 7 58 12 61 20C69 21 74 27 74 35C74 45 67 54 55 54H23Z"
-        fill="rgba(9,31,68,0.2)"
+        fill="rgba(9,31,68,0.3)"
         stroke="url(#enercloud-cloud)"
-        strokeWidth="3"
+        strokeWidth="2.5"
         strokeLinejoin="round"
+        filter="url(#enercloud-glow)"
       />
       <path
         d="M43 13L31 31H39L33 50L48 28H40L43 13Z"
         fill="url(#enercloud-bolt)"
-        stroke="rgba(92,242,255,0.24)"
+        stroke="rgba(92,242,255,0.4)"
         strokeWidth="0.8"
+        filter="url(#enercloud-glow)"
       />
     </svg>
   )
@@ -128,7 +137,7 @@ function CloudBoltIcon({ className }: { className?: string }) {
           <stop offset="100%" stopColor="#4ae8ff" />
         </linearGradient>
         <filter id="bolt-glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feGaussianBlur stdDeviation="4" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
@@ -141,6 +150,7 @@ function CloudBoltIcon({ className }: { className?: string }) {
         stroke="url(#cloud-stroke)"
         strokeWidth="2"
         strokeLinejoin="round"
+        filter="url(#bolt-glow)"
       />
       <path
         d="M65 28L48 52H58L50 78L72 48H62L65 28Z"
@@ -156,29 +166,61 @@ function FeatureCard({
   title,
   description,
   direction = "left",
+  delay = 0,
 }: {
   icon: React.ElementType
   title: string
   description: string
   direction?: "left" | "right"
+  delay?: number
 }) {
   return (
     <div
       className={cn(
-        "group relative flex cursor-pointer items-center gap-4 rounded-lg border border-[#1a4a6a]/60 bg-[linear-gradient(135deg,rgba(8,24,48,0.9),rgba(4,16,32,0.95))] px-4 py-4 transition-all hover:border-[#3ae8ff]/50 hover:bg-[linear-gradient(135deg,rgba(12,32,56,0.95),rgba(6,20,40,0.98))] hover:shadow-[0_0_20px_rgba(58,232,255,0.15)]",
+        "group relative flex cursor-pointer items-center gap-4 overflow-hidden rounded-sm px-4 py-4 transition-all duration-300",
+        "border border-[#0e4a6a]/80 bg-[linear-gradient(135deg,rgba(4,18,38,0.95),rgba(2,12,28,0.98))]",
+        "hover:border-[#3ae8ff]/60 hover:bg-[linear-gradient(135deg,rgba(8,28,52,0.98),rgba(4,18,38,0.99))]",
+        "hover:shadow-[0_0_30px_rgba(58,232,255,0.2),inset_0_0_20px_rgba(58,232,255,0.05)]",
         direction === "right" && "flex-row-reverse"
       )}
+      style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#2a7aaa]/50 bg-[linear-gradient(180deg,rgba(20,60,100,0.5),rgba(10,30,60,0.8))]">
-        <Icon className="h-5 w-5 text-[#4ae8ff]" />
+      {/* Animated border glow */}
+      <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+        <div className="absolute inset-[-1px] rounded-sm bg-gradient-to-r from-transparent via-[#4ae8ff]/30 to-transparent" 
+          style={{ animation: 'shimmer 2s infinite' }} />
       </div>
+      
+      {/* Corner cuts */}
+      <div className={cn(
+        "pointer-events-none absolute top-0 h-3 w-3 border-t border-[#4ae8ff]/50",
+        direction === "left" ? "left-0 border-l" : "right-0 border-r"
+      )} />
+      <div className={cn(
+        "pointer-events-none absolute bottom-0 h-3 w-3 border-b border-[#4ae8ff]/50",
+        direction === "left" ? "right-0 border-r" : "left-0 border-l"
+      )} />
+
+      {/* Scan line effect */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#4ae8ff]/10 via-transparent to-transparent" 
+          style={{ animation: 'scanline 2s infinite linear' }} />
+      </div>
+
+      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded border border-[#1a6090]/60 bg-[linear-gradient(180deg,rgba(10,40,70,0.8),rgba(5,20,45,0.95))] shadow-[0_0_15px_rgba(58,232,255,0.1),inset_0_1px_0_rgba(58,232,255,0.1)]">
+        <Icon className="h-5 w-5 text-[#4ae8ff] drop-shadow-[0_0_6px_rgba(74,232,255,0.5)]" />
+        {/* Icon pulse effect */}
+        <div className="absolute inset-0 rounded border border-[#4ae8ff]/30 opacity-0 transition-opacity group-hover:animate-ping group-hover:opacity-50" />
+      </div>
+      
       <div className={cn("flex-1 min-w-0", direction === "right" && "text-right")}>
-        <div className="text-[15px] font-bold text-white">{title}</div>
-        <div className="mt-0.5 text-[12px] text-[#6aa8c8]">{description}</div>
+        <div className="text-[15px] font-bold text-[#e8f8ff] drop-shadow-[0_0_10px_rgba(232,248,255,0.3)]">{title}</div>
+        <div className="mt-0.5 text-[12px] text-[#5a98b8]">{description}</div>
       </div>
+      
       <ChevronRight
         className={cn(
-          "h-5 w-5 shrink-0 text-[#3a88aa] transition-transform group-hover:text-[#4ae8ff]",
+          "h-5 w-5 shrink-0 text-[#3a7898] transition-all duration-300 group-hover:text-[#4ae8ff] group-hover:drop-shadow-[0_0_8px_rgba(74,232,255,0.6)]",
           direction === "right" && "rotate-180"
         )}
       />
@@ -199,21 +241,77 @@ function CornerDecoration({ position }: { position: "top-left" | "top-right" | "
       )}
     >
       <svg
-        viewBox="0 0 80 80"
+        viewBox="0 0 100 100"
         className={cn(
-          "h-20 w-20",
+          "h-24 w-24",
           !isTop && "rotate-180",
           !isLeft && isTop && "-scale-x-100",
           !isLeft && !isTop && "scale-x-[-1]"
         )}
         fill="none"
       >
-        <path d="M0 0 L40 0 L40 5 L5 5 L5 40 L0 40 Z" fill="rgba(58,232,255,0.3)" />
-        <path d="M0 50 L0 80 L5 80 L5 55 L10 55 L10 50 Z" fill="rgba(58,232,255,0.2)" />
-        <path d="M50 0 L80 0 L80 5 L55 5 L55 10 L50 10 Z" fill="rgba(58,232,255,0.2)" />
-        <rect x="12" y="12" width="3" height="3" fill="rgba(58,232,255,0.5)" />
-        <rect x="20" y="12" width="8" height="2" fill="rgba(58,232,255,0.3)" />
-        <rect x="12" y="20" width="2" height="8" fill="rgba(58,232,255,0.3)" />
+        <path d="M0 0 L50 0 L50 3 L3 3 L3 50 L0 50 Z" fill="rgba(58,232,255,0.4)" />
+        <path d="M0 60 L0 100 L3 100 L3 65 L8 65 L8 60 Z" fill="rgba(58,232,255,0.25)" />
+        <path d="M60 0 L100 0 L100 3 L65 3 L65 8 L60 8 Z" fill="rgba(58,232,255,0.25)" />
+        <rect x="10" y="10" width="4" height="4" fill="rgba(58,232,255,0.6)">
+          <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite" />
+        </rect>
+        <rect x="20" y="10" width="12" height="2" fill="rgba(58,232,255,0.3)" />
+        <rect x="10" y="20" width="2" height="12" fill="rgba(58,232,255,0.3)" />
+        <circle cx="38" cy="10" r="1.5" fill="#4ae8ff" opacity="0.5">
+          <animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="10" cy="38" r="1.5" fill="#4ae8ff" opacity="0.5">
+          <animate attributeName="opacity" values="0.5;1;0.5" dur="1.8s" repeatCount="indefinite" />
+        </circle>
+      </svg>
+    </div>
+  )
+}
+
+function CityScape() {
+  return (
+    <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-[200px] opacity-30">
+      <svg viewBox="0 0 1200 200" className="h-full w-full" preserveAspectRatio="xMidYMax slice">
+        <defs>
+          <linearGradient id="building-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#1a4a6a" />
+            <stop offset="100%" stopColor="#0a1a2a" />
+          </linearGradient>
+          <filter id="building-glow">
+            <feGaussianBlur stdDeviation="1" />
+          </filter>
+        </defs>
+        {/* Buildings */}
+        <rect x="50" y="120" width="30" height="80" fill="url(#building-gradient)" />
+        <rect x="90" y="100" width="25" height="100" fill="url(#building-gradient)" />
+        <rect x="120" y="140" width="35" height="60" fill="url(#building-gradient)" />
+        <rect x="170" y="80" width="40" height="120" fill="url(#building-gradient)" />
+        <rect x="220" y="110" width="30" height="90" fill="url(#building-gradient)" />
+        <rect x="260" y="130" width="25" height="70" fill="url(#building-gradient)" />
+        <rect x="300" y="90" width="45" height="110" fill="url(#building-gradient)" />
+        <rect x="360" y="120" width="30" height="80" fill="url(#building-gradient)" />
+        
+        <rect x="800" y="100" width="35" height="100" fill="url(#building-gradient)" />
+        <rect x="845" y="130" width="25" height="70" fill="url(#building-gradient)" />
+        <rect x="880" y="90" width="40" height="110" fill="url(#building-gradient)" />
+        <rect x="930" y="110" width="30" height="90" fill="url(#building-gradient)" />
+        <rect x="970" y="80" width="45" height="120" fill="url(#building-gradient)" />
+        <rect x="1030" y="140" width="25" height="60" fill="url(#building-gradient)" />
+        <rect x="1070" y="120" width="35" height="80" fill="url(#building-gradient)" />
+        <rect x="1120" y="100" width="30" height="100" fill="url(#building-gradient)" />
+        
+        {/* Building windows */}
+        {[55, 95, 175, 225, 305, 365, 805, 885, 935, 975, 1075, 1125].map((x, i) => (
+          <g key={i}>
+            <rect x={x} y={120 + (i % 3) * 10} width="3" height="3" fill="#4ae8ff" opacity="0.3">
+              <animate attributeName="opacity" values="0.3;0.8;0.3" dur={`${1.5 + i * 0.2}s`} repeatCount="indefinite" />
+            </rect>
+            <rect x={x + 8} y={130 + (i % 4) * 8} width="3" height="3" fill="#4ae8ff" opacity="0.4">
+              <animate attributeName="opacity" values="0.4;0.9;0.4" dur={`${2 + i * 0.15}s`} repeatCount="indefinite" />
+            </rect>
+          </g>
+        ))}
       </svg>
     </div>
   )
@@ -221,54 +319,184 @@ function CornerDecoration({ position }: { position: "top-left" | "top-right" | "
 
 function CircularPlatform() {
   return (
-    <div className="pointer-events-none absolute bottom-8 left-1/2 -translate-x-1/2">
+    <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2">
       <div className="relative">
         {/* Outer glow rings */}
-        <div className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(58,232,255,0.15),transparent_70%)] blur-2xl" />
+        <div className="absolute left-1/2 top-1/2 h-[350px] w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(58,232,255,0.2),transparent_60%)] blur-3xl" />
 
         {/* Concentric circles */}
-        <svg viewBox="0 0 400 200" className="h-[180px] w-[360px]">
+        <svg viewBox="0 0 400 180" className="h-[160px] w-[380px]">
           <defs>
             <linearGradient id="ring-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="rgba(58,232,255,0)" />
-              <stop offset="50%" stopColor="rgba(58,232,255,0.6)" />
+              <stop offset="30%" stopColor="rgba(58,232,255,0.5)" />
+              <stop offset="50%" stopColor="rgba(58,232,255,0.8)" />
+              <stop offset="70%" stopColor="rgba(58,232,255,0.5)" />
               <stop offset="100%" stopColor="rgba(58,232,255,0)" />
             </linearGradient>
+            <linearGradient id="ring-gradient-2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="rgba(26,138,255,0)" />
+              <stop offset="50%" stopColor="rgba(26,138,255,0.6)" />
+              <stop offset="100%" stopColor="rgba(26,138,255,0)" />
+            </linearGradient>
+            <filter id="ring-glow">
+              <feGaussianBlur stdDeviation="2" />
+            </filter>
           </defs>
 
-          {/* Elliptical rings */}
-          <ellipse cx="200" cy="160" rx="180" ry="35" fill="none" stroke="url(#ring-gradient)" strokeWidth="1" opacity="0.3" />
-          <ellipse cx="200" cy="150" rx="150" ry="28" fill="none" stroke="url(#ring-gradient)" strokeWidth="1" opacity="0.4" />
-          <ellipse cx="200" cy="140" rx="120" ry="22" fill="none" stroke="url(#ring-gradient)" strokeWidth="1" opacity="0.5" />
-          <ellipse cx="200" cy="130" rx="90" ry="16" fill="none" stroke="url(#ring-gradient)" strokeWidth="1.5" opacity="0.6" />
-          <ellipse cx="200" cy="120" rx="60" ry="10" fill="none" stroke="url(#ring-gradient)" strokeWidth="2" opacity="0.8" />
+          {/* Animated elliptical rings */}
+          <ellipse cx="200" cy="150" rx="185" ry="28" fill="none" stroke="url(#ring-gradient)" strokeWidth="0.8" opacity="0.25">
+            <animate attributeName="ry" values="28;30;28" dur="3s" repeatCount="indefinite" />
+          </ellipse>
+          <ellipse cx="200" cy="140" rx="155" ry="23" fill="none" stroke="url(#ring-gradient)" strokeWidth="1" opacity="0.35">
+            <animate attributeName="ry" values="23;25;23" dur="2.5s" repeatCount="indefinite" />
+          </ellipse>
+          <ellipse cx="200" cy="130" rx="125" ry="18" fill="none" stroke="url(#ring-gradient)" strokeWidth="1.2" opacity="0.5">
+            <animate attributeName="ry" values="18;20;18" dur="2s" repeatCount="indefinite" />
+          </ellipse>
+          <ellipse cx="200" cy="120" rx="95" ry="13" fill="none" stroke="url(#ring-gradient)" strokeWidth="1.5" opacity="0.65" filter="url(#ring-glow)">
+            <animate attributeName="ry" values="13;15;13" dur="2.2s" repeatCount="indefinite" />
+          </ellipse>
+          <ellipse cx="200" cy="110" rx="65" ry="8" fill="none" stroke="url(#ring-gradient)" strokeWidth="2" opacity="0.8" filter="url(#ring-glow)">
+            <animate attributeName="ry" values="8;10;8" dur="1.8s" repeatCount="indefinite" />
+          </ellipse>
 
-          {/* Center glow */}
-          <ellipse cx="200" cy="115" rx="30" ry="5" fill="rgba(58,232,255,0.4)" />
+          {/* Center platform glow */}
+          <ellipse cx="200" cy="105" rx="40" ry="5" fill="rgba(58,232,255,0.5)" filter="url(#ring-glow)">
+            <animate attributeName="opacity" values="0.4;0.6;0.4" dur="2s" repeatCount="indefinite" />
+          </ellipse>
 
           {/* Light beam */}
-          <path d="M185 115 L200 40 L215 115 Z" fill="url(#beam-gradient)" opacity="0.6" />
           <defs>
-            <linearGradient id="beam-gradient" x1="200" y1="40" x2="200" y2="115" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="rgba(58,232,255,0.8)" />
+            <linearGradient id="beam-gradient" x1="200" y1="20" x2="200" y2="105" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="rgba(58,232,255,0.9)" />
+              <stop offset="50%" stopColor="rgba(58,232,255,0.4)" />
               <stop offset="100%" stopColor="rgba(58,232,255,0)" />
             </linearGradient>
           </defs>
+          <path d="M180 105 L200 25 L220 105 Z" fill="url(#beam-gradient)" opacity="0.7">
+            <animate attributeName="opacity" values="0.5;0.8;0.5" dur="2s" repeatCount="indefinite" />
+          </path>
 
-          {/* Dots on rings */}
-          <circle cx="80" cy="155" r="2" fill="#4ae8ff" opacity="0.8" />
-          <circle cx="320" cy="155" r="2" fill="#4ae8ff" opacity="0.8" />
-          <circle cx="100" cy="145" r="1.5" fill="#4ae8ff" opacity="0.6" />
-          <circle cx="300" cy="145" r="1.5" fill="#4ae8ff" opacity="0.6" />
-          <circle cx="130" cy="135" r="1.5" fill="#4ae8ff" opacity="0.7" />
-          <circle cx="270" cy="135" r="1.5" fill="#4ae8ff" opacity="0.7" />
+          {/* Orbiting dots */}
+          <circle r="3" fill="#4ae8ff" filter="url(#ring-glow)">
+            <animateMotion dur="8s" repeatCount="indefinite">
+              <mpath xlinkHref="#orbit1" />
+            </animateMotion>
+          </circle>
+          <path id="orbit1" d="M15,140 A185,28 0 1,1 385,140 A185,28 0 1,1 15,140" fill="none" />
+          
+          <circle r="2" fill="#1a8aff">
+            <animateMotion dur="6s" repeatCount="indefinite">
+              <mpath xlinkHref="#orbit2" />
+            </animateMotion>
+          </circle>
+          <path id="orbit2" d="M45,130 A155,23 0 1,1 355,130 A155,23 0 1,1 45,130" fill="none" />
+
+          {/* Static glowing dots on rings */}
+          <circle cx="60" cy="145" r="2.5" fill="#4ae8ff" opacity="0.9" filter="url(#ring-glow)">
+            <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite" />
+          </circle>
+          <circle cx="340" cy="145" r="2.5" fill="#4ae8ff" opacity="0.9" filter="url(#ring-glow)">
+            <animate attributeName="opacity" values="0.6;1;0.6" dur="1.8s" repeatCount="indefinite" />
+          </circle>
+          <circle cx="90" cy="135" r="2" fill="#4ae8ff" opacity="0.7">
+            <animate attributeName="opacity" values="0.5;0.9;0.5" dur="2s" repeatCount="indefinite" />
+          </circle>
+          <circle cx="310" cy="135" r="2" fill="#4ae8ff" opacity="0.7">
+            <animate attributeName="opacity" values="0.5;0.9;0.5" dur="1.7s" repeatCount="indefinite" />
+          </circle>
         </svg>
 
         {/* Cloud icon */}
-        <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2">
-          <CloudBoltIcon className="h-24 w-24 drop-shadow-[0_0_20px_rgba(58,232,255,0.5)]" />
+        <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-8">
+          <CloudBoltIcon className="h-20 w-20 drop-shadow-[0_0_25px_rgba(58,232,255,0.6)]" />
         </div>
       </div>
+    </div>
+  )
+}
+
+function DataFlowLines() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* Left side data flow */}
+      <svg className="absolute left-0 top-0 h-full w-48 opacity-40" viewBox="0 0 200 800" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="flow-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="rgba(58,232,255,0)" />
+            <stop offset="50%" stopColor="rgba(58,232,255,0.8)" />
+            <stop offset="100%" stopColor="rgba(58,232,255,0)" />
+          </linearGradient>
+        </defs>
+        <line x1="30" y1="0" x2="30" y2="800" stroke="rgba(58,232,255,0.15)" strokeWidth="1" />
+        <line x1="60" y1="0" x2="60" y2="800" stroke="rgba(58,232,255,0.1)" strokeWidth="1" />
+        <line x1="30" y1="0" x2="30" y2="100" stroke="url(#flow-gradient)" strokeWidth="2">
+          <animate attributeName="y1" values="-100;800" dur="4s" repeatCount="indefinite" />
+          <animate attributeName="y2" values="0;900" dur="4s" repeatCount="indefinite" />
+        </line>
+        <line x1="60" y1="0" x2="60" y2="80" stroke="url(#flow-gradient)" strokeWidth="1.5">
+          <animate attributeName="y1" values="-80;800" dur="3s" repeatCount="indefinite" />
+          <animate attributeName="y2" values="0;880" dur="3s" repeatCount="indefinite" />
+        </line>
+      </svg>
+
+      {/* Right side data flow */}
+      <svg className="absolute right-0 top-0 h-full w-48 opacity-40" viewBox="0 0 200 800" preserveAspectRatio="xMidYMid slice">
+        <line x1="170" y1="0" x2="170" y2="800" stroke="rgba(58,232,255,0.15)" strokeWidth="1" />
+        <line x1="140" y1="0" x2="140" y2="800" stroke="rgba(58,232,255,0.1)" strokeWidth="1" />
+        <line x1="170" y1="0" x2="170" y2="100" stroke="url(#flow-gradient)" strokeWidth="2">
+          <animate attributeName="y1" values="-100;800" dur="5s" repeatCount="indefinite" />
+          <animate attributeName="y2" values="0;900" dur="5s" repeatCount="indefinite" />
+        </line>
+        <line x1="140" y1="0" x2="140" y2="60" stroke="url(#flow-gradient)" strokeWidth="1.5">
+          <animate attributeName="y1" values="-60;800" dur="3.5s" repeatCount="indefinite" />
+          <animate attributeName="y2" values="0;860" dur="3.5s" repeatCount="indefinite" />
+        </line>
+      </svg>
+    </div>
+  )
+}
+
+function ParticleField() {
+  const [particles] = useState(() =>
+    Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 2 + 1,
+      duration: Math.random() * 3 + 2,
+      delay: Math.random() * 2,
+    }))
+  )
+
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          className="absolute rounded-full bg-[#4ae8ff]"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            opacity: 0.4,
+            animation: `twinkle ${p.duration}s ease-in-out ${p.delay}s infinite`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+function ScanLine() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-30">
+      <div 
+        className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#4ae8ff]/60 to-transparent"
+        style={{ animation: 'scanVertical 6s linear infinite' }}
+      />
     </div>
   )
 }
@@ -277,20 +505,35 @@ function BackgroundScene() {
   return (
     <>
       {/* Base gradient */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(20,60,100,0.3),transparent_50%),linear-gradient(180deg,#040a18_0%,#030812_40%,#020610_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-20%,rgba(20,80,140,0.25),transparent_60%),linear-gradient(180deg,#030a18_0%,#020812_50%,#010610_100%)]" />
 
       {/* Grid pattern */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(58,232,255,0.3)_1px,transparent_1px),linear-gradient(90deg,rgba(58,232,255,0.3)_1px,transparent_1px)] [background-size:60px_60px]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(rgba(58,232,255,0.4)_1px,transparent_1px),linear-gradient(90deg,rgba(58,232,255,0.4)_1px,transparent_1px)] [background-size:50px_50px]" />
 
-      {/* Diagonal lines */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.05] [background-image:linear-gradient(45deg,rgba(58,232,255,0.4)_1px,transparent_1px),linear-gradient(-45deg,rgba(58,232,255,0.4)_1px,transparent_1px)] [background-size:80px_80px]" />
+      {/* Perspective grid at bottom */}
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-[300px] opacity-20 [background-image:linear-gradient(transparent_0%,rgba(58,232,255,0.1)_100%),linear-gradient(90deg,rgba(58,232,255,0.3)_1px,transparent_1px),linear-gradient(rgba(58,232,255,0.3)_1px,transparent_1px)] [background-size:100%_100%,80px_80px,80px_80px] [transform:perspective(500px)_rotateX(60deg)] [transform-origin:bottom]" />
 
-      {/* Side glows */}
-      <div className="pointer-events-none absolute left-0 top-1/4 h-[400px] w-[300px] bg-[radial-gradient(circle,rgba(30,150,220,0.15),transparent_70%)] blur-3xl" />
-      <div className="pointer-events-none absolute right-0 top-1/4 h-[400px] w-[300px] bg-[radial-gradient(circle,rgba(30,150,220,0.15),transparent_70%)] blur-3xl" />
+      {/* Diagonal tech lines */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.04] [background-image:linear-gradient(45deg,rgba(58,232,255,0.5)_1px,transparent_1px),linear-gradient(-45deg,rgba(58,232,255,0.5)_1px,transparent_1px)] [background-size:100px_100px]" />
 
-      {/* Center glow */}
-      <div className="pointer-events-none absolute left-1/2 top-1/3 h-[500px] w-[600px] -translate-x-1/2 bg-[radial-gradient(circle,rgba(20,100,180,0.2),transparent_60%)] blur-3xl" />
+      {/* Side ambient glows */}
+      <div className="pointer-events-none absolute left-0 top-1/4 h-[500px] w-[400px] bg-[radial-gradient(circle,rgba(20,100,180,0.2),transparent_60%)] blur-3xl" />
+      <div className="pointer-events-none absolute right-0 top-1/4 h-[500px] w-[400px] bg-[radial-gradient(circle,rgba(20,100,180,0.2),transparent_60%)] blur-3xl" />
+
+      {/* Center top glow */}
+      <div className="pointer-events-none absolute left-1/2 top-0 h-[400px] w-[800px] -translate-x-1/2 bg-[radial-gradient(ellipse,rgba(30,120,200,0.2),transparent_70%)] blur-3xl" />
+
+      {/* Data flow lines */}
+      <DataFlowLines />
+
+      {/* Particle field */}
+      <ParticleField />
+
+      {/* Scan line */}
+      <ScanLine />
+
+      {/* City skyline */}
+      <CityScape />
 
       {/* Corner decorations */}
       <CornerDecoration position="top-left" />
@@ -299,10 +542,16 @@ function BackgroundScene() {
       <CornerDecoration position="bottom-right" />
 
       {/* Tech lines on sides */}
-      <div className="pointer-events-none absolute left-8 top-1/4 h-px w-24 bg-gradient-to-r from-transparent via-[#3ae8ff]/40 to-transparent" />
-      <div className="pointer-events-none absolute left-8 top-1/3 h-px w-16 bg-gradient-to-r from-transparent via-[#3ae8ff]/30 to-transparent" />
-      <div className="pointer-events-none absolute right-8 top-1/4 h-px w-24 bg-gradient-to-l from-transparent via-[#3ae8ff]/40 to-transparent" />
-      <div className="pointer-events-none absolute right-8 top-1/3 h-px w-16 bg-gradient-to-l from-transparent via-[#3ae8ff]/30 to-transparent" />
+      <div className="pointer-events-none absolute left-12 top-[20%] flex flex-col gap-4">
+        <div className="h-px w-20 bg-gradient-to-r from-[#4ae8ff]/50 to-transparent" />
+        <div className="h-px w-12 bg-gradient-to-r from-[#4ae8ff]/30 to-transparent" />
+        <div className="h-px w-16 bg-gradient-to-r from-[#4ae8ff]/40 to-transparent" />
+      </div>
+      <div className="pointer-events-none absolute right-12 top-[20%] flex flex-col items-end gap-4">
+        <div className="h-px w-20 bg-gradient-to-l from-[#4ae8ff]/50 to-transparent" />
+        <div className="h-px w-12 bg-gradient-to-l from-[#4ae8ff]/30 to-transparent" />
+        <div className="h-px w-16 bg-gradient-to-l from-[#4ae8ff]/40 to-transparent" />
+      </div>
     </>
   )
 }
@@ -318,6 +567,11 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -350,22 +604,49 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative h-[100dvh] overflow-hidden bg-[#030812] text-white">
+    <main className="relative h-[100dvh] overflow-hidden bg-[#020810] text-white">
       <BackgroundScene />
 
-      <div className="relative z-10 flex h-full flex-col">
+      {/* CSS Animations */}
+      <style jsx global>{`
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.2; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.3); }
+        }
+        @keyframes scanVertical {
+          0% { top: -2px; }
+          100% { top: 100%; }
+        }
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        @keyframes scanline {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(100%); }
+        }
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 20px rgba(58,232,255,0.3), inset 0 0 30px rgba(58,232,255,0.05); }
+          50% { box-shadow: 0 0 40px rgba(58,232,255,0.5), inset 0 0 50px rgba(58,232,255,0.1); }
+        }
+      `}</style>
+
+      <div className={cn(
+        "relative z-10 flex h-full flex-col transition-opacity duration-700",
+        mounted ? "opacity-100" : "opacity-0"
+      )}>
         {/* Header */}
-        <header className="shrink-0 py-6">
+        <header className="shrink-0 py-5">
           <div className="flex items-center justify-center gap-4">
-            <EnerCloudIcon className="h-12 w-12 drop-shadow-[0_0_15px_rgba(58,232,255,0.4)]" />
+            <EnerCloudIcon className="h-14 w-14 drop-shadow-[0_0_20px_rgba(58,232,255,0.5)]" />
             <div className="flex flex-col items-start">
               <div
-                className="bg-clip-text text-[2.5rem] font-black leading-none tracking-wide text-transparent"
-                style={{ backgroundImage: "linear-gradient(180deg,#ffffff 0%,#b0f4ff 50%,#4ae8ff 100%)" }}
+                className="bg-clip-text text-[2.8rem] font-black leading-none tracking-wide text-transparent drop-shadow-[0_0_30px_rgba(58,232,255,0.4)]"
+                style={{ backgroundImage: "linear-gradient(180deg,#ffffff 0%,#c0f8ff 40%,#4ae8ff 100%)" }}
               >
                 {BRAND}
               </div>
-              <div className="mt-1 text-[14px] tracking-[0.3em] text-[#4ae8ff]/80">
+              <div className="mt-1 text-[14px] tracking-[0.35em] text-[#4ae8ff]/90 drop-shadow-[0_0_10px_rgba(58,232,255,0.5)]">
                 {locale === "zh" ? BRAND_SUBTITLE_ZH : BRAND_SUBTITLE_EN}
               </div>
             </div>
@@ -373,10 +654,10 @@ export default function LoginPage() {
         </header>
 
         {/* Main content */}
-        <div className="flex min-h-0 flex-1 items-start justify-center overflow-hidden px-4 py-4 lg:px-8">
-          <div className="flex w-full max-w-[1400px] items-start justify-between gap-6">
+        <div className="flex min-h-0 flex-1 items-start justify-center overflow-hidden px-4 py-2 lg:px-8">
+          <div className="flex w-full max-w-[1440px] items-start justify-between gap-6">
             {/* Left menu */}
-            <div className="hidden w-[260px] shrink-0 flex-col gap-3 lg:flex xl:w-[280px]">
+            <div className="hidden w-[270px] shrink-0 flex-col gap-3 lg:flex xl:w-[290px]">
               {LEFT_MENU_ITEMS.map((item, index) => (
                 <FeatureCard
                   key={index}
@@ -384,6 +665,7 @@ export default function LoginPage() {
                   title={locale === "zh" ? item.titleZh : item.titleEn}
                   description={locale === "zh" ? item.descZh : item.descEn}
                   direction="left"
+                  delay={index * 100}
                 />
               ))}
             </div>
@@ -391,33 +673,42 @@ export default function LoginPage() {
             {/* Center login form */}
             <div className="flex flex-1 flex-col items-center justify-start">
               <div className="relative w-full max-w-[420px]">
-                {/* Hexagonal frame glow */}
-                <div className="pointer-events-none absolute -inset-4 rounded-lg bg-[radial-gradient(circle,rgba(58,232,255,0.15),transparent_70%)] blur-2xl" />
+                {/* Hexagonal frame outer glow */}
+                <div className="pointer-events-none absolute -inset-6 rounded-lg bg-[radial-gradient(circle,rgba(58,232,255,0.2),transparent_60%)] blur-3xl" />
 
                 {/* Login card with hexagonal clip */}
                 <div
-                  className="relative overflow-hidden border border-[#2a6a8a]/60 bg-[linear-gradient(160deg,rgba(8,20,40,0.95),rgba(4,12,28,0.98))] px-8 py-8 shadow-[0_0_40px_rgba(58,232,255,0.15),inset_0_0_60px_rgba(58,232,255,0.05)]"
+                  className="relative overflow-hidden border border-[#1a5a8a]/70 bg-[linear-gradient(165deg,rgba(6,18,36,0.97),rgba(3,10,24,0.99))] px-8 py-7"
                   style={{
-                    clipPath: "polygon(8% 0%, 92% 0%, 100% 6%, 100% 94%, 92% 100%, 8% 100%, 0% 94%, 0% 6%)",
+                    clipPath: "polygon(6% 0%, 94% 0%, 100% 5%, 100% 95%, 94% 100%, 6% 100%, 0% 95%, 0% 5%)",
+                    animation: 'pulse-glow 4s ease-in-out infinite',
                   }}
                 >
-                  {/* Inner border effect */}
+                  {/* Animated border */}
                   <div
-                    className="pointer-events-none absolute inset-[1px] border border-[#3ae8ff]/20"
+                    className="pointer-events-none absolute inset-[1px] border border-[#4ae8ff]/25"
                     style={{
-                      clipPath: "polygon(8% 0%, 92% 0%, 100% 6%, 100% 94%, 92% 100%, 8% 100%, 0% 94%, 0% 6%)",
+                      clipPath: "polygon(6% 0%, 94% 0%, 100% 5%, 100% 95%, 94% 100%, 6% 100%, 0% 95%, 0% 5%)",
                     }}
                   />
 
-                  {/* Corner accents */}
-                  <div className="pointer-events-none absolute left-2 top-2 h-4 w-4 border-l-2 border-t-2 border-[#4ae8ff]/60" />
-                  <div className="pointer-events-none absolute right-2 top-2 h-4 w-4 border-r-2 border-t-2 border-[#4ae8ff]/60" />
-                  <div className="pointer-events-none absolute bottom-2 left-2 h-4 w-4 border-b-2 border-l-2 border-[#4ae8ff]/60" />
-                  <div className="pointer-events-none absolute bottom-2 right-2 h-4 w-4 border-b-2 border-r-2 border-[#4ae8ff]/60" />
+                  {/* Scan line effect inside form */}
+                  <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-20">
+                    <div 
+                      className="absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#4ae8ff] to-transparent"
+                      style={{ animation: 'scanVertical 4s linear infinite' }}
+                    />
+                  </div>
+
+                  {/* Corner accents with glow */}
+                  <div className="pointer-events-none absolute left-3 top-3 h-5 w-5 border-l-2 border-t-2 border-[#4ae8ff]/70 shadow-[0_0_10px_rgba(74,232,255,0.3)]" />
+                  <div className="pointer-events-none absolute right-3 top-3 h-5 w-5 border-r-2 border-t-2 border-[#4ae8ff]/70 shadow-[0_0_10px_rgba(74,232,255,0.3)]" />
+                  <div className="pointer-events-none absolute bottom-3 left-3 h-5 w-5 border-b-2 border-l-2 border-[#4ae8ff]/70 shadow-[0_0_10px_rgba(74,232,255,0.3)]" />
+                  <div className="pointer-events-none absolute bottom-3 right-3 h-5 w-5 border-b-2 border-r-2 border-[#4ae8ff]/70 shadow-[0_0_10px_rgba(74,232,255,0.3)]" />
 
                   {/* Language toggle */}
                   <div className="flex items-center">
-                    <div className="flex overflow-hidden rounded-md border border-[#2a5a7a]/60 bg-[rgba(6,16,34,0.9)]">
+                    <div className="flex overflow-hidden rounded border border-[#1a4a6a]/80 bg-[rgba(4,12,28,0.95)]">
                       {LANGUAGE_OPTIONS.map((option) => {
                         const active = locale === option.key
                         return (
@@ -426,8 +717,10 @@ export default function LoginPage() {
                             type="button"
                             onClick={() => setLanguage(option.key)}
                             className={cn(
-                              "px-4 py-2 text-[13px] font-bold transition-colors",
-                              active ? "bg-[rgba(30,100,150,0.5)] text-[#4ae8ff]" : "text-[#6a98a8] hover:text-[#a0e8ff]"
+                              "px-4 py-2 text-[13px] font-bold transition-all duration-200",
+                              active 
+                                ? "bg-[rgba(20,80,130,0.6)] text-[#4ae8ff] shadow-[inset_0_0_15px_rgba(74,232,255,0.15)]" 
+                                : "text-[#5a8898] hover:text-[#80d0f0]"
                             )}
                           >
                             {option.label}
@@ -438,15 +731,17 @@ export default function LoginPage() {
                   </div>
 
                   {/* Welcome text */}
-                  <div className="mt-8 text-center">
-                    <h1 className="text-[2rem] font-black tracking-wider text-white">{copy.welcome}</h1>
-                    <p className="mt-1 text-[13px] tracking-[0.2em] text-[#4ae8ff]/70">{copy.welcomeSub}</p>
+                  <div className="mt-7 text-center">
+                    <h1 className="text-[2.1rem] font-black tracking-wider text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                      {copy.welcome}
+                    </h1>
+                    <p className="mt-1 text-[13px] tracking-[0.25em] text-[#4ae8ff]/80">{copy.welcomeSub}</p>
                   </div>
 
                   {/* Login form */}
-                  <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-                    <div className="relative">
-                      <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#4ae8ff]" />
+                  <form className="mt-7 space-y-4" onSubmit={handleSubmit}>
+                    <div className="group relative">
+                      <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#4ae8ff] drop-shadow-[0_0_6px_rgba(74,232,255,0.5)]" />
                       <input
                         value={account}
                         onChange={(event) => {
@@ -455,12 +750,12 @@ export default function LoginPage() {
                         }}
                         placeholder={copy.accountPlaceholder}
                         required
-                        className="h-[52px] w-full rounded-lg border border-[#2a5a7a]/60 bg-[rgba(6,16,34,0.9)] pl-12 pr-4 text-[15px] text-[#e8f6ff] outline-none transition-all placeholder:text-[#5a7888] focus:border-[#4ae8ff]/60 focus:shadow-[0_0_15px_rgba(58,232,255,0.15)]"
+                        className="h-[50px] w-full rounded border border-[#1a4a6a]/80 bg-[rgba(4,12,28,0.95)] pl-12 pr-4 text-[15px] text-[#e8f6ff] outline-none transition-all placeholder:text-[#4a6878] focus:border-[#4ae8ff]/70 focus:shadow-[0_0_20px_rgba(58,232,255,0.2),inset_0_0_20px_rgba(58,232,255,0.05)]"
                       />
                     </div>
 
-                    <div className="relative">
-                      <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#4ae8ff]" />
+                    <div className="group relative">
+                      <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#4ae8ff] drop-shadow-[0_0_6px_rgba(74,232,255,0.5)]" />
                       <input
                         type={showPassword ? "text" : "password"}
                         value={password}
@@ -470,28 +765,28 @@ export default function LoginPage() {
                         }}
                         placeholder={copy.passwordPlaceholder}
                         required
-                        className="h-[52px] w-full rounded-lg border border-[#2a5a7a]/60 bg-[rgba(6,16,34,0.9)] pl-12 pr-12 text-[15px] text-[#e8f6ff] outline-none transition-all placeholder:text-[#5a7888] focus:border-[#4ae8ff]/60 focus:shadow-[0_0_15px_rgba(58,232,255,0.15)]"
+                        className="h-[50px] w-full rounded border border-[#1a4a6a]/80 bg-[rgba(4,12,28,0.95)] pl-12 pr-12 text-[15px] text-[#e8f6ff] outline-none transition-all placeholder:text-[#4a6878] focus:border-[#4ae8ff]/70 focus:shadow-[0_0_20px_rgba(58,232,255,0.2),inset_0_0_20px_rgba(58,232,255,0.05)]"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword((current) => !current)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[#5a8898] transition-colors hover:text-[#a0f0ff]"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[#4a7888] transition-colors hover:text-[#4ae8ff]"
                       >
                         {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
                       </button>
                     </div>
 
                     <div className="flex items-center justify-between gap-4 text-[14px]">
-                      <label className="flex cursor-pointer items-center gap-2 text-[#7ab0c0]">
+                      <label className="flex cursor-pointer items-center gap-2 text-[#6a9aaa] transition-colors hover:text-[#8ac8e0]">
                         <input
                           type="checkbox"
                           checked={remember}
                           onChange={(event) => setRemember(event.target.checked)}
-                          className="h-4 w-4 rounded border border-[#2a5a7a] bg-[#050f1e] accent-[#4ae8ff]"
+                          className="h-4 w-4 rounded border border-[#1a4a6a] bg-[#040c1c] accent-[#4ae8ff]"
                         />
                         <span>{copy.remember}</span>
                       </label>
-                      <button type="button" className="text-[#4ae8ff] transition-colors hover:text-[#a0f8ff]">
+                      <button type="button" className="text-[#4ae8ff] transition-colors hover:text-[#80f0ff] hover:drop-shadow-[0_0_8px_rgba(74,232,255,0.5)]">
                         {copy.forgot}
                       </button>
                     </div>
@@ -499,8 +794,10 @@ export default function LoginPage() {
                     <Button
                       type="submit"
                       disabled={submitting}
-                      className="group relative mt-4 h-[54px] w-full rounded-lg border border-[#4ae8ff]/30 bg-[linear-gradient(90deg,#1a8ad8_0%,#2070c0_50%,#1a6ab0_100%)] text-[16px] font-bold tracking-wider text-white shadow-[0_0_25px_rgba(30,140,220,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:brightness-110 disabled:opacity-75"
+                      className="group relative mt-5 h-[52px] w-full overflow-hidden rounded border border-[#4ae8ff]/40 bg-[linear-gradient(90deg,#0a6ab0_0%,#1a90d8_50%,#0a6ab0_100%)] text-[16px] font-bold tracking-wider text-white shadow-[0_0_30px_rgba(26,144,216,0.4),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:border-[#4ae8ff]/60 hover:shadow-[0_0_40px_rgba(58,232,255,0.5)] disabled:opacity-70"
                     >
+                      {/* Button shine effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100" style={{ animation: 'shimmer 2s infinite' }} />
                       <span className="relative flex items-center justify-center gap-2">
                         {submitting ? `${copy.submit}...` : copy.submit}
                         <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
@@ -508,7 +805,7 @@ export default function LoginPage() {
                     </Button>
 
                     {submitError ? (
-                      <div className="rounded-lg border border-[#ff7b7b]/30 bg-[rgba(80,20,30,0.6)] px-4 py-3 text-[13px] text-[#ffd0d8]">
+                      <div className="rounded border border-[#ff6b6b]/40 bg-[rgba(60,15,25,0.8)] px-4 py-3 text-[13px] text-[#ffc8d0] shadow-[0_0_15px_rgba(255,100,100,0.1)]">
                         {submitError}
                       </div>
                     ) : null}
@@ -517,13 +814,13 @@ export default function LoginPage() {
               </div>
 
               {/* Bottom cloud platform */}
-              <div className="relative mt-8 hidden lg:block">
+              <div className="relative mt-6 hidden lg:block">
                 <CircularPlatform />
               </div>
             </div>
 
             {/* Right menu */}
-            <div className="hidden w-[260px] shrink-0 flex-col gap-3 lg:flex xl:w-[280px]">
+            <div className="hidden w-[270px] shrink-0 flex-col gap-3 lg:flex xl:w-[290px]">
               {RIGHT_MENU_ITEMS.map((item, index) => (
                 <FeatureCard
                   key={index}
@@ -531,6 +828,7 @@ export default function LoginPage() {
                   title={locale === "zh" ? item.titleZh : item.titleEn}
                   description={locale === "zh" ? item.descZh : item.descEn}
                   direction="right"
+                  delay={index * 100}
                 />
               ))}
             </div>
