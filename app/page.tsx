@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { startTransition, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -18,6 +18,7 @@ type Copy = {
   remember: string
   forgot: string
   submit: string
+  subtitle: string
 }
 
 const BRAND = "EnerCloud"
@@ -25,33 +26,27 @@ const BRAND = "EnerCloud"
 const COPY: Record<Locale, Copy> = {
   zh: {
     welcome: "欢迎登录",
-    accountPlaceholder: "请输入用户名或邮箱",
+    accountPlaceholder: "请输入用户名",
     passwordPlaceholder: "请输入登录密码",
     remember: "记住密码",
     forgot: "忘记密码？",
-    submit: "进入平台",
+    submit: "登录平台",
+    subtitle: "",
   },
   en: {
-    welcome: "Welcome Back",
-    accountPlaceholder: "Username or email",
+    welcome: "Welcome Login",
+    accountPlaceholder: "Enter username",
     passwordPlaceholder: "Enter your password",
     remember: "Remember password",
     forgot: "Forgot password?",
     submit: "Enter Platform",
+    subtitle: "Data Monitoring Cloud Platform",
   },
 }
 
 const LANGUAGE_OPTIONS: Array<{ key: Locale; label: string }> = [
-  { key: "zh", label: "中" },
+  { key: "zh", label: "中文" },
   { key: "en", label: "EN" },
-]
-
-const CELL_LEVELS = [
-  54, 64, 58, 72, 60, 68, 56, 76, 62, 70,
-  52, 61, 57, 71, 59, 67, 55, 74, 60, 69,
-  54, 63, 58, 73, 61, 68, 57, 75, 62, 70,
-  53, 62, 59, 72, 58, 66, 56, 74, 61, 68,
-  55, 64, 60, 73, 62, 69, 57, 76, 63, 71,
 ]
 
 function EnerCloudIcon({ className }: { className?: string }) {
@@ -63,13 +58,13 @@ function EnerCloudIcon({ className }: { className?: string }) {
           <stop offset="100%" stopColor="#318eff" />
         </linearGradient>
         <linearGradient id="enercloud-bolt" x1="28" y1="10" x2="46" y2="48" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#c8fffa" />
+          <stop offset="0%" stopColor="#d9ffff" />
           <stop offset="100%" stopColor="#3fe4ff" />
         </linearGradient>
       </defs>
       <path
         d="M23 54C13 54 8 47 8 39C8 30 14 23 24 22C25 12 33 7 42 7C51 7 58 12 61 20C69 21 74 27 74 35C74 45 67 54 55 54H23Z"
-        fill="rgba(9,31,68,0.2)"
+        fill="rgba(8,21,48,0.18)"
         stroke="url(#enercloud-cloud)"
         strokeWidth="3"
         strokeLinejoin="round"
@@ -84,269 +79,264 @@ function EnerCloudIcon({ className }: { className?: string }) {
   )
 }
 
-function NetworkCluster({ className, mirrored = false }: { className?: string; mirrored?: boolean }) {
+function ConstellationField({ mirrored = false, className }: { mirrored?: boolean; className?: string }) {
   return (
     <svg
-      viewBox="0 0 320 320"
+      viewBox="0 0 420 260"
       className={cn(className, mirrored && "-scale-x-100")}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <g stroke="rgba(81,232,255,0.22)" strokeWidth="1.2">
-        <path d="M18 242L76 150L160 92L236 130L296 238" />
-        <path d="M76 150L118 224L198 204L236 130" />
-        <path d="M118 224L56 278" />
-        <path d="M198 204L270 280" />
-        <path d="M160 92L190 24" />
-        <path d="M18 242H118" />
+      <g stroke="rgba(61,198,255,0.2)" strokeWidth="1.3">
+        <path d="M24 168L82 106L162 128L232 64L310 90L394 38" />
+        <path d="M82 106L98 192L162 128L214 180L310 90L338 172" />
+        <path d="M214 180L156 236" />
+        <path d="M338 172L392 220" />
       </g>
       {[
-        [18, 242], [76, 150], [160, 92], [236, 130], [296, 238], [118, 224], [198, 204], [56, 278], [270, 280], [190, 24],
-      ].map(([x, y], index) => (
-        <circle key={index} cx={x} cy={y} r="3.4" fill="rgba(118,244,255,0.9)" />
+        [24, 168],
+        [82, 106],
+        [98, 192],
+        [162, 128],
+        [232, 64],
+        [214, 180],
+        [310, 90],
+        [338, 172],
+        [394, 38],
+        [392, 220],
+        [156, 236],
+      ].map(([cx, cy], index) => (
+        <g key={index}>
+          <circle cx={cx} cy={cy} r="3.6" fill="rgba(114,245,255,0.86)" />
+          <circle cx={cx} cy={cy} r="8.4" stroke="rgba(114,245,255,0.12)" strokeWidth="1" />
+        </g>
       ))}
+      <path d="M16 224H404" stroke="rgba(41,166,255,0.1)" strokeDasharray="5 8" />
+      <path d="M210 20V244" stroke="rgba(41,166,255,0.08)" strokeDasharray="5 8" />
     </svg>
   )
 }
 
-function BatteryCell({ level }: { level: number }) {
+function SceneWing({ mirrored = false }: { mirrored?: boolean }) {
   return (
-    <div className="relative h-[94px] w-[26px] rounded-t-[14px] rounded-b-[9px] border border-[#89f7ff]/24 bg-[linear-gradient(180deg,rgba(118,246,255,0.24),rgba(29,110,173,0.14)_24%,rgba(10,39,70,0.7)_58%,rgba(4,13,24,0.96)_100%)] shadow-[0_0_18px_rgba(58,214,255,0.1)]">
-      <div className="absolute inset-x-[5px] top-[-7px] h-[12px] rounded-full border border-[#b1ffff]/22 bg-[radial-gradient(circle_at_50%_35%,rgba(216,255,252,0.94),rgba(76,224,255,0.38)_55%,rgba(8,24,42,0.94)_100%)]" />
-      <div className="absolute inset-y-[12px] left-[7px] w-px bg-white/10" />
-      <div className="absolute right-[5px] top-[18px] h-[48px] w-[5px] rounded-full bg-white/6 blur-[1px]" />
+    <div
+      className={cn(
+        "pointer-events-none absolute top-[74px] hidden h-[338px] w-[43vw] max-w-[780px] lg:block",
+        mirrored ? "right-[16px] -scale-x-100" : "left-[16px]"
+      )}
+    >
       <div
-        className="absolute inset-x-[4px] bottom-[6px] rounded-[7px] bg-[linear-gradient(180deg,rgba(124,255,236,0.92),rgba(46,203,255,0.42)_55%,rgba(16,84,192,0.1)_100%)] shadow-[0_0_14px_rgba(96,244,255,0.26)]"
-        style={{ height: `${level}px` }}
+        className="absolute inset-0 border border-[#11456e]/40 bg-[linear-gradient(180deg,rgba(5,14,30,0.34),rgba(4,10,20,0.05))]"
+        style={{ clipPath: "polygon(0% 18%,8% 2%,42% 2%,48% 0%,92% 0%,100% 18%,100% 86%,96% 98%,0% 98%)" }}
       />
-      <div className="absolute inset-x-0 bottom-[-10px] h-[18px] rounded-full bg-[radial-gradient(circle,rgba(59,220,255,0.24),transparent_72%)] blur-md" />
+      <div
+        className="absolute inset-[12px] border border-[#0f3456]/44"
+        style={{ clipPath: "polygon(0% 20%,10% 0%,38% 0%,44% 8%,88% 8%,100% 20%,100% 86%,92% 100%,0% 100%)" }}
+      />
+      <div className="absolute left-[2%] top-[10px] h-[5px] w-[23%] rounded-full bg-gradient-to-r from-[#1c5fff]/0 via-[#1aa9ff]/88 to-[#33f0ff]" />
+      <div className="absolute left-[8%] top-[20px] h-[30px] w-[110px] border-l border-t border-[#1bd8ff]/34 [clip-path:polygon(0%_100%,16%_0%,100%_0%,82%_100%)]" />
+      <div className="absolute left-[17%] top-[32px] h-px w-[42%] bg-gradient-to-r from-[#18d8ff]/0 via-[#18d8ff]/42 to-[#18d8ff]/0" />
+      <div className="absolute right-[9%] top-[28px] h-px w-[24%] bg-gradient-to-r from-[#18d8ff]/0 via-[#18d8ff]/24 to-[#18d8ff]/0" />
+      <div className="absolute left-[10%] top-[56px] h-[170px] w-[232px] opacity-34 [background-image:linear-gradient(rgba(45,210,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(45,210,255,0.12)_1px,transparent_1px)] [background-size:28px_28px]" />
+      <div className="absolute left-[8%] top-[88px] h-[182px] w-[248px] opacity-30">
+        <ConstellationField className="h-full w-full" />
+      </div>
+      <div className="absolute right-[6%] top-[42px] h-[202px] w-[294px] opacity-16 [background-image:radial-gradient(circle,rgba(39,168,255,0.56)_1px,transparent_1.4px)] [background-size:12px_12px]" />
+      <div className="absolute right-[10%] top-[82px] h-[136px] w-[228px] rounded-[30px] border border-[#10375b]/28 bg-[radial-gradient(circle_at_50%_50%,rgba(20,128,255,0.11),transparent_74%)]" />
+      <div className="absolute left-[5%] bottom-[18px] h-px w-[34%] bg-gradient-to-r from-[#2ae1ff]/0 via-[#2ae1ff]/24 to-[#2ae1ff]/0" />
+      <div className="absolute right-[8%] bottom-[26px] h-px w-[20%] bg-gradient-to-r from-[#2ae1ff]/0 via-[#2ae1ff]/18 to-[#2ae1ff]/0" />
     </div>
   )
 }
 
-function BatteryField() {
-  const heatZones = [
-    { left: 18, top: 108, size: 74, tint: "rgba(92,255,224,0.18)" },
-    { left: 110, top: 68, size: 72, tint: "rgba(255,181,84,0.18)" },
-    { left: 182, top: 94, size: 64, tint: "rgba(88,244,255,0.16)" },
-    { left: 246, top: 54, size: 84, tint: "rgba(255,122,64,0.2)" },
-    { left: 280, top: 118, size: 66, tint: "rgba(100,255,210,0.14)" },
-  ]
-  const nodePoints = [
-    { cx: 28, cy: 146 }, { cx: 66, cy: 126 }, { cx: 100, cy: 134 }, { cx: 140, cy: 96 }, { cx: 170, cy: 110 },
-    { cx: 206, cy: 82 }, { cx: 244, cy: 98 }, { cx: 280, cy: 76 }, { cx: 314, cy: 92 }, { cx: 196, cy: 156 },
-  ]
-
+function TopBrandMarquee({ subtitle }: { subtitle: string }) {
   return (
-    <div className="relative h-[520px] w-[670px]">
-      <div className="absolute left-[56px] top-[268px] h-[190px] w-[492px] bg-[radial-gradient(circle_at_50%_55%,rgba(46,214,255,0.16),transparent_72%)] blur-3xl" />
-      <div
-        className="absolute left-[54px] top-[286px] h-[150px] w-[488px] border border-[#1fe0ff]/20 bg-[linear-gradient(180deg,rgba(8,24,43,0.2),rgba(4,12,24,0.54))]"
-        style={{ clipPath: "polygon(10% 0%,100% 0%,90% 100%,0% 100%)" }}
-      />
-      <div
-        className="absolute left-[96px] top-[242px] h-[174px] w-[412px] border border-[#2be6ff]/28 bg-[linear-gradient(180deg,rgba(10,31,54,0.24),rgba(5,16,28,0.62))] shadow-[0_0_48px_rgba(17,176,255,0.2)]"
-        style={{ clipPath: "polygon(10% 0%,100% 0%,90% 100%,0% 100%)" }}
-      />
-      <div
-        className="absolute left-[124px] top-[206px] h-[42px] w-[360px] border border-[#50efff]/42 bg-[linear-gradient(180deg,rgba(22,104,141,0.34),rgba(8,26,44,0.84))]"
-        style={{ clipPath: "polygon(10% 0%,100% 0%,90% 100%,0% 100%)" }}
-      />
-      <div className="absolute left-[160px] top-[86px] grid grid-cols-10 gap-x-3 gap-y-2 [transform:perspective(1460px)_rotateX(69deg)_rotateZ(-32deg)]">
-        {CELL_LEVELS.map((level, index) => (
-          <BatteryCell key={index} level={level} />
-        ))}
-      </div>
-      <div className="absolute left-[148px] top-[74px] h-[202px] w-[352px] border border-[#57f1ff]/12 shadow-[0_0_28px_rgba(52,226,255,0.06)] [transform:perspective(1460px)_rotateX(69deg)_rotateZ(-32deg)]" />
-      <div className="absolute left-[154px] top-[82px] h-[190px] w-[340px] overflow-hidden [transform:perspective(1460px)_rotateX(69deg)_rotateZ(-32deg)]">
-        <div className="absolute inset-0 bg-[repeating-linear-gradient(180deg,rgba(93,248,255,0.08),rgba(93,248,255,0.08)_1px,transparent_1px,transparent_16px)]" />
-        <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,rgba(93,248,255,0.05),rgba(93,248,255,0.05)_1px,transparent_1px,transparent_22px)]" />
-        {heatZones.map((zone, index) => (
-          <div
-            key={index}
-            className="absolute rounded-full blur-xl"
-            style={{
-              left: zone.left,
-              top: zone.top,
-              width: zone.size,
-              height: zone.size,
-              background: `radial-gradient(circle, ${zone.tint}, rgba(58,226,255,0.06) 54%, transparent 76%)`,
-            }}
-          />
-        ))}
-        <svg viewBox="0 0 340 190" className="absolute inset-0 h-full w-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M28 146L66 126L100 134L140 96L170 110L206 82L244 98L280 76L314 92" stroke="rgba(108,248,255,0.8)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M66 126L92 164L146 150L196 156L244 132L298 144" stroke="rgba(61,193,255,0.68)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M140 96L142 56L206 34L280 44" stroke="rgba(109,247,255,0.44)" strokeWidth="1.8" strokeDasharray="6 6" strokeLinecap="round" />
-          <path d="M196 156L196 186" stroke="rgba(87,239,255,0.3)" strokeWidth="1.6" strokeDasharray="5 5" />
-          {nodePoints.map((point, index) => (
-            <g key={index}>
-              <circle cx={point.cx} cy={point.cy} r="4.2" fill="rgba(106,252,255,0.86)" />
-              <circle cx={point.cx} cy={point.cy} r="10" stroke="rgba(106,252,255,0.18)" strokeWidth="1.4" />
-            </g>
-          ))}
-        </svg>
-        <div className="absolute left-[126px] top-[58px] h-[70px] w-[70px] rounded-full border border-[#ffb467]/12 bg-[radial-gradient(circle,rgba(255,184,96,0.18),transparent_70%)]" />
-        <div className="absolute left-[248px] top-[38px] h-[86px] w-[86px] rounded-full border border-[#ff875a]/12 bg-[radial-gradient(circle,rgba(255,129,84,0.2),transparent_70%)]" />
+    <div className="pointer-events-none relative mx-auto flex w-full max-w-[1760px] items-start justify-center px-4 sm:px-6 lg:px-10">
+      <SceneWing />
+      <SceneWing mirrored />
+
+      <div className="absolute inset-x-[6%] top-[40px] hidden h-px bg-gradient-to-r from-transparent via-[#28dfff]/26 to-transparent lg:block" />
+      <div className="absolute left-[calc(50%-590px)] top-[58px] hidden h-px w-[340px] bg-gradient-to-r from-[#2de6ff]/0 via-[#2de6ff]/52 to-[#2de6ff]/0 lg:block" />
+      <div className="absolute left-[calc(50%+250px)] top-[58px] hidden h-px w-[340px] bg-gradient-to-r from-[#2de6ff]/0 via-[#2de6ff]/52 to-[#2de6ff]/0 lg:block" />
+      <div className="absolute left-[calc(50%-620px)] top-[70px] hidden h-[2px] w-[120px] rounded-full bg-gradient-to-r from-[#2281ff]/0 via-[#2281ff]/72 to-[#34f0ff] lg:block" />
+      <div className="absolute left-[calc(50%+500px)] top-[70px] hidden h-[2px] w-[120px] rounded-full bg-gradient-to-r from-[#34f0ff] via-[#2281ff]/72 to-[#2281ff]/0 lg:block" />
+
+      <div className="relative w-full max-w-[760px] pt-4 sm:pt-5 lg:pt-6">
+        <div className="absolute inset-x-[10%] top-[0] hidden h-[118px] border border-[#1a72ff]/16 bg-[linear-gradient(180deg,rgba(6,18,38,0.42),rgba(4,10,20,0.08))] [clip-path:polygon(0%_44%,10%_10%,28%_10%,34%_0%,66%_0%,72%_10%,90%_10%,100%_44%,96%_100%,4%_100%)] lg:block" />
+        <div className="absolute left-[12%] top-[14px] hidden h-px w-[12%] bg-gradient-to-r from-transparent via-[#4de6ff]/44 to-transparent lg:block" />
+        <div className="absolute right-[12%] top-[14px] hidden h-px w-[12%] bg-gradient-to-r from-transparent via-[#4de6ff]/44 to-transparent lg:block" />
+        <div className="absolute left-[7%] top-[26px] hidden h-[30px] w-[132px] border-l border-t border-[#2ad8ff]/30 [clip-path:polygon(0%_100%,14%_0%,100%_0%,86%_100%)] lg:block" />
+        <div className="absolute right-[7%] top-[26px] hidden h-[30px] w-[132px] border-r border-t border-[#2ad8ff]/30 [clip-path:polygon(14%_0%,100%_100%,86%_100%,0%_0%)] lg:block" />
+        <div className="absolute left-1/2 top-[-14px] h-[102px] w-[460px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(56,214,255,0.24),transparent_72%)] blur-3xl" />
         <div
-          className="absolute inset-y-0 left-[-24%] w-[26%] bg-[linear-gradient(90deg,transparent,rgba(119,252,255,0.28),transparent)] blur-sm"
-          style={{ animation: "scan-sweep 6.2s linear infinite" }}
-        />
-      </div>
-      <div className="absolute left-[58px] top-[114px] h-[292px] w-[264px] border border-[#1cdfff]/10 [clip-path:polygon(8%_0%,100%_12%,84%_100%,0%_88%)]" />
-      <div className="absolute left-[246px] top-[54px] h-[140px] w-[140px] rounded-full bg-[radial-gradient(circle,rgba(86,237,255,0.32),transparent_72%)] blur-3xl" />
-      <div className="absolute left-[108px] top-[304px] h-px w-[372px] bg-gradient-to-r from-transparent via-[#49ebff]/54 to-transparent" />
-      <div className="absolute left-[144px] top-[394px] h-px w-[300px] bg-gradient-to-r from-transparent via-[#49ebff]/38 to-transparent" />
-      <div className="absolute left-[0] top-[300px] h-px w-[160px] bg-gradient-to-r from-transparent via-[#24deff]/26 to-transparent" />
-      <div className="absolute right-[54px] top-[114px] h-[104px] w-[104px] rounded-full border border-[#2ce9ff]/12" />
-      <div className="absolute right-[54px] top-[114px] h-[104px] w-[104px] rounded-full bg-[radial-gradient(circle,rgba(61,232,255,0.12),transparent_70%)] blur-2xl" />
-      <div className="absolute right-[12px] top-[168px] h-px w-[146px] bg-gradient-to-r from-[#1cd9ff]/0 via-[#1cd9ff]/42 to-[#1cd9ff]/0" />
-    </div>
-  )
-}
+          className="relative overflow-hidden border border-[#1ca7ff]/40 bg-[linear-gradient(180deg,rgba(5,16,34,0.96),rgba(6,14,28,0.9))] px-6 pb-5 pt-5 shadow-[0_0_46px_rgba(22,122,255,0.22),inset_0_0_20px_rgba(61,226,255,0.06)]"
+          style={{ clipPath: "polygon(8% 0%,28% 0%,32% 12%,68% 12%,72% 0%,92% 0%,100% 36%,94% 100%,6% 100%,0% 36%)" }}
+        >
+          <div className="pointer-events-none absolute inset-[8px] border border-[#38dfff]/12" style={{ clipPath: "polygon(8% 0%,28% 0%,32% 12%,68% 12%,72% 0%,92% 0%,100% 36%,94% 100%,6% 100%,0% 36%)" }} />
+          <div className="pointer-events-none absolute inset-x-[18%] top-0 h-px bg-gradient-to-r from-transparent via-[#68e9ff]/84 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-[22%] bottom-0 h-px bg-gradient-to-r from-transparent via-[#41d9ff]/56 to-transparent" />
+          <div className="pointer-events-none absolute left-[10%] top-[18px] h-px w-[16%] bg-gradient-to-r from-transparent via-[#4ce1ff]/42 to-transparent" />
+          <div className="pointer-events-none absolute right-[10%] top-[18px] h-px w-[16%] bg-gradient-to-r from-transparent via-[#4ce1ff]/42 to-transparent" />
+          <div className="pointer-events-none absolute left-[18%] top-[12px] h-[2px] w-[24%] rounded-full bg-gradient-to-r from-[#2d79ff]/0 via-[#2d79ff]/54 to-[#36ecff]/82" />
+          <div className="pointer-events-none absolute right-[18%] top-[12px] h-[2px] w-[24%] rounded-full bg-gradient-to-r from-[#36ecff]/82 via-[#2d79ff]/54 to-[#2d79ff]/0" />
+          <div className="pointer-events-none absolute left-[8%] bottom-[18px] h-[14px] w-[14px] border-l border-b border-[#59ebff]/26" />
+          <div className="pointer-events-none absolute right-[8%] bottom-[18px] h-[14px] w-[14px] border-r border-b border-[#59ebff]/26" />
+          <div className="pointer-events-none absolute left-1/2 top-[20px] h-[10px] w-[116px] -translate-x-1/2 rounded-full border border-[#58ecff]/18 bg-[radial-gradient(circle,rgba(120,244,255,0.16),rgba(7,18,34,0.06)_72%)]" />
 
-function TelemetryConstellation() {
-  const moduleRows = [8, 28, 48, 68, 88]
-  const clusterNodes = [
-    { x: 120, y: 70, size: 4.5 },
-    { x: 108, y: 120, size: 4 },
-    { x: 74, y: 126, size: 4.5 },
-    { x: 36, y: 88, size: 4 },
-  ]
-
-  return (
-    <div className="relative h-[560px] w-[660px]">
-      <div className="absolute left-[214px] top-[44px] h-[304px] w-[304px] rounded-full bg-[radial-gradient(circle,rgba(56,228,255,0.2),transparent_72%)] blur-3xl" />
-      <div className="absolute left-[72px] top-[138px] h-[184px] w-[184px] rounded-full border border-[#35ebff]/16 bg-[radial-gradient(circle,rgba(54,224,255,0.1),transparent_70%)] shadow-[0_0_40px_rgba(24,176,255,0.08)]">
-        <div className="absolute inset-[16px] rounded-full border border-[#35ebff]/18" />
-        <div className="absolute inset-[34px] rounded-full border border-[#35ebff]/14" />
-        <div className="absolute left-1/2 top-[24px] bottom-[24px] w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-[#4feeff]/28 to-transparent" />
-        <div className="absolute left-[24px] right-[24px] top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-[#4feeff]/28 to-transparent" />
-        {clusterNodes.map((node, index) => (
-          <div
-            key={index}
-            className="absolute rounded-full bg-[#78f8ff] shadow-[0_0_18px_rgba(102,247,255,0.3)]"
-            style={{ left: node.x, top: node.y, width: node.size * 2, height: node.size * 2 }}
-          />
-        ))}
-      </div>
-
-      <div className="absolute left-[224px] top-[258px] h-[22px] w-[224px] border border-[#3deaff]/20 bg-[linear-gradient(180deg,rgba(8,20,38,0.22),rgba(4,12,24,0.06))] [clip-path:polygon(10%_0%,90%_0%,100%_100%,0%_100%)]" />
-      <div className="absolute left-[246px] top-[272px] h-[16px] w-[180px] border border-[#3deaff]/18 bg-[linear-gradient(180deg,rgba(8,20,38,0.18),rgba(4,12,24,0.04))] [clip-path:polygon(10%_0%,90%_0%,100%_100%,0%_100%)]" />
-      <div className="absolute left-[270px] top-[284px] h-[12px] w-[132px] border border-[#3deaff]/14 bg-[linear-gradient(180deg,rgba(8,20,38,0.12),rgba(4,12,24,0.02))] [clip-path:polygon(10%_0%,90%_0%,100%_100%,0%_100%)]" />
-      <div className="absolute left-[278px] top-[84px] h-[212px] w-[122px] [transform:perspective(900px)_rotateY(-15deg)_rotateX(3deg)]" style={{ animation: "signal-drift 6s ease-in-out infinite" }}>
-        <div className="absolute left-[12px] top-[10px] h-[24px] w-[64px] border border-[#53f1ff]/20 bg-[linear-gradient(180deg,rgba(8,20,38,0.2),rgba(4,12,24,0.04))] [clip-path:polygon(10%_100%,20%_0%,100%_0%,90%_100%)]" />
-        <div className="absolute left-0 top-[30px] h-[168px] w-[82px] border border-[#53f1ff]/22 bg-[linear-gradient(180deg,rgba(84,255,229,0.12),rgba(46,180,255,0.06)_72%,transparent_100%)] shadow-[0_0_30px_rgba(70,236,255,0.12)]" />
-        <div className="absolute left-[82px] top-[42px] h-[156px] w-[26px] border border-[#53f1ff]/16 bg-[linear-gradient(180deg,rgba(10,24,46,0.18),rgba(5,12,24,0.04))] [clip-path:polygon(0%_0%,100%_8%,100%_92%,0%_100%)]" />
-        <div className="absolute left-[12px] top-[46px] h-[132px] w-[58px] border border-[#66f6ff]/16 bg-[repeating-linear-gradient(180deg,rgba(104,248,255,0.14),rgba(104,248,255,0.14)_1px,transparent_1px,transparent_16px)]">
-          {moduleRows.map((top, index) => (
-            <div key={index} className="absolute left-[6px] right-[6px] h-[16px] border border-[#6cf6ff]/14 bg-[linear-gradient(90deg,rgba(88,255,232,0.1),rgba(56,184,255,0.28),rgba(88,255,232,0.1))]" style={{ top }} />
-          ))}
-          <div className="absolute inset-y-0 left-[-30%] w-[40%] bg-[linear-gradient(90deg,transparent,rgba(119,252,255,0.34),transparent)] blur-sm" style={{ animation: "scan-sweep 5.2s linear infinite" }} />
-        </div>
-      </div>
-      <div className="absolute left-[286px] top-[38px] h-[226px] w-[122px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(98,247,255,0.3),transparent_72%)] blur-2xl" />
-      <div className="absolute left-[276px] top-[78px] h-[42px] w-[134px] rounded-full border border-[#4deeff]/14" />
-
-      <svg viewBox="0 0 610 520" className="absolute inset-0 h-full w-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M168 226C214 228 246 228 278 214" stroke="rgba(79,238,255,0.44)" strokeWidth="2.2" strokeDasharray="6 7" strokeLinecap="round" />
-        <path d="M390 222C444 232 474 246 500 280" stroke="rgba(79,238,255,0.42)" strokeWidth="2.2" strokeDasharray="6 7" strokeLinecap="round" />
-        <path d="M338 296C350 338 386 366 438 374" stroke="rgba(79,238,255,0.34)" strokeWidth="2.2" strokeDasharray="6 7" strokeLinecap="round" />
-        <path d="M326 298C308 342 260 374 208 398" stroke="rgba(79,238,255,0.3)" strokeWidth="2.2" strokeDasharray="6 7" strokeLinecap="round" />
-        <circle cx="278" cy="214" r="5" fill="rgba(118,248,255,0.92)" />
-        <circle cx="500" cy="280" r="5" fill="rgba(118,248,255,0.88)" />
-        <circle cx="438" cy="374" r="4.5" fill="rgba(118,248,255,0.86)" />
-        <circle cx="208" cy="398" r="4.5" fill="rgba(118,248,255,0.82)" />
-      </svg>
-
-      <div className="absolute left-[456px] top-[180px] h-[144px] w-[144px] rounded-full border border-[#2fe8ff]/12 bg-[radial-gradient(circle,rgba(48,221,255,0.08),transparent_72%)] shadow-[0_0_28px_rgba(24,176,255,0.06)]">
-        <div className="absolute inset-[18px] rounded-full border border-[#2fe8ff]/14" />
-        <div className="absolute inset-[42px] rounded-full border border-[#2fe8ff]/16" />
-        <div className="absolute left-1/2 top-[18px] bottom-[18px] w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-[#4feeff]/24 to-transparent" />
-        <div className="absolute left-[18px] right-[18px] top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-[#4feeff]/24 to-transparent" />
-      </div>
-
-      <div className="absolute left-[486px] top-[162px] flex h-[34px] w-[34px] items-center justify-center rounded-full border border-[#2fe8ff]/16 bg-[linear-gradient(180deg,rgba(8,20,38,0.24),rgba(4,12,24,0.04))] shadow-[0_0_16px_rgba(24,176,255,0.08)]">
-        <div className="h-[8px] w-[8px] rounded-full bg-[#7af9ff]" />
-      </div>
-      <div className="absolute left-[548px] top-[236px] flex h-[40px] w-[40px] items-center justify-center rounded-full border border-[#2fe8ff]/16 bg-[linear-gradient(180deg,rgba(8,20,38,0.24),rgba(4,12,24,0.04))] shadow-[0_0_16px_rgba(24,176,255,0.08)]">
-        <div className="h-[10px] w-[10px] rounded-full border border-[#7af9ff]/60" />
-      </div>
-      <div className="absolute left-[506px] top-[312px] flex h-[38px] w-[38px] items-center justify-center rounded-full border border-[#2fe8ff]/16 bg-[linear-gradient(180deg,rgba(8,20,38,0.24),rgba(4,12,24,0.04))] shadow-[0_0_16px_rgba(24,176,255,0.08)]">
-        <div className="h-[9px] w-[9px] rotate-45 border border-[#7af9ff]/60" />
-      </div>
-
-      <div className="absolute left-[150px] top-[380px] h-[96px] w-[184px] border border-[#2fe8ff]/12 bg-[linear-gradient(180deg,rgba(8,20,38,0.12),rgba(4,12,24,0.02))] [clip-path:polygon(12%_0%,100%_0%,88%_100%,0%_100%)] shadow-[0_0_18px_rgba(24,176,255,0.06)]">
-        <div className="absolute inset-x-5 bottom-[16px] top-[18px]">
-          <svg viewBox="0 0 140 48" className="h-full w-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 34L28 24L48 30L70 12L92 22L112 10L132 18" stroke="#47EDFF" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M8 34L28 24L48 30L70 12L92 22L112 10L132 18" stroke="rgba(71,237,255,0.24)" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-      </div>
-
-      <svg viewBox="0 0 344 132" className="absolute left-[142px] top-[390px] h-[132px] w-[344px] opacity-65" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <g stroke="rgba(72,228,255,0.16)" strokeWidth="1.2">
-          <path d="M10 114L58 80L112 94L164 48L228 74L290 26L334 84" />
-          <path d="M58 80L90 126" />
-          <path d="M164 48L194 106" />
-          <path d="M228 74L268 126" />
-        </g>
-        {[10, 58, 112, 164, 228, 290, 334, 90, 194, 268].map((x, index) => {
-          const y = [114, 80, 94, 48, 74, 26, 84, 126, 106, 126][index]
-          return <circle key={index} cx={x} cy={y} r="3" fill="rgba(103,240,255,0.84)" />
-        })}
-      </svg>
-    </div>
-  )
-}
-
-function HeaderWing({ mirrored = false }: { mirrored?: boolean }) {
-  return (
-    <div className={cn("relative hidden h-[110px] flex-1 lg:block", mirrored && "-scale-x-100")}>
-      <div className="absolute inset-y-[18px] left-0 right-[3%] border border-[#1cdfff]/10 bg-[linear-gradient(180deg,rgba(7,18,34,0.46),rgba(5,12,24,0.08))] [clip-path:polygon(0%_34%,10%_0%,100%_0%,94%_100%,0%_100%)]" />
-      <div className="absolute inset-y-[32px] left-[8%] right-[12%] border border-[#1cdfff]/8 bg-[linear-gradient(180deg,rgba(8,18,34,0.18),rgba(5,12,24,0.02))] [clip-path:polygon(0%_18%,12%_0%,100%_0%,88%_100%,0%_100%)]" />
-    </div>
-  )
-}
-
-function TopBrandBar() {
-  return (
-    <div className="relative mx-auto flex w-full max-w-[1760px] items-start justify-center gap-4 px-4 sm:px-6 lg:px-8">
-      <div className="pointer-events-none absolute inset-x-[6%] top-[14px] hidden h-px bg-gradient-to-r from-transparent via-[#5ceeff]/28 to-transparent lg:block" />
-      <div className="pointer-events-none absolute left-1/2 top-[-6px] hidden h-[52px] w-[360px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(76,240,255,0.14),transparent_72%)] blur-2xl lg:block" />
-
-      <HeaderWing />
-
-      <div className="relative w-full max-w-[840px]">
-        <div className="pointer-events-none absolute left-1/2 top-[-26px] hidden h-[28px] w-[140px] -translate-x-1/2 border border-[#2fe7ff]/10 bg-[linear-gradient(180deg,rgba(12,34,58,0.34),rgba(5,12,24,0.08))] [clip-path:polygon(16%_0%,84%_0%,100%_100%,0%_100%)] lg:block" />
-        <div className="pointer-events-none absolute left-1/2 bottom-[-24px] hidden h-[28px] w-[220px] -translate-x-1/2 border border-[#25e2ff]/10 bg-[linear-gradient(180deg,rgba(11,42,65,0.3),rgba(5,12,24,0.1))] [clip-path:polygon(14%_0%,86%_0%,100%_100%,0%_100%)] lg:block" />
-
-        <div className="relative flex min-h-[122px] w-full items-center justify-center overflow-hidden border border-[#1cdfff]/18 bg-[linear-gradient(180deg,rgba(8,20,38,0.96),rgba(6,14,28,0.82))] px-6 shadow-[0_0_42px_rgba(17,176,255,0.14)] [clip-path:polygon(6%_0%,32%_0%,35%_15%,65%_15%,68%_0%,94%_0%,100%_22%,100%_78%,94%_100%,6%_100%,0%_78%,0%_22%)] sm:px-8">
-          <div className="pointer-events-none absolute inset-x-[10%] top-0 h-px bg-gradient-to-r from-transparent via-[#68e6ff]/72 to-transparent" />
-          <div className="pointer-events-none absolute inset-x-[12%] bottom-0 h-px bg-gradient-to-r from-transparent via-[#53ebff]/68 to-transparent" />
-          <div className="pointer-events-none absolute inset-x-[24%] bottom-[-14px] h-[24px] bg-[radial-gradient(circle,rgba(61,232,255,0.26),transparent_70%)] blur-lg" />
-          <div className="pointer-events-none absolute left-[10%] top-[18px] h-px w-[112px] bg-gradient-to-r from-transparent via-[#63eeff]/34 to-transparent" />
-          <div className="pointer-events-none absolute right-[10%] top-[18px] h-px w-[112px] bg-gradient-to-r from-transparent via-[#63eeff]/34 to-transparent" />
-          <div className="pointer-events-none absolute left-[11%] bottom-[18px] h-[14px] w-[14px] border-l border-b border-[#4ef1ff]/24" />
-          <div className="pointer-events-none absolute right-[11%] bottom-[18px] h-[14px] w-[14px] border-r border-b border-[#4ef1ff]/24" />
-          <div className="pointer-events-none absolute left-1/2 top-[12px] hidden h-[10px] w-[72px] -translate-x-1/2 rounded-full border border-[#5af5ff]/18 bg-[radial-gradient(circle,rgba(114,244,255,0.14),rgba(7,18,34,0.08)_72%)] lg:block" />
-
-          <div className="relative z-10 flex flex-col items-center gap-1.5">
-            <div className="flex items-center gap-5 sm:gap-6">
-              <EnerCloudIcon className="h-[52px] w-[52px] drop-shadow-[0_0_18px_rgba(68,232,255,0.22)]" />
+          <div className="relative z-10 flex flex-col items-center">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <EnerCloudIcon className="h-[50px] w-[50px] drop-shadow-[0_0_16px_rgba(68,232,255,0.26)] sm:h-[54px] sm:w-[54px]" />
               <div
-                className="bg-clip-text text-[2.85rem] font-black leading-none tracking-[0.04em] text-transparent sm:text-[3.4rem]"
-                style={{ backgroundImage: "linear-gradient(180deg,#f7ffff 0%,#d8faff 44%,#89f6de 100%)" }}
+                className="bg-clip-text text-[2.4rem] font-black leading-none tracking-[0.04em] text-transparent sm:text-[3.2rem]"
+                style={{ backgroundImage: "linear-gradient(180deg,#ffffff 0%,#dff7ff 40%,#84ebff 100%)" }}
               >
                 {BRAND}
               </div>
             </div>
+            <div className="mt-1 text-[11px] font-semibold tracking-[0.42em] text-[#49d6ff] sm:text-[13px]">{subtitle}</div>
           </div>
         </div>
-      </div>
 
-      <HeaderWing mirrored />
+        <div className="absolute left-1/2 top-[100%] h-[24px] w-[250px] -translate-x-1/2 border border-[#2de6ff]/12 bg-[linear-gradient(180deg,rgba(11,34,58,0.28),rgba(4,10,20,0.06))] [clip-path:polygon(14%_0%,86%_0%,100%_100%,0%_100%)]" />
+        <div className="absolute left-1/2 top-[calc(100%+24px)] h-[2px] w-[150px] -translate-x-1/2 rounded-full bg-gradient-to-r from-transparent via-[#35e7ff]/46 to-transparent" />
+      </div>
+    </div>
+  )
+}
+
+function EnergyPlatform() {
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-full h-[340px] w-[960px] origin-top -translate-x-1/2 -translate-y-[40%] scale-[0.8] sm:scale-[0.92] lg:scale-100">
+      <div className="absolute left-1/2 top-[10px] h-[176px] w-[40px] -translate-x-1/2 bg-[linear-gradient(180deg,rgba(112,246,255,0.34),rgba(86,224,255,0.12)_52%,transparent)] blur-md" />
+      <div className="absolute left-1/2 top-[56px] h-[170px] w-[170px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(194,248,255,0.94),rgba(76,214,255,0.82)_20%,rgba(36,122,255,0.3)_48%,transparent_74%)] blur-lg" />
+      <div className="absolute left-1/2 top-[102px] h-[14px] w-[540px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(93,228,255,0.54),transparent_72%)] blur-xl" />
+      <div className="absolute left-1/2 top-[128px] h-[120px] w-[120px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(122,236,255,0.28),transparent_70%)] blur-2xl" />
+      <svg viewBox="0 0 960 340" className="absolute inset-0 h-full w-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="480" cy="186" rx="284" ry="86" stroke="rgba(70,214,255,0.64)" strokeWidth="2.2" />
+        <ellipse cx="480" cy="186" rx="246" ry="72" stroke="rgba(70,214,255,0.26)" strokeWidth="1.8" strokeDasharray="12 10" />
+        <ellipse cx="480" cy="186" rx="204" ry="56" stroke="rgba(70,214,255,0.38)" strokeWidth="2" />
+        <ellipse cx="480" cy="186" rx="148" ry="36" stroke="rgba(95,228,255,0.88)" strokeWidth="2.6" />
+        <ellipse cx="480" cy="186" rx="96" ry="22" stroke="rgba(139,242,255,0.96)" strokeWidth="2.8" />
+        <ellipse cx="480" cy="186" rx="62" ry="14" stroke="rgba(216,252,255,0.98)" strokeWidth="2.4" />
+        <path d="M244 184C286 134 364 106 480 106C596 106 674 134 716 184" stroke="rgba(74,208,255,0.26)" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M196 186C254 246 338 274 480 274C622 274 706 246 764 186" stroke="rgba(49,162,255,0.2)" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M350 124C390 104 430 94 480 94C530 94 570 104 610 124" stroke="rgba(114,242,255,0.28)" strokeWidth="2" strokeDasharray="9 8" strokeLinecap="round" />
+        <path d="M304 186H656" stroke="rgba(58,200,255,0.2)" strokeWidth="1.5" strokeDasharray="8 8" />
+        <path d="M268 186C320 170 370 164 480 164C590 164 640 170 692 186" stroke="rgba(95,228,255,0.18)" strokeWidth="2" strokeDasharray="7 9" />
+        <path d="M336 152C380 138 420 132 480 132C540 132 580 138 624 152" stroke="rgba(95,228,255,0.16)" strokeWidth="2" strokeDasharray="7 9" />
+      </svg>
+    </div>
+  )
+}
+
+function DigitalTwinBackdrop() {
+  return (
+    <div className="pointer-events-none absolute inset-0 hidden lg:block">
+      <div
+        className="absolute inset-x-[5%] top-[92px] h-[560px] opacity-[0.74]"
+        style={{ animation: "background-breathe 16s ease-in-out infinite" }}
+      >
+        <svg viewBox="0 0 1600 720" className="h-full w-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="login-twin-cyan" x1="276" y1="178" x2="1260" y2="472" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="rgba(86,239,255,0)" />
+              <stop offset="0.2" stopColor="rgba(86,239,255,0.72)" />
+              <stop offset="0.5" stopColor="rgba(57,170,255,0.92)" />
+              <stop offset="0.8" stopColor="rgba(86,239,255,0.72)" />
+              <stop offset="100%" stopColor="rgba(86,239,255,0)" />
+            </linearGradient>
+            <linearGradient id="login-twin-blue" x1="800" y1="92" x2="800" y2="604" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="rgba(105,238,255,0.84)" />
+              <stop offset="0.42" stopColor="rgba(67,172,255,0.34)" />
+              <stop offset="100%" stopColor="rgba(67,172,255,0)" />
+            </linearGradient>
+            <linearGradient id="login-twin-floor" x1="190" y1="520" x2="1410" y2="520" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="rgba(86,239,255,0)" />
+              <stop offset="0.5" stopColor="rgba(86,239,255,0.62)" />
+              <stop offset="100%" stopColor="rgba(86,239,255,0)" />
+            </linearGradient>
+            <radialGradient id="login-twin-core" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(800 242) rotate(90) scale(110 340)">
+              <stop offset="0%" stopColor="rgba(86,239,255,0.28)" />
+              <stop offset="0.54" stopColor="rgba(40,153,255,0.16)" />
+              <stop offset="100%" stopColor="rgba(40,153,255,0)" />
+            </radialGradient>
+          </defs>
+
+          <ellipse cx="800" cy="236" rx="368" ry="108" fill="url(#login-twin-core)" />
+          <ellipse cx="800" cy="248" rx="414" ry="126" stroke="url(#login-twin-cyan)" strokeWidth="1.4" opacity="0.38" />
+          <ellipse cx="800" cy="248" rx="332" ry="94" stroke="url(#login-twin-cyan)" strokeWidth="1.2" strokeDasharray="8 10" opacity="0.28" />
+          <path d="M742 114L800 178L858 114" stroke="url(#login-twin-cyan)" strokeWidth="1.6" strokeLinecap="round" opacity="0.44" />
+          <path d="M800 178V364" stroke="url(#login-twin-blue)" strokeWidth="1.4" strokeDasharray="6 12" opacity="0.38" />
+
+          <g opacity="0.38">
+            <ellipse cx="242" cy="238" rx="190" ry="132" stroke="url(#login-twin-cyan)" strokeWidth="1.6" />
+            <ellipse cx="242" cy="238" rx="148" ry="102" stroke="rgba(84,236,255,0.26)" strokeWidth="1.2" strokeDasharray="8 10" />
+            <path d="M54 238H430" stroke="url(#login-twin-floor)" strokeWidth="1.1" strokeDasharray="6 12" />
+            <path d="M112 156L178 122L260 142L332 110L410 146" stroke="url(#login-twin-cyan)" strokeWidth="1.4" strokeLinecap="round" />
+            <path d="M178 122L198 244L260 142L318 228L332 110" stroke="rgba(84,236,255,0.28)" strokeWidth="1.3" />
+            <circle cx="112" cy="156" r="3.6" fill="rgba(122,244,255,0.82)" />
+            <circle cx="178" cy="122" r="3.2" fill="rgba(122,244,255,0.78)" />
+            <circle cx="260" cy="142" r="3.2" fill="rgba(122,244,255,0.78)" />
+            <circle cx="332" cy="110" r="3.2" fill="rgba(122,244,255,0.78)" />
+            <circle cx="318" cy="228" r="3.2" fill="rgba(122,244,255,0.76)" />
+          </g>
+
+          <g opacity="0.38">
+            <ellipse cx="1358" cy="232" rx="190" ry="132" stroke="url(#login-twin-cyan)" strokeWidth="1.6" />
+            <ellipse cx="1358" cy="232" rx="148" ry="102" stroke="rgba(84,236,255,0.26)" strokeWidth="1.2" strokeDasharray="8 10" />
+            <path d="M1170 232H1546" stroke="url(#login-twin-floor)" strokeWidth="1.1" strokeDasharray="6 12" />
+            <path d="M1192 146L1270 110L1342 142L1424 120L1490 156" stroke="url(#login-twin-cyan)" strokeWidth="1.4" strokeLinecap="round" />
+            <path d="M1270 110L1284 224L1342 142L1404 246L1424 120" stroke="rgba(84,236,255,0.28)" strokeWidth="1.3" />
+            <circle cx="1192" cy="146" r="3.2" fill="rgba(122,244,255,0.78)" />
+            <circle cx="1270" cy="110" r="3.2" fill="rgba(122,244,255,0.78)" />
+            <circle cx="1342" cy="142" r="3.2" fill="rgba(122,244,255,0.78)" />
+            <circle cx="1424" cy="120" r="3.2" fill="rgba(122,244,255,0.78)" />
+            <circle cx="1490" cy="156" r="3.6" fill="rgba(122,244,255,0.82)" />
+          </g>
+
+          <g opacity="0.48">
+            <path d="M484 282L604 216L756 246L888 198L1040 236L1136 302" stroke="url(#login-twin-cyan)" strokeWidth="1.8" strokeLinecap="round" />
+            <path d="M604 216L646 344L756 246L854 354L1040 236L1102 340" stroke="rgba(84,236,255,0.34)" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M646 344L570 410" stroke="rgba(84,236,255,0.22)" strokeWidth="1.3" />
+            <path d="M854 354L944 420" stroke="rgba(84,236,255,0.22)" strokeWidth="1.3" />
+            <path d="M570 410L720 458L944 420L1088 470" stroke="rgba(84,236,255,0.18)" strokeWidth="1.2" strokeDasharray="8 10" />
+            {[
+              [484, 282],
+              [604, 216],
+              [646, 344],
+              [756, 246],
+              [854, 354],
+              [888, 198],
+              [1040, 236],
+              [1102, 340],
+              [1136, 302],
+              [570, 410],
+              [720, 458],
+              [944, 420],
+              [1088, 470],
+            ].map(([cx, cy], index) => (
+              <g key={index}>
+                <circle cx={cx} cy={cy} r="3.4" fill="rgba(126,244,255,0.84)" />
+                <circle cx={cx} cy={cy} r="8.4" stroke="rgba(126,244,255,0.14)" strokeWidth="1" />
+              </g>
+            ))}
+          </g>
+
+          <g opacity="0.28">
+            <path d="M184 518H1416" stroke="url(#login-twin-floor)" strokeWidth="1.2" strokeDasharray="10 10" />
+            <path d="M258 564H1342" stroke="url(#login-twin-floor)" strokeWidth="1.1" strokeDasharray="8 12" />
+            <path d="M336 608H1264" stroke="url(#login-twin-floor)" strokeWidth="0.9" strokeDasharray="6 12" />
+            <path d="M452 454L800 388L1148 454" stroke="rgba(84,236,255,0.28)" strokeWidth="1.4" />
+            <path d="M376 502L800 426L1224 502" stroke="rgba(84,236,255,0.22)" strokeWidth="1.3" />
+            <path d="M286 560L800 464L1314 560" stroke="rgba(84,236,255,0.18)" strokeWidth="1.1" />
+            <path d="M170 720L650 492" stroke="rgba(84,236,255,0.16)" strokeWidth="1" />
+            <path d="M344 720L726 492" stroke="rgba(84,236,255,0.12)" strokeWidth="1" />
+            <path d="M800 720V484" stroke="rgba(84,236,255,0.12)" strokeWidth="1" />
+            <path d="M1256 720L874 492" stroke="rgba(84,236,255,0.12)" strokeWidth="1" />
+            <path d="M1430 720L950 492" stroke="rgba(84,236,255,0.16)" strokeWidth="1" />
+          </g>
+        </svg>
+      </div>
     </div>
   )
 }
@@ -354,116 +344,73 @@ function TopBrandBar() {
 function BackgroundScene() {
   return (
     <>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(48,148,220,0.2),transparent_34%),radial-gradient(circle_at_15%_28%,rgba(47,223,255,0.16),transparent_18%),radial-gradient(circle_at_84%_28%,rgba(39,146,255,0.14),transparent_18%),linear-gradient(180deg,#07111d_0%,#040b17_40%,#030914_100%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_56%,rgba(28,112,195,0.16),transparent_24%),radial-gradient(circle_at_50%_84%,rgba(40,209,255,0.07),transparent_26%)]" />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.14] [background-image:linear-gradient(rgba(44,220,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(44,220,255,0.12)_1px,transparent_1px)] [background-size:112px_112px]" />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.18] [background-image:linear-gradient(36deg,rgba(34,214,255,0.12)_1px,transparent_1px),linear-gradient(-36deg,rgba(34,214,255,0.12)_1px,transparent_1px)] [background-size:144px_144px]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,transparent_0%,transparent_58%,rgba(0,0,0,0.3)_100%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[182px] bg-[linear-gradient(180deg,rgba(7,20,38,0.28),rgba(7,20,38,0.06)_58%,transparent_100%)]" />
-      <div
-        className="pointer-events-none absolute left-1/2 top-0 h-[200px] w-[880px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(72,236,255,0.1),transparent_72%)] blur-2xl"
-        style={{ animation: "background-breathe 9s ease-in-out infinite" }}
-      />
-      <div className="pointer-events-none absolute left-[10%] top-[62px] hidden h-px w-[180px] bg-gradient-to-r from-transparent via-[#58efff]/18 to-transparent lg:block" />
-      <div className="pointer-events-none absolute right-[10%] top-[62px] hidden h-px w-[180px] bg-gradient-to-r from-transparent via-[#58efff]/18 to-transparent lg:block" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(68,156,255,0.34),transparent_34%),radial-gradient(circle_at_50%_18%,rgba(48,132,255,0.2),transparent_22%),radial-gradient(circle_at_14%_22%,rgba(34,208,255,0.18),transparent_22%),radial-gradient(circle_at_86%_22%,rgba(41,146,255,0.2),transparent_22%),linear-gradient(180deg,#081624_0%,#08131f_36%,#030a13_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_34%,rgba(38,214,255,0.1),transparent_22%),radial-gradient(circle_at_50%_56%,rgba(28,112,195,0.2),transparent_24%),radial-gradient(circle_at_50%_80%,rgba(40,209,255,0.14),transparent_28%),radial-gradient(circle_at_30%_74%,rgba(46,118,255,0.08),transparent_24%),radial-gradient(circle_at_70%_74%,rgba(46,118,255,0.08),transparent_24%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.12] [background-image:radial-gradient(circle,rgba(96,230,255,0.36)_1px,transparent_1.8px)] [background-size:24px_24px]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.16] [background-image:linear-gradient(rgba(44,220,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(44,220,255,0.12)_1px,transparent_1px)] [background-size:100px_100px]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.09] [background-image:linear-gradient(38deg,rgba(34,214,255,0.12)_1px,transparent_1px),linear-gradient(-38deg,rgba(34,214,255,0.12)_1px,transparent_1px)] [background-size:150px_150px]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[240px] bg-[linear-gradient(180deg,rgba(7,18,34,0.56),rgba(7,18,34,0.1)_60%,transparent_100%)]" />
+      <div className="pointer-events-none absolute inset-x-[10%] top-[116px] hidden h-px bg-gradient-to-r from-transparent via-[#31dfff]/22 to-transparent lg:block" />
+      <div className="pointer-events-none absolute inset-x-[14%] top-[152px] hidden h-px bg-gradient-to-r from-transparent via-[#1e7dff]/14 to-transparent lg:block" />
+      <div className="pointer-events-none absolute left-1/2 top-[136px] hidden h-[420px] w-[1180px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(36,188,255,0.14),transparent_72%)] blur-3xl lg:block" />
+      <div className="pointer-events-none absolute left-1/2 top-[150px] hidden h-[320px] w-[240px] -translate-x-1/2 bg-[linear-gradient(180deg,rgba(102,242,255,0.16),rgba(102,242,255,0.03)_64%,transparent)] [clip-path:polygon(44%_0%,56%_0%,100%_100%,0%_100%)] lg:block" />
+      <div className="pointer-events-none absolute left-1/2 top-[178px] hidden h-[1px] w-[860px] -translate-x-1/2 bg-gradient-to-r from-transparent via-[#53edff]/22 to-transparent lg:block" />
+      <div className="pointer-events-none absolute left-1/2 top-[210px] hidden h-[280px] w-[760px] -translate-x-1/2 rounded-[50%] border border-[#25beff]/10 lg:block" />
 
-      <div
-        className="pointer-events-none absolute left-[-6%] top-[16%] h-[430px] w-[430px] rounded-full bg-[radial-gradient(circle,rgba(30,206,255,0.16),transparent_72%)] blur-3xl"
-        style={{ animation: "background-drift 14s ease-in-out infinite" }}
-      />
-      <div
-        className="pointer-events-none absolute right-[-4%] top-[14%] h-[400px] w-[400px] rounded-full bg-[radial-gradient(circle,rgba(43,110,255,0.16),transparent_72%)] blur-3xl"
-        style={{ animation: "background-breathe 11s ease-in-out infinite" }}
-      />
-      <div
-        className="pointer-events-none absolute right-[2%] top-[18%] hidden h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(46,224,255,0.14),transparent_72%)] blur-3xl lg:block"
-        style={{ animation: "background-drift 16s ease-in-out infinite reverse" }}
-      />
-      <div
-        className="pointer-events-none absolute left-1/2 top-[52%] h-[320px] w-[920px] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,rgba(38,188,255,0.16),transparent_72%)] blur-3xl"
-        style={{ animation: "background-breathe 12s ease-in-out infinite" }}
-      />
+      <DigitalTwinBackdrop />
 
-      <div className="pointer-events-none absolute left-1/2 top-[58%] hidden h-[216px] w-[980px] -translate-x-1/2 border border-[#1fe5ff]/12 bg-[linear-gradient(180deg,rgba(7,18,34,0.08),rgba(4,10,20,0.18))] [clip-path:polygon(14%_0%,86%_0%,100%_100%,0%_100%)] lg:block" />
-      <div className="pointer-events-none absolute left-1/2 top-[60%] hidden h-[154px] w-[760px] -translate-x-1/2 border border-[#1fe5ff]/10 bg-[linear-gradient(180deg,rgba(7,18,34,0.04),rgba(4,10,20,0.18))] [clip-path:polygon(14%_0%,86%_0%,100%_100%,0%_100%)] lg:block" />
-      <div className="pointer-events-none absolute left-1/2 top-[54%] hidden h-[180px] w-[180px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#30e9ff]/14 lg:block" />
-      <div className="pointer-events-none absolute left-1/2 top-[54%] hidden h-[180px] w-[180px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(74,236,255,0.12),transparent_70%)] blur-2xl lg:block" />
-      <div className="pointer-events-none absolute left-[calc(50%-430px)] top-[54%] hidden h-px w-[290px] bg-gradient-to-r from-[#1ce5ff]/0 via-[#1ce5ff]/48 to-[#1ce5ff]/0 lg:block" />
-      <div className="pointer-events-none absolute left-[calc(50%+150px)] top-[54%] hidden h-px w-[260px] bg-gradient-to-r from-[#1ce5ff]/0 via-[#1ce5ff]/48 to-[#1ce5ff]/0 lg:block" />
-
-      <div className="pointer-events-none absolute inset-y-0 left-[18%] hidden w-[16%] bg-[linear-gradient(90deg,transparent,rgba(60,231,255,0.08),transparent)] lg:block" style={{ animation: "field-scan 8s linear infinite" }} />
-      <div className="pointer-events-none absolute inset-y-0 right-[16%] hidden w-[14%] bg-[linear-gradient(90deg,transparent,rgba(42,146,255,0.06),transparent)] lg:block" style={{ animation: "field-scan 10s linear infinite reverse" }} />
-
-      <NetworkCluster className="pointer-events-none absolute left-[4%] top-[12%] hidden h-[300px] w-[300px] opacity-60 lg:block" />
-      <NetworkCluster className="pointer-events-none absolute right-[2%] bottom-[8%] hidden h-[280px] w-[280px] opacity-40 xl:block" mirrored />
-
-      <div className="pointer-events-none absolute left-[-2%] top-[22%] hidden origin-top-left scale-[0.76] opacity-95 lg:block xl:scale-[0.88] 2xl:scale-100">
-        <BatteryField />
-      </div>
-      <div className="pointer-events-none absolute right-[-2%] top-[14%] hidden origin-top-right scale-[0.9] opacity-100 lg:block xl:scale-[0.98] 2xl:scale-[1.06]">
-        <TelemetryConstellation />
-      </div>
-
-      <div className="pointer-events-none absolute left-0 top-0 h-16 w-16 border-l-2 border-t-2 border-[#1ce5ff]/20" />
-      <div className="pointer-events-none absolute right-0 top-0 h-16 w-16 border-r-2 border-t-2 border-[#1ce5ff]/20" />
-      <div className="pointer-events-none absolute left-0 bottom-0 h-16 w-16 border-b-2 border-l-2 border-[#1ce5ff]/12" />
-      <div className="pointer-events-none absolute right-0 bottom-0 h-16 w-16 border-b-2 border-r-2 border-[#1ce5ff]/12" />
-
-      <div className="pointer-events-none absolute bottom-[34px] right-[34px] opacity-80">
-        <StarSpark />
-      </div>
-    </>
-  )
-}
-
-function StarSpark() {
-  return (
-    <svg viewBox="0 0 44 44" className="h-10 w-10" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M22 2L24 20L42 22L24 24L22 42L20 24L2 22L20 20L22 2Z"
-        fill="rgba(220,230,255,0.86)"
-        style={{ filter: "drop-shadow(0 0 8px rgba(220,230,255,0.55))" }}
-      />
-    </svg>
-  )
-}
-
-function MobileStatusRail() {
-  const metrics = [
-    { label: "Twin Sync", value: "99.8%" },
-    { label: "Clusters", value: "12" },
-    { label: "Shield", value: "L3" },
-  ]
-
-  return (
-    <div className="grid grid-cols-3 gap-2 xl:hidden">
-      {metrics.map((metric) => (
+      <div className="pointer-events-none absolute left-[8%] top-[182px] hidden h-[260px] w-[420px] opacity-[0.22] lg:block">
         <div
-          key={metric.label}
-          className="overflow-hidden rounded-[16px] border border-[#2ce8ff]/14 bg-[linear-gradient(180deg,rgba(11,22,42,0.84),rgba(5,12,24,0.88))] px-3 py-3 shadow-[0_0_20px_rgba(22,170,255,0.08)]"
-        >
-          <div className="text-[10px] font-bold tracking-[0.26em] text-[#6beeff]/54">{metric.label}</div>
-          <div className="mt-2 text-[1.05rem] font-black tracking-[0.04em] text-[#eefaff]">{metric.value}</div>
-        </div>
-      ))}
-    </div>
-  )
-}
+          className="absolute inset-0 [background-image:radial-gradient(circle,rgba(38,149,255,0.44)_1px,transparent_1.4px)] [background-size:14px_14px]"
+          style={{ clipPath: "polygon(2% 52%,16% 36%,34% 28%,48% 32%,56% 40%,70% 36%,84% 44%,86% 58%,74% 72%,56% 76%,38% 72%,20% 78%,8% 68%)" }}
+        />
+      </div>
+      <div className="pointer-events-none absolute right-[8%] top-[176px] hidden h-[268px] w-[440px] opacity-[0.18] lg:block">
+        <div
+          className="absolute inset-0 [background-image:radial-gradient(circle,rgba(38,149,255,0.44)_1px,transparent_1.4px)] [background-size:14px_14px]"
+          style={{ clipPath: "polygon(12% 44%,24% 28%,42% 24%,56% 32%,68% 26%,82% 34%,92% 48%,88% 64%,74% 72%,54% 74%,34% 70%,20% 62%)" }}
+        />
+      </div>
 
-function LoginRunway() {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-[-90px] hidden h-[220px] lg:block">
-      <div className="absolute left-1/2 top-[16px] h-[140px] w-[860px] -translate-x-1/2 border border-[#28e6ff]/14 bg-[linear-gradient(180deg,rgba(6,18,34,0.08),rgba(4,10,20,0.28))] [clip-path:polygon(16%_0%,84%_0%,100%_100%,0%_100%)]" />
-      <div className="absolute left-1/2 top-[38px] h-[110px] w-[620px] -translate-x-1/2 border border-[#28e6ff]/10 bg-[linear-gradient(180deg,rgba(6,18,34,0.04),rgba(4,10,20,0.24))] [clip-path:polygon(16%_0%,84%_0%,100%_100%,0%_100%)]" />
-      <div className="absolute left-1/2 top-[70px] h-px w-[760px] -translate-x-1/2 bg-gradient-to-r from-transparent via-[#56eeff]/54 to-transparent" />
-      <div className="absolute left-1/2 top-[118px] h-px w-[520px] -translate-x-1/2 bg-gradient-to-r from-transparent via-[#56eeff]/38 to-transparent" />
-      <div className="absolute left-1/2 top-[28px] h-[130px] w-[130px] -translate-x-1/2 rounded-full border border-[#35ebff]/14" />
-      <div className="absolute left-1/2 top-[28px] h-[130px] w-[130px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(74,236,255,0.16),transparent_70%)] blur-xl" />
-      <div className="absolute left-1/2 top-[78px] h-[32px] w-[32px] -translate-x-1/2 rounded-full bg-[#7cf7ff]/72 shadow-[0_0_20px_rgba(124,247,255,0.28)]" />
-      <div className="absolute left-[calc(50%-420px)] top-[74px] h-px w-[230px] bg-gradient-to-r from-transparent via-[#1ce5ff]/46 to-[#1ce5ff]/0" />
-      <div className="absolute left-[calc(50%+190px)] top-[74px] h-px w-[230px] bg-gradient-to-r from-[#1ce5ff]/0 via-[#1ce5ff]/46 to-transparent" />
-      <div className="absolute inset-x-[18%] top-[54px] h-[38px] [background-image:repeating-linear-gradient(90deg,rgba(84,239,255,0.18),rgba(84,239,255,0.18)_12px,transparent_12px,transparent_22px)] opacity-55" />
-    </div>
+      <div
+        className="pointer-events-none absolute left-[2%] top-[132px] hidden h-[420px] w-[34vw] max-w-[640px] border border-[#0d3657]/34 bg-[linear-gradient(180deg,rgba(7,18,34,0.18),rgba(4,10,20,0.02))] lg:block"
+        style={{ clipPath: "polygon(0% 10%,12% 0%,94% 0%,100% 18%,100% 92%,96% 100%,0% 100%)" }}
+      />
+      <div
+        className="pointer-events-none absolute right-[2%] top-[132px] hidden h-[420px] w-[34vw] max-w-[640px] border border-[#0d3657]/34 bg-[linear-gradient(180deg,rgba(7,18,34,0.18),rgba(4,10,20,0.02))] lg:block"
+        style={{ clipPath: "polygon(0% 18%,6% 0%,88% 0%,100% 10%,100% 100%,4% 100%,0% 92%)" }}
+      />
+      <div className="pointer-events-none absolute left-[5%] top-[168px] hidden h-[180px] w-[300px] opacity-26 [background-image:linear-gradient(rgba(49,220,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(49,220,255,0.12)_1px,transparent_1px)] [background-size:26px_26px] lg:block" />
+      <div className="pointer-events-none absolute right-[5%] top-[172px] hidden h-[176px] w-[280px] opacity-22 [background-image:linear-gradient(rgba(49,220,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(49,220,255,0.12)_1px,transparent_1px)] [background-size:26px_26px] lg:block" />
+
+      <div className="pointer-events-none absolute left-1/2 bottom-[-22%] h-[66vh] w-[172vw] -translate-x-1/2 opacity-[0.22] [background-image:linear-gradient(rgba(52,206,255,0.22)_1px,transparent_1px),linear-gradient(90deg,rgba(52,206,255,0.18)_1px,transparent_1px)] [background-size:94px_94px] [transform:perspective(1200px)_rotateX(77deg)]" />
+      <div className="pointer-events-none absolute left-1/2 bottom-[-18%] h-[62vh] w-[148vw] -translate-x-1/2 opacity-[0.16] [background-image:linear-gradient(rgba(52,206,255,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(52,206,255,0.14)_1px,transparent_1px)] [background-size:48px_48px] [transform:perspective(1200px)_rotateX(77deg)]" />
+      <div className="pointer-events-none absolute left-1/2 bottom-[-12%] h-[54vh] w-[132vw] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(35,141,255,0.24),transparent_68%)] [transform:perspective(1200px)_rotateX(74deg)]" />
+      <div className="pointer-events-none absolute left-1/2 bottom-[8%] h-[18vh] w-[96vw] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(32,198,255,0.16),transparent_74%)]" />
+      <div className="pointer-events-none absolute left-1/2 bottom-[18%] hidden h-[240px] w-[980px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(44,198,255,0.18),transparent_72%)] blur-3xl lg:block" />
+
+      <div className="pointer-events-none absolute left-[-5%] top-[16%] h-[460px] w-[460px] rounded-full bg-[radial-gradient(circle,rgba(30,206,255,0.14),transparent_72%)] blur-3xl" style={{ animation: "background-drift 16s ease-in-out infinite" }} />
+      <div className="pointer-events-none absolute right-[-4%] top-[14%] h-[460px] w-[460px] rounded-full bg-[radial-gradient(circle,rgba(43,110,255,0.18),transparent_72%)] blur-3xl" style={{ animation: "background-breathe 12s ease-in-out infinite" }} />
+      <div className="pointer-events-none absolute left-1/2 top-[54%] h-[500px] w-[1220px] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,rgba(34,192,255,0.14),transparent_72%)] blur-3xl" style={{ animation: "background-breathe 14s ease-in-out infinite" }} />
+      <div className="pointer-events-none absolute left-1/2 top-[32%] h-[260px] w-[860px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(38,149,255,0.22),transparent_72%)] blur-3xl" />
+      <div className="pointer-events-none absolute left-1/2 top-[46%] h-[220px] w-[1080px] -translate-x-1/2 opacity-[0.22] [background-image:linear-gradient(104deg,transparent_34%,rgba(53,231,255,0.12)_50%,transparent_66%),linear-gradient(76deg,transparent_34%,rgba(53,231,255,0.08)_50%,transparent_66%)] lg:block" />
+
+      <div className="pointer-events-none absolute inset-y-0 left-[18%] hidden w-[14%] bg-[linear-gradient(90deg,transparent,rgba(60,231,255,0.08),transparent)] lg:block" style={{ animation: "field-scan 9s linear infinite" }} />
+      <div className="pointer-events-none absolute inset-y-0 right-[16%] hidden w-[12%] bg-[linear-gradient(90deg,transparent,rgba(42,146,255,0.06),transparent)] lg:block" style={{ animation: "field-scan 11s linear infinite reverse" }} />
+      <div className="pointer-events-none absolute inset-y-0 left-[32%] hidden w-[8%] bg-[linear-gradient(90deg,transparent,rgba(60,231,255,0.04),transparent)] lg:block" style={{ animation: "field-scan 13s linear infinite reverse" }} />
+      <div className="pointer-events-none absolute inset-y-0 right-[31%] hidden w-[8%] bg-[linear-gradient(90deg,transparent,rgba(42,146,255,0.04),transparent)] lg:block" style={{ animation: "field-scan 15s linear infinite" }} />
+
+      <div className="pointer-events-none absolute left-0 top-0 h-20 w-20 border-l-2 border-t-2 border-[#1ce5ff]/24" />
+      <div className="pointer-events-none absolute left-[8px] top-[8px] h-10 w-10 border-l border-t border-[#1ce5ff]/14" />
+      <div className="pointer-events-none absolute right-0 top-0 h-20 w-20 border-r-2 border-t-2 border-[#1ce5ff]/24" />
+      <div className="pointer-events-none absolute right-[8px] top-[8px] h-10 w-10 border-r border-t border-[#1ce5ff]/14" />
+      <div className="pointer-events-none absolute bottom-0 left-0 h-20 w-20 border-b-2 border-l-2 border-[#1ce5ff]/16" />
+      <div className="pointer-events-none absolute bottom-[8px] left-[8px] h-10 w-10 border-b border-l border-[#1ce5ff]/10" />
+      <div className="pointer-events-none absolute bottom-0 right-0 h-20 w-20 border-b-2 border-r-2 border-[#1ce5ff]/16" />
+      <div className="pointer-events-none absolute bottom-[8px] right-[8px] h-10 w-10 border-b border-r border-[#1ce5ff]/10" />
+      <div className="pointer-events-none absolute left-[26px] top-1/2 hidden h-[160px] w-px -translate-y-1/2 bg-gradient-to-b from-transparent via-[#22dfff]/18 to-transparent lg:block" />
+      <div className="pointer-events-none absolute right-[26px] top-1/2 hidden h-[160px] w-px -translate-y-1/2 bg-gradient-to-b from-transparent via-[#22dfff]/18 to-transparent lg:block" />
+    </>
   )
 }
 
@@ -510,7 +457,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative h-[100dvh] overflow-hidden bg-[#030915] text-white">
+    <main className="relative min-h-[100dvh] overflow-hidden bg-[#020813] text-white">
       <style>{`
         @keyframes field-scan {
           0% { transform: translateX(-18%); opacity: 0; }
@@ -518,178 +465,171 @@ export default function LoginPage() {
           56% { opacity: .28; }
           100% { transform: translateX(18%); opacity: 0; }
         }
-        @keyframes scan-sweep {
-          0% { transform: translateX(-120%) rotate(0deg); opacity: 0; }
-          18% { opacity: .12; }
-          50% { opacity: .34; }
-          100% { transform: translateX(320%) rotate(0deg); opacity: 0; }
-        }
-        @keyframes orbital-glow {
-          0%, 100% { opacity: .58; transform: scale(0.985); }
-          50% { opacity: 1; transform: scale(1.02); }
-        }
-        @keyframes pulse-line {
-          0%, 100% { opacity: .3; }
-          50% { opacity: .92; }
-        }
-        @keyframes signal-drift {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-8px); }
-        }
         @keyframes background-breathe {
           0%, 100% { opacity: .72; transform: scale(1); }
           50% { opacity: 1; transform: scale(1.04); }
         }
         @keyframes background-drift {
           0%, 100% { transform: translate3d(0,0,0); }
-          50% { transform: translate3d(0,-14px,0); }
+          50% { transform: translate3d(0,-16px,0); }
+        }
+        @keyframes hud-pulse {
+          0%, 100% { opacity: .64; }
+          50% { opacity: 1; }
+        }
+        @keyframes card-float {
+          0%, 100% { transform: translate3d(0,0,0); }
+          50% { transform: translate3d(0,-8px,0); }
+        }
+        @keyframes orbital-glow {
+          0%, 100% { opacity: .55; transform: scale(0.985); }
+          50% { opacity: .94; transform: scale(1.02); }
         }
       `}</style>
 
       <BackgroundScene />
 
-      <div className="relative z-10 flex h-full flex-col overflow-hidden">
-        <header className="shrink-0 pt-5 sm:pt-6">
-          <TopBrandBar />
+      <div className="relative z-10 flex min-h-[100dvh] flex-col">
+        <header className="shrink-0 pt-4 sm:pt-5 lg:pt-6">
+          <TopBrandMarquee subtitle={copy.subtitle} />
         </header>
 
-        <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-8 pt-6 sm:px-6 lg:px-8">
-          <section className="relative w-full max-w-[1320px] lg:min-h-[720px]" style={{ perspective: "1800px" }}>
-            <LoginRunway />
+        <div className="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-8 pt-8 sm:px-6 lg:px-8">
+          <div className="relative w-full max-w-[760px]">
+            <div className="absolute left-1/2 top-[62px] hidden h-[220px] w-[220px] -translate-x-1/2 rounded-full border border-[#2fe8ff]/10 bg-[radial-gradient(circle,rgba(47,232,255,0.08),transparent_70%)] blur-[1px] lg:block" />
+            <div className="absolute left-1/2 top-[88px] hidden h-[290px] w-[640px] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(ellipse_at_center,rgba(22,132,255,0.12),transparent_70%)] blur-3xl lg:block" />
 
-            <div className="mx-auto flex w-full max-w-[470px] flex-col gap-4 pt-6 lg:pt-12">
-              <MobileStatusRail />
+            <div className="relative mx-auto w-full max-w-[492px] translate-y-[-10px] sm:translate-y-[-14px]" style={{ animation: "card-float 7s ease-in-out infinite" }}>
+              <EnergyPlatform />
 
-              <div className="relative">
-                <div className="pointer-events-none absolute -inset-x-14 -inset-y-12 rounded-full bg-[radial-gradient(circle,rgba(42,214,255,0.2),transparent_70%)] blur-3xl" />
-                <div className="pointer-events-none absolute left-1/2 top-[-40px] h-[70px] w-[280px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(68,232,255,0.16),transparent_72%)] blur-2xl" />
-                <div className="pointer-events-none absolute left-1/2 top-[-8px] h-[24px] w-[188px] -translate-x-1/2 border border-[#2ce8ff]/14 bg-[linear-gradient(180deg,rgba(10,35,56,0.42),rgba(5,12,24,0.14))] [clip-path:polygon(12%_100%,18%_0%,82%_0%,88%_100%)]" />
-                <div className="pointer-events-none absolute inset-x-8 top-[-18px] h-px bg-gradient-to-r from-transparent via-[#58efff]/26 to-transparent" />
+              <div className="pointer-events-none absolute -inset-x-10 -inset-y-10 rounded-full bg-[radial-gradient(circle,rgba(34,196,255,0.2),transparent_70%)] blur-3xl" />
+              <div className="pointer-events-none absolute left-1/2 top-[-32px] h-[74px] w-[300px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(72,236,255,0.18),transparent_72%)] blur-2xl" />
+              <div className="pointer-events-none absolute left-1/2 top-[calc(100%-12px)] h-[78px] w-[240px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(92,228,255,0.26),transparent_72%)] blur-2xl" />
+              <div className="pointer-events-none absolute left-1/2 bottom-[-58px] h-[116px] w-[34px] -translate-x-1/2 bg-[linear-gradient(180deg,rgba(102,242,255,0.22),rgba(102,242,255,0.08)_48%,transparent)] blur-md" />
+              <div className="pointer-events-none absolute left-1/2 bottom-[-10px] h-[46px] w-[180px] -translate-x-1/2 border border-[#2de8ff]/12 bg-[linear-gradient(180deg,rgba(8,30,52,0.28),rgba(4,10,20,0.06))] [clip-path:polygon(12%_0%,88%_0%,100%_100%,0%_100%)]" />
+              <div className="pointer-events-none absolute left-1/2 bottom-[-8px] h-[14px] w-[220px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(96,232,255,0.32),transparent_72%)] blur-lg" />
 
-                <div
-                  className="relative overflow-hidden border border-[#39f0ff]/44 bg-[linear-gradient(160deg,rgba(13,23,40,0.94),rgba(8,15,28,0.98))] px-5 pb-6 pt-5 shadow-[0_0_0_1px_rgba(70,235,255,0.08)_inset,0_0_52px_rgba(32,192,255,0.18)] sm:px-6"
-                  style={{
-                    clipPath: "polygon(6% 0%,18% 0%,20% 3%,80% 3%,82% 0%,94% 0%,100% 6%,100% 94%,94% 100%,6% 100%,0% 94%,0% 6%)",
-                    transformStyle: "preserve-3d",
-                  }}
-                >
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,transparent_0%,transparent_44%,rgba(255,255,255,0.08)_50%,transparent_66%)]" />
-                  <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#5af5ff]/88 to-transparent" />
-                  <div className="pointer-events-none absolute inset-x-6 bottom-0 h-px bg-gradient-to-r from-transparent via-[#5af5ff]/56 to-transparent" />
-                  <div className="pointer-events-none absolute left-[6px] top-[6px] h-5 w-5 border-l-2 border-t-2 border-[#38f0ff]/66" />
-                  <div className="pointer-events-none absolute right-[6px] top-[6px] h-5 w-5 border-r-2 border-t-2 border-[#38f0ff]/66" />
-                  <div className="pointer-events-none absolute left-[6px] bottom-[6px] h-5 w-5 border-b-2 border-l-2 border-[#38f0ff]/66" />
-                  <div className="pointer-events-none absolute right-[6px] bottom-[6px] h-5 w-5 border-b-2 border-r-2 border-[#38f0ff]/66" />
-                  <div className="pointer-events-none absolute left-[20px] top-[18px] h-[18px] w-[108px] border border-[#2ce8ff]/10 bg-[linear-gradient(180deg,rgba(12,44,66,0.28),rgba(8,14,26,0.04))] [clip-path:polygon(0%_0%,88%_0%,100%_100%,12%_100%)]" />
-                  <div className="pointer-events-none absolute right-[20px] top-[18px] h-[18px] w-[108px] border border-[#2ce8ff]/10 bg-[linear-gradient(180deg,rgba(12,44,66,0.28),rgba(8,14,26,0.04))] [clip-path:polygon(12%_0%,100%_0%,88%_100%,0%_100%)]" />
-                  <div
-                    className="pointer-events-none absolute inset-x-[-8px] top-[74%] h-[3px] bg-gradient-to-r from-transparent via-[#5af5ff]/24 to-transparent blur-sm"
-                    style={{ animation: "pulse-line 3s ease-in-out infinite" }}
-                  />
-                  <div className="pointer-events-none absolute left-1/2 top-[72px] h-px w-[180px] -translate-x-1/2 bg-gradient-to-r from-transparent via-[#58efff]/26 to-transparent" />
-                  <div className="pointer-events-none absolute left-1/2 bottom-[-18px] h-[28px] w-[240px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(61,232,255,0.24),transparent_72%)] blur-lg" />
+              <div
+                className="relative overflow-hidden border border-[#33dcff]/44 bg-[linear-gradient(180deg,rgba(5,14,28,0.95),rgba(4,10,20,0.98))] px-6 pb-8 pt-6 shadow-[0_0_0_1px_rgba(69,229,255,0.08)_inset,0_0_56px_rgba(22,132,255,0.22)] sm:px-7"
+                style={{ clipPath: "polygon(6% 0%,94% 0%,100% 8%,100% 92%,94% 100%,6% 100%,0% 92%,0% 8%)" }}
+              >
+                <div className="pointer-events-none absolute inset-x-7 top-0 h-px bg-gradient-to-r from-transparent via-[#5af5ff]/84 to-transparent" />
+                <div className="pointer-events-none absolute inset-x-7 bottom-0 h-px bg-gradient-to-r from-transparent via-[#5af5ff]/56 to-transparent" />
+                <div className="pointer-events-none absolute inset-[8px] border border-[#2dcfff]/16" style={{ clipPath: "polygon(6% 0%,94% 0%,100% 8%,100% 92%,94% 100%,6% 100%,0% 92%,0% 8%)" }} />
+                <div className="pointer-events-none absolute left-[10px] top-[10px] h-5 w-5 border-l-2 border-t-2 border-[#38f0ff]/62" />
+                <div className="pointer-events-none absolute right-[10px] top-[10px] h-5 w-5 border-r-2 border-t-2 border-[#38f0ff]/62" />
+                <div className="pointer-events-none absolute left-[10px] bottom-[10px] h-5 w-5 border-b-2 border-l-2 border-[#38f0ff]/42" />
+                <div className="pointer-events-none absolute right-[10px] bottom-[10px] h-5 w-5 border-b-2 border-r-2 border-[#38f0ff]/42" />
+                <div className="pointer-events-none absolute left-[22px] top-[20px] h-[18px] w-[92px] border border-[#2ce8ff]/10 bg-[linear-gradient(180deg,rgba(12,44,66,0.26),rgba(8,14,26,0.04))] [clip-path:polygon(0%_0%,88%_0%,100%_100%,12%_100%)]" />
+                <div className="pointer-events-none absolute right-[22px] top-[20px] h-[18px] w-[92px] border border-[#2ce8ff]/10 bg-[linear-gradient(180deg,rgba(12,44,66,0.26),rgba(8,14,26,0.04))] [clip-path:polygon(12%_0%,100%_0%,88%_100%,0%_100%)]" />
+                <div className="pointer-events-none absolute inset-y-[88px] left-0 w-[18px] bg-[linear-gradient(180deg,transparent,rgba(54,212,255,0.16),transparent)] blur-sm" />
+                <div className="pointer-events-none absolute inset-y-[88px] right-0 w-[18px] bg-[linear-gradient(180deg,transparent,rgba(54,212,255,0.16),transparent)] blur-sm" />
 
-                  <div className="relative">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-center overflow-hidden rounded-[10px] border border-[#1a5878]/60 bg-[rgba(6,16,34,0.86)] shadow-[0_0_16px_rgba(29,144,208,0.08)]">
-                        {LANGUAGE_OPTIONS.map((option) => {
-                          const active = locale === option.key
+                <div className="relative z-10">
+                  <div className="flex justify-start">
+                    <div className="flex items-center overflow-hidden rounded-[12px] border border-[#1a5878]/60 bg-[rgba(6,16,34,0.9)] shadow-[0_0_16px_rgba(29,144,208,0.08)]">
+                      {LANGUAGE_OPTIONS.map((option) => {
+                        const active = locale === option.key
 
-                          return (
-                            <button
-                              key={option.key}
-                              type="button"
-                              onClick={() => setLanguage(option.key)}
-                              className={cn(
-                                "relative min-w-[62px] px-4 py-2.5 text-[12px] font-bold tracking-[0.12em] transition-colors",
-                                active ? "bg-[rgba(19,124,190,0.3)] text-[#44eeff]" : "text-[#5b8497] hover:text-[#b3f4ff]"
-                              )}
-                            >
-                              {option.label}
-                            </button>
-                          )
-                        })}
-                      </div>
+                        return (
+                          <button
+                            key={option.key}
+                            type="button"
+                            onClick={() => setLanguage(option.key)}
+                            className={cn(
+                              "relative min-w-[72px] px-4 py-2.5 text-[12px] font-bold tracking-[0.14em] transition-colors",
+                              active
+                                ? "bg-[linear-gradient(90deg,rgba(28,146,255,0.86),rgba(34,92,255,0.78))] text-white shadow-[0_0_18px_rgba(32,128,255,0.36)]"
+                                : "text-[#5c879b] hover:text-[#bcf7ff]"
+                            )}
+                          >
+                            {option.label}
+                          </button>
+                        )
+                      })}
                     </div>
-
-                    <div className="mt-8 text-center">
-                      <h1 className="text-[2.15rem] font-black tracking-[0.08em] text-white">{copy.welcome}</h1>
-                    </div>
-
-                    <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-                      <div className="relative">
-                        <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#42ecff]" />
-                        <input
-                          value={account}
-                          onChange={(event) => {
-                            setAccount(event.target.value)
-                            setSubmitError(null)
-                          }}
-                          placeholder={copy.accountPlaceholder}
-                          required
-                          className="h-[54px] w-full rounded-[14px] border border-[#2ce8ff]/42 bg-[rgba(9,18,36,0.84)] pl-12 pr-4 text-[15px] text-[#e8f6ff] outline-none transition-all placeholder:text-[#547080] focus:border-[#4aeeff] focus:shadow-[0_0_22px_rgba(45,225,255,0.16)]"
-                        />
-                      </div>
-
-                      <div className="relative">
-                        <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#42ecff]" />
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          value={password}
-                          onChange={(event) => {
-                            setPassword(event.target.value)
-                            setSubmitError(null)
-                          }}
-                          placeholder={copy.passwordPlaceholder}
-                          required
-                          className="h-[54px] w-full rounded-[14px] border border-[#2a5777]/60 bg-[rgba(9,18,36,0.8)] pl-12 pr-12 text-[15px] text-[#e8f6ff] outline-none transition-all placeholder:text-[#547080] focus:border-[#4aeeff] focus:shadow-[0_0_18px_rgba(45,225,255,0.13)]"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword((current) => !current)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-[#5f899a] transition-colors hover:text-[#b9f7ff]"
-                        >
-                          {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-4 text-[14px]">
-                        <label className="flex cursor-pointer items-center gap-2 text-[#86b7c9]">
-                          <input
-                            type="checkbox"
-                            checked={remember}
-                            onChange={(event) => setRemember(event.target.checked)}
-                            className="h-4 w-4 border border-[#205870] bg-[#050f1e] accent-[#18dff5]"
-                          />
-                          <span>{copy.remember}</span>
-                        </label>
-                        <button type="button" className="text-[#38e8ff] transition-colors hover:text-[#aaf4ff]">
-                          {copy.forgot}
-                        </button>
-                      </div>
-
-                      <Button
-                        type="submit"
-                        disabled={submitting}
-                        className="group relative mt-2 h-[58px] w-full rounded-full border border-[#40f0ff]/34 bg-[linear-gradient(90deg,#18d8f6_0%,#1bc6f2_28%,#2468ff_100%)] text-[1.02rem] font-black tracking-[0.14em] text-white shadow-[0_0_36px_rgba(22,165,255,0.38),inset_0_0_12px_rgba(255,255,255,0.13)] transition-all hover:brightness-110 disabled:opacity-75"
-                      >
-                        <span className="absolute inset-y-0 left-0 w-[30%] rounded-full bg-[linear-gradient(90deg,rgba(255,255,255,0.22),transparent)] blur-sm" />
-                        <span className="relative">{submitting ? `${copy.submit}...` : copy.submit}</span>
-                        <ArrowRight className="relative h-5 w-5 transition-transform group-hover:translate-x-1" />
-                      </Button>
-
-                      {submitError ? (
-                        <div className="rounded-[14px] border border-[#ff7b7b]/22 bg-[rgba(74,18,28,0.56)] px-4 py-3 text-[13px] text-[#ffd3d8]">
-                          {submitError}
-                        </div>
-                      ) : null}
-                    </form>
                   </div>
+
+                  <div className="mt-10 text-center">
+                    <h1 className="text-[2.55rem] font-black tracking-[0.08em] text-white sm:text-[2.8rem]">{copy.welcome}</h1>
+                  </div>
+
+                  <form className="mt-9 space-y-5" onSubmit={handleSubmit}>
+                    <div className="relative">
+                      <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#35e7ff]" />
+                      <input
+                        value={account}
+                        onChange={(event) => {
+                          setAccount(event.target.value)
+                          setSubmitError(null)
+                        }}
+                        placeholder={copy.accountPlaceholder}
+                        autoComplete="username"
+                        spellCheck={false}
+                        required
+                        className="h-[56px] w-full rounded-[16px] border border-[#1ea5ff]/48 bg-[rgba(8,18,36,0.9)] pl-12 pr-4 text-[15px] text-[#e8f6ff] outline-none transition-all placeholder:text-[#537185] focus:border-[#4cedff] focus:shadow-[0_0_24px_rgba(45,225,255,0.16)]"
+                      />
+                    </div>
+
+                    <div className="relative">
+                      <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#35e7ff]" />
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(event) => {
+                          setPassword(event.target.value)
+                          setSubmitError(null)
+                        }}
+                        placeholder={copy.passwordPlaceholder}
+                        autoComplete="current-password"
+                        required
+                        className="h-[56px] w-full rounded-[16px] border border-[#1ea5ff]/48 bg-[rgba(8,18,36,0.9)] pl-12 pr-12 text-[15px] text-[#e8f6ff] outline-none transition-all placeholder:text-[#537185] focus:border-[#4cedff] focus:shadow-[0_0_24px_rgba(45,225,255,0.16)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((current) => !current)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[#638ca0] transition-colors hover:text-[#b7f7ff]"
+                        aria-label={locale === "zh" ? "切换密码显示" : "Toggle password visibility"}
+                      >
+                        {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 text-[14px]">
+                      <label className="flex cursor-pointer items-center gap-2 text-[#8ab7ca]">
+                        <input
+                          type="checkbox"
+                          checked={remember}
+                          onChange={(event) => setRemember(event.target.checked)}
+                          className="h-4 w-4 border border-[#235b76] bg-[#06101e] accent-[#18dff5]"
+                        />
+                        <span>{copy.remember}</span>
+                      </label>
+                      <button type="button" className="text-[#36e7ff] transition-colors hover:text-[#b0f7ff]">
+                        {copy.forgot}
+                      </button>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={submitting}
+                      className="group relative mt-1 flex h-[58px] w-full items-center justify-center gap-3 rounded-full border border-[#46edff]/34 bg-[linear-gradient(90deg,#18b7f4_0%,#22cfff_38%,#2354ff_100%)] text-[1.02rem] font-black tracking-[0.16em] text-white shadow-[0_0_40px_rgba(28,156,255,0.4),inset_0_0_14px_rgba(255,255,255,0.13)] transition-all hover:brightness-110 disabled:opacity-75"
+                    >
+                      <span className="absolute inset-y-0 left-0 w-[30%] rounded-full bg-[linear-gradient(90deg,rgba(255,255,255,0.22),transparent)] blur-sm" />
+                      <span className="relative">{submitting ? `${copy.submit}...` : copy.submit}</span>
+                      <ArrowRight className="relative h-5 w-5 transition-transform group-hover:translate-x-1" />
+                    </Button>
+
+                    {submitError ? (
+                      <div className="rounded-[16px] border border-[#ff7b7b]/22 bg-[rgba(74,18,28,0.56)] px-4 py-3 text-[13px] text-[#ffd3d8]">
+                        {submitError}
+                      </div>
+                    ) : null}
+                  </form>
                 </div>
               </div>
-
             </div>
-          </section>
+          </div>
         </div>
       </div>
     </main>
