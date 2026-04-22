@@ -6,7 +6,6 @@ const SERVER_BASE_URL =
   "http://localhost:8080"
 
 const BASE_URL = typeof window === "undefined" ? SERVER_BASE_URL : "/api/proxy"
-const ENABLE_AUTH_HEADER = process.env.NEXT_PUBLIC_ENABLE_AUTH_HEADER === "true"
 
 export interface ApiResponse<T = unknown> {
   code: number
@@ -14,24 +13,29 @@ export interface ApiResponse<T = unknown> {
   data: T
 }
 
+export interface ApiRequestOptions extends RequestInit {
+  includeAuth?: boolean
+}
+
 async function requestRaw<T>(
   path: string,
-  options: RequestInit = {}
+  options: ApiRequestOptions = {}
 ): Promise<T> {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`
   const normalizedBase = BASE_URL.endsWith("/")
     ? BASE_URL.slice(0, -1)
     : BASE_URL
   const url = `${normalizedBase}${normalizedPath}`
-  const authHeaderValue = ENABLE_AUTH_HEADER ? getAuthHeaderValue() : null
+  const { includeAuth = true, ...requestOptions } = options
+  const authHeaderValue = includeAuth ? getAuthHeaderValue() : null
 
   const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
       ...(authHeaderValue ? { Authorization: authHeaderValue } : {}),
-      ...options.headers,
+      ...requestOptions.headers,
     },
-    ...options,
+    ...requestOptions,
   })
 
   if (!res.ok) {
@@ -43,40 +47,40 @@ async function requestRaw<T>(
 
 async function request<T>(
   path: string,
-  options: RequestInit = {}
+  options: ApiRequestOptions = {}
 ): Promise<ApiResponse<T>> {
   return requestRaw<ApiResponse<T>>(path, options)
 }
 
 export const apiClient = {
-  get: <T>(path: string, options?: RequestInit) =>
+  get: <T>(path: string, options?: ApiRequestOptions) =>
     request<T>(path, { method: "GET", ...options }),
 
-  getRaw: <T>(path: string, options?: RequestInit) =>
+  getRaw: <T>(path: string, options?: ApiRequestOptions) =>
     requestRaw<T>(path, { method: "GET", ...options }),
 
-  post: <T>(path: string, body: unknown, options?: RequestInit) =>
+  post: <T>(path: string, body: unknown, options?: ApiRequestOptions) =>
     request<T>(path, {
       method: "POST",
       body: JSON.stringify(body),
       ...options,
     }),
 
-  postRaw: <T>(path: string, body: unknown, options?: RequestInit) =>
+  postRaw: <T>(path: string, body: unknown, options?: ApiRequestOptions) =>
     requestRaw<T>(path, {
       method: "POST",
       body: JSON.stringify(body),
       ...options,
     }),
 
-  put: <T>(path: string, body: unknown, options?: RequestInit) =>
+  put: <T>(path: string, body: unknown, options?: ApiRequestOptions) =>
     request<T>(path, {
       method: "PUT",
       body: JSON.stringify(body),
       ...options,
     }),
 
-  delete: <T>(path: string, options?: RequestInit) =>
+  delete: <T>(path: string, options?: ApiRequestOptions) =>
     request<T>(path, { method: "DELETE", ...options }),
 }
 
