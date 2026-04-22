@@ -5,6 +5,7 @@
 export const apiEndpoints = {
   auth: {
     cloudLogin: "/login/cloud",
+    logout: "/logout",
   },
   project: {
     /**

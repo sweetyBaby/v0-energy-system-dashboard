@@ -257,38 +257,20 @@ export const mergePowerSeries = (base: PowerDeviceSeries[], incoming: PowerDevic
   const merged = new Map<string, PowerDeviceSeries>()
 
   const register = (series: PowerDeviceSeries) => {
-    const mergedSeries =
-      series.deviceId === LEGACY_POWER_DEVICE_ID
-        ? (() => {
-            const candidates = Array.from(merged.values()).filter((item) => item.deviceId !== LEGACY_POWER_DEVICE_ID)
-            const populatedCandidates = candidates.filter((item) => item.points.length > 0)
-
-            if (populatedCandidates.length === 1) {
-              return populatedCandidates[0]
-            }
-
-            if (candidates.length === 1) {
-              return candidates[0]
-            }
-
-            return null
-          })()
-        : null
-    const targetDeviceId = mergedSeries?.deviceId ?? series.deviceId
-    const existing = merged.get(targetDeviceId)
+    const existing = merged.get(series.deviceId)
 
     if (!existing) {
-      merged.set(targetDeviceId, {
-        deviceId: targetDeviceId,
-        deviceName: mergedSeries?.deviceName || series.deviceName,
-        deviceType: mergedSeries?.deviceType ?? series.deviceType,
+      merged.set(series.deviceId, {
+        deviceId: series.deviceId,
+        deviceName: series.deviceName,
+        deviceType: series.deviceType,
         points: [...series.points],
       })
       return
     }
 
-    merged.set(targetDeviceId, {
-      deviceId: targetDeviceId,
+    merged.set(series.deviceId, {
+      deviceId: series.deviceId,
       deviceName: existing.deviceName || series.deviceName,
       deviceType: existing.deviceType ?? series.deviceType,
       points: mergePowerPoints(existing.points, series.points),
@@ -297,6 +279,34 @@ export const mergePowerSeries = (base: PowerDeviceSeries[], incoming: PowerDevic
 
   base.forEach(register)
   incoming.forEach(register)
+
+  const legacySeries = merged.get(LEGACY_POWER_DEVICE_ID)
+  if (!legacySeries) {
+    return Array.from(merged.values())
+  }
+
+  const candidates = Array.from(merged.values()).filter((item) => item.deviceId !== LEGACY_POWER_DEVICE_ID)
+  const populatedCandidates = candidates.filter((item) => item.points.length > 0)
+  const mergeTarget =
+    populatedCandidates.length === 1
+      ? populatedCandidates[0]
+      : candidates.length === 1
+        ? candidates[0]
+        : null
+
+  if (mergeTarget) {
+    merged.set(mergeTarget.deviceId, {
+      ...mergeTarget,
+      points: mergePowerPoints(mergeTarget.points, legacySeries.points),
+    })
+  }
+
+  // Legacy single-series payloads are compatible only for single-device views.
+  // If real multi-device series are already present, keep those and discard the
+  // synthetic compatibility series instead of rendering a fake extra legend item.
+  if (mergeTarget || candidates.length > 0) {
+    merged.delete(LEGACY_POWER_DEVICE_ID)
+  }
 
   return Array.from(merged.values())
 }

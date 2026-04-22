@@ -21,6 +21,7 @@ import {
 import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { clearStoredAuthToken } from "@/lib/auth-storage"
+import { logoutWithCloud } from "@/lib/api/auth"
 
 type DashboardHeaderTab = {
   key: string
@@ -81,6 +82,7 @@ const ProjectContext = createContext<{
   loadCurrentProjectDetail: () => Promise<void>
   loadCurrentProjectRealtime: () => Promise<void>
   clearCurrentProjectOverviewData: () => void
+  resetProjectState: () => void
 }>({
   projectOptions: [],
   selectedProject: buildProjectView(defaultProjectOption),
@@ -92,6 +94,7 @@ const ProjectContext = createContext<{
   loadCurrentProjectDetail: async () => {},
   loadCurrentProjectRealtime: async () => {},
   clearCurrentProjectOverviewData: () => {},
+  resetProjectState: () => {},
 })
 
 export const useProject = () => useContext(ProjectContext)
@@ -233,6 +236,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     setIsProjectLoading(false)
   }, [projectOption.id])
 
+  const resetProjectState = useCallback(() => {
+    setProjectOptions([])
+    setSelectedProjectId(defaultProjectOption.id)
+    setProjectDetails({})
+    setProjectRealtime({})
+    setProjectRealtimeSuccess({})
+    setIsProjectLoading(false)
+    setIsProjectOptionsLoading(false)
+    setProjectOptionsError(null)
+  }, [])
+
   const setSelectedProject = useCallback((project: ProjectOption) => {
     if (!project.id) {
       return
@@ -254,6 +268,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         loadCurrentProjectDetail,
         loadCurrentProjectRealtime,
         clearCurrentProjectOverviewData,
+        resetProjectState,
       }}
     >
       {children}
@@ -274,12 +289,13 @@ export function DashboardHeader({
 }) {
   const router = useRouter()
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
-  const { projectOptions, selectedProject, setSelectedProject, isProjectOptionsLoading, projectOptionsError } =
+  const { projectOptions, selectedProject, setSelectedProject, isProjectOptionsLoading, projectOptionsError, resetProjectState } =
     useProject()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const { language, setLanguage } = useLanguage()
   const controlRef = useRef<HTMLDivElement>(null)
   const { isCompactWidth, isShortHeight } = useDashboardViewport()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const zh = language === "zh"
   const useCompactHeader = compact || isCompactWidth || isShortHeight
   const canSelectProject = projectOptions.length > 0
@@ -293,6 +309,27 @@ export function DashboardHeader({
           ? "Failed to load projects"
           : "No projects"
   const logoutLabel = zh ? "退出登录" : "Logout"
+
+  const handleLogout = async () => {
+    if (isLoggingOut) {
+      return
+    }
+
+    setIsLoggingOut(true)
+
+    try {
+      await logoutWithCloud()
+    } catch (error) {
+      console.error("Failed to logout from backend", error)
+    } finally {
+      setDropdownOpen(false)
+      resetProjectState()
+      clearStoredAuthToken()
+      router.replace("/")
+      router.refresh()
+      setIsLoggingOut(false)
+    }
+  }
 
   useEffect(() => {
     setCurrentTime(new Date())
@@ -639,14 +676,14 @@ export function DashboardHeader({
           <button
             type="button"
             onClick={() => {
-              clearStoredAuthToken()
-              router.replace("/")
+              void handleLogout()
             }}
             className={`relative flex items-center gap-1.5 overflow-hidden border border-[#7a3942]/75 bg-[linear-gradient(180deg,rgba(46,14,24,0.96),rgba(24,8,14,0.98))] px-3 text-[#ffd7dd] shadow-[0_0_18px_rgba(255,93,122,0.1),inset_0_0_0_1px_rgba(255,180,194,0.05)] transition-all hover:border-[#ff6d88]/70 hover:text-white hover:shadow-[0_0_22px_rgba(255,109,136,0.18),inset_0_0_0_1px_rgba(255,180,194,0.08)] ${
               useCompactHeader ? "h-[30px]" : "h-[32px]"
             }`}
             style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
             aria-label={logoutLabel}
+            disabled={isLoggingOut}
           >
             <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#ff9fb2]/65 to-transparent" />
             <LogOut className="h-[13px] w-[13px] shrink-0" />
