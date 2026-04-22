@@ -156,8 +156,9 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   })
   const zh = language === "zh"
   const pageControlLabelSize = contentScale.fluid(11, 17)
-  const pageControlButtonSize = contentScale.fluid(12, 18)
-  const pageControlGroupHeight = contentScale.fluid(32, 45)
+  const pageControlButtonSize = contentScale.fluid(10.5, 15.5)
+  const pageControlGroupHeight = contentScale.fluid(30, 42)
+  const pageControlPillPadding = contentScale.fluid(11, 13.5)
   const pageBcuOptions = useMemo(
     () =>
       selectedProject.devices.map((device, index) => ({
@@ -363,6 +364,16 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     </div>
   )
 
+  const pageToggleGroupClass =
+    "flex shrink-0 items-center gap-1 rounded-[12px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]"
+
+  const getPageToggleButtonClass = (active: boolean) =>
+    `flex items-center justify-center gap-1.5 rounded-[8px] font-medium tracking-[0.02em] transition-all ${
+      active
+        ? "border border-[#45f1d0]/45 bg-[linear-gradient(180deg,rgba(20,221,190,0.94),rgba(7,193,164,0.88))] text-[#04241c] shadow-[0_0_10px_rgba(34,211,238,0.18)]"
+        : "border border-transparent bg-transparent text-[#6d90ad] hover:border-[#22d3ee]/22 hover:text-[#d5efff]"
+    }`
+
   const renderAlarmMonitoringPage = () => (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       <div
@@ -371,7 +382,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
         <div className="flex items-center gap-3">
           <div
-            className="flex shrink-0 items-center gap-1 rounded-[12px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]"
+            className={pageToggleGroupClass}
             style={{ height: pageControlGroupHeight }}
           >
             {(["realtime", "history"] as BcuMode[]).map((mode) => {
@@ -380,12 +391,12 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                 <button
                   key={mode}
                   onClick={() => setBcuMode(mode)}
-                  className={`flex items-center justify-center gap-1.5 rounded-[8px] font-medium tracking-[0.03em] transition-all ${
-                    active
-                      ? "border border-[#45f1d0]/45 bg-[linear-gradient(180deg,rgba(20,221,190,0.94),rgba(7,193,164,0.88))] text-[#04241c] shadow-[0_0_10px_rgba(34,211,238,0.18)]"
-                      : "border border-transparent bg-transparent text-[#6d90ad] hover:border-[#22d3ee]/22 hover:text-[#d5efff]"
-                  }`}
-                  style={{ height: pageControlGroupHeight - 4, paddingInline: 14, fontSize: pageControlButtonSize }}
+                  className={getPageToggleButtonClass(active)}
+                  style={{
+                    height: pageControlGroupHeight - 4,
+                    paddingInline: pageControlPillPadding,
+                    fontSize: pageControlButtonSize,
+                  }}
                 >
                   {active && mode === "realtime" && (
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#04241c]" />
@@ -536,7 +547,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
             <div className="flex shrink-0 items-center gap-1.5 overflow-visible px-1 py-0.5">
               <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
                 <div
-                  className="flex shrink-0 items-center gap-1 rounded-[12px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]"
+                  className={pageToggleGroupClass}
                   style={{ height: pageControlGroupHeight }}
                 >
                   {([
@@ -565,12 +576,12 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                         }}
                         aria-label={zh ? item.labelZh : item.labelEn}
                         title={zh ? item.labelZh : item.labelEn}
-                        className={`flex items-center justify-center rounded-[8px] font-medium transition-all ${
-                          active
-                            ? "border border-[#45f1d0]/45 bg-[linear-gradient(180deg,rgba(20,221,190,0.94),rgba(7,193,164,0.88))] text-[#04241c] shadow-[0_0_10px_rgba(34,211,238,0.18)]"
-                            : "border border-transparent bg-transparent text-[#6d90ad] hover:border-[#22d3ee]/22 hover:text-[#d5efff]"
-                        }`}
-                        style={{ height: pageControlGroupHeight - 4, paddingInline: 14, fontSize: pageControlButtonSize }}
+                        className={getPageToggleButtonClass(active)}
+                        style={{
+                          height: pageControlGroupHeight - 4,
+                          paddingInline: pageControlPillPadding,
+                          fontSize: pageControlButtonSize,
+                        }}
                       >
                         <span>{zh ? item.labelZh : item.labelEn}</span>
                       </button>
@@ -607,17 +618,17 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         {activeTab === "analysis" && (
           <div className={`flex h-full min-h-0 flex-col overflow-hidden ${isCompactViewport ? "gap-2" : "gap-3"}`}>
             <div className={`flex shrink-0 flex-wrap items-center overflow-visible ${isCompactViewport ? "gap-2" : "gap-3"}`}>
-              <div className={`flex items-center gap-1 rounded-[14px] border border-[#1d4c69] bg-[linear-gradient(180deg,rgba(9,25,48,0.92),rgba(8,20,38,0.96))] p-0.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)] ${isCompactViewport ? "h-[34px]" : "h-[36px]"}`}>
+              <div className={pageToggleGroupClass} style={{ height: pageControlGroupHeight }}>
                 {ANALYSIS_RANGES.map((range) => (
                   <button
                     key={range.key}
                     onClick={() => setAnalysisRange(range.key)}
-                    className={`h-full rounded-[10px] tracking-[0.03em] transition-all ${isCompactViewport ? "px-3" : "px-3.5"} ${
-                      analysisRange === range.key
-                        ? "border border-[#00d4aa]/60 bg-[linear-gradient(180deg,rgba(27,220,191,0.96),rgba(7,193,164,0.88))] font-semibold text-[#041c16] shadow-[0_0_16px_rgba(0,212,170,0.22)]"
-                        : "border border-transparent text-[#8aaed2] hover:border-[#22d3ee]/20 hover:bg-[#112347] hover:text-[#e3f4ff]"
-                    }`}
-                    style={{ fontSize: pageControlButtonSize }}
+                    className={getPageToggleButtonClass(analysisRange === range.key)}
+                    style={{
+                      height: pageControlGroupHeight - 4,
+                      paddingInline: pageControlPillPadding,
+                      fontSize: pageControlButtonSize,
+                    }}
                   >
                     {zh ? range.zh : range.en}
                   </button>
