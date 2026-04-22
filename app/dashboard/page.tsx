@@ -128,6 +128,8 @@ function OverviewDataLoader() {
 }
 
 function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+  const lerp = (min: number, max: number, progress: number) => min + (max - min) * progress
   const [analysisRange, setAnalysisRange] = useState<AnalysisRange>(15)
   const [bcuMode, setBcuMode] = useState<BcuMode>("realtime")
   const yesterday = formatDateInputValue(addDays(new Date(), -1))
@@ -142,7 +144,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const [analysisError, setAnalysisError] = useState<string | null>(null)
   const { language } = useLanguage()
   const { selectedProject } = useProject()
-  const { isCompactViewport } = useDashboardViewport()
+  const { width: viewportWidth, height: viewportHeight, devicePixelRatio, isCompactViewport } = useDashboardViewport()
   const overviewScale = useFluidScale<HTMLDivElement>(isCompactViewport ? 760 : 1180, isCompactViewport ? 1440 : 1920, {
     axis: isCompactViewport ? "min" : "width",
     minRootPx: isCompactViewport ? 13 : 14,
@@ -155,10 +157,48 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     maxRootPx: isCompactViewport ? DASHBOARD_CONTENT_SCALE.maxRootPx : 27,
   })
   const zh = language === "zh"
-  const pageControlLabelSize = contentScale.fluid(11, 17)
-  const pageControlButtonSize = contentScale.fluid(10.5, 17)
-  const pageControlGroupHeight = contentScale.fluid(30, 43)
-  const pageControlPillPadding = contentScale.fluid(11, 14.5)
+  const lowDensityBoost = clamp((1.45 - devicePixelRatio) / 0.55, 0, 1)
+  const baseControlProgress = isCompactViewport
+    ? clamp(Math.max((viewportWidth - 760) / 680, (viewportHeight - 620) / 240), 0, 1)
+    : clamp(Math.max((viewportWidth - 1280) / 720, (viewportHeight - 800) / 280), 0, 1)
+  const standardLargeScreenProgress = isCompactViewport
+    ? 0
+    : clamp(
+        Math.max((viewportWidth - 1880) / 780, (viewportHeight - 1040) / 280) * (0.42 + lowDensityBoost * 0.24),
+        0,
+        1,
+      )
+  const ultraLargeScreenProgress = isCompactViewport
+    ? 0
+    : clamp(
+        Math.max((viewportWidth - 3000) / 900, (viewportHeight - 1620) / 260) * (0.3 + lowDensityBoost * 0.15),
+        0,
+        1,
+      )
+  const resolveControlMetric = (
+    compactMin: number,
+    compactMax: number,
+    baseMin: number,
+    baseMax: number,
+    standardMin: number,
+    standardMax: number,
+    ultraMin: number,
+    ultraMax: number,
+  ) => {
+    if (isCompactViewport) {
+      return Number(lerp(compactMin, compactMax, baseControlProgress).toFixed(2))
+    }
+
+    const baseValue = lerp(baseMin, baseMax, baseControlProgress)
+    const standardValue = lerp(standardMin, standardMax, standardLargeScreenProgress)
+    const ultraValue = lerp(ultraMin, ultraMax, ultraLargeScreenProgress)
+    return Number(Math.max(baseValue, standardValue, ultraValue).toFixed(2))
+  }
+  const pageControlLabelSize = resolveControlMetric(11, 13.2, 11.2, 14.1, 12.1, 14.8, 12.8, 15.4)
+  const pageControlButtonSize = resolveControlMetric(10.5, 13.6, 11, 13.6, 12.1, 14.6, 12.8, 15.2)
+  const pageControlGroupHeight = resolveControlMetric(30, 38, 32, 40, 36, 43, 39, 46)
+  const pageControlInputHeight = resolveControlMetric(34, 38, 34, 39, 36, 42, 38, 44)
+  const pageControlPillPadding = resolveControlMetric(11, 13, 11.2, 13.4, 12, 14.6, 12.8, 15.4)
   const pageBcuOptions = useMemo(
     () =>
       selectedProject.devices.map((device, index) => ({
@@ -312,6 +352,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
       label="BCU"
       compact
       fontSize={pageControlButtonSize}
+      height={pageControlInputHeight}
       className="shrink-0"
     />
   )
@@ -407,7 +448,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
             })}
           </div>
           {bcuMode === "history" && (
-            <HistoryDatePicker value={historyDate} onChange={setHistoryDate} max={yesterday} fontSize={pageControlButtonSize} />
+            <HistoryDatePicker value={historyDate} onChange={setHistoryDate} max={yesterday} fontSize={pageControlButtonSize} height={pageControlInputHeight} />
           )}
           {renderPageBcuSelector(alarmDeviceId, setAlarmDeviceId)}
         </div>
@@ -588,7 +629,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                     )
                   })}
                 </div>
-                <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={yesterday} compact fontSize={pageControlButtonSize} />
+                <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={yesterday} compact fontSize={pageControlButtonSize} height={pageControlInputHeight} />
                 {renderPageBcuSelector(cellHistoryDeviceId, setCellHistoryDeviceId)}
                 {cellHistoryViewMode === "detail" && (
                   <CellHistoryMultiPicker
@@ -597,6 +638,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                     onClear={() => setSelectedHistoryCells([])}
                     compact
                     fontSize={pageControlButtonSize}
+                    height={pageControlInputHeight}
                   />
                 )}
               </div>
@@ -651,6 +693,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                     quickSelectLabel={zh ? "昨天" : "Yesterday"}
                     compact={isCompactViewport}
                     fontSize={pageControlButtonSize}
+                    height={pageControlInputHeight}
                   />
                 </div>
               )}

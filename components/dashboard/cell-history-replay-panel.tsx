@@ -917,6 +917,7 @@ export function CellHistoryMultiPicker({
   maxSelection = 3,
   compact = false,
   fontSize,
+  height,
 }: {
   value: number[]
   onChange: (value: number[]) => void
@@ -924,6 +925,7 @@ export function CellHistoryMultiPicker({
   maxSelection?: number
   compact?: boolean
   fontSize?: number
+  height?: number
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -931,8 +933,8 @@ export function CellHistoryMultiPicker({
   const controlSize = fontSize ?? (compact ? scale.fluid(11, 16) : scale.fluid(12, 18))
   const hintSize = scale.fluid(10, 14)
   const footerControlSize = compact ? scale.fluid(10.8, 15) : scale.fluid(11.4, 16)
-  const triggerHeight = compact ? "34px" : "36px"
-  const iconSize = compact ? scale.fluid(14, 18) : scale.fluid(14, 20)
+  const triggerHeight = `${height ?? (compact ? 34 : 36)}px`
+  const iconSize = Math.max(compact ? scale.fluid(14, 18) : scale.fluid(14, 20), controlSize + 1.5)
   const [open, setOpen] = useState(false)
   const [draftValue, setDraftValue] = useState<number[]>(value)
   const limitReached = draftValue.length >= maxSelection

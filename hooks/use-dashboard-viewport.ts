@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 type DashboardViewport = {
   width: number
   height: number
+  devicePixelRatio: number
   isCompactWidth: boolean
   isShortHeight: boolean
   isCompactViewport: boolean
@@ -13,6 +14,7 @@ type DashboardViewport = {
 const DEFAULT_VIEWPORT = {
   width: 1440,
   height: 900,
+  devicePixelRatio: 1,
 }
 
 const readViewport = () => {
@@ -25,6 +27,7 @@ const readViewport = () => {
   return {
     width: Math.round(visualViewport?.width ?? window.innerWidth),
     height: Math.round(visualViewport?.height ?? window.innerHeight),
+    devicePixelRatio: window.devicePixelRatio || 1,
   }
 }
 

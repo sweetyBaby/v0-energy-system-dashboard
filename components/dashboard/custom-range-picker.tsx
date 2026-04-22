@@ -54,6 +54,7 @@ export function CustomRangePicker({
   align = "end",
   compact = false,
   fontSize,
+  height,
 }: {
   value: DateRange | undefined
   onChange: (range: DateRange | undefined) => void
@@ -66,6 +67,7 @@ export function CustomRangePicker({
   align?: "start" | "center" | "end"
   compact?: boolean
   fontSize?: number
+  height?: number
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -75,8 +77,12 @@ export function CustomRangePicker({
 
   const normalizedMaxDate = useMemo(() => toDayStart(maxDate), [maxDate])
   const monthNames = zh ? monthNamesZh : monthNamesEn
-  const triggerFontSize = fontSize ? `${fontSize}px` : "clamp(0.82rem, calc(var(--overview-root-size, 15px) * 0.92), 1.02rem)"
-  const triggerIconSize = fontSize ? `${Math.max(fontSize + 1.5, compact ? 14 : 15)}px` : "clamp(0.92rem, calc(var(--overview-root-size, 15px) * 1.02), 1.1rem)"
+  const resolvedHeight = height ?? (compact ? 34 : 36)
+  const resolvedFontSize = fontSize ?? null
+  const triggerFontSize = resolvedFontSize ? `${resolvedFontSize}px` : "clamp(0.82rem, calc(var(--overview-root-size, 15px) * 0.92), 1.02rem)"
+  const triggerIconSize = resolvedFontSize
+    ? `${Math.max(resolvedFontSize + 1.5, resolvedHeight * 0.42)}px`
+    : "clamp(0.92rem, calc(var(--overview-root-size, 15px) * 1.02), 1.1rem)"
   const panelTitleFontSize = "clamp(0.92rem, calc(var(--overview-root-size, 15px) * 1.02), 1.08rem)"
   const panelHintFontSize = "clamp(0.72rem, calc(var(--overview-root-size, 15px) * 0.8), 0.84rem)"
   const panelControlFontSize = "clamp(0.82rem, calc(var(--overview-root-size, 15px) * 0.92), 0.96rem)"
@@ -125,11 +131,11 @@ export function CustomRangePicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          className={`flex items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60 ${compact ? "h-[34px] px-2.5" : "h-[36px] px-3.5"}`}
-          style={{ fontSize: triggerFontSize }}
-        >
+        <PopoverTrigger asChild>
+          <button
+            className={`flex items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60 ${compact ? "px-2.5" : "px-3.5"}`}
+            style={{ fontSize: triggerFontSize, height: `${resolvedHeight}px` }}
+          >
           <CalendarDays className="shrink-0 text-[#8db7ff]" style={{ width: triggerIconSize, height: triggerIconSize }} />
           <span className="font-medium">{buttonLabel ?? formatRangeLabel(value, language)}</span>
           <ChevronDown className="shrink-0 text-[#7b8ab8]" style={{ width: triggerIconSize, height: triggerIconSize }} />

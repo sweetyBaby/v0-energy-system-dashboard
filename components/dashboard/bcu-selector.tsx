@@ -20,6 +20,7 @@ type BcuSelectorProps = {
   label?: string
   compact?: boolean
   fontSize?: number
+  height?: number
   className?: string
 }
 
@@ -33,6 +34,7 @@ export function BcuSelector({
   label = "BCU",
   compact = false,
   fontSize,
+  height,
   className = "",
 }: BcuSelectorProps) {
   const [open, setOpen] = useState(false)
@@ -59,10 +61,13 @@ export function BcuSelector({
     return null
   }
 
-  const height = compact ? "h-[34px]" : "h-[36px]"
+  const controlHeight = height ?? (compact ? 34 : 36)
+  const controlMinWidth = compact ? 112 : 136
   const minWidth = compact ? "min-w-[112px]" : "min-w-[136px]"
   const textSize = compact ? "text-[12px]" : "text-[13px]"
   const px = compact ? "pl-3 pr-9" : "pl-3.5 pr-9"
+  const iconSize = Math.max(fontSize ? fontSize + 2 : compact ? 14 : 15, Math.round(controlHeight * 0.42))
+  const optionHeight = Math.max(compact ? 32 : 34, controlHeight - 2)
 
   return (
     <div ref={ref} className={`relative flex items-center ${className}`.trim()}>
@@ -73,8 +78,12 @@ export function BcuSelector({
         aria-label={label}
         aria-haspopup="listbox"
         aria-expanded={open}
-        style={fontSize ? { fontSize: `${fontSize}px` } : undefined}
-        className={`relative ${height} ${minWidth} ${textSize} ${px} appearance-none rounded-[11px] border font-medium text-[#eff7ff] outline-none transition-all
+        style={{
+          ...(fontSize ? { fontSize: `${fontSize}px` } : undefined),
+          height: `${controlHeight}px`,
+          minWidth: `${controlMinWidth}px`,
+        }}
+        className={`relative ${minWidth} ${textSize} ${px} appearance-none rounded-[11px] border font-medium text-[#eff7ff] outline-none transition-all
           ${
             open
               ? "border-[#45f1d0] bg-[linear-gradient(180deg,rgba(20,34,82,0.98),rgba(11,24,58,0.98))] shadow-[0_0_0_1px_rgba(69,241,208,0.08)_inset,0_0_18px_rgba(34,211,238,0.16)]"
@@ -87,7 +96,8 @@ export function BcuSelector({
       </button>
 
       <ChevronDown
-        className={`pointer-events-none absolute right-3 h-4 w-4 text-[#8db7ff] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        className={`pointer-events-none absolute right-3 text-[#8db7ff] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
       />
 
       {/* dropdown list */}
@@ -113,13 +123,16 @@ export function BcuSelector({
                   setOpen(false)
                 }}
                 className={`relative flex cursor-pointer select-none items-center px-3 transition-colors duration-100
-                  ${compact ? "h-[32px] text-[12px]" : "h-[34px] text-[13px]"}
+                  ${compact ? "text-[12px]" : "text-[13px]"}
                   ${
                     isSelected
                       ? "bg-[rgba(69,241,208,0.08)] text-[#45f1d0]"
                       : "text-[#c8deff] hover:bg-[rgba(115,198,255,0.07)] hover:text-[#eff7ff]"
                   }`}
-                style={fontSize ? { fontSize: `${fontSize}px` } : undefined}
+                style={{
+                  ...(fontSize ? { fontSize: `${fontSize}px` } : undefined),
+                  height: `${optionHeight}px`,
+                }}
               >
                 {isSelected && (
                   <span className="absolute left-0 top-1/2 h-3 w-[2px] -translate-y-1/2 rounded-r-full bg-[#45f1d0]/80" />

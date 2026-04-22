@@ -44,22 +44,25 @@ export function HistoryDatePicker({
   max,
   compact = false,
   fontSize,
+  height,
 }: {
   value: string
   onChange: (date: string) => void
   max: string
   compact?: boolean
   fontSize?: number
+  height?: number
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
   const scale = useFluidScale<HTMLDivElement>(1180, 1920, { minRootPx: 14, maxRootPx: 18 })
   const triggerFontSize = fontSize ?? (compact ? scale.fluid(11, 13.5) : scale.fluid(12, 15))
-  const triggerIconSize = compact ? scale.fluid(14, 16) : scale.fluid(14, 18)
+  const resolvedHeight = height ?? (compact ? 34 : 36)
+  const triggerIconSize = Math.max(compact ? scale.fluid(14, 16) : scale.fluid(14, 18), triggerFontSize + 1.5, resolvedHeight * 0.42)
   const panelTitleSize = scale.fluid(14, 17)
   const panelControlSize = scale.fluid(12, 14.5)
   const panelHintSize = scale.fluid(11, 13)
-  const triggerHeight = compact ? "34px" : "36px"
+  const triggerHeight = `${resolvedHeight}px`
   const panelWidth = scale.fluid(320, 376)
   const navEdge = scale.fluid(36, 42)
 
