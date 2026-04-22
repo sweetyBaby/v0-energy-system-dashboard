@@ -2,7 +2,7 @@
 
 import { startTransition, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowRight, Eye, EyeOff, LockKeyhole, User } from "lucide-react"
+import { AlertTriangle, ArrowRight, Eye, EyeOff, LockKeyhole, User } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { Button } from "@/components/ui/button"
 import { loginWithCloud } from "@/lib/api/auth"
@@ -845,8 +845,21 @@ export default function LoginPage() {
                 </Button>
 
                 {submitError ? (
-                  <div className="rounded-[16px] border border-[#ff7b7b]/22 bg-[rgba(74,18,28,0.56)] px-4 py-3 text-[13px] text-[#ffd3d8]">
-                    {submitError}
+                  <div className="relative overflow-hidden rounded-[18px] border border-[#ff7b7b]/26 bg-[linear-gradient(180deg,rgba(64,14,24,0.9),rgba(31,9,18,0.92))] px-4 py-3.5 text-[#ffe5e9] shadow-[0_12px_32px_rgba(20,4,10,0.28),0_0_0_1px_rgba(255,146,162,0.05)_inset]">
+                    <div className="absolute inset-y-3 left-0 w-px bg-gradient-to-b from-transparent via-[#ff8da0] to-transparent" />
+                    <div className="flex items-start gap-3 pl-1">
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#ff9cac]/24 bg-[radial-gradient(circle_at_30%_30%,rgba(255,182,193,0.24),rgba(255,107,125,0.08)_58%,transparent_100%)] text-[#ffb6c0]">
+                        <AlertTriangle className="h-4 w-4" />
+                      </span>
+                      <div className="space-y-1">
+                        <p className="text-[13px] font-semibold tracking-[0.08em] text-white/96">
+                          {locale === "zh" ? "登录校验未通过" : "Login validation failed"}
+                        </p>
+                        <p className="text-[13px] leading-5 text-[#ffd3d8]/90">
+                          {submitError}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 ) : null}
               </form>
