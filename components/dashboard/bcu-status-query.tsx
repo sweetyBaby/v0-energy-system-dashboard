@@ -281,27 +281,27 @@ const createSections = (zh: boolean): ChartSection[] => [
   {
     kind: "pair",
     labelZh: "单体温度(°C)",
-    labelEn: "Cell Temp(°C)",
+    labelEn: "Cell Temperature(°C)",
     color: "#fbbf24",
     domain: [15, 45],
     unit: "°C",
     formatter: (value) => `${value.toFixed(1)}`,
     lines: [
-      { key: "maxTemp", nameZh: "最高温", nameEn: "Max", color: "#f87171" },
-      { key: "minTemp", nameZh: "最低温", nameEn: "Min", color: "#7dd3fc" },
+      { key: "maxTemp", nameZh: "最高温", nameEn: "Max Temp", color: "#f87171" },
+      { key: "minTemp", nameZh: "最低温", nameEn: "Min Temp", color: "#7dd3fc" },
     ],
   },
   {
     kind: "pair",
     labelZh: "单体电压(V)",
-    labelEn: "Cell Volt(V)",
+    labelEn: "Cell Voltage(V)",
     color: "#22d3ee",
     domain: [21, 29],
     unit: "V",
     formatter: (value) => `${value.toFixed(2)}`,
     lines: [
-      { key: "maxCell", nameZh: "最高单体", nameEn: "Max", color: "#f87171" },
-      { key: "minCell", nameZh: "最低单体", nameEn: "Min", color: "#7dd3fc" },
+      { key: "maxCell", nameZh: "最高电压", nameEn: "Max Voltage", color: "#f87171" },
+      { key: "minCell", nameZh: "最低电压", nameEn: "Min Voltage", color: "#7dd3fc" },
     ],
   },
 ]

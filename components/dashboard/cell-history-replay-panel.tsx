@@ -918,6 +918,7 @@ export function CellHistoryMultiPicker({
   compact = false,
   fontSize,
   height,
+  minWidth,
 }: {
   value: number[]
   onChange: (value: number[]) => void
@@ -926,6 +927,7 @@ export function CellHistoryMultiPicker({
   compact?: boolean
   fontSize?: number
   height?: number
+  minWidth?: number
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -966,9 +968,22 @@ export function CellHistoryMultiPicker({
     <div ref={scale.ref} className="relative" style={scale.rootStyle}>
       <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className={`flex min-w-[200px] items-center justify-between border border-[#26456e] bg-[#101840] text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60 ${compact ? "gap-1.5 rounded-[11px] px-2.5" : "gap-2 rounded-xl px-3"}`} style={{ height: triggerHeight, fontSize: controlSize }}>
+        <button
+          className={`relative flex min-w-[200px] items-center justify-between border text-[#e8f4fc] transition-all ${compact ? "gap-1.5 rounded-[11px] px-2.5" : "gap-2 rounded-xl px-3"}`}
+          style={{
+            height: triggerHeight,
+            fontSize: controlSize,
+            minWidth: minWidth ? `${minWidth}px` : undefined,
+            background: "linear-gradient(180deg,rgba(17,27,60,0.98),rgba(10,18,45,0.98))",
+            borderColor: open ? "rgba(69,241,208,0.55)" : "rgba(39,73,111,1)",
+            boxShadow: open
+              ? "0 0 0 1px rgba(69,241,208,0.08) inset, 0 0 18px rgba(34,211,238,0.14)"
+              : "0 0 0 1px rgba(115,198,255,0.05) inset, 0 8px 18px rgba(0,0,0,0.16)",
+          }}
+        >
+          <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#79dfff]/70 to-transparent" />
           <div className="flex min-w-0 items-center gap-2">
-            <span className="font-medium">{label}</span>
+            <span className="font-semibold tracking-[0.01em]">{label}</span>
             <span className="rounded-full border border-[#2f568a] bg-[#0b1735] px-1.5 py-0.5 text-[#8feaff]" style={{ fontSize: hintSize }}>
               {displayValue.length}/{maxSelection}
             </span>

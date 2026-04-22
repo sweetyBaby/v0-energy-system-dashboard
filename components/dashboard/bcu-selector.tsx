@@ -21,6 +21,7 @@ type BcuSelectorProps = {
   compact?: boolean
   fontSize?: number
   height?: number
+  minWidth?: number
   className?: string
 }
 
@@ -35,6 +36,7 @@ export function BcuSelector({
   compact = false,
   fontSize,
   height,
+  minWidth,
   className = "",
 }: BcuSelectorProps) {
   const [open, setOpen] = useState(false)
@@ -62,8 +64,8 @@ export function BcuSelector({
   }
 
   const controlHeight = height ?? (compact ? 34 : 36)
-  const controlMinWidth = compact ? 112 : 136
-  const minWidth = compact ? "min-w-[112px]" : "min-w-[136px]"
+  const controlMinWidth = minWidth ?? (compact ? 112 : 136)
+  const minWidthClass = compact ? "min-w-[112px]" : "min-w-[136px]"
   const textSize = compact ? "text-[12px]" : "text-[13px]"
   const px = compact ? "pl-3 pr-9" : "pl-3.5 pr-9"
   const iconSize = Math.max(fontSize ? fontSize + 2 : compact ? 14 : 15, Math.round(controlHeight * 0.42))
@@ -83,16 +85,16 @@ export function BcuSelector({
           height: `${controlHeight}px`,
           minWidth: `${controlMinWidth}px`,
         }}
-        className={`relative ${minWidth} ${textSize} ${px} appearance-none rounded-[11px] border font-medium text-[#eff7ff] outline-none transition-all
+        className={`relative ${minWidthClass} ${textSize} ${px} appearance-none rounded-[11px] border text-[#eff7ff] outline-none transition-all
           ${
             open
-              ? "border-[#45f1d0] bg-[linear-gradient(180deg,rgba(20,34,82,0.98),rgba(11,24,58,0.98))] shadow-[0_0_0_1px_rgba(69,241,208,0.08)_inset,0_0_18px_rgba(34,211,238,0.16)]"
-              : "border-[#26456e] bg-[linear-gradient(180deg,rgba(16,24,64,0.98),rgba(11,18,44,0.98))] shadow-[0_0_0_1px_rgba(115,198,255,0.04)_inset,0_8px_18px_rgba(0,0,0,0.16)] hover:border-[#4da9d8] hover:shadow-[0_0_0_1px_rgba(115,198,255,0.08)_inset,0_0_18px_rgba(34,211,238,0.12)]"
+              ? "border-[#45f1d0]/55 bg-[linear-gradient(180deg,rgba(18,32,76,0.98),rgba(10,22,54,0.98))] shadow-[0_0_0_1px_rgba(69,241,208,0.08)_inset,0_0_18px_rgba(34,211,238,0.14)]"
+              : "border-[#27496f] bg-[linear-gradient(180deg,rgba(17,27,60,0.98),rgba(10,18,45,0.98))] shadow-[0_0_0_1px_rgba(115,198,255,0.05)_inset,0_8px_18px_rgba(0,0,0,0.16)] hover:border-[#58c7ff]/68 hover:shadow-[0_0_0_1px_rgba(115,198,255,0.08)_inset,0_0_18px_rgba(34,211,238,0.1)]"
           }`}
       >
         {/* top shimmer line */}
         <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#79dfff]/70 to-transparent" />
-        <span className="block truncate text-left">{selectedLabel}</span>
+        <span className="block truncate text-left font-semibold tracking-[0.01em]">{selectedLabel}</span>
       </button>
 
       <ChevronDown

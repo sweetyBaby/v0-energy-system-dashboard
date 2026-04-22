@@ -45,6 +45,7 @@ export function HistoryDatePicker({
   compact = false,
   fontSize,
   height,
+  minWidth,
 }: {
   value: string
   onChange: (date: string) => void
@@ -52,6 +53,7 @@ export function HistoryDatePicker({
   compact?: boolean
   fontSize?: number
   height?: number
+  minWidth?: number
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -97,13 +99,22 @@ export function HistoryDatePicker({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
-            className={`flex shrink-0 items-center whitespace-nowrap border border-[#26456e] bg-[#101840] text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60 ${
+            className={`flex shrink-0 items-center whitespace-nowrap rounded-[11px] border text-[#e8f4fc] transition-all ${
               compact ? "gap-1.5 rounded-[11px] px-2.5" : "gap-2 rounded-xl px-3.5"
             }`}
-            style={{ height: triggerHeight, fontSize: triggerFontSize }}
+            style={{
+              height: triggerHeight,
+              fontSize: triggerFontSize,
+              minWidth: minWidth ? `${minWidth}px` : undefined,
+              background: "linear-gradient(180deg,rgba(17,27,60,0.98),rgba(10,18,45,0.98))",
+              borderColor: open ? "rgba(69,241,208,0.55)" : "rgba(39,73,111,1)",
+              boxShadow: open
+                ? "0 0 0 1px rgba(69,241,208,0.08) inset, 0 0 18px rgba(34,211,238,0.14)"
+                : "0 0 0 1px rgba(115,198,255,0.05) inset, 0 8px 18px rgba(0,0,0,0.16)",
+            }}
           >
             <CalendarDays className="text-[#8db7ff]" style={{ width: triggerIconSize, height: triggerIconSize }} />
-            <span className="font-medium">{formatted}</span>
+            <span className="font-semibold tracking-[0.01em]">{formatted}</span>
             <ChevronDown className="text-[#7b8ab8]" style={{ width: triggerIconSize, height: triggerIconSize }} />
           </button>
         </PopoverTrigger>

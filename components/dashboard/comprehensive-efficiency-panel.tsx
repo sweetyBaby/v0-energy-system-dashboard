@@ -914,21 +914,42 @@ export function ComprehensiveEfficiencyPanel({
             fontSize={controlFontSize}
           />
 
-          <div className={`flex items-center gap-1 rounded-xl border border-[#203166] bg-[#16204b]/90 p-0.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)] ${isCompactViewport ? "h-[34px]" : "h-[36px]"}`}>
-            {displayRangeOptions.map((item) => (
-              <button
-                key={item.key}
-                onClick={() => setRange(item.key)}
-                className={`h-full rounded-lg transition-all ${isCompactViewport ? "px-2.5" : "px-3"} ${
-                  range === item.key
-                    ? "bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)]"
-                    : "text-[#7b8ab8] hover:bg-[#1d2a5f]/80 hover:text-[#e8f4fc]"
-                }`}
-                style={{ fontSize: `${controlFontSize}px` }}
-              >
-                {item.label}
-              </button>
-            ))}
+          <div className={`flex items-center gap-1 overflow-hidden rounded-xl border border-[#203166] bg-[#16204b]/90 p-0.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)] ${isCompactViewport ? "h-[34px]" : "h-[36px]"}`}>
+            {displayRangeOptions.map((item, index) => {
+              const edge =
+                displayRangeOptions.length === 1
+                  ? "solo"
+                  : index === 0
+                    ? "start"
+                    : index === displayRangeOptions.length - 1
+                      ? "end"
+                      : "middle"
+
+              const active = range === item.key
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => setRange(item.key)}
+                  className={`relative h-full rounded-lg transition-all ${isCompactViewport ? "px-2.5" : "px-3"} ${
+                    active
+                      ? `z-[1] bg-[#11d8bf] font-medium text-[#07162b] shadow-[0_0_18px_rgba(17,216,191,0.2)] ${
+                          edge === "start" ? "rounded-l-[10px]" : edge === "end" ? "rounded-r-[10px]" : edge === "solo" ? "rounded-[10px]" : ""
+                        }`
+                      : "text-[#7b8ab8] hover:bg-transparent hover:text-[#e8f4fc]"
+                  }`}
+                  style={{
+                    fontSize: `${controlFontSize}px`,
+                    height: active ? "calc(100% + 4px)" : "100%",
+                    marginTop: active ? "-2px" : 0,
+                    marginBottom: active ? "-2px" : 0,
+                    marginLeft: active && (edge === "start" || edge === "solo") ? "-2px" : 0,
+                    marginRight: active && (edge === "end" || edge === "solo") ? "-2px" : 0,
+                  }}
+                >
+                  {item.label}
+                </button>
+              )
+            })}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

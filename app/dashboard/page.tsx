@@ -199,6 +199,9 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const pageControlGroupHeight = resolveControlMetric(30, 38, 32, 40, 36, 43, 39, 46)
   const pageControlInputHeight = resolveControlMetric(34, 38, 34, 39, 36, 42, 38, 44)
   const pageControlPillPadding = resolveControlMetric(11, 13, 11.2, 13.4, 12, 14.6, 12.8, 15.4)
+  const pageControlDateMinWidth = resolveControlMetric(126, 142, 132, 154, 160, 186, 172, 198)
+  const pageControlDeviceMinWidth = resolveControlMetric(112, 128, 118, 138, 132, 156, 142, 168)
+  const pageControlCellMinWidth = resolveControlMetric(200, 220, 206, 232, 220, 248, 232, 264)
   const pageBcuOptions = useMemo(
     () =>
       selectedProject.devices.map((device, index) => ({
@@ -353,6 +356,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
       compact
       fontSize={pageControlButtonSize}
       height={pageControlInputHeight}
+      minWidth={pageControlDeviceMinWidth}
       className="shrink-0"
     />
   )
@@ -406,14 +410,31 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   )
 
   const pageToggleGroupClass =
-    "flex shrink-0 items-center gap-1 rounded-[12px] border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] p-[2px] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset,0_8px_18px_rgba(0,0,0,0.18)]"
+    "flex shrink-0 items-center gap-1 overflow-hidden rounded-[12px] border border-[#27496f] bg-[linear-gradient(180deg,rgba(17,27,60,0.96),rgba(10,18,45,0.98))] p-[2px] shadow-[0_0_0_1px_rgba(115,198,255,0.05)_inset,0_10px_22px_rgba(0,0,0,0.22)]"
 
-  const getPageToggleButtonClass = (active: boolean) =>
-    `flex items-center justify-center gap-1.5 rounded-[8px] font-medium tracking-[0.02em] transition-all ${
+  const getPageToggleButtonClass = (active: boolean, edge: "start" | "middle" | "end" | "solo") =>
+    `relative flex items-center justify-center gap-1.5 rounded-[8px] font-semibold tracking-[0.01em] transition-all ${
       active
-        ? "border border-[#45f1d0]/45 bg-[linear-gradient(180deg,rgba(20,221,190,0.94),rgba(7,193,164,0.88))] text-[#04241c] shadow-[0_0_10px_rgba(34,211,238,0.18)]"
-        : "border border-transparent bg-transparent text-[#6d90ad] hover:border-[#22d3ee]/22 hover:text-[#d5efff]"
+        ? `z-[1] bg-[linear-gradient(180deg,rgba(28,219,190,0.96),rgba(10,193,165,0.9))] text-[#04241c] shadow-[0_0_0_1px_rgba(255,255,255,0.08)_inset,0_0_12px_rgba(34,211,238,0.12)] ${
+            edge === "start"
+              ? "rounded-l-[10px]"
+              : edge === "end"
+                ? "rounded-r-[10px]"
+                : edge === "solo"
+                  ? "rounded-[10px]"
+                  : ""
+          }`
+        : "bg-transparent text-[#85a9cb] hover:bg-transparent hover:text-[#e6f4ff]"
     }`
+  const getPageToggleButtonStyle = (active: boolean, edge: "start" | "middle" | "end" | "solo") => ({
+    height: active ? pageControlGroupHeight : pageControlGroupHeight - 4,
+    paddingInline: pageControlPillPadding,
+    fontSize: pageControlButtonSize,
+    marginTop: active ? -2 : 0,
+    marginBottom: active ? -2 : 0,
+    marginLeft: active && (edge === "start" || edge === "solo") ? -2 : 0,
+    marginRight: active && (edge === "end" || edge === "solo") ? -2 : 0,
+  })
 
   const renderAlarmMonitoringPage = () => (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
@@ -428,16 +449,13 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           >
             {(["realtime", "history"] as BcuMode[]).map((mode) => {
               const active = bcuMode === mode
+              const edge = mode === "realtime" ? "start" : "end"
               return (
                 <button
                   key={mode}
                   onClick={() => setBcuMode(mode)}
-                  className={getPageToggleButtonClass(active)}
-                  style={{
-                    height: pageControlGroupHeight - 4,
-                    paddingInline: pageControlPillPadding,
-                    fontSize: pageControlButtonSize,
-                  }}
+                  className={getPageToggleButtonClass(active, edge)}
+                  style={getPageToggleButtonStyle(active, edge)}
                 >
                   {active && mode === "realtime" && (
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#04241c]" />
@@ -448,7 +466,14 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
             })}
           </div>
           {bcuMode === "history" && (
-            <HistoryDatePicker value={historyDate} onChange={setHistoryDate} max={yesterday} fontSize={pageControlButtonSize} height={pageControlInputHeight} />
+            <HistoryDatePicker
+              value={historyDate}
+              onChange={setHistoryDate}
+              max={yesterday}
+              fontSize={pageControlButtonSize}
+              height={pageControlInputHeight}
+              minWidth={pageControlDateMinWidth}
+            />
           )}
           {renderPageBcuSelector(alarmDeviceId, setAlarmDeviceId)}
         </div>
@@ -604,6 +629,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                     },
                   ] as { key: CellHistoryViewMode; labelZh: string; labelEn: string }[]).map((item) => {
                     const active = cellHistoryViewMode === item.key
+                    const edge = item.key === "overview" ? "start" : "end"
 
                     return (
                       <button
@@ -617,19 +643,23 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                         }}
                         aria-label={zh ? item.labelZh : item.labelEn}
                         title={zh ? item.labelZh : item.labelEn}
-                        className={getPageToggleButtonClass(active)}
-                        style={{
-                          height: pageControlGroupHeight - 4,
-                          paddingInline: pageControlPillPadding,
-                          fontSize: pageControlButtonSize,
-                        }}
+                        className={getPageToggleButtonClass(active, edge)}
+                        style={getPageToggleButtonStyle(active, edge)}
                       >
                         <span>{zh ? item.labelZh : item.labelEn}</span>
                       </button>
                     )
                   })}
                 </div>
-                <HistoryDatePicker value={cellHistoryDate} onChange={setCellHistoryDate} max={yesterday} compact fontSize={pageControlButtonSize} height={pageControlInputHeight} />
+                <HistoryDatePicker
+                  value={cellHistoryDate}
+                  onChange={setCellHistoryDate}
+                  max={yesterday}
+                  compact
+                  fontSize={pageControlButtonSize}
+                  height={pageControlInputHeight}
+                  minWidth={pageControlDateMinWidth}
+                />
                 {renderPageBcuSelector(cellHistoryDeviceId, setCellHistoryDeviceId)}
                 {cellHistoryViewMode === "detail" && (
                   <CellHistoryMultiPicker
@@ -639,6 +669,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                     compact
                     fontSize={pageControlButtonSize}
                     height={pageControlInputHeight}
+                    minWidth={pageControlCellMinWidth}
                   />
                 )}
               </div>
@@ -661,20 +692,27 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           <div className={`flex h-full min-h-0 flex-col overflow-hidden ${isCompactViewport ? "gap-2" : "gap-3"}`}>
             <div className={`flex shrink-0 flex-wrap items-center overflow-visible ${isCompactViewport ? "gap-2" : "gap-3"}`}>
               <div className={pageToggleGroupClass} style={{ height: pageControlGroupHeight }}>
-                {ANALYSIS_RANGES.map((range) => (
-                  <button
-                    key={range.key}
-                    onClick={() => setAnalysisRange(range.key)}
-                    className={getPageToggleButtonClass(analysisRange === range.key)}
-                    style={{
-                      height: pageControlGroupHeight - 4,
-                      paddingInline: pageControlPillPadding,
-                      fontSize: pageControlButtonSize,
-                    }}
-                  >
-                    {zh ? range.zh : range.en}
-                  </button>
-                ))}
+                {ANALYSIS_RANGES.map((range, index) => {
+                  const edge =
+                    ANALYSIS_RANGES.length === 1
+                      ? "solo"
+                      : index === 0
+                        ? "start"
+                        : index === ANALYSIS_RANGES.length - 1
+                          ? "end"
+                          : "middle"
+
+                  return (
+                    <button
+                      key={range.key}
+                      onClick={() => setAnalysisRange(range.key)}
+                      className={getPageToggleButtonClass(analysisRange === range.key, edge)}
+                      style={getPageToggleButtonStyle(analysisRange === range.key, edge)}
+                    >
+                      {zh ? range.zh : range.en}
+                    </button>
+                  )
+                })}
               </div>
               {analysisRange === "custom" && (
                 <div className="min-w-0 flex-1 sm:flex-none">
@@ -694,6 +732,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                     compact={isCompactViewport}
                     fontSize={pageControlButtonSize}
                     height={pageControlInputHeight}
+                    minWidth={pageControlDateMinWidth + 14}
                   />
                 </div>
               )}

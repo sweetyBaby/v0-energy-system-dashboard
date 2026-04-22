@@ -55,6 +55,7 @@ export function CustomRangePicker({
   compact = false,
   fontSize,
   height,
+  minWidth,
 }: {
   value: DateRange | undefined
   onChange: (range: DateRange | undefined) => void
@@ -68,6 +69,7 @@ export function CustomRangePicker({
   compact?: boolean
   fontSize?: number
   height?: number
+  minWidth?: number
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -133,11 +135,20 @@ export function CustomRangePicker({
     <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
-            className={`flex items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60 ${compact ? "px-2.5" : "px-3.5"}`}
-            style={{ fontSize: triggerFontSize, height: `${resolvedHeight}px` }}
+            className={`flex items-center gap-2 rounded-xl border text-[#e8f4fc] transition-all ${compact ? "px-2.5" : "px-3.5"}`}
+            style={{
+              fontSize: triggerFontSize,
+              height: `${resolvedHeight}px`,
+              minWidth: minWidth ? `${minWidth}px` : undefined,
+              background: "linear-gradient(180deg,rgba(17,27,60,0.98),rgba(10,18,45,0.98))",
+              borderColor: open ? "rgba(69,241,208,0.55)" : "rgba(39,73,111,1)",
+              boxShadow: open
+                ? "0 0 0 1px rgba(69,241,208,0.08) inset, 0 0 18px rgba(34,211,238,0.14)"
+                : "0 0 0 1px rgba(115,198,255,0.05) inset, 0 8px 18px rgba(0,0,0,0.16)",
+            }}
           >
           <CalendarDays className="shrink-0 text-[#8db7ff]" style={{ width: triggerIconSize, height: triggerIconSize }} />
-          <span className="font-medium">{buttonLabel ?? formatRangeLabel(value, language)}</span>
+          <span className="font-semibold tracking-[0.01em]">{buttonLabel ?? formatRangeLabel(value, language)}</span>
           <ChevronDown className="shrink-0 text-[#7b8ab8]" style={{ width: triggerIconSize, height: triggerIconSize }} />
         </button>
       </PopoverTrigger>
