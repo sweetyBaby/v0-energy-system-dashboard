@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { Table, LineChart as LineChartIcon } from "lucide-react"
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
@@ -20,6 +21,14 @@ const formatMetric = (value: number | null | undefined, digits = 1, suffix = "")
 const formatTableMetric = (value: number | null | undefined, digits = 1) => {
   if (value == null || Number.isNaN(value)) return "--"
   return value.toFixed(digits)
+}
+
+const toNumericTooltipValue = (value: ValueType) => {
+  if (Array.isArray(value)) {
+    return Number(value[0] ?? NaN)
+  }
+
+  return typeof value === "number" ? value : Number(value)
 }
 
 function AnalysisPlaceholder({ text, fontSize }: { text: string; fontSize: number }) {
@@ -161,7 +170,7 @@ export function TemperatureDifferenceAnalysis({
                 <Tooltip
                   contentStyle={tooltipStyle}
                   labelStyle={{ color: "#7b8ab8", fontSize: tooltipFontSize }}
-                  formatter={(value: number | null, name: string) => [formatMetric(value, 1, " °C"), name]}
+                  formatter={(value: ValueType, name: NameType) => [formatMetric(toNumericTooltipValue(value), 1, " °C"), String(name)]}
                 />
                 <Legend
                   wrapperStyle={{ paddingTop: "6px" }}

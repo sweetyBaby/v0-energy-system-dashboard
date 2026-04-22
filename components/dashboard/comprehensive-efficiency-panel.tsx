@@ -334,13 +334,6 @@ export function ComprehensiveEfficiencyPanel({
     }
   }, [activeRequestRange, currentDay, deviceOptions, language, range, selectedDeviceId, selectedProject.projectId])
 
-  const legacyRangeOptions = [
-    { key: "week" as const, label: language === "zh" ? "近7天" : "7 Days" },
-    { key: "month" as const, label: language === "zh" ? "本月" : "This Month" },
-    { key: "year" as const, label: language === "zh" ? "本年" : "This Year" },
-    { key: "custom" as const, label: language === "zh" ? "自定义" : "Custom" },
-  ]
-
   const legendText = {
     chargeCapacity: language === "zh" ? "充电容量 (Ah)" : "Charge Capacity (Ah)",
     dischargeCapacity: language === "zh" ? "放电容量 (Ah)" : "Discharge Capacity (Ah)",
@@ -378,23 +371,6 @@ export function ComprehensiveEfficiencyPanel({
     [seriesConfig],
   )
 
-  const legacyTableHeaders = {
-    period: language === "zh" ? "时间" : "Period",
-    chargeCapacity: language === "zh" ? "充电容量 (Ah)" : "Charge Capacity (Ah)",
-    dischargeCapacity: language === "zh" ? "放电容量 (Ah)" : "Discharge Capacity (Ah)",
-    capacityEfficiency: language === "zh" ? "容量效率 (%)" : "Capacity Efficiency (%)",
-    chargeEnergy: language === "zh" ? "充电电量 (kWh)" : "Charge Energy (kWh)",
-    dischargeEnergy: language === "zh" ? "放电电量 (kWh)" : "Discharge Energy (kWh)",
-    energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
-  }
-
-  const legacyCustomHint =
-    language === "zh" ? "最多选择 31 天，结束日期不能超过昨天" : "Select up to 31 days, ending no later than yesterday"
-  const legacyMaxRangeError =
-    language === "zh" ? "自定义日期范围最多 31 天，且结束日期不能超过昨天" : "Custom date range cannot exceed 31 days or go beyond yesterday"
-  const selectRangeLabel = language === "zh" ? "选择日期范围" : "Select range"
-  const emptyStateText = language === "zh" ? "当前时间范围暂无数据" : "No data for the selected range"
-
   const formatRangeLabel = (rangeValue: DateRange | undefined) => {
     if (!rangeValue?.from) return displaySelectRangeLabel
 
@@ -403,64 +379,7 @@ export function ComprehensiveEfficiencyPanel({
     return `${formatDate(rangeValue.from)} - ${formatDate(rangeValue.to)}`
   }
 
-  const legacyTableColumns: Array<{
-    key: TableColumnKey
-    label: string
-    unit: string
-    align: "left" | "right"
-    tone: string
-  }> = [
-    { key: "period", label: language === "zh" ? "鏃堕棿" : "Period", unit: "", align: "left", tone: "text-[#dce7ff]" },
-    { key: "chargeCapacity", label: language === "zh" ? "鍏呯數瀹归噺" : "Charge Capacity", unit: "Ah", align: "right", tone: "text-[#eef4ff]" },
-    { key: "dischargeCapacity", label: language === "zh" ? "鏀剧數瀹归噺" : "Discharge Capacity", unit: "Ah", align: "right", tone: "text-[#eef4ff]" },
-    { key: "capacityEfficiency", label: language === "zh" ? "瀹归噺鏁堢巼" : "Capacity Efficiency", unit: "%", align: "right", tone: "text-[#90f0c1]" },
-    { key: "chargeEnergy", label: language === "zh" ? "鍏呯數鐢甸噺" : "Charge Energy", unit: "kWh", align: "right", tone: "text-[#eef4ff]" },
-    { key: "dischargeEnergy", label: language === "zh" ? "鏀剧數鐢甸噺" : "Discharge Energy", unit: "kWh", align: "right", tone: "text-[#eef4ff]" },
-    { key: "energyEfficiency", label: language === "zh" ? "鑳介噺鏁堢巼" : "Energy Efficiency", unit: "%", align: "right", tone: "text-[#90f0c1]" },
-  ]
-
   const renderTableMetric = (value: number | null | undefined, digits = 1) => formatNullableMetric(value, digits)
-  const legacyLocalizedRangeOptions = [
-    { key: "week" as const, label: language === "zh" ? "近7天" : "7 Days" },
-    { key: "month" as const, label: language === "zh" ? "本月" : "This Month" },
-    { key: "year" as const, label: language === "zh" ? "本年" : "This Year" },
-    { key: "custom" as const, label: language === "zh" ? "自定义" : "Custom" },
-  ]
-  const legacyLocalizedLegendText = {
-    chargeCapacity: language === "zh" ? "充电容量 (Ah)" : "Charge Capacity (Ah)",
-    dischargeCapacity: language === "zh" ? "放电容量 (Ah)" : "Discharge Capacity (Ah)",
-    chargeEnergy: language === "zh" ? "充电电量 (kWh)" : "Charge Energy (kWh)",
-    dischargeEnergy: language === "zh" ? "放电电量 (kWh)" : "Discharge Energy (kWh)",
-    capacityEfficiency: language === "zh" ? "容量效率 (%)" : "Capacity Efficiency (%)",
-    energyEfficiency: language === "zh" ? "能量效率 (%)" : "Energy Efficiency (%)",
-  }
-  const legacyLocalizedTableColumns: Array<{
-    key: TableColumnKey
-    label: string
-    unit: string
-    align: "left" | "right"
-    tone: string
-  }> = [
-    { key: "period", label: language === "zh" ? "时间" : "Period", unit: "", align: "left", tone: "text-[#dce7ff]" },
-    { key: "chargeCapacity", label: language === "zh" ? "充电容量" : "Charge Capacity", unit: "Ah", align: "right", tone: "text-[#eef4ff]" },
-    { key: "dischargeCapacity", label: language === "zh" ? "放电容量" : "Discharge Capacity", unit: "Ah", align: "right", tone: "text-[#eef4ff]" },
-    { key: "capacityEfficiency", label: language === "zh" ? "容量效率" : "Capacity Efficiency", unit: "%", align: "right", tone: "text-[#90f0c1]" },
-    { key: "chargeEnergy", label: language === "zh" ? "充电电量" : "Charge Energy", unit: "kWh", align: "right", tone: "text-[#eef4ff]" },
-    { key: "dischargeEnergy", label: language === "zh" ? "放电电量" : "Discharge Energy", unit: "kWh", align: "right", tone: "text-[#eef4ff]" },
-    { key: "energyEfficiency", label: language === "zh" ? "能量效率" : "Energy Efficiency", unit: "%", align: "right", tone: "text-[#90f0c1]" },
-  ]
-  const legacyLocalizedCustomHint =
-    language === "zh" ? "最多选择 31 天，结束日期不能超过昨天" : "Select up to 31 days, ending no later than yesterday"
-  const legacyLocalizedMaxRangeError =
-    language === "zh" ? "自定义日期范围最多 31 天，且结束日期不能超过昨天" : "Custom date range cannot exceed 31 days or go beyond yesterday"
-  const localizedSelectRangeLabel = language === "zh" ? "选择日期范围" : "Select range"
-  const localizedEmptyStateText = language === "zh" ? "当前时间范围暂无数据" : "No data for the selected range"
-  const localizedTooltipPeriodLabel = language === "zh" ? "统计时段" : "Period"
-  const localizedLoadingText = language === "zh" ? "加载综合能效数据..." : "Loading efficiency data..."
-  const localizedTitle = language === "zh" ? "综合能效统计" : "Efficiency Analytics"
-  const localizedChartLabel = language === "zh" ? "图表" : "Chart"
-  const localizedTableLabel = language === "zh" ? "表格" : "Table"
-  const localizedQuickSelectLabel = language === "zh" ? "昨天" : "Yesterday"
 
   const displayRangeOptions = [
     { key: "week" as const, label: language === "zh" ? "近7天" : "7 Days" },
@@ -1277,8 +1196,9 @@ export function ComprehensiveEfficiencyPanel({
                       {item.label}
                     </td>
                     {displayTableColumns.slice(1).map((column, index) => {
-                      const value = getTableMetricValue(item, column.key)
-                      const breakdown = getTableMetricBreakdown(item, column.key)
+                      const metricKey = column.key as SeriesKey
+                      const value = getTableMetricValue(item, metricKey)
+                      const breakdown = getTableMetricBreakdown(item, metricKey)
 
                       return (
                         <td

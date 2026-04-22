@@ -654,13 +654,18 @@ export const normalizeRealtimeDeviceSnapshots = (
   projectDevices: ProjectDevice[] = [],
   requestSucceeded: boolean
 ): DeviceRealtimeSnapshotView[] => {
-  const candidateDevices =
+  const candidateDevices: RawProjectRealtimeDevice[] =
     realtime?.devices?.length
       ? realtime.devices
       : projectDevices.map((device) => ({
           deviceId: device.deviceId,
           deviceName: device.deviceName,
           deviceType: device.deviceType,
+          voltage: null,
+          current: null,
+          power: null,
+          soc: null,
+          soh: null,
         }))
 
   if (!candidateDevices.length) return []

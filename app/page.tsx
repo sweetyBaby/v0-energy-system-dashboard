@@ -822,7 +822,7 @@ export default function LoginPage() {
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between gap-6 pt-1 text-[14px]">
+                <div className="flex items-center gap-6 pt-1 text-[14px]">
                   <label className="flex cursor-pointer items-center gap-3 text-[#B9C5D6]">
                     <input
                       type="checkbox"
@@ -832,9 +832,6 @@ export default function LoginPage() {
                     />
                     <span className="text-[14px]">{copy.remember}</span>
                   </label>
-                  <button type="button" className="text-[14px] font-semibold text-[#f3a260] transition-colors hover:text-[#ffd1a9]">
-                    {copy.forgot}
-                  </button>
                 </div>
 
                 <Button

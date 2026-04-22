@@ -27,11 +27,11 @@ const GRP_LABEL: Record<string, { zh: string; en: string }> = {
   current: { zh: "充放电", en: "C/D"  },
   temp:    { zh: "温度",  en: "Temp"  },
   soc:     { zh: "SOC",   en: "SOC"  },
-  comms:   { zh: "通讯",  en: "Comms" },
+  comms:   { zh: "通信",  en: "Comms" },
   other:   { zh: "其他",  en: "Other" },
 }
 const ACTION_MAP: Record<number, { zh: string; en: string; color: string }> = {
-  5: { zh: "断开+闭死", en: "Trip+Lock",  color: "#E24B4A" },
+  5: { zh: "断开锁死", en: "Trip+Lock",  color: "#E24B4A" },
   4: { zh: "断接触器",  en: "Trip",       color: "#E24B4A" },
   3: { zh: "降额运行",  en: "Derate",     color: "#BA7517" },
   2: { zh: "记录上报",  en: "Log+Report", color: "#378ADD" },
@@ -65,10 +65,10 @@ const ALL_ALARMS: AlarmEntry[] = [
   { time:"2026-03-25 11:00:00", duration:65, lv:3, group:"temp",    nameZh:"温度异常", nameEn:"Temp Anomaly",         source:"BCU-02", triggerZh:"温度梯度超限",      triggerEn:"Temp gradient high",     ref:"12°C",   rref:"8°C",    unit:"°C",  statusZh:"已恢复", statusEn:"Recovered"    },
   { time:"2026-03-25 14:30:00", duration:30, lv:3, group:"temp",    nameZh:"温度异常", nameEn:"Temp Anomaly",         source:"BCU-06", triggerZh:"温度梯度超限",      triggerEn:"Temp gradient high",     ref:"11°C",   rref:"8°C",    unit:"°C",  statusZh:"已恢复", statusEn:"Recovered"    },
   // 通信中断 × 4
-  { time:"2026-03-25 08:45:00", duration:30, lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"PCS-01", triggerZh:"通讯链路异常",      triggerEn:"Link error",             ref:"—",      rref:"—",      unit:"—",   statusZh:"已恢复", statusEn:"Recovered"    },
-  { time:"2026-03-25 12:45:00", duration:30, lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"BCU-07", triggerZh:"通讯链路异常",      triggerEn:"Link error",             ref:"—",      rref:"—",      unit:"—",   statusZh:"已恢复", statusEn:"Recovered"    },
-  { time:"2026-03-25 16:15:00", duration:30, lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"BCU-03", triggerZh:"通讯链路异常",      triggerEn:"Link error",             ref:"—",      rref:"—",      unit:"—",   statusZh:"已恢复", statusEn:"Recovered"    },
-  { time:"2026-03-25 22:30:00", duration:40, lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"EMS",    triggerZh:"通讯链路异常",      triggerEn:"Link error",             ref:"—",      rref:"—",      unit:"—",   statusZh:"已恢复", statusEn:"Recovered"    },
+  { time:"2026-03-25 08:45:00", duration:30, lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"PCS-01", triggerZh:"通信链路异常",      triggerEn:"Link error",             ref:"—",      rref:"—",      unit:"—",   statusZh:"已恢复", statusEn:"Recovered"    },
+  { time:"2026-03-25 12:45:00", duration:30, lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"BCU-07", triggerZh:"通信链路异常",      triggerEn:"Link error",             ref:"—",      rref:"—",      unit:"—",   statusZh:"已恢复", statusEn:"Recovered"    },
+  { time:"2026-03-25 16:15:00", duration:30, lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"BCU-03", triggerZh:"通信链路异常",      triggerEn:"Link error",             ref:"—",      rref:"—",      unit:"—",   statusZh:"已恢复", statusEn:"Recovered"    },
+  { time:"2026-03-25 22:30:00", duration:40, lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"EMS",    triggerZh:"通信链路异常",      triggerEn:"Link error",             ref:"—",      rref:"—",      unit:"—",   statusZh:"已恢复", statusEn:"Recovered"    },
   // SOC过低 × 2
   { time:"2026-03-25 03:30:00", duration:40, lv:2, group:"soc",     nameZh:"SOC过低",  nameEn:"SOC Low",              source:"BCU-05", triggerZh:"SOC 低于警戒值",    triggerEn:"SOC below warning",      ref:"12%",    rref:"15%",    unit:"%",   statusZh:"已恢复", statusEn:"Recovered"    },
   { time:"2026-03-25 11:30:00", duration:40, lv:2, group:"soc",     nameZh:"SOC过低",  nameEn:"SOC Low",              source:"BCU-05", triggerZh:"SOC 低于警戒值",    triggerEn:"SOC below warning",      ref:"11%",    rref:"15%",    unit:"%",   statusZh:"已恢复", statusEn:"Recovered"    },
@@ -102,7 +102,7 @@ const ALL_ALARMS: AlarmEntry[] = [
   // 通信中断 × 5  (Lv1, Lv2, Lv2, Lv3, Lv1)
   { time:"2026-03-26 03:00:00", duration:20, lv:1, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"BCU-02", triggerZh:"心跳包短暂丢失",        triggerEn:"Heartbeat briefly lost",   ref:"—",      rref:"—",      unit:"—",   statusZh:"已恢复", statusEn:"Recovered"    },
   { time:"2026-03-26 08:30:00", duration:25, lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"PCS-01", triggerZh:"通讯延迟超限",          triggerEn:"Comm delay exceeded",      ref:"200ms",  rref:"180ms",  unit:"ms",  statusZh:"已恢复", statusEn:"Recovered"    },
-  { time:"2026-03-26 12:00:00", duration:30, lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"BCU-04", triggerZh:"通讯链路异常",          triggerEn:"Link error",               ref:"—",      rref:"—",      unit:"—",   statusZh:"已恢复", statusEn:"Recovered"    },
+  { time:"2026-03-26 12:00:00", duration:30, lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"BCU-04", triggerZh:"通信链路异常",          triggerEn:"Link error",               ref:"—",      rref:"—",      unit:"—",   statusZh:"已恢复", statusEn:"Recovered"    },
   { time:"2026-03-26 18:45:00", duration:35, lv:3, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"EMS",    triggerZh:"EMS 通讯超时",          triggerEn:"EMS comm timeout",         ref:"5s",     rref:"3s",     unit:"s",   statusZh:"已恢复", statusEn:"Recovered"    },
   { time:"2026-03-26 23:30:00", duration:25, lv:1, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",     source:"BCU-06", triggerZh:"心跳包短暂丢失",        triggerEn:"Heartbeat briefly lost",   ref:"—",      rref:"—",      unit:"—",   statusZh:"已恢复", statusEn:"Recovered"    },
   // SOC过低 × 3  (Lv2, Lv3, Lv4)
@@ -141,7 +141,7 @@ const HIST_POOL: Omit<AlarmEntry, "time" | "duration" | "statusZh" | "statusEn">
   { lv:1, group:"temp",    nameZh:"温度异常", nameEn:"Temp Anomaly",        source:"BCU-01", triggerZh:"温度轻微偏高",          triggerEn:"Temp slightly high",       ref:"36°C",   rref:"35°C",   unit:"°C"  },
   { lv:2, group:"soc",     nameZh:"SOC过低",  nameEn:"SOC Low",             source:"BCU-05", triggerZh:"SOC 低于警戒值",        triggerEn:"SOC below warning",        ref:"14%",    rref:"15%",    unit:"%"   },
   { lv:2, group:"temp",    nameZh:"风扇故障", nameEn:"Fan Fault",           source:"BCU-03", triggerZh:"风扇转速偏低",          triggerEn:"Fan speed low",            ref:"—",      rref:"—",      unit:"—"   },
-  { lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",    source:"PCS-01", triggerZh:"通讯链路异常",          triggerEn:"Link error",               ref:"—",      rref:"—",      unit:"—"   },
+  { lv:2, group:"comms",   nameZh:"通信中断", nameEn:"Comm Interrupted",    source:"PCS-01", triggerZh:"通信链路异常",          triggerEn:"Link error",               ref:"—",      rref:"—",      unit:"—"   },
   { lv:2, group:"temp",    nameZh:"温度异常", nameEn:"Temp Anomaly",        source:"BCU-03", triggerZh:"温度梯度偏高",          triggerEn:"Temp gradient elevated",   ref:"9°C",    rref:"8°C",    unit:"°C"  },
   { lv:2, group:"cell",    nameZh:"欠压告警", nameEn:"Undervolt Alarm",     source:"BCU-06", triggerZh:"单体电压低于轻警值",    triggerEn:"Cell below light warn",    ref:"3.12V",  rref:"3.15V",  unit:"V"   },
   { lv:3, group:"temp",    nameZh:"温度异常", nameEn:"Temp Anomaly",        source:"BCU-05", triggerZh:"温度梯度超限",          triggerEn:"Temp gradient high",       ref:"12°C",   rref:"8°C",    unit:"°C"  },

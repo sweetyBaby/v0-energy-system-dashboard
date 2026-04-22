@@ -720,7 +720,7 @@ const renderTrendHighlightDot = (
   strokeWidth: number,
 ) => {
   if (!props?.payload?.[activeFlag]) {
-    return null
+    return <circle cx={props?.cx ?? 0} cy={props?.cy ?? 0} r={0} fill="transparent" stroke="none" />
   }
 
   const key = `${String(props.dataKey ?? activeFlag)}-${String(props.payload?.time ?? props.index ?? "dot")}`
@@ -1678,7 +1678,7 @@ export function CellHistoryReplayPanel({
         })
 
         if (baseData.length === 0) {
-          return { key, title, label, data: [] }
+          return { key, title, data: [] }
         }
 
         const maxIndex = baseData.reduce((best, current, index, rows) => (current.max > rows[best].max ? index : best), 0)

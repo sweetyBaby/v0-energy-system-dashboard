@@ -468,7 +468,7 @@ export function DashboardHeader({
                     filter: "drop-shadow(0 0 16px rgba(60,223,255,0.42)) drop-shadow(0 0 26px rgba(60,223,255,0.18))",
                   }}
                 >
-                  {zh ? "Enercloud" : "Enercloud"}
+                  {zh ? "EnerCloud" : "EnerCloud"}
                 </h1>
               </div>
 

@@ -1,10 +1,12 @@
 import type { Metadata } from "next"
 import { Analytics } from "@vercel/analytics/next"
+import { AuthExpiredHandler } from "@/components/auth/auth-expired-handler"
 import { LanguageProvider } from "@/components/language-provider"
+import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Enercloud",
+  title: "EnerCloud",
   description: "Real-time monitoring, analytics, replay, and reporting for energy storage systems.",
   generator: "v0.app",
   icons: {
@@ -21,7 +23,11 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="font-sans antialiased">
-        <LanguageProvider>{children}</LanguageProvider>
+        <LanguageProvider>
+          <AuthExpiredHandler />
+          {children}
+          <Toaster />
+        </LanguageProvider>
         <Analytics />
       </body>
     </html>

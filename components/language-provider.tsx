@@ -87,7 +87,7 @@ export const translations: Translations = {
   "normal": { zh: "正常", en: "Normal" },
   "warning": { zh: "预警", en: "Warning" },
   "fault": { zh: "故障", en: "Fault" },
-  "cellNumber": { zh: "电芯编号", en: "cellNumber" },
+  "cellNumber": { zh: "电芯编号", en: "Cell Number" },
   // Charge/Discharge Table
   "chargeDischargeRecord": { zh: "充放电记录", en: "Charge/Discharge Record" },
   "date": { zh: "日期", en: "Date" },

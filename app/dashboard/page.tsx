@@ -80,7 +80,7 @@ const TAB_META: Record<DashboardTab, { zh: string; en: string }> = {
   bms: { zh: "电芯矩阵", en: "Cell Matrix" },
   "cell-history": { zh: "电芯历史", en: "Cell History" },
   analysis: { zh: "数据分析", en: "Analysis" },
-  reports: { zh: "报表信息", en: "Reports" },
+  reports: { zh: "报表中心", en: "Reports" },
 }
 
 function OverviewDataLoader() {
@@ -284,7 +284,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           `Failed to load analysis trend for ${selectedProject.projectId} from ${analysisDateRange.startDate} to ${analysisDateRange.endDate}`,
           error
         )
-        setAnalysisError(zh ? "数据分析接口加载失败" : "Failed to load analysis trend")
+        setAnalysisError(zh ? "数据加载失败，请稍后重试" : "Failed to load analysis data")
         setAnalysisTrendData(null)
       } finally {
         if (!cancelled) {
@@ -437,7 +437,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#f59e0b]/35 bg-[linear-gradient(180deg,rgba(36,24,10,0.7),rgba(18,14,8,0.6))] px-3 py-1.5 text-[#ffd089] shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset,0_10px_24px_rgba(0,0,0,0.2)] backdrop-blur-[4px]">
           <Wrench className="h-3.5 w-3.5 shrink-0" />
           <span className="font-semibold tracking-[0.04em]" style={{ fontSize: pageControlLabelSize }}>
-            {zh ? "Demo预览，功能开发中 / 敬请期待正式版本" : "Demo preview, in progress / Full version coming soon"}
+            {zh ? "Demo 预览 · 功能开发中，敬请期待" : "Demo preview · Full version coming soon"}
           </span>
         </div>
       </div>
