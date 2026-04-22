@@ -53,6 +53,7 @@ export function CustomRangePicker({
   quickSelectLabel,
   align = "end",
   compact = false,
+  fontSize,
 }: {
   value: DateRange | undefined
   onChange: (range: DateRange | undefined) => void
@@ -64,6 +65,7 @@ export function CustomRangePicker({
   quickSelectLabel?: string
   align?: "start" | "center" | "end"
   compact?: boolean
+  fontSize?: number
 }) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -73,8 +75,8 @@ export function CustomRangePicker({
 
   const normalizedMaxDate = useMemo(() => toDayStart(maxDate), [maxDate])
   const monthNames = zh ? monthNamesZh : monthNamesEn
-  const triggerFontSize = "clamp(0.82rem, calc(var(--overview-root-size, 15px) * 0.92), 1.02rem)"
-  const triggerIconSize = "clamp(0.92rem, calc(var(--overview-root-size, 15px) * 1.02), 1.1rem)"
+  const triggerFontSize = fontSize ? `${fontSize}px` : "clamp(0.82rem, calc(var(--overview-root-size, 15px) * 0.92), 1.02rem)"
+  const triggerIconSize = fontSize ? `${Math.max(fontSize + 1.5, compact ? 14 : 15)}px` : "clamp(0.92rem, calc(var(--overview-root-size, 15px) * 1.02), 1.1rem)"
   const panelTitleFontSize = "clamp(0.92rem, calc(var(--overview-root-size, 15px) * 1.02), 1.08rem)"
   const panelHintFontSize = "clamp(0.72rem, calc(var(--overview-root-size, 15px) * 0.8), 0.84rem)"
   const panelControlFontSize = "clamp(0.82rem, calc(var(--overview-root-size, 15px) * 0.92), 0.96rem)"

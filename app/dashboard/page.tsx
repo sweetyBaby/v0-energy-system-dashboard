@@ -156,9 +156,9 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   })
   const zh = language === "zh"
   const pageControlLabelSize = contentScale.fluid(11, 17)
-  const pageControlButtonSize = contentScale.fluid(10.5, 15.5)
-  const pageControlGroupHeight = contentScale.fluid(30, 42)
-  const pageControlPillPadding = contentScale.fluid(11, 13.5)
+  const pageControlButtonSize = contentScale.fluid(10.5, 17)
+  const pageControlGroupHeight = contentScale.fluid(30, 43)
+  const pageControlPillPadding = contentScale.fluid(11, 14.5)
   const pageBcuOptions = useMemo(
     () =>
       selectedProject.devices.map((device, index) => ({
@@ -380,10 +380,10 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         className="relative flex shrink-0 items-center gap-3 overflow-visible border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
-        <div className="flex items-center gap-3">
-          <div
-            className={pageToggleGroupClass}
-            style={{ height: pageControlGroupHeight }}
+          <div className="flex items-center gap-3">
+            <div
+              className={pageToggleGroupClass}
+              style={{ height: pageControlGroupHeight }}
           >
             {(["realtime", "history"] as BcuMode[]).map((mode) => {
               const active = bcuMode === mode
@@ -407,7 +407,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
             })}
           </div>
           {bcuMode === "history" && (
-            <HistoryDatePicker value={historyDate} onChange={setHistoryDate} max={yesterday} />
+            <HistoryDatePicker value={historyDate} onChange={setHistoryDate} max={yesterday} fontSize={pageControlButtonSize} />
           )}
           {renderPageBcuSelector(alarmDeviceId, setAlarmDeviceId)}
         </div>
@@ -650,6 +650,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                     }
                     quickSelectLabel={zh ? "昨天" : "Yesterday"}
                     compact={isCompactViewport}
+                    fontSize={pageControlButtonSize}
                   />
                 </div>
               )}

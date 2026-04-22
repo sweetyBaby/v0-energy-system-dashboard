@@ -719,11 +719,12 @@ const renderTrendHighlightDot = (
   radius: number,
   strokeWidth: number,
 ) => {
+  const key = `${String(props?.dataKey ?? activeFlag)}-${String(props?.payload?.time ?? props?.index ?? "dot")}`
+
   if (!props?.payload?.[activeFlag]) {
-    return <circle cx={props?.cx ?? 0} cy={props?.cy ?? 0} r={0} fill="transparent" stroke="none" />
+    return <circle key={key} cx={props?.cx ?? 0} cy={props?.cy ?? 0} r={0} fill="transparent" stroke="none" />
   }
 
-  const key = `${String(props.dataKey ?? activeFlag)}-${String(props.payload?.time ?? props.index ?? "dot")}`
   return <circle key={key} cx={props.cx} cy={props.cy} r={radius} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
 }
 
