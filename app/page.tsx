@@ -339,237 +339,249 @@ function RightDecoration() {
 function Background() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* Deep gradient base */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#061a2e] via-[#030c14] to-[#010406]" />
+      {/* Deep gradient base - richer colors */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,#0c2a48_0%,#051525_35%,#020a10_70%,#010408_100%)]" />
       
-      {/* Top arc highlight */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_50%_at_50%_-10%,#0a2848_0%,transparent_55%)]" />
+      {/* Center spotlight effect */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_50%_50%,rgba(0,60,100,0.15)_0%,transparent_70%)]" />
       
-      {/* Center subtle vignette */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_50%_50%,transparent_20%,#010306_100%)]" />
+      {/* Edge vignette */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_50%,transparent_30%,rgba(0,5,15,0.8)_100%)]" />
 
-      {/* Circuit board pattern - bottom layer */}
-      <svg className="absolute inset-0 h-full w-full opacity-[0.025]" xmlns="http://www.w3.org/2000/svg">
+      {/* Animated gradient overlay */}
+      <div className="absolute inset-0 animate-[pulse_15s_ease-in-out_infinite] bg-[radial-gradient(ellipse_100%_60%_at_50%_0%,rgba(0,150,200,0.08)_0%,transparent_60%)]" />
+
+      {/* Tech grid - fine lines */}
+      <svg className="absolute inset-0 h-full w-full opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <pattern id="circuit" width="100" height="100" patternUnits="userSpaceOnUse">
-            <path d="M10 10 H40 V30 H60 V10 H90" fill="none" stroke="#00ccff" strokeWidth="0.5" />
-            <path d="M10 50 H30 V70 H50 V50 H70 V90" fill="none" stroke="#00ccff" strokeWidth="0.5" />
-            <path d="M90 30 V60 H70 V90" fill="none" stroke="#00ccff" strokeWidth="0.5" />
-            <circle cx="10" cy="10" r="2" fill="#00ddff" />
-            <circle cx="40" cy="30" r="2" fill="#00ddff" />
-            <circle cx="90" cy="10" r="2" fill="#00ddff" />
-            <circle cx="30" cy="70" r="2" fill="#00ddff" />
-            <circle cx="70" cy="90" r="2" fill="#00ddff" />
-            <rect x="58" y="48" width="4" height="4" fill="#00ccff" />
+          <pattern id="tech-grid" width="80" height="80" patternUnits="userSpaceOnUse">
+            <path d="M80 0 L80 80 M0 80 L80 80" fill="none" stroke="#00aadd" strokeWidth="0.3" />
+            <circle cx="80" cy="80" r="1" fill="#00ddff" opacity="0.5" />
+          </pattern>
+          <linearGradient id="grid-mask" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="white" stopOpacity="0.3" />
+            <stop offset="50%" stopColor="white" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="white" stopOpacity="0.2" />
+          </linearGradient>
+          <mask id="grid-fade">
+            <rect width="100%" height="100%" fill="url(#grid-mask)" />
+          </mask>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#tech-grid)" mask="url(#grid-fade)" />
+      </svg>
+
+      {/* Hexagon grid - larger and more visible */}
+      <svg className="absolute inset-0 h-full w-full opacity-[0.045]" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="hex-grid" width="56" height="97" patternUnits="userSpaceOnUse" patternTransform="scale(2)">
+            <path d="M28 0 L56 16.5 L56 49.5 L28 66 L0 49.5 L0 16.5 Z" fill="none" stroke="#00ccee" strokeWidth="0.4" />
+            <path d="M28 31 L56 47.5 L56 80.5 L28 97 L0 80.5 L0 47.5 Z" fill="none" stroke="#00bbdd" strokeWidth="0.3" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#circuit)" />
+        <rect width="100%" height="100%" fill="url(#hex-grid)" />
       </svg>
 
-      {/* Hexagon grid pattern */}
-      <svg className="absolute inset-0 h-full w-full opacity-[0.03]" xmlns="http://www.w3.org/2000/svg">
+      {/* 3D Perspective floor grid */}
+      <svg className="absolute bottom-0 left-0 right-0 h-[45%] opacity-[0.12]" viewBox="0 0 1920 500" preserveAspectRatio="xMidYMax slice" fill="none">
         <defs>
-          <pattern id="hex-pattern" width="60" height="104" patternUnits="userSpaceOnUse" patternTransform="scale(1.5)">
-            <path d="M30 0 L60 17 L60 52 L30 69 L0 52 L0 17 Z" fill="none" stroke="#00aadd" strokeWidth="0.4" />
-            <path d="M30 35 L60 52 L60 87 L30 104 L0 87 L0 52 Z" fill="none" stroke="#00aadd" strokeWidth="0.4" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#hex-pattern)" />
-      </svg>
-      
-      {/* Perspective grid - bottom area full width */}
-      <svg className="absolute bottom-0 left-0 right-0 h-[400px] opacity-[0.08]" viewBox="0 0 1600 400" preserveAspectRatio="xMidYMax slice" fill="none">
-        <defs>
-          <linearGradient id="grid-fade-h" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00ccee" stopOpacity="0" />
-            <stop offset="20%" stopColor="#00ccee" stopOpacity="0.6" />
-            <stop offset="50%" stopColor="#00ccee" stopOpacity="1" />
-            <stop offset="80%" stopColor="#00ccee" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#00ccee" stopOpacity="0" />
+          <linearGradient id="floor-h" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#00eeff" stopOpacity="0" />
+            <stop offset="15%" stopColor="#00eeff" stopOpacity="0.4" />
+            <stop offset="50%" stopColor="#00eeff" stopOpacity="1" />
+            <stop offset="85%" stopColor="#00eeff" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#00eeff" stopOpacity="0" />
           </linearGradient>
-          <linearGradient id="grid-fade-v" x1="0%" y1="100%" x2="0%" y2="0%">
-            <stop offset="0%" stopColor="#00ccee" stopOpacity="1" />
-            <stop offset="40%" stopColor="#00ccee" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="#00ccee" stopOpacity="0" />
+          <linearGradient id="floor-v" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stopColor="#00eeff" stopOpacity="1" />
+            <stop offset="30%" stopColor="#00ddff" stopOpacity="0.6" />
+            <stop offset="60%" stopColor="#00bbdd" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#00aacc" stopOpacity="0" />
           </linearGradient>
+          <radialGradient id="horizon-glow" cx="50%" cy="0%" r="60%">
+            <stop offset="0%" stopColor="#00eeff" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#00aacc" stopOpacity="0" />
+          </radialGradient>
         </defs>
-        {/* Horizontal lines with perspective */}
-        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(i => {
-          const y = 400 - i * 28 - i * i * 0.8
-          return <line key={`h${i}`} x1={0} y1={y} x2={1600} y2={y} stroke="url(#grid-fade-h)" strokeWidth={0.3 + i * 0.05} />
+        {/* Horizon glow */}
+        <ellipse cx="960" cy="50" rx="600" ry="80" fill="url(#horizon-glow)" />
+        {/* Horizontal perspective lines */}
+        {Array.from({ length: 18 }).map((_, i) => {
+          const y = 500 - Math.pow(i, 1.6) * 4.5
+          const strokeW = 0.2 + i * 0.04
+          return <line key={`fh${i}`} x1={0} y1={y} x2={1920} y2={y} stroke="url(#floor-h)" strokeWidth={strokeW} />
         })}
-        {/* Vertical lines converging to center */}
-        {Array.from({ length: 25 }).map((_, i) => {
-          const baseX = i * 70 - 50
-          const topX = 800 + (baseX - 800) * 0.3
-          return <line key={`v${i}`} x1={baseX} y1={400} x2={topX} y2={50} stroke="url(#grid-fade-v)" strokeWidth="0.3" />
+        {/* Vertical converging lines */}
+        {Array.from({ length: 35 }).map((_, i) => {
+          const baseX = i * 60 - 100
+          const topX = 960 + (baseX - 960) * 0.15
+          return <line key={`fv${i}`} x1={baseX} y1={500} x2={topX} y2={30} stroke="url(#floor-v)" strokeWidth="0.35" />
         })}
-        {/* Center glow on horizon */}
-        <ellipse cx="800" cy="60" rx="200" ry="30" fill="#00ddff" opacity="0.05" />
+        {/* Center highlight line */}
+        <line x1={960} y1={500} x2={960} y2={30} stroke="#00eeff" strokeWidth="1" opacity="0.3" />
       </svg>
 
-      {/* Radar scan effect - left bottom */}
-      <svg className="absolute bottom-[10%] left-[5%] h-[300px] w-[300px] opacity-30" viewBox="0 0 200 200" fill="none">
+      {/* Rotating energy ring - center */}
+      <svg className="absolute left-1/2 top-1/2 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 opacity-[0.08]" viewBox="0 0 400 400" fill="none">
         <defs>
-          <linearGradient id="radar-sweep" x1="50%" y1="50%" x2="100%" y2="50%">
-            <stop offset="0%" stopColor="#00ddff" stopOpacity="0" />
-            <stop offset="100%" stopColor="#00ddff" stopOpacity="0.4" />
+          <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#00eeff" stopOpacity="0" />
+            <stop offset="50%" stopColor="#00eeff" stopOpacity="1" />
+            <stop offset="100%" stopColor="#00eeff" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <circle cx="100" cy="100" r="80" fill="none" stroke="#004466" strokeWidth="0.5" />
-        <circle cx="100" cy="100" r="60" fill="none" stroke="#004466" strokeWidth="0.5" />
-        <circle cx="100" cy="100" r="40" fill="none" stroke="#004466" strokeWidth="0.5" />
-        <circle cx="100" cy="100" r="20" fill="none" stroke="#004466" strokeWidth="0.5" />
-        <line x1="100" y1="20" x2="100" y2="180" stroke="#003344" strokeWidth="0.3" />
-        <line x1="20" y1="100" x2="180" y2="100" stroke="#003344" strokeWidth="0.3" />
-        <path d="M100 100 L100 20 A80 80 0 0 1 180 100 Z" fill="url(#radar-sweep)">
-          <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="6s" repeatCount="indefinite" />
-        </path>
-        <circle cx="100" cy="100" r="3" fill="#00ddff" opacity="0.6" />
-        {/* Radar blips */}
-        <circle cx="130" cy="70" r="2" fill="#00ffff" opacity="0">
-          <animate attributeName="opacity" values="0;0.8;0" dur="6s" repeatCount="indefinite" begin="1s" />
+        <circle cx="200" cy="200" r="150" fill="none" stroke="url(#ring-grad)" strokeWidth="0.8" strokeDasharray="30 470">
+          <animateTransform attributeName="transform" type="rotate" from="0 200 200" to="360 200 200" dur="20s" repeatCount="indefinite" />
         </circle>
-        <circle cx="75" cy="130" r="1.5" fill="#00ffff" opacity="0">
-          <animate attributeName="opacity" values="0;0.6;0" dur="6s" repeatCount="indefinite" begin="3s" />
+        <circle cx="200" cy="200" r="120" fill="none" stroke="url(#ring-grad)" strokeWidth="0.6" strokeDasharray="25 380">
+          <animateTransform attributeName="transform" type="rotate" from="360 200 200" to="0 200 200" dur="25s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="200" cy="200" r="180" fill="none" stroke="url(#ring-grad)" strokeWidth="0.5" strokeDasharray="40 560">
+          <animateTransform attributeName="transform" type="rotate" from="0 200 200" to="360 200 200" dur="30s" repeatCount="indefinite" />
         </circle>
       </svg>
 
-      {/* Scanning line animation */}
-      <div className="absolute left-0 right-0 h-[1px] animate-[scan_8s_linear_infinite] bg-gradient-to-r from-transparent via-[#00ddff]/40 to-transparent shadow-[0_0_20px_2px_rgba(0,220,255,0.3)]" />
-      
-      {/* Energy wave rings - center */}
-      <svg className="absolute left-1/2 top-1/2 h-[800px] w-[800px] -translate-x-1/2 -translate-y-1/2 opacity-[0.04]" viewBox="0 0 400 400" fill="none">
-        <circle cx="200" cy="200" r="50" stroke="#00ddff" strokeWidth="0.5" opacity="0.5">
-          <animate attributeName="r" values="50;180;50" dur="10s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.5;0;0.5" dur="10s" repeatCount="indefinite" />
-        </circle>
-        <circle cx="200" cy="200" r="80" stroke="#00bbdd" strokeWidth="0.5" opacity="0.4">
-          <animate attributeName="r" values="80;200;80" dur="12s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.4;0;0.4" dur="12s" repeatCount="indefinite" />
-        </circle>
-        <circle cx="200" cy="200" r="120" stroke="#0099cc" strokeWidth="0.5" opacity="0.3">
-          <animate attributeName="r" values="120;190;120" dur="8s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.3;0;0.3" dur="8s" repeatCount="indefinite" />
-        </circle>
-      </svg>
-      
-      {/* Data flow lines - left side */}
-      <svg className="absolute left-0 top-0 h-full w-[250px] opacity-30" viewBox="0 0 250 1000" fill="none">
-        <defs>
-          <linearGradient id="flow-line-1" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#00ddff" stopOpacity="0" />
-            <stop offset="50%" stopColor="#00ddff" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#00ddff" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d="M30 0 Q60 200, 40 400 T50 700 T35 1000" stroke="#003355" strokeWidth="0.5" fill="none" />
-        <path d="M80 0 Q60 300, 90 500 T70 800 T85 1000" stroke="#003355" strokeWidth="0.5" fill="none" />
-        <path d="M140 0 Q120 250, 150 500 T130 800 T145 1000" stroke="#003355" strokeWidth="0.5" fill="none" />
-        {/* Moving particles on lines */}
-        <circle cx="40" cy="0" r="3" fill="#00eeff">
-          <animate attributeName="cy" values="0;1000" dur="8s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0;1;1;0" dur="8s" repeatCount="indefinite" keyTimes="0;0.1;0.9;1" />
-        </circle>
-        <circle cx="80" cy="0" r="2" fill="#00ddff">
-          <animate attributeName="cy" values="0;1000" dur="10s" repeatCount="indefinite" begin="2s" />
-          <animate attributeName="opacity" values="0;0.8;0.8;0" dur="10s" repeatCount="indefinite" begin="2s" keyTimes="0;0.1;0.9;1" />
-        </circle>
-        <circle cx="140" cy="0" r="2.5" fill="#00ccff">
-          <animate attributeName="cy" values="0;1000" dur="12s" repeatCount="indefinite" begin="4s" />
-          <animate attributeName="opacity" values="0;0.7;0.7;0" dur="12s" repeatCount="indefinite" begin="4s" keyTimes="0;0.1;0.9;1" />
-        </circle>
+      {/* Expanding pulse rings */}
+      <svg className="absolute left-1/2 top-1/2 h-[900px] w-[900px] -translate-x-1/2 -translate-y-1/2" viewBox="0 0 400 400" fill="none">
+        {[0, 1, 2].map(i => (
+          <circle key={`pulse${i}`} cx="200" cy="200" r="40" fill="none" stroke="#00ddff" strokeWidth="1" opacity="0">
+            <animate attributeName="r" values="40;200" dur="4s" begin={`${i * 1.3}s`} repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.25;0" dur="4s" begin={`${i * 1.3}s`} repeatCount="indefinite" />
+            <animate attributeName="stroke-width" values="2;0.5" dur="4s" begin={`${i * 1.3}s`} repeatCount="indefinite" />
+          </circle>
+        ))}
       </svg>
 
-      {/* Data flow lines - right side */}
-      <svg className="absolute right-0 top-0 h-full w-[250px] opacity-30" viewBox="0 0 250 1000" fill="none">
-        <path d="M220 0 Q190 200, 210 400 T200 700 T215 1000" stroke="#003355" strokeWidth="0.5" fill="none" />
-        <path d="M170 0 Q190 300, 160 500 T180 800 T165 1000" stroke="#003355" strokeWidth="0.5" fill="none" />
-        <path d="M110 0 Q130 250, 100 500 T120 800 T105 1000" stroke="#003355" strokeWidth="0.5" fill="none" />
-        <circle cx="210" cy="1000" r="3" fill="#00eeff">
-          <animate attributeName="cy" values="1000;0" dur="9s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0;1;1;0" dur="9s" repeatCount="indefinite" keyTimes="0;0.1;0.9;1" />
-        </circle>
-        <circle cx="165" cy="1000" r="2" fill="#00ddff">
-          <animate attributeName="cy" values="1000;0" dur="11s" repeatCount="indefinite" begin="3s" />
-          <animate attributeName="opacity" values="0;0.8;0.8;0" dur="11s" repeatCount="indefinite" begin="3s" keyTimes="0;0.1;0.9;1" />
-        </circle>
-      </svg>
+      {/* Scanning line - brighter */}
+      <div className="absolute left-0 right-0 h-[2px] animate-[scan_6s_linear_infinite] bg-gradient-to-r from-transparent via-[#00eeff]/60 to-transparent shadow-[0_0_30px_4px_rgba(0,220,255,0.4),0_0_60px_8px_rgba(0,180,220,0.2)]" />
       
-      {/* Particles - multi-layered with varied animations */}
+      {/* Vertical scan line */}
+      <div className="absolute bottom-0 top-0 w-[1px] animate-[scanV_10s_linear_infinite] bg-gradient-to-b from-transparent via-[#00ddff]/30 to-transparent shadow-[0_0_15px_2px_rgba(0,200,255,0.3)]" />
+
+      {/* Floating data particles - enhanced */}
       <svg className="absolute inset-0 h-full w-full">
-        {/* Star-like bright particles */}
-        {Array.from({ length: 15 }).map((_, i) => {
-          const x = 10 + ((i * 53) % 80)
-          const y = 10 + ((i * 67) % 80)
-          const dur = 2 + (i % 3)
+        {/* Glowing orbs */}
+        {Array.from({ length: 8 }).map((_, i) => {
+          const x = 15 + ((i * 47) % 70)
+          const y = 20 + ((i * 61) % 60)
+          const dur = 4 + i * 0.5
           return (
-            <g key={`star${i}`}>
-              <circle cx={`${x}%`} cy={`${y}%`} r={1} fill="#ffffff" opacity={0.4}>
-                <animate attributeName="opacity" values="0.2;0.6;0.2" dur={`${dur}s`} repeatCount="indefinite" />
+            <g key={`orb${i}`}>
+              <circle cx={`${x}%`} cy={`${y}%`} r={8} fill="#00ddff" opacity={0.03}>
+                <animate attributeName="opacity" values="0.02;0.06;0.02" dur={`${dur}s`} repeatCount="indefinite" />
               </circle>
-              <circle cx={`${x}%`} cy={`${y}%`} r={3} fill="#00ddff" opacity={0.1}>
-                <animate attributeName="opacity" values="0.05;0.15;0.05" dur={`${dur}s`} repeatCount="indefinite" />
+              <circle cx={`${x}%`} cy={`${y}%`} r={3} fill="#00eeff" opacity={0.15}>
+                <animate attributeName="opacity" values="0.1;0.25;0.1" dur={`${dur}s`} repeatCount="indefinite" />
+              </circle>
+              <circle cx={`${x}%`} cy={`${y}%`} r={1.2} fill="#ffffff" opacity={0.5}>
+                <animate attributeName="opacity" values="0.3;0.7;0.3" dur={`${dur}s`} repeatCount="indefinite" />
               </circle>
             </g>
           )
         })}
-        {/* Medium floating particles */}
-        {Array.from({ length: 50 }).map((_, i) => {
-          const x = 2 + ((i * 41) % 96)
-          const y = 2 + ((i * 53) % 96)
-          const size = 0.5 + (i % 4) * 0.3
-          const opacity = 0.1 + (i % 5) * 0.04
-          return <circle key={`md${i}`} cx={`${x}%`} cy={`${y}%`} r={size} fill="#00d4ff" opacity={opacity} />
-        })}
-        {/* Tiny dust particles */}
-        {Array.from({ length: 80 }).map((_, i) => {
-          const x = 1 + ((i * 37) % 98)
-          const y = 1 + ((i * 47) % 98)
-          return <circle key={`tiny${i}`} cx={`${x}%`} cy={`${y}%`} r={0.3} fill="#88ddff" opacity={0.15 + (i % 3) * 0.05} />
+        {/* Star field */}
+        {Array.from({ length: 100 }).map((_, i) => {
+          const x = ((i * 31) % 100)
+          const y = ((i * 47) % 100)
+          const size = 0.3 + (i % 5) * 0.2
+          const opacity = 0.15 + (i % 8) * 0.05
+          const twinkle = i % 4 === 0
+          return (
+            <circle key={`star${i}`} cx={`${x}%`} cy={`${y}%`} r={size} fill="#88ddff" opacity={opacity}>
+              {twinkle && <animate attributeName="opacity" values={`${opacity};${opacity * 2};${opacity}`} dur={`${2 + (i % 3)}s`} repeatCount="indefinite" />}
+            </circle>
+          )
         })}
       </svg>
 
-      {/* Tech corner decorations - enhanced */}
-      <svg className="absolute left-6 top-24 h-32 w-32 opacity-25" viewBox="0 0 120 120" fill="none">
-        <path d="M0 30 L30 30 L30 0" stroke="#00ccee" strokeWidth="1.5" />
-        <path d="M0 50 L50 50 L50 0" stroke="#006688" strokeWidth="0.8" />
-        <path d="M0 70 L70 70 L70 0" stroke="#004466" strokeWidth="0.5" />
-        <circle cx="30" cy="30" r="3" fill="#00eeff">
-          <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" />
-        </circle>
-        <rect x="26" y="26" width="8" height="8" fill="none" stroke="#00aacc" strokeWidth="0.5" opacity="0.5" />
-      </svg>
-      <svg className="absolute bottom-24 right-6 h-32 w-32 opacity-25" viewBox="0 0 120 120" fill="none">
-        <path d="M120 90 L90 90 L90 120" stroke="#00ccee" strokeWidth="1.5" />
-        <path d="M120 70 L70 70 L70 120" stroke="#006688" strokeWidth="0.8" />
-        <path d="M120 50 L50 50 L50 120" stroke="#004466" strokeWidth="0.5" />
-        <circle cx="90" cy="90" r="3" fill="#00eeff">
-          <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" />
-        </circle>
-        <rect x="86" y="86" width="8" height="8" fill="none" stroke="#00aacc" strokeWidth="0.5" opacity="0.5" />
+      {/* Data streams - left */}
+      <svg className="absolute left-0 top-0 h-full w-[350px] opacity-40" viewBox="0 0 350 1000" fill="none">
+        {[40, 90, 150, 220, 300].map((x, i) => (
+          <g key={`dsl${i}`}>
+            <line x1={x} y1="0" x2={x} y2="1000" stroke="#003355" strokeWidth="0.5" strokeDasharray="2 8" />
+            <circle r={2 + i * 0.3} fill="#00eeff">
+              <animate attributeName="cy" values="0;1000" dur={`${6 + i * 2}s`} repeatCount="indefinite" />
+              <animate attributeName="cx" values={`${x};${x + 5};${x}`} dur={`${6 + i * 2}s`} repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0;1;1;0" dur={`${6 + i * 2}s`} keyTimes="0;0.05;0.95;1" repeatCount="indefinite" />
+            </circle>
+          </g>
+        ))}
       </svg>
 
-      {/* Binary code decoration - subtle */}
-      <div className="absolute right-[8%] top-[20%] font-mono text-[8px] leading-tight tracking-wider text-[#00aacc]/10">
-        <div>01001010</div>
-        <div>10110101</div>
-        <div>01100110</div>
-        <div>10011001</div>
+      {/* Data streams - right */}
+      <svg className="absolute right-0 top-0 h-full w-[350px] opacity-40" viewBox="0 0 350 1000" fill="none">
+        {[50, 110, 180, 250, 310].map((x, i) => (
+          <g key={`dsr${i}`}>
+            <line x1={x} y1="0" x2={x} y2="1000" stroke="#003355" strokeWidth="0.5" strokeDasharray="2 8" />
+            <circle r={2 + i * 0.3} fill="#00ddff">
+              <animate attributeName="cy" values="1000;0" dur={`${7 + i * 1.5}s`} repeatCount="indefinite" begin={`${i * 0.8}s`} />
+              <animate attributeName="cx" values={`${x};${x - 5};${x}`} dur={`${7 + i * 1.5}s`} repeatCount="indefinite" begin={`${i * 0.8}s`} />
+              <animate attributeName="opacity" values="0;1;1;0" dur={`${7 + i * 1.5}s`} keyTimes="0;0.05;0.95;1" repeatCount="indefinite" begin={`${i * 0.8}s`} />
+            </circle>
+          </g>
+        ))}
+      </svg>
+
+      {/* Tech frame corners */}
+      <svg className="absolute left-4 top-16 h-40 w-40 opacity-30" viewBox="0 0 150 150" fill="none">
+        <path d="M0 40 L40 40 L40 0" stroke="#00eeff" strokeWidth="2" />
+        <path d="M0 60 L60 60 L60 0" stroke="#00aacc" strokeWidth="1" opacity="0.6" />
+        <path d="M0 80 L80 80 L80 0" stroke="#006688" strokeWidth="0.5" opacity="0.4" />
+        <circle cx="40" cy="40" r="4" fill="#00eeff">
+          <animate attributeName="r" values="3;5;3" dur="2s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite" />
+        </circle>
+        <rect x="35" y="35" width="10" height="10" fill="none" stroke="#00ccee" strokeWidth="1" opacity="0.4">
+          <animate attributeName="opacity" values="0.3;0.6;0.3" dur="2s" repeatCount="indefinite" />
+        </rect>
+      </svg>
+      <svg className="absolute bottom-16 right-4 h-40 w-40 opacity-30" viewBox="0 0 150 150" fill="none">
+        <path d="M150 110 L110 110 L110 150" stroke="#00eeff" strokeWidth="2" />
+        <path d="M150 90 L90 90 L90 150" stroke="#00aacc" strokeWidth="1" opacity="0.6" />
+        <path d="M150 70 L70 70 L70 150" stroke="#006688" strokeWidth="0.5" opacity="0.4" />
+        <circle cx="110" cy="110" r="4" fill="#00eeff">
+          <animate attributeName="r" values="3;5;3" dur="2s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite" />
+        </circle>
+        <rect x="105" y="105" width="10" height="10" fill="none" stroke="#00ccee" strokeWidth="1" opacity="0.4">
+          <animate attributeName="opacity" values="0.3;0.6;0.3" dur="2s" repeatCount="indefinite" />
+        </rect>
+      </svg>
+
+      {/* Floating HUD elements */}
+      <div className="absolute left-[6%] top-[30%] opacity-20">
+        <div className="flex items-center gap-1 font-mono text-[9px] text-[#00ddff]">
+          <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00eeff]" />
+          <span>SYS_ONLINE</span>
+        </div>
+        <div className="mt-1 h-[1px] w-16 bg-gradient-to-r from-[#00ddff]/50 to-transparent" />
       </div>
-      <div className="absolute left-[8%] bottom-[25%] font-mono text-[8px] leading-tight tracking-wider text-[#00aacc]/10">
-        <div>11010010</div>
-        <div>00101101</div>
-        <div>10010110</div>
+      <div className="absolute right-[6%] top-[35%] opacity-20">
+        <div className="flex items-center gap-1 font-mono text-[9px] text-[#00ddff]">
+          <span>DATA_SYNC</span>
+          <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00eeff]" />
+        </div>
+        <div className="mt-1 h-[1px] w-16 bg-gradient-to-l from-[#00ddff]/50 to-transparent" />
+      </div>
+
+      {/* Binary rain - subtle */}
+      <div className="absolute right-[5%] top-[18%] font-mono text-[7px] leading-relaxed tracking-widest text-[#00ccee]/15">
+        {['01001', '10110', '01101', '11001', '00110'].map((code, i) => (
+          <div key={i} style={{ animationDelay: `${i * 0.2}s` }} className="animate-pulse">{code}</div>
+        ))}
+      </div>
+      <div className="absolute bottom-[22%] left-[5%] font-mono text-[7px] leading-relaxed tracking-widest text-[#00ccee]/15">
+        {['11010', '00101', '10010', '01100'].map((code, i) => (
+          <div key={i} style={{ animationDelay: `${i * 0.3}s` }} className="animate-pulse">{code}</div>
+        ))}
       </div>
       
-      {/* Ambient glows - refined */}
-      <div className="absolute -left-[15%] top-[10%] h-[900px] w-[900px] rounded-full bg-[radial-gradient(circle,rgba(0,80,120,0.15)_0%,transparent_50%)]" />
-      <div className="absolute -right-[10%] top-[20%] h-[800px] w-[800px] rounded-full bg-[radial-gradient(circle,rgba(0,120,160,0.1)_0%,transparent_50%)]" />
-      <div className="absolute bottom-[5%] left-[40%] h-[500px] w-[500px] rounded-full bg-[radial-gradient(circle,rgba(0,180,220,0.06)_0%,transparent_55%)]" />
+      {/* Ambient glows - stronger */}
+      <div className="absolute -left-[10%] top-[5%] h-[1000px] w-[1000px] rounded-full bg-[radial-gradient(circle,rgba(0,100,150,0.2)_0%,transparent_50%)]" />
+      <div className="absolute -right-[8%] top-[15%] h-[900px] w-[900px] rounded-full bg-[radial-gradient(circle,rgba(0,140,180,0.15)_0%,transparent_50%)]" />
+      <div className="absolute bottom-[-5%] left-[35%] h-[600px] w-[600px] rounded-full bg-[radial-gradient(circle,rgba(0,200,255,0.1)_0%,transparent_55%)]" />
       
-      {/* Noise texture overlay */}
-      <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }} />
+      {/* Film grain */}
+      <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 512 512\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.7\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")' }} />
     </div>
   )
 }
