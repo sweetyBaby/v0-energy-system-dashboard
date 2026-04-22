@@ -339,39 +339,138 @@ function RightDecoration() {
 function Background() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* Deep gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#061525] via-[#040a12] to-[#020508]" />
+      {/* Deep gradient base */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#061828] via-[#030a12] to-[#010408]" />
       
-      {/* Top highlight */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_35%_at_50%_0%,#0a2545_0%,transparent_65%)]" />
+      {/* Top arc highlight */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-5%,#0a2848_0%,transparent_60%)]" />
+      
+      {/* Center subtle vignette */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_50%,transparent_30%,#010508_100%)]" />
+
+      {/* Hexagon grid pattern - data screen signature */}
+      <svg className="absolute inset-0 h-full w-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="hex-pattern" width="56" height="100" patternUnits="userSpaceOnUse" patternTransform="scale(1.2)">
+            <path d="M28 0 L56 16 L56 48 L28 64 L0 48 L0 16 Z" fill="none" stroke="#00aadd" strokeWidth="0.5" />
+            <path d="M28 36 L56 52 L56 84 L28 100 L0 84 L0 52 Z" fill="none" stroke="#00aadd" strokeWidth="0.5" />
+            <path d="M0 16 L-28 0 L-28 -32" fill="none" stroke="#00aadd" strokeWidth="0.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#hex-pattern)" />
+      </svg>
       
       {/* Perspective grid - bottom right */}
-      <svg className="absolute bottom-0 right-0 h-[450px] w-[700px] opacity-[0.05]" viewBox="0 0 700 450" fill="none">
-        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => {
-          const y = 450 - i * 40 - i * i * 1.5
-          const xStart = i * 15
-          return <line key={`h${i}`} x1={xStart} y1={y} x2={700} y2={y} stroke="#00bbdd" strokeWidth={0.5 + i * 0.08} />
-        })}
+      <svg className="absolute bottom-0 right-0 h-[500px] w-[800px] opacity-[0.06]" viewBox="0 0 800 500" fill="none">
+        <defs>
+          <linearGradient id="grid-fade-h" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#00ccee" stopOpacity="0" />
+            <stop offset="30%" stopColor="#00ccee" stopOpacity="1" />
+            <stop offset="100%" stopColor="#00ccee" stopOpacity="0.6" />
+          </linearGradient>
+          <linearGradient id="grid-fade-v" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stopColor="#00ccee" stopOpacity="0.8" />
+            <stop offset="60%" stopColor="#00ccee" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#00ccee" stopOpacity="0" />
+          </linearGradient>
+        </defs>
         {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => {
-          const x = 80 + i * 55
-          return <line key={`v${i}`} x1={x} y1={450} x2={280 + i * 25} y2={80} stroke="#00bbdd" strokeWidth="0.5" />
+          const y = 500 - i * 38 - i * i * 1.2
+          const xStart = i * 12
+          return <line key={`h${i}`} x1={xStart} y1={y} x2={800} y2={y} stroke="url(#grid-fade-h)" strokeWidth={0.4 + i * 0.06} />
+        })}
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map(i => {
+          const x = 60 + i * 58
+          return <line key={`v${i}`} x1={x} y1={500} x2={260 + i * 28} y2={60} stroke="url(#grid-fade-v)" strokeWidth="0.4" />
         })}
       </svg>
+
+      {/* Scanning line animation */}
+      <div className="absolute left-0 right-0 h-[2px] animate-[scan_8s_linear_infinite] bg-gradient-to-r from-transparent via-[#00ddff]/30 to-transparent" />
       
-      {/* Particles */}
+      {/* Data flow lines - left side */}
+      <svg className="absolute left-0 top-0 h-full w-[300px] opacity-40" viewBox="0 0 300 1000" fill="none">
+        <defs>
+          <linearGradient id="flow-line-1" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#00ddff" stopOpacity="0" />
+            <stop offset="50%" stopColor="#00ddff" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#00ddff" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d="M50 0 Q80 200, 60 400 T70 700 T55 1000" stroke="url(#flow-line-1)" strokeWidth="0.5" fill="none" opacity="0.3" />
+        <path d="M120 0 Q100 300, 130 500 T110 800 T125 1000" stroke="url(#flow-line-1)" strokeWidth="0.5" fill="none" opacity="0.25" />
+        <circle cx="65" cy="0" r="2" fill="#00eeff" opacity="0.6">
+          <animate attributeName="cy" values="0;1000;0" dur="12s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0;0.8;0" dur="12s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="115" cy="0" r="1.5" fill="#00ddff" opacity="0.5">
+          <animate attributeName="cy" values="0;1000;0" dur="15s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0;0.7;0" dur="15s" repeatCount="indefinite" />
+        </circle>
+      </svg>
+
+      {/* Data flow lines - right side */}
+      <svg className="absolute right-0 top-0 h-full w-[300px] opacity-40" viewBox="0 0 300 1000" fill="none">
+        <path d="M250 0 Q220 250, 240 450 T225 750 T245 1000" stroke="url(#flow-line-1)" strokeWidth="0.5" fill="none" opacity="0.3" />
+        <path d="M180 0 Q200 280, 175 520 T195 820 T180 1000" stroke="url(#flow-line-1)" strokeWidth="0.5" fill="none" opacity="0.25" />
+        <circle cx="235" cy="1000" r="2" fill="#00eeff" opacity="0.6">
+          <animate attributeName="cy" values="1000;0;1000" dur="14s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0;0.8;0" dur="14s" repeatCount="indefinite" />
+        </circle>
+      </svg>
+      
+      {/* Particles - multi-layered */}
       <svg className="absolute inset-0 h-full w-full">
-        {Array.from({ length: 50 }).map((_, i) => {
-          const x = 2 + ((i * 43) % 96)
-          const y = 3 + ((i * 57) % 94)
-          const size = 0.6 + (i % 5) * 0.35
-          const opacity = 0.12 + (i % 7) * 0.06
-          return <circle key={i} cx={`${x}%`} cy={`${y}%`} r={size} fill="#00d4ff" opacity={opacity} />
+        {/* Large dim particles */}
+        {Array.from({ length: 30 }).map((_, i) => {
+          const x = 5 + ((i * 47) % 90)
+          const y = 5 + ((i * 61) % 90)
+          const size = 1.2 + (i % 4) * 0.5
+          const opacity = 0.08 + (i % 5) * 0.04
+          const dur = 3 + (i % 4)
+          return (
+            <circle key={`lg${i}`} cx={`${x}%`} cy={`${y}%`} r={size} fill="#00ccee" opacity={opacity}>
+              <animate attributeName="opacity" values={`${opacity};${opacity * 1.8};${opacity}`} dur={`${dur}s`} repeatCount="indefinite" />
+            </circle>
+          )
+        })}
+        {/* Medium particles */}
+        {Array.from({ length: 40 }).map((_, i) => {
+          const x = 3 + ((i * 41) % 94)
+          const y = 4 + ((i * 53) % 92)
+          const size = 0.6 + (i % 5) * 0.3
+          const opacity = 0.15 + (i % 6) * 0.05
+          return <circle key={`md${i}`} cx={`${x}%`} cy={`${y}%`} r={size} fill="#00d8ff" opacity={opacity} />
+        })}
+        {/* Bright small particles */}
+        {Array.from({ length: 20 }).map((_, i) => {
+          const x = 8 + ((i * 37) % 84)
+          const y = 10 + ((i * 59) % 80)
+          const dur = 2 + (i % 3)
+          return (
+            <circle key={`sm${i}`} cx={`${x}%`} cy={`${y}%`} r={0.8} fill="#66eeff" opacity={0.3}>
+              <animate attributeName="opacity" values="0.2;0.5;0.2" dur={`${dur}s`} repeatCount="indefinite" />
+            </circle>
+          )
         })}
       </svg>
+
+      {/* Corner tech accents */}
+      <svg className="absolute left-4 top-20 h-24 w-24 opacity-20" viewBox="0 0 100 100" fill="none">
+        <path d="M0 20 L20 20 L20 0" stroke="#00bbdd" strokeWidth="1" />
+        <path d="M0 40 L40 40 L40 0" stroke="#006688" strokeWidth="0.5" />
+        <circle cx="20" cy="20" r="2" fill="#00ddff" />
+      </svg>
+      <svg className="absolute bottom-20 right-4 h-24 w-24 opacity-20" viewBox="0 0 100 100" fill="none">
+        <path d="M100 80 L80 80 L80 100" stroke="#00bbdd" strokeWidth="1" />
+        <path d="M100 60 L60 60 L60 100" stroke="#006688" strokeWidth="0.5" />
+        <circle cx="80" cy="80" r="2" fill="#00ddff" />
+      </svg>
       
-      {/* Ambient glows */}
-      <div className="absolute -left-[18%] top-[20%] h-[700px] w-[700px] rounded-full bg-[radial-gradient(circle,rgba(0,70,120,0.1)_0%,transparent_55%)]" />
-      <div className="absolute -right-[12%] top-[30%] h-[600px] w-[600px] rounded-full bg-[radial-gradient(circle,rgba(0,120,160,0.06)_0%,transparent_55%)]" />
+      {/* Ambient glows - refined */}
+      <div className="absolute -left-[20%] top-[15%] h-[800px] w-[800px] rounded-full bg-[radial-gradient(circle,rgba(0,60,100,0.12)_0%,transparent_50%)]" />
+      <div className="absolute -right-[15%] top-[25%] h-[700px] w-[700px] rounded-full bg-[radial-gradient(circle,rgba(0,100,140,0.08)_0%,transparent_50%)]" />
+      <div className="absolute bottom-[10%] left-[30%] h-[400px] w-[400px] rounded-full bg-[radial-gradient(circle,rgba(0,150,200,0.04)_0%,transparent_60%)]" />
     </div>
   )
 }
