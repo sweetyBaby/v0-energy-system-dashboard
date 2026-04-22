@@ -82,6 +82,37 @@ function EnerCloudIcon({ className }: { className?: string }) {
   )
 }
 
+function TitleSideAccent({ side }: { side: "left" | "right" }) {
+  const mirrored = side === "right"
+
+  return (
+    <div className={cn("absolute top-[48px] hidden h-[68px] w-[196px] lg:block", side === "left" ? "left-4" : "right-4")}>
+      <div className={cn("relative h-full w-full", mirrored && "-scale-x-100")}>
+        <div className="absolute left-0 top-[10px] h-[46px] w-[154px] border border-[#21486f]/34 bg-[linear-gradient(180deg,rgba(8,18,36,0.72),rgba(4,10,20,0.16))] shadow-[0_0_28px_rgba(34,211,238,0.05)]" style={{ clipPath: "polygon(0% 18%,14% 0%,100% 0%,86% 100%,0% 100%)" }} />
+        <div className="absolute left-[8px] top-[18px] h-[30px] w-[136px] border border-[#22d3ee]/10" style={{ clipPath: "polygon(0% 16%,14% 0%,100% 0%,86% 100%,0% 100%)" }} />
+        <div className="absolute left-[10px] top-[8px] h-[54px] w-[128px] bg-[radial-gradient(circle_at_20%_50%,rgba(34,211,238,0.14),transparent_72%)] blur-2xl" />
+        <div className="absolute left-[16px] top-[18px] h-[2px] w-[108px] bg-gradient-to-r from-transparent via-[#22d3ee]/30 to-transparent" />
+        <div className="absolute left-[22px] top-[46px] h-px w-[94px] bg-gradient-to-r from-transparent via-[#00d4aa]/24 to-transparent" />
+        <div className="absolute left-[18px] top-[22px] h-[14px] w-[96px] overflow-hidden">
+          <div className="absolute inset-y-0 left-[-14%] w-[34%] bg-[linear-gradient(90deg,transparent,rgba(34,211,238,0.24),transparent)] blur-sm" style={{ animation: "panel-sweep 9s linear infinite" }} />
+          {[0, 1, 2, 3, 4].map((index) => (
+            <div
+              key={index}
+              className="absolute top-0 h-[10px] w-[14px] border border-[#3b82f6]/20 bg-[linear-gradient(180deg,rgba(59,130,246,0.88),rgba(34,211,238,0.52))]"
+              style={{ left: `${index * 18}px`, clipPath: "polygon(26% 0%,100% 0%,74% 100%,0% 100%)" }}
+            />
+          ))}
+        </div>
+        <div className="absolute left-[124px] top-[32px] h-px w-[58px] bg-gradient-to-r from-[#22d3ee]/46 via-[#22d3ee]/18 to-transparent" style={{ animation: "line-pulse 4.8s ease-in-out infinite" }} />
+        <div className="absolute left-[138px] top-[27px] h-[10px] w-[10px] rounded-full border border-[#22d3ee]/34 bg-[#08182d]" />
+        <div className="absolute left-[141px] top-[30px] h-1 w-1 rounded-full bg-[#7df9ff] shadow-[0_0_12px_rgba(125,249,255,0.9)]" />
+        <div className="absolute left-[152px] top-[22px] h-[20px] w-px bg-gradient-to-b from-transparent via-[#22d3ee]/28 to-transparent" />
+        <div className="absolute left-[164px] top-[32px] h-px w-[24px] bg-gradient-to-r from-[#3b82f6]/24 to-transparent" />
+      </div>
+    </div>
+  )
+}
+
 function TopBrandFrame({ subtitle }: { subtitle: string }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-20">
@@ -94,8 +125,8 @@ function TopBrandFrame({ subtitle }: { subtitle: string }) {
           <path d="M620 136H1060" stroke="rgba(71,232,255,0.42)" strokeWidth="1.4" strokeLinecap="round" />
           <path d="M658 148H1022" stroke="rgba(71,232,255,0.16)" strokeWidth="1" strokeDasharray="8 11" />
         </svg>
-        <div className="absolute left-6 top-[72px] hidden h-[10px] w-[120px] [background-image:repeating-linear-gradient(120deg,rgba(52,128,255,0.84)_0_10px,transparent_10px_16px)] lg:block" />
-        <div className="absolute right-6 top-[72px] hidden h-[10px] w-[120px] [background-image:repeating-linear-gradient(-120deg,rgba(52,128,255,0.84)_0_10px,transparent_10px_16px)] lg:block" />
+        <TitleSideAccent side="left" />
+        <TitleSideAccent side="right" />
         <div className="absolute left-1/2 top-[120px] hidden h-[138px] w-[240px] -translate-x-1/2 lg:block">
           <div
             className="absolute inset-x-[16%] top-0 h-[92px] bg-[linear-gradient(180deg,rgba(78,238,255,0.22),rgba(78,238,255,0.03)_62%,transparent)] blur-sm"
