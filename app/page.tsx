@@ -1,10 +1,11 @@
 ﻿"use client"
 
-import { startTransition, useState } from "react"
+import { startTransition, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, ArrowRight, Eye, EyeOff, LockKeyhole, User } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { Button } from "@/components/ui/button"
+import { toast } from "@/hooks/use-toast"
 import { loginWithCloud } from "@/lib/api/auth"
 import { persistAuthToken } from "@/lib/auth-storage"
 import { cn } from "@/lib/utils"
@@ -17,6 +18,8 @@ type Copy = {
   platformSubtitle: string
   accountPlaceholder: string
   passwordPlaceholder: string
+  accountRequired: string
+  passwordRequired: string
   remember: string
   forgot: string
   submit: string
@@ -31,6 +34,8 @@ const COPY: Record<Locale, Copy> = {
     platformSubtitle: "",
     accountPlaceholder: "请输入用户名",
     passwordPlaceholder: "请输入登录密码",
+    accountRequired: "请输入用户名",
+    passwordRequired: "请输入密码",
     remember: "记住密码",
     forgot: "忘记密码？",
     submit: "登录平台",
@@ -41,6 +46,8 @@ const COPY: Record<Locale, Copy> = {
     platformSubtitle: "",
     accountPlaceholder: "Enter username",
     passwordPlaceholder: "Enter your password",
+    accountRequired: "Please enter your username",
+    passwordRequired: "Please enter your password",
     remember: "Remember password",
     forgot: "Forgot password?",
     submit: "Enter Platform",
@@ -51,6 +58,20 @@ const LANGUAGE_OPTIONS: Array<{ key: Locale; label: string }> = [
   { key: "zh", label: "中" },
   { key: "en", label: "EN" },
 ]
+
+type FormField = "account" | "password"
+
+type FormErrors = Partial<Record<FormField, string>>
+
+const normalizeAccount = (value: string) => value.replace(/\u3000/g, " ").trim()
+
+function getFieldError(field: FormField, value: string, copy: Copy) {
+  if (field === "account") {
+    return normalizeAccount(value) ? null : copy.accountRequired
+  }
+
+  return value ? null : copy.passwordRequired
+}
 
 function EnerCloudIcon({ className }: { className?: string }) {
   return (
@@ -612,21 +633,107 @@ export default function LoginPage() {
   const { language, setLanguage } = useLanguage()
   const locale: Locale = language === "en" ? "en" : "zh"
   const copy = COPY[locale]
+  const accountInputRef = useRef<HTMLInputElement>(null)
+  const passwordInputRef = useRef<HTMLInputElement>(null)
   const [account, setAccount] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
+
+  const accountError = getFieldError("account", account, copy)
+  const passwordError = getFieldError("password", password, copy)
+  const canSubmit = !submitting && !accountError && !passwordError
+
+  const setFieldError = (field: FormField, value: string) => {
+    setFieldErrors((current) => {
+      if (current[field] === value) return current
+      return { ...current, [field]: value }
+    })
+  }
+
+  const clearFieldError = (field: FormField) => {
+    setFieldErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }
+
+  const validateField = (field: FormField, value: string) => {
+    const error = getFieldError(field, value, copy)
+    if (error) {
+      setFieldError(field, error)
+      return false
+    }
+
+    clearFieldError(field)
+    return true
+  }
+
+  const focusField = (field: FormField) => {
+    if (field === "account") {
+      accountInputRef.current?.focus()
+      return
+    }
+
+    passwordInputRef.current?.focus()
+  }
+
+  useEffect(() => {
+    setFieldErrors((current) => {
+      const next: FormErrors = {}
+
+      if (current.account) {
+        const nextAccountError = getFieldError("account", account, copy)
+        if (nextAccountError) {
+          next.account = nextAccountError
+        }
+      }
+
+      if (current.password) {
+        const nextPasswordError = getFieldError("password", password, copy)
+        if (nextPasswordError) {
+          next.password = nextPasswordError
+        }
+      }
+
+      const sameAccount = current.account === next.account
+      const samePassword = current.password === next.password
+      if (sameAccount && samePassword) {
+        return current
+      }
+
+      return next
+    })
+  }, [account, password, copy])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setSubmitError(null)
+
+    const nextErrors: FormErrors = {}
+
+    if (accountError) {
+      nextErrors.account = accountError
+    }
+
+    if (passwordError) {
+      nextErrors.password = passwordError
+    }
+
+    if (nextErrors.account || nextErrors.password) {
+      setFieldErrors(nextErrors)
+      focusField(nextErrors.account ? "account" : "password")
+      return
+    }
+
     setSubmitting(true)
 
     try {
       const response = await loginWithCloud({
-        username: account.trim(),
+        username: normalizeAccount(account),
         password,
       })
 
@@ -641,7 +748,21 @@ export default function LoginPage() {
       })
     } catch (error) {
       const fallbackMessage = locale === "zh" ? "登录失败，请稍后重试" : "Login failed. Please try again."
-      setSubmitError(error instanceof Error ? error.message || fallbackMessage : fallbackMessage)
+      const message = error instanceof Error ? error.message || fallbackMessage : fallbackMessage
+      toast({
+        variant: "destructive",
+        title: (
+          <span className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ff9cac]/28 bg-[radial-gradient(circle_at_30%_30%,rgba(255,182,193,0.28),rgba(255,107,125,0.08)_58%,transparent_100%)] text-[#ffb6c0] shadow-[0_0_22px_rgba(255,107,125,0.15)]">
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <span>{locale === "zh" ? "登录校验未通过" : "Login validation failed"}</span>
+          </span>
+        ),
+        description: message,
+        className:
+          "border-[#ff6b7d]/35 shadow-[0_0_0_1px_rgba(255,153,171,0.08)_inset,0_18px_46px_rgba(24,6,12,0.52),0_0_30px_rgba(255,107,125,0.16)]",
+      })
       setSubmitting(false)
       return
     }
@@ -826,39 +947,68 @@ export default function LoginPage() {
                 <div className="mt-2 bg-gradient-to-r from-[#00D4AA] via-[#22D3EE] to-[#3B82F6] bg-clip-text text-[13px] font-semibold tracking-[0.24em] text-transparent">{copy.welcomeCaption}</div>
               </div>
 
-              <form className="mt-10 space-y-5" onSubmit={handleSubmit}>
+              <form className="mt-10 space-y-5" onSubmit={handleSubmit} noValidate>
                 <div className="relative">
                   <div className="pointer-events-none absolute left-[18px] top-1/2 h-[28px] w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-[#00D4AA] to-[#22D3EE]" />
                   <User className="pointer-events-none absolute left-7 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#87c7ed]" />
                   <input
+                    ref={accountInputRef}
                     value={account}
                     onChange={(event) => {
                       setAccount(event.target.value)
-                      setSubmitError(null)
+                      if (fieldErrors.account) {
+                        validateField("account", event.target.value)
+                      }
+                    }}
+                    onBlur={(event) => {
+                      validateField("account", event.target.value)
                     }}
                     placeholder={copy.accountPlaceholder}
                     autoComplete="username"
                     spellCheck={false}
-                    required
-                    className="h-[60px] w-full rounded-[17px] border border-[#214b78] bg-[linear-gradient(180deg,rgba(9,21,42,0.9),rgba(8,17,35,0.94))] pr-6 text-[15px] text-[#ECF7FF] outline-none transition-all placeholder:text-[#7E94B4] focus:border-[#00D4AA] focus:shadow-[0_0_0_1px_rgba(0,212,170,0.08)_inset,0_0_18px_rgba(34,211,238,0.08)]"
+                    aria-invalid={Boolean(fieldErrors.account)}
+                    aria-describedby={fieldErrors.account ? "account-error" : undefined}
+                    className={cn(
+                      "h-[60px] w-full rounded-[17px] border bg-[linear-gradient(180deg,rgba(9,21,42,0.9),rgba(8,17,35,0.94))] pr-6 text-[15px] text-[#ECF7FF] outline-none transition-all placeholder:text-[#7E94B4]",
+                      fieldErrors.account
+                        ? "border-[#ff7b7b] shadow-[0_0_0_1px_rgba(255,123,123,0.08)_inset,0_0_18px_rgba(255,123,123,0.08)]"
+                        : "border-[#214b78] focus:border-[#00D4AA] focus:shadow-[0_0_0_1px_rgba(0,212,170,0.08)_inset,0_0_18px_rgba(34,211,238,0.08)]"
+                    )}
                     style={{ paddingLeft: 62 }}
                   />
+                  {fieldErrors.account ? (
+                    <p id="account-error" className="mt-2 pl-1 text-[13px] text-[#ffb8c2]">
+                      {fieldErrors.account}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="relative">
                   <div className="pointer-events-none absolute left-[18px] top-1/2 h-[28px] w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-[#00D4AA] to-[#22D3EE]" />
                   <LockKeyhole className="pointer-events-none absolute left-7 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#87c7ed]" />
                   <input
+                    ref={passwordInputRef}
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(event) => {
                       setPassword(event.target.value)
-                      setSubmitError(null)
+                      if (fieldErrors.password) {
+                        validateField("password", event.target.value)
+                      }
+                    }}
+                    onBlur={(event) => {
+                      validateField("password", event.target.value)
                     }}
                     placeholder={copy.passwordPlaceholder}
                     autoComplete="current-password"
-                    required
-                    className="h-[60px] w-full rounded-[17px] border border-[#214b78] bg-[linear-gradient(180deg,rgba(9,21,42,0.9),rgba(8,17,35,0.94))] pr-14 text-[15px] text-[#ECF7FF] outline-none transition-all placeholder:text-[#7E94B4] focus:border-[#00D4AA] focus:shadow-[0_0_0_1px_rgba(0,212,170,0.08)_inset,0_0_18px_rgba(34,211,238,0.08)]"
+                    aria-invalid={Boolean(fieldErrors.password)}
+                    aria-describedby={fieldErrors.password ? "password-error" : undefined}
+                    className={cn(
+                      "h-[60px] w-full rounded-[17px] border bg-[linear-gradient(180deg,rgba(9,21,42,0.9),rgba(8,17,35,0.94))] pr-14 text-[15px] text-[#ECF7FF] outline-none transition-all placeholder:text-[#7E94B4]",
+                      fieldErrors.password
+                        ? "border-[#ff7b7b] shadow-[0_0_0_1px_rgba(255,123,123,0.08)_inset,0_0_18px_rgba(255,123,123,0.08)]"
+                        : "border-[#214b78] focus:border-[#00D4AA] focus:shadow-[0_0_0_1px_rgba(0,212,170,0.08)_inset,0_0_18px_rgba(34,211,238,0.08)]"
+                    )}
                     style={{ paddingLeft: 62 }}
                   />
                   <button
@@ -869,6 +1019,11 @@ export default function LoginPage() {
                   >
                     {showPassword ? <Eye className="h-[20px] w-[20px]" /> : <EyeOff className="h-[20px] w-[20px]" />}
                   </button>
+                  {fieldErrors.password ? (
+                    <p id="password-error" className="mt-2 pl-1 text-[13px] text-[#ffb8c2]">
+                      {fieldErrors.password}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex items-center gap-6 pt-1 text-[14px]">
@@ -885,32 +1040,13 @@ export default function LoginPage() {
 
                 <Button
                   type="submit"
-                  disabled={submitting}
+                  disabled={!canSubmit}
                   className="group relative mt-3 flex h-[68px] w-full items-center justify-center gap-4 rounded-[20px] border border-[#22D3EE]/16 bg-[linear-gradient(90deg,#00D4AA_0%,#22D3EE_42%,#3B82F6_100%)] text-[1rem] font-black tracking-[0.16em] text-white shadow-[0_0_22px_rgba(0,212,170,0.12),0_16px_30px_rgba(17,72,166,0.24)] transition-all hover:brightness-105 hover:shadow-[0_0_26px_rgba(0,212,170,0.16),0_16px_32px_rgba(17,72,166,0.28)] disabled:opacity-75"
                 >
                   <span className="absolute inset-y-0 left-0 w-[28%] rounded-[20px] bg-[linear-gradient(90deg,rgba(255,255,255,0.14),transparent)] blur-sm" />
                   <span className="relative">{submitting ? `${copy.submit}...` : copy.submit}</span>
                   <ArrowRight className="relative h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Button>
-
-                {submitError ? (
-                  <div className="relative overflow-hidden rounded-[18px] border border-[#ff7b7b]/26 bg-[linear-gradient(180deg,rgba(64,14,24,0.9),rgba(31,9,18,0.92))] px-4 py-3.5 text-[#ffe5e9] shadow-[0_12px_32px_rgba(20,4,10,0.28),0_0_0_1px_rgba(255,146,162,0.05)_inset]">
-                    <div className="absolute inset-y-3 left-0 w-px bg-gradient-to-b from-transparent via-[#ff8da0] to-transparent" />
-                    <div className="flex items-start gap-3 pl-1">
-                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#ff9cac]/24 bg-[radial-gradient(circle_at_30%_30%,rgba(255,182,193,0.24),rgba(255,107,125,0.08)_58%,transparent_100%)] text-[#ffb6c0]">
-                        <AlertTriangle className="h-4 w-4" />
-                      </span>
-                      <div className="space-y-1">
-                        <p className="text-[13px] font-semibold tracking-[0.08em] text-white/96">
-                          {locale === "zh" ? "登录校验未通过" : "Login validation failed"}
-                        </p>
-                        <p className="text-[13px] leading-5 text-[#ffd3d8]/90">
-                          {submitError}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
               </form>
             </div>
           </div>

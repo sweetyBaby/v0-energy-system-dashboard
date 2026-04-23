@@ -16,7 +16,7 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      'fixed inset-x-4 top-4 z-[100] flex max-h-screen w-auto max-w-[calc(100vw-2rem)] flex-col-reverse gap-3 outline-none sm:inset-x-auto sm:bottom-6 sm:right-6 sm:top-auto sm:max-w-[420px] sm:flex-col',
+      'fixed inset-x-4 top-4 z-[100] flex max-h-screen max-w-[calc(100vw-2rem)] flex-col gap-3 outline-none sm:left-auto sm:right-6 sm:top-6 sm:max-w-[420px]',
       className,
     )}
     {...props}
@@ -25,7 +25,7 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName
 
 const toastVariants = cva(
-  'group pointer-events-auto relative flex w-full items-start gap-4 overflow-hidden rounded-[22px] border p-5 pr-12 text-[#ECF7FF] shadow-[0_20px_50px_rgba(3,8,20,0.45),0_0_0_1px_rgba(148,163,184,0.05)_inset] backdrop-blur-xl transition-all before:absolute before:bottom-4 before:left-0 before:top-4 before:w-px before:bg-gradient-to-b before:from-transparent before:via-cyan-300/80 before:to-transparent data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-4 data-[state=open]:sm:slide-in-from-bottom-4',
+  'group pointer-events-auto relative flex w-full items-start gap-4 overflow-hidden rounded-[22px] border p-5 text-[#ECF7FF] shadow-[0_20px_50px_rgba(3,8,20,0.45),0_0_0_1px_rgba(148,163,184,0.05)_inset] backdrop-blur-xl transition-all before:absolute before:bottom-4 before:left-0 before:top-4 before:w-px before:bg-gradient-to-b before:from-transparent before:via-cyan-300/80 before:to-transparent data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-4',
   {
     variants: {
       variant: {
