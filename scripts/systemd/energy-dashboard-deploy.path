@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch energy-dashboard image tar and trigger deployment
+
+[Path]
+PathExists=/ems/project/energy-dashboard.tar
+PathChanged=/ems/project/energy-dashboard.tar
+Unit=energy-dashboard-deploy.service
+
+[Install]
+WantedBy=multi-user.target

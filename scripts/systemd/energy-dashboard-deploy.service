@@ -1,0 +1,12 @@
+[Unit]
+Description=Deploy energy-dashboard when a new image tar is uploaded
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/ems/project
+ExecStart=/bin/bash /ems/project/deploy-company-server.sh
+
+[Install]
+WantedBy=multi-user.target
