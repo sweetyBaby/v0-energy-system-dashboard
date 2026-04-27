@@ -29,6 +29,7 @@ import {
   getAnalysisRangeDates,
   type DailyTrendRangeResult,
 } from "@/lib/api/daily-trend-range"
+import { DEFAULT_PROJECT_IMAGE } from "@/lib/api/project"
 
 type DashboardTab =
   | "realtime"
@@ -534,10 +535,18 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
             <OverviewDataLoader />
             <div className="relative col-span-12 min-h-0 overflow-hidden rounded-b-xl border border-[#22d3ee]/30 border-t-0">
               <img
-                src={selectedProject.image}
+                src={selectedProject.image || DEFAULT_PROJECT_IMAGE}
                 alt=""
                 aria-hidden
                 className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[1] brightness-[1.35] saturate-[1.12]"
+                onError={(event) => {
+                  const target = event.currentTarget
+                  if (target.src.endsWith(DEFAULT_PROJECT_IMAGE)) {
+                    return
+                  }
+
+                  target.src = DEFAULT_PROJECT_IMAGE
+                }}
               />
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(8,20,40,0.02)_0%,rgba(8,20,40,0.00)_32%,rgba(5,12,28,0.12)_72%,rgba(3,8,20,0.24)_100%)]" />
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00d4aa]/50 to-transparent" />

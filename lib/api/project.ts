@@ -2,7 +2,7 @@ import { apiClient } from "@/lib/api-client"
 import { apiEndpoints } from "@/lib/api/endpoints"
 
 export const API_PLACEHOLDER = "--"
-const DEFAULT_PROJECT_IMAGE = "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop"
+export const DEFAULT_PROJECT_IMAGE = "/jintan-bg.jpg"
 
 export type ProjectOption = {
   id: string
@@ -526,6 +526,18 @@ export const formatApiValue = (value: unknown) => {
   return String(value).trim()
 }
 
+const resolveProjectImage = (picPath?: string | null, fallbackImage?: string | null) => {
+  if (hasValue(picPath)) {
+    return String(picPath).trim()
+  }
+
+  if (hasValue(fallbackImage)) {
+    return String(fallbackImage).trim()
+  }
+
+  return DEFAULT_PROJECT_IMAGE
+}
+
 export const normalizeProjectOptionsFromListByDevice = (
   rows: RawProjectListByDeviceRow[] | null | undefined
 ): ProjectOption[] => {
@@ -535,9 +547,7 @@ export const normalizeProjectOptionsFromListByDevice = (
     const optionId = normalizeProjectOptionId(row, index)
     const projectId = hasValue(row.projectId) ? String(row.projectId).trim() : optionId
     const devices = normalizeProjectDevices(resolveProjectListDevices(row))
-    const picPath = hasValue(row.picPath)
-      ? String(row.picPath).trim()
-      : PROJECT_LIST_IMAGES[projectId] ?? DEFAULT_PROJECT_IMAGE
+    const picPath = resolveProjectImage(row.picPath)
 
     return {
       id: optionId,
@@ -741,7 +751,7 @@ export const normalizeProjectDetail = (detail: RawProjectDetail | null, fallback
   commissioningDate: formatApiValue(detail?.commissioningDate),
   tariffInfo: formatApiValue(detail?.tariffInfo),
   status: formatApiValue(detail?.status),
-  image: hasValue(detail?.picPath) ? String(detail?.picPath) : fallbackImage,
+  image: resolveProjectImage(detail?.picPath, fallbackImage),
   overviewMetrics: EMPTY_OVERVIEW_METRICS,
   realtimeSnapshot: EMPTY_REALTIME_SNAPSHOT,
 })
