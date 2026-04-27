@@ -115,6 +115,18 @@ export const apiEndpoints = {
      */
     temp3Daily: "/ems/cell/history/temp3",
   },
+  fault: {
+    /**
+     * Historical fault summary list for alarm monitoring table.
+     * Query: projectId, deviceId, statDate = YYYY-MM-DD
+     */
+    list: "/ems/fault/list",
+    /**
+     * Historical fault detail list for alarm monitoring gantt.
+     * Query: projectId, deviceId, statDate = YYYY-MM-DD
+     */
+    detailList: "/ems/fault/detail/list",
+  },
   analysis: {
     /**
      * Daily trend data within a date range for voltage diff / temp diff / cell voltage analysis.
