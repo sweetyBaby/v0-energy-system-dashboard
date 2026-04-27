@@ -88,6 +88,43 @@ const ACTION_HINT_MAP: Record<number, { zh: string; en: string }> = {
   4: { zh: "严重故障：需要关注，可能触发限功率/保护措施", en: "Severe fault: attention required, may trigger derating/protection" },
   5: { zh: "严重故障：需要关注，可能触发限功率/保护措施", en: "Severe fault: attention required, may trigger derating/protection" },
 }
+type AlarmMatrixColorStop = {
+  t: number
+  r: number
+  g: number
+  b: number
+}
+
+const ALARM_MATRIX_TEXT_COLOR = "#11243a"
+const ALARM_MATRIX_RATIO_STOPS: AlarmMatrixColorStop[] = [
+  { t: 0, r: 255, g: 247, b: 219 },
+  { t: 0.48, r: 253, g: 224, b: 71 },
+  { t: 0.78, r: 251, g: 191, b: 36 },
+  { t: 1, r: 217, g: 119, b: 6 },
+]
+
+const interpolateAlarmMatrixColor = (stops: AlarmMatrixColorStop[], value: number) => {
+  const safeValue = clamp(value, 0, 1)
+
+  for (let index = 0; index < stops.length - 1; index += 1) {
+    if (safeValue <= stops[index + 1].t) {
+      const ratio = (safeValue - stops[index].t) / Math.max(stops[index + 1].t - stops[index].t, 0.001)
+      return {
+        r: Math.round(stops[index].r + ratio * (stops[index + 1].r - stops[index].r)),
+        g: Math.round(stops[index].g + ratio * (stops[index + 1].g - stops[index].g)),
+        b: Math.round(stops[index].b + ratio * (stops[index + 1].b - stops[index].b)),
+      }
+    }
+  }
+
+  const last = stops[stops.length - 1]
+  return { r: last.r, g: last.g, b: last.b }
+}
+
+const alarmMatrixRgb = (weight: number) => interpolateAlarmMatrixColor(ALARM_MATRIX_RATIO_STOPS, weight)
+
+const rgbToCss = ({ r, g, b }: { r: number; g: number; b: number }) => `rgb(${r},${g},${b})`
+const rgbaToCss = ({ r, g, b }: { r: number; g: number; b: number }, alpha: number) => `rgba(${r},${g},${b},${alpha})`
 
 // duration：告警持续分钟数，同时驱动甘特图条宽
 type AlarmEntry = {
@@ -841,6 +878,10 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
   const boostMetric = (value: number) => roundTo(value * historyTypographyBoost)
   const labelSize = boostMetric(scale.fluid(11, 16))
   const valueSize = boostMetric(scale.fluid(12, 18))
+  const legendSize = boostMetric(scale.fluid(10, 12))
+  const legendGap = boostMetric(scale.fluid(5, 10))
+  const legendBarWidth = Math.round(boostMetric(scale.fluid(10, 14)))
+  const legendTextWidth = Math.round(boostMetric(scale.fluid(26, 36)))
   const levelColumnWidth = Math.round(boostMetric(scale.fluid(62, 82)))
   const matrixMinHeight = Math.round(boostMetric(scale.fluid(252, 336)))
   const matrixCellHeight = Math.round(boostMetric(scale.fluid(26, 32)))
@@ -867,6 +908,10 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
     ...visibleLevels.flatMap((level) => typeOrder.map((typeName) => matrix.get(level)?.get(typeName) ?? 0))
   )
   const gridTemplateColumns = `${levelColumnWidth}px repeat(${typeOrder.length}, minmax(0, 1fr))`
+  const legendHigh = alarmMatrixRgb(1)
+  const legendMid = alarmMatrixRgb(0.55)
+  const legendLow = alarmMatrixRgb(0.06)
+  const levelAccent = alarmMatrixRgb(0.76)
 
   return (
     <div
@@ -881,6 +926,7 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
         </div>
       </div>
 
+      <div className="flex min-h-0 flex-1 items-stretch" style={{ columnGap: legendGap }}>
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto
           [&::-webkit-scrollbar]:w-[5px]
           [&::-webkit-scrollbar]:h-[5px]
@@ -890,69 +936,118 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
         [&::-webkit-scrollbar-thumb]:bg-[#1e3a6e]
         [&::-webkit-scrollbar-thumb:hover]:bg-[#2d5499]
         [&::-webkit-scrollbar-corner]:bg-[#060c1f]">
-        <div className="grid min-w-0 gap-x-1 gap-y-1" style={{ gridTemplateColumns }}>
-          <div />
-          {typeOrder.map((typeName) => (
-            <div key={typeName} className="min-w-0 px-[2px] text-center">
-              <span
-                className="block whitespace-normal break-words font-bold leading-tight tracking-[0.02em] text-[#a7c7ff]"
-                style={{
-                  fontSize: labelSize,
-                  textShadow: "0 0 10px rgba(98,154,255,0.18)",
-                }}
-              >
-                {typeName}
-              </span>
-            </div>
-          ))}
+          <div className="grid min-w-0 gap-x-1 gap-y-1" style={{ gridTemplateColumns }}>
+            <div />
+            {typeOrder.map((typeName) => (
+              <div key={typeName} className="min-w-0 px-[2px] text-center">
+                <span
+                  className="block whitespace-normal break-words font-bold leading-tight tracking-[0.02em] text-[#a7c7ff]"
+                  style={{
+                    fontSize: labelSize,
+                    textShadow: "0 0 10px rgba(98,154,255,0.18)",
+                  }}
+                >
+                  {typeName}
+                </span>
+              </div>
+            ))}
 
-          {visibleLevels.map((level) => {
-            const row = matrix.get(level) ?? new Map<string, number>()
-            return (
-              <Fragment key={level}>
-                <div className="flex min-w-0 items-center gap-1.5 pr-1.5">
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: LV_COLOR[level], boxShadow: `0 0 5px ${LV_COLOR[level]}` }}
-                  />
-                  <span className="truncate font-medium text-[#d7e6ff]" style={{ fontSize: labelSize }}>
-                    {zh ? LV_LABEL[level].zh : LV_LABEL[level].en}
-                  </span>
-                </div>
+            {visibleLevels.map((level) => {
+              const row = matrix.get(level) ?? new Map<string, number>()
+              return (
+                <Fragment key={level}>
+                  <div className="flex min-w-0 items-center gap-1.5 pr-1.5">
+                    <span
+                      className="h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: rgbToCss(levelAccent), boxShadow: `0 0 6px ${rgbaToCss(levelAccent, 0.42)}` }}
+                    />
+                    <span className="truncate font-medium text-[#d7e6ff]" style={{ fontSize: labelSize }}>
+                      {zh ? LV_LABEL[level].zh : LV_LABEL[level].en}
+                    </span>
+                  </div>
 
-                {typeOrder.map((typeName) => {
-                  const ratio = row.get(typeName) ?? 0
-                  const intensity = ratio > 0 ? 0.18 + (ratio / maxRatio) * 0.52 : 0
-                  return (
-                    <div key={`${level}-${typeName}`} className="min-w-0 px-[2px]">
-                      {ratio > 0 ? (
-                        <div
-                          className="flex w-full min-w-0 items-center justify-center rounded-sm border px-1"
-                          style={{
-                            height: matrixCellHeight,
-                            background: `linear-gradient(135deg, rgba(${hexToRgb(LV_COLOR[level])}, ${0.18 + intensity * 0.36}), rgba(${hexToRgb(LV_COLOR[level])}, ${0.08 + intensity * 0.18}))`,
-                            borderColor: `${LV_COLOR[level]}88`,
-                            boxShadow: `inset 0 0 14px rgba(255,255,255,0.03), 0 0 12px ${LV_COLOR[level]}18`,
-                          }}
-                        >
-                          <span
-                            className="truncate font-bold tabular-nums leading-none"
-                            style={{ color: LV_BRIGHT[level], textShadow: `0 0 10px ${LV_COLOR[level]}aa`, fontSize: valueSize }}
+                  {typeOrder.map((typeName) => {
+                    const ratio = row.get(typeName) ?? 0
+                    const weight = ratio > 0 ? ratio / maxRatio : 0
+                    const startColor = alarmMatrixRgb(0.08 + weight * 0.36)
+                    const endColor = alarmMatrixRgb(0.22 + weight * 0.74)
+                    const borderColor = alarmMatrixRgb(0.3 + weight * 0.62)
+                    const glossAlpha = 0.16 - weight * 0.05
+                    const glowAlpha = 0.08 + weight * 0.16
+                    return (
+                      <div key={`${level}-${typeName}`} className="min-w-0 px-[2px]">
+                        {ratio > 0 ? (
+                          <div
+                            className="flex w-full min-w-0 items-center justify-center rounded-sm border px-1"
+                            style={{
+                              height: matrixCellHeight,
+                              background: `linear-gradient(180deg, rgba(255,255,255,${glossAlpha}), rgba(255,255,255,0.02)), linear-gradient(135deg, ${rgbToCss(startColor)}, ${rgbToCss(endColor)})`,
+                              borderColor: rgbaToCss(borderColor, 0.85),
+                              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.18), 0 0 14px ${rgbaToCss(borderColor, glowAlpha)}`,
+                            }}
                           >
-                            {fmtRatio(ratio)}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex w-full items-center justify-center rounded-sm border border-[#102246] bg-[#08122a]/70" style={{ height: matrixCellHeight }}>
-                          <span className="text-[#32456f]" style={{ fontSize: labelSize }}>·</span>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </Fragment>
-            )
-          })}
+                            <span
+                              className="truncate font-bold tabular-nums leading-none"
+                              style={{
+                                color: ALARM_MATRIX_TEXT_COLOR,
+                                textShadow: "0 1px 0 rgba(255,255,255,0.22), 0 0 6px rgba(17,36,58,0.18)",
+                                fontSize: valueSize,
+                              }}
+                            >
+                              {fmtRatio(ratio)}
+                            </span>
+                          </div>
+                        ) : (
+                          <div
+                            className="flex w-full items-center justify-center rounded-sm border"
+                            style={{
+                              height: matrixCellHeight,
+                              borderColor: "rgba(124, 92, 24, 0.42)",
+                              background: "rgba(31, 21, 5, 0.58)",
+                            }}
+                          >
+                            <span className="text-[#6e5a27]" style={{ fontSize: labelSize }}>·</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </Fragment>
+              )
+            })}
+          </div>
+        </div>
+        <div className="flex h-full shrink-0 items-center py-0.5 pr-0" style={{ columnGap: legendGap }}>
+          <div
+            className="h-full min-h-[148px] rounded-full border border-white/5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]"
+            style={{
+              width: legendBarWidth,
+              background: `linear-gradient(to bottom, ${rgbToCss(legendHigh)}, ${rgbToCss(legendMid)}, ${rgbToCss(legendLow)})`,
+            }}
+          />
+          <div
+            className="flex h-full min-w-max flex-col items-start justify-between text-left tracking-[0.02em] text-[#b7d3ff]"
+            style={{ width: legendTextWidth }}
+          >
+            <span
+              className="block whitespace-nowrap font-extrabold text-[#e6f2ff] [text-shadow:0_0_10px_rgba(251,191,36,0.42)]"
+              style={{ fontSize: legendSize }}
+            >
+              {zh ? "高" : "H"}
+            </span>
+            <span
+              className="block whitespace-nowrap font-semibold text-[#d9b766]"
+              style={{ fontSize: legendSize }}
+            >
+              {zh ? "占比" : "Ratio"}
+            </span>
+            <span
+              className="block whitespace-nowrap font-extrabold text-[#e6f2ff] [text-shadow:0_0_10px_rgba(251,191,36,0.22)]"
+              style={{ fontSize: legendSize }}
+            >
+              {zh ? "低" : "L"}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -1361,6 +1456,7 @@ export function AlarmLogPanel({
   }
 
   const showTable = mode === "realtime" || viewMode === "table"
+  const hideHeaderSummary = mode === "history" && viewMode === "gantt"
   const historyEmptyText = zh ? "该日期无告警记录" : "No alarm records"
   const isHistoryListEmpty = mode === "history" && historyTableDisplayed.length === 0
 
@@ -1399,11 +1495,13 @@ export function AlarmLogPanel({
       <div className="mb-2 flex shrink-0 items-center gap-2">
         <div className="h-4 w-1 shrink-0 rounded-full bg-[#f97316]" />
         <span className="font-semibold text-[#f97316]" style={{ fontSize: titleSize }}>{zh ? "告警日志" : "Alarm Log"}</span>
-        <span className="font-medium text-[#5f79ad]" style={{ fontSize: infoSize }}>
-          {mode === "history"
-            ? (zh ? `共 ${cnt.total} 条` : `Total ${cnt.total}`)
-            : (zh ? `最新 ${Math.min(cnt.total, REALTIME_LIMIT)} 条` : `Latest ${Math.min(cnt.total, REALTIME_LIMIT)}`)}
-        </span>
+        {!hideHeaderSummary && (
+          <span className="font-medium text-[#5f79ad]" style={{ fontSize: infoSize }}>
+            {mode === "history"
+              ? (zh ? `共 ${cnt.total} 条` : `Total ${cnt.total}`)
+              : (zh ? `最新 ${Math.min(cnt.total, REALTIME_LIMIT)} 条` : `Latest ${Math.min(cnt.total, REALTIME_LIMIT)}`)}
+          </span>
+        )}
 
         <div className="ml-auto flex items-center gap-1.5">
           {cnt.active > 0 && (
@@ -1411,7 +1509,7 @@ export function AlarmLogPanel({
               {zh ? `活动 ${cnt.active}` : `Active ${cnt.active}`}
             </span>
           )}
-          {levelCounts.map(({ level, count }) => (
+          {!hideHeaderSummary && levelCounts.map(({ level, count }) => (
             <span
               key={`badge-${level}`}
               className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-semibold"
