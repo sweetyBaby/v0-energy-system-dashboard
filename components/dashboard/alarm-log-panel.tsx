@@ -5,8 +5,31 @@ import { BarChart2, ChevronDown, Filter, List, Maximize2, Minimize2 } from "luci
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
+import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 import { fetchFaultDetailList, fetchFaultList, type FaultDetailItem, type FaultListItem } from "@/lib/api/fault"
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+const roundTo = (value: number, digits = 2) => Number(value.toFixed(digits))
+
+function useHistoryTypographyBoost() {
+  const { width, height, devicePixelRatio, isCompactViewport } = useDashboardViewport()
+
+  return useMemo(() => {
+    if (isCompactViewport) {
+      return 1
+    }
+
+    const lowDensityBoost = clamp((1.45 - devicePixelRatio) / 0.55, 0, 1)
+    const largeScreenProgress = clamp(Math.max((width - 1880) / 780, (height - 1040) / 280), 0, 1)
+    const roomyScreenProgress = clamp(Math.max((width - 2360) / 520, (height - 1320) / 180), 0, 1)
+
+    return roundTo(
+      1 + largeScreenProgress * (0.08 + lowDensityBoost * 0.06) + roomyScreenProgress * (0.03 + lowDensityBoost * 0.02),
+      3
+    )
+  }, [devicePixelRatio, height, isCompactViewport, width])
+}
 
 // ── 等级定义 ──────────────────────────────────────────────────────────────────
 const LV_COLOR: Record<number, string> = {
@@ -434,18 +457,47 @@ function deriveTimelineEvents(alarms: AlarmEntry[]): TimelineEvent[] {
 
 const LEFT_W  = 132
 const DAY_SECONDS = 24 * 60 * 60
+const TIMELINE_TICK_STEPS = [
+  10 * 60,
+  15 * 60,
+  30 * 60,
+  60 * 60,
+  2 * 60 * 60,
+  3 * 60 * 60,
+] as const
+
+const resolveTimelineTickStep = (span: number) => {
+  if (span <= 90 * 60) return TIMELINE_TICK_STEPS[0]
+  if (span <= 3 * 60 * 60) return TIMELINE_TICK_STEPS[1]
+  if (span <= 6 * 60 * 60) return TIMELINE_TICK_STEPS[2]
+  if (span <= 12 * 60 * 60) return TIMELINE_TICK_STEPS[3]
+  if (span <= 18 * 60 * 60) return TIMELINE_TICK_STEPS[4]
+  return TIMELINE_TICK_STEPS[5]
+}
+
+const resolveTimelineMajorTickStep = (tickStep: number) => {
+  if (tickStep <= 15 * 60) return 60 * 60
+  if (tickStep <= 30 * 60) return 60 * 60
+  if (tickStep <= 60 * 60) return 3 * 60 * 60
+  return 6 * 60 * 60
+}
 
 // ── 甘特时间轴（拖动平移 + 滚轮缩放，始终铺满容器，无横向滚动条） ─────────────
 function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[]; zh: boolean; visibleLevels?: number[] }) {
   const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
-  const labelSize = scale.fluid(11, 16)
-  const tickSize = scale.fluid(10, 15)
-  const tooltipSize = scale.fluid(11, 16)
-  const laneHeight = Math.round(scale.fluid(14, 18))
-  const laneGap = Math.round(scale.fluid(4, 7))
-  const rowPaddingY = Math.round(scale.fluid(8, 12))
-  const labelLineHeight = scale.fluid(14, 20)
-  const minRowHeight = Math.round(scale.fluid(38, 52))
+  const historyTypographyBoost = useHistoryTypographyBoost()
+  const boostMetric = (value: number) => roundTo(value * historyTypographyBoost)
+  const labelSize = boostMetric(scale.fluid(11, 16))
+  const tickSize = boostMetric(scale.fluid(10, 15))
+  const tooltipSize = boostMetric(scale.fluid(11, 16))
+  const laneHeight = Math.round(boostMetric(scale.fluid(14, 18)))
+  const laneGap = Math.round(boostMetric(scale.fluid(4, 7)))
+  const rowPaddingY = Math.round(boostMetric(scale.fluid(8, 12)))
+  const labelLineHeight = boostMetric(scale.fluid(14, 20))
+  const minRowHeight = Math.round(boostMetric(scale.fluid(38, 52)))
+  const leftLabelWidth = Math.round(LEFT_W * Math.min(historyTypographyBoost, 1.16))
+  const tickLabelOffset = Math.round(64 * Math.min(historyTypographyBoost, 1.12))
+  const tickHeaderHeight = Math.round(boostMetric(scale.fluid(18, 22)))
   const [viewStart, setViewStart] = useState(0)
   const [viewEnd,   setViewEnd]   = useState(DAY_SECONDS)
   const [tooltip, setTooltip]     = useState<{ ev: TimelineEvent; mx: number; my: number } | null>(null)
@@ -518,9 +570,12 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
   }
   const pct = (value: number) => `${((value - viewStart) / span) * 100}%`
 
-  const tickStep = span <= 7200 ? 3600 : span <= 14400 ? 7200 : span <= 28800 ? 10800 : 21600
+  const tickStep = resolveTimelineTickStep(span)
+  const majorTickStep = resolveTimelineMajorTickStep(tickStep)
   const ticks    = Array.from({ length: Math.ceil(DAY_SECONDS / tickStep) + 1 }, (_, i) => i * tickStep)
     .filter(value => value >= viewStart && value <= viewEnd)
+  const tickLabelPaddingX = Math.round(Math.max(6, tickSize * 0.5))
+  const tickLabelHeight = Math.round(Math.max(22, tickSize * 1.85))
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (!e.shiftKey) {
@@ -560,7 +615,7 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
   }
 
   return (
-    <div ref={scale.ref} className="select-none flex h-full flex-col rounded-lg border border-[#1a3060] bg-[#080e28]/70 px-3 py-2" style={scale.rootStyle}>
+    <div ref={scale.ref} className="select-none flex h-full flex-col overflow-hidden rounded-lg border border-[#1a3060] bg-[#080e28]/70 px-3 py-2" style={scale.rootStyle}>
       <div className="mb-2 flex shrink-0 items-center gap-3 px-1">
         {timelineVisibleLevels.map((level) => (
           <div key={level} className="flex items-center gap-1.5">
@@ -582,17 +637,43 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="relative ml-[64px] shrink-0" style={{ height: 18 }}>
-          {ticks.map(value => (
-            <span key={value}
-              className="absolute -translate-x-1/2 whitespace-nowrap font-medium text-[#7ab0f0]"
-              style={{ left: pct(value), fontSize: tickSize }}>
-              {fmt(value)}
-            </span>
-          ))}
+        <div className="relative shrink-0 overflow-hidden" style={{ marginLeft: tickLabelOffset, height: tickHeaderHeight }}>
+          {ticks.map((value, index) => {
+            const isFirstTick = index === 0
+            const isLastTick = index === ticks.length - 1
+            const isMajorTick = value === 0 || value === DAY_SECONDS || value % majorTickStep === 0
+            const isAnchorTick = value === 0 || value === 12 * 60 * 60 || value === DAY_SECONDS
+
+            return (
+              <span
+                key={value}
+                className={`absolute whitespace-nowrap tabular-nums ${
+                  isFirstTick ? "left-0" : isLastTick ? "right-0" : "-translate-x-1/2"
+                }`}
+                style={{
+                  ...(isFirstTick || isLastTick ? {} : { left: pct(value) }),
+                  fontSize: tickSize,
+                  lineHeight: `${tickLabelHeight}px`,
+                  paddingInline: tickLabelPaddingX,
+                  height: tickLabelHeight,
+                  fontWeight: isAnchorTick ? 800 : isMajorTick ? 700 : 600,
+                  color: isAnchorTick ? "#f4fbff" : isMajorTick ? "#d9ecff" : "#8eb8ea",
+                  letterSpacing: isAnchorTick ? "0.06em" : "0.04em",
+                  textShadow: isAnchorTick
+                    ? "0 0 16px rgba(145,210,255,0.56), 0 0 6px rgba(145,210,255,0.34)"
+                    : isMajorTick
+                      ? "0 0 14px rgba(120,182,255,0.48), 0 0 6px rgba(120,182,255,0.32)"
+                      : "0 0 8px rgba(120,182,255,0.22)",
+                  opacity: isAnchorTick ? 1 : isMajorTick ? 1 : 0.92,
+                }}
+              >
+                {fmt(value)}
+              </span>
+            )
+          })}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto
           [&::-webkit-scrollbar]:w-[5px]
           [&::-webkit-scrollbar-track]:rounded-full
           [&::-webkit-scrollbar-track]:bg-[#060c1f]
@@ -600,7 +681,7 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
           [&::-webkit-scrollbar-thumb]:bg-[#1e3a6e]
           [&::-webkit-scrollbar-thumb:hover]:bg-[#2d5499]">
           <div className="flex min-w-0">
-            <div className="flex shrink-0 flex-col" style={{ width: LEFT_W }}>
+            <div className="flex shrink-0 flex-col" style={{ width: leftLabelWidth }}>
               {timelineRows.map((row) => (
                 <div key={row.type}
                   className="relative flex items-start justify-end pr-2 pt-1 text-right font-medium text-[#a8c4f0] transition-colors"
@@ -642,9 +723,52 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
                       boxShadow: hoveredRow === row.type ? "inset 0 0 0 1px rgba(122,180,255,0.16)" : undefined,
                     }}
                   />
-                  {ticks.map(value => (
-                    <div key={value} className="absolute inset-y-0 w-px bg-[#1a2e5a]/50" style={{ left: pct(value) }} />
-                  ))}
+                  {ticks.map(value => {
+                    const isMajorTick = value === 0 || value === DAY_SECONDS || value % majorTickStep === 0
+                    const isAnchorTick = value === 0 || value === 12 * 60 * 60 || value === DAY_SECONDS
+
+                    return (
+                      <Fragment key={value}>
+                        {isMajorTick && (
+                          <div
+                            className="absolute top-0"
+                            style={{
+                              left: pct(value),
+                              width: isAnchorTick ? 3 : 2,
+                              height: isAnchorTick ? 14 : 10,
+                              borderRadius: 999,
+                              background: isAnchorTick
+                                ? "linear-gradient(180deg, rgba(158,220,255,0.95), rgba(95,166,255,0.55))"
+                                : "linear-gradient(180deg, rgba(110,176,255,0.72), rgba(72,124,210,0.42))",
+                              boxShadow: isAnchorTick
+                                ? "0 0 10px rgba(120,192,255,0.28)"
+                                : "0 0 6px rgba(84,138,220,0.18)",
+                              transform: "translateX(-50%)",
+                              opacity: isAnchorTick ? 1 : 0.94,
+                            }}
+                          />
+                        )}
+                        <div
+                          className="absolute inset-y-0"
+                          style={{
+                            left: pct(value),
+                            width: isAnchorTick ? 2 : isMajorTick ? 2 : 1,
+                            background: isAnchorTick
+                              ? "linear-gradient(180deg, rgba(124,192,255,0.72), rgba(58,104,176,0.34))"
+                              : isMajorTick
+                                ? "linear-gradient(180deg, rgba(84,138,220,0.52), rgba(38,72,132,0.3))"
+                                : "linear-gradient(180deg, rgba(26,46,90,0.58), rgba(26,46,90,0.22))",
+                            boxShadow: isAnchorTick
+                              ? "0 0 10px rgba(124,192,255,0.22)"
+                              : isMajorTick
+                                ? "0 0 8px rgba(84,138,220,0.16)"
+                                : undefined,
+                            opacity: isAnchorTick ? 1 : isMajorTick ? 1 : 0.78,
+                          }}
+                        />
+                      </Fragment>
+                    )
+                  })}
                   <div className="absolute inset-x-0 bottom-0 h-px bg-[#1a2654]/30" />
                   {row.events
                     .filter(ev => ev.end > viewStart && ev.start < viewEnd)
@@ -713,10 +837,13 @@ const LEVELS = [1, 2, 3, 4, 5] as const
 
 function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }) {
   const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
-  const labelSize = scale.fluid(11, 16)
-  const valueSize = scale.fluid(12, 18)
-  const levelColumnWidth = Math.round(scale.fluid(62, 82))
-  const matrixMinHeight = Math.round(scale.fluid(252, 336))
+  const historyTypographyBoost = useHistoryTypographyBoost()
+  const boostMetric = (value: number) => roundTo(value * historyTypographyBoost)
+  const labelSize = boostMetric(scale.fluid(11, 16))
+  const valueSize = boostMetric(scale.fluid(12, 18))
+  const levelColumnWidth = Math.round(boostMetric(scale.fluid(62, 82)))
+  const matrixMinHeight = Math.round(boostMetric(scale.fluid(252, 336)))
+  const matrixCellHeight = Math.round(boostMetric(scale.fluid(26, 32)))
   if (items.length === 0) return null
 
   const fmtRatio = (ratio: number) => `${(ratio * 100).toFixed(2)}%`
@@ -754,10 +881,10 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto
-        [&::-webkit-scrollbar]:w-[5px]
-        [&::-webkit-scrollbar]:h-[5px]
-        [&::-webkit-scrollbar-track]:rounded-full
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto
+          [&::-webkit-scrollbar]:w-[5px]
+          [&::-webkit-scrollbar]:h-[5px]
+          [&::-webkit-scrollbar-track]:rounded-full
         [&::-webkit-scrollbar-track]:bg-[#060c1f]
         [&::-webkit-scrollbar-thumb]:rounded-full
         [&::-webkit-scrollbar-thumb]:bg-[#1e3a6e]
@@ -800,8 +927,9 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
                     <div key={`${level}-${typeName}`} className="min-w-0 px-[2px]">
                       {ratio > 0 ? (
                         <div
-                          className="flex h-[26px] w-full min-w-0 items-center justify-center rounded-sm border px-1"
+                          className="flex w-full min-w-0 items-center justify-center rounded-sm border px-1"
                           style={{
+                            height: matrixCellHeight,
                             background: `linear-gradient(135deg, rgba(${hexToRgb(LV_COLOR[level])}, ${0.18 + intensity * 0.36}), rgba(${hexToRgb(LV_COLOR[level])}, ${0.08 + intensity * 0.18}))`,
                             borderColor: `${LV_COLOR[level]}88`,
                             boxShadow: `inset 0 0 14px rgba(255,255,255,0.03), 0 0 12px ${LV_COLOR[level]}18`,
@@ -815,7 +943,7 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
                           </span>
                         </div>
                       ) : (
-                        <div className="flex h-[26px] w-full items-center justify-center rounded-sm border border-[#102246] bg-[#08122a]/70">
+                        <div className="flex w-full items-center justify-center rounded-sm border border-[#102246] bg-[#08122a]/70" style={{ height: matrixCellHeight }}>
                           <span className="text-[#32456f]" style={{ fontSize: labelSize }}>·</span>
                         </div>
                       )}
@@ -1014,11 +1142,16 @@ export function AlarmLogPanel({
   const { selectedProject } = useProject()
   const zh = language === "zh"
   const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
-  const titleSize = scale.clampText(0.9, 0.98, 1.5)
-  const infoSize = scale.fluid(12, 17)
-  const badgeSize = scale.fluid(11, 15)
-  const tableFontSize = scale.fluid(11, 15)
-  const headerFontSize = scale.fluid(12, 16)
+  const historyTypographyBoost = useHistoryTypographyBoost()
+  const panelTypographyBoost = mode === "history" ? historyTypographyBoost : 1
+  const boostPanelMetric = (value: number) => roundTo(value * panelTypographyBoost)
+  const titleSize = mode === "history" ? `${boostPanelMetric(scale.fluid(14.4, 24))}px` : scale.clampText(0.9, 0.98, 1.5)
+  const infoSize = boostPanelMetric(scale.fluid(12, 17))
+  const badgeSize = boostPanelMetric(scale.fluid(11, 15))
+  const tableFontSize = boostPanelMetric(scale.fluid(11, 15))
+  const headerFontSize = boostPanelMetric(scale.fluid(12, 16))
+  const historyColumnScale = Math.min(panelTypographyBoost, 1.12)
+  const historyTableMinWidth = Math.round(1280 * historyColumnScale)
 
   const REALTIME_LIMIT = 15
 
@@ -1344,7 +1477,7 @@ export function AlarmLogPanel({
 
       {/* ── 历史甘特视图 + 类型统计 ── */}
       {mode === "history" && viewMode === "gantt" && (
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto pr-1">
           {isHistoryLoading ? (
             <div className="flex min-h-0 flex-1 items-center justify-center">
               <HistoryStyleLoadingIndicator text={zh ? "加载历史告警甘特图..." : "Loading alarm gantt..."} />
@@ -1428,18 +1561,18 @@ export function AlarmLogPanel({
               [&::-webkit-scrollbar-thumb]:bg-[#1e3a6e]
               [&::-webkit-scrollbar-thumb:hover]:bg-[#2d5499]
               [&::-webkit-scrollbar-corner]:bg-[#060c1f]`}>
-              <table className={`${mode === "history" ? "min-w-[1280px]" : "min-w-[760px]"} w-full border-collapse text-left`} style={{ tableLayout: "fixed" }}>
+              <table className="w-full border-collapse text-left" style={{ tableLayout: "fixed", minWidth: mode === "history" ? historyTableMinWidth : 760 }}>
                 <colgroup>
                   {mode === "history" ? (
                     <>
-                      <col style={{ width: "240px" }} />
-                      <col style={{ width: "100px" }} />
-                      <col style={{ width: "92px" }} />
-                      <col style={{ width: "160px" }} />
-                      <col style={{ width: "160px" }} />
-                      <col style={{ width: "150px" }} />
-                      <col style={{ width: "140px" }} />
-                      <col style={{ width: "280px" }} />
+                      <col style={{ width: `${Math.round(240 * historyColumnScale)}px` }} />
+                      <col style={{ width: `${Math.round(100 * historyColumnScale)}px` }} />
+                      <col style={{ width: `${Math.round(92 * historyColumnScale)}px` }} />
+                      <col style={{ width: `${Math.round(160 * historyColumnScale)}px` }} />
+                      <col style={{ width: `${Math.round(160 * historyColumnScale)}px` }} />
+                      <col style={{ width: `${Math.round(150 * historyColumnScale)}px` }} />
+                      <col style={{ width: `${Math.round(140 * historyColumnScale)}px` }} />
+                      <col style={{ width: `${Math.round(280 * historyColumnScale)}px` }} />
                     </>
                   ) : (
                     <>
