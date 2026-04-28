@@ -63,14 +63,14 @@ type FormField = "account" | "password"
 
 type FormErrors = Partial<Record<FormField, string>>
 
-const normalizeAccount = (value: string) => value.replace(/\u3000/g, " ").trim()
+const normalizeCredentialValue = (value: string) => value.replace(/\u3000/g, " ").trim()
 
 function getFieldError(field: FormField, value: string, copy: Copy) {
   if (field === "account") {
-    return normalizeAccount(value) ? null : copy.accountRequired
+    return normalizeCredentialValue(value) ? null : copy.accountRequired
   }
 
-  return value ? null : copy.passwordRequired
+  return normalizeCredentialValue(value) ? null : copy.passwordRequired
 }
 
 function EnerCloudIcon({ className }: { className?: string }) {
@@ -713,14 +713,25 @@ export default function LoginPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    const nextErrors: FormErrors = {}
-
-    if (accountError) {
-      nextErrors.account = accountError
+    const normalizedAccount = normalizeCredentialValue(account)
+    const normalizedPassword = normalizeCredentialValue(password)
+    if (normalizedAccount !== account) {
+      setAccount(normalizedAccount)
+    }
+    if (normalizedPassword !== password) {
+      setPassword(normalizedPassword)
     }
 
-    if (passwordError) {
-      nextErrors.password = passwordError
+    const nextErrors: FormErrors = {}
+
+    const nextAccountError = getFieldError("account", normalizedAccount, copy)
+    if (nextAccountError) {
+      nextErrors.account = nextAccountError
+    }
+
+    const nextPasswordError = getFieldError("password", normalizedPassword, copy)
+    if (nextPasswordError) {
+      nextErrors.password = nextPasswordError
     }
 
     if (nextErrors.account || nextErrors.password) {
@@ -733,8 +744,8 @@ export default function LoginPage() {
 
     try {
       const response = await loginWithCloud({
-        username: normalizeAccount(account),
-        password,
+        username: normalizedAccount,
+        password: normalizedPassword,
       })
 
       if (response.code !== 200 || !response.token) {
@@ -961,7 +972,11 @@ export default function LoginPage() {
                       }
                     }}
                     onBlur={(event) => {
-                      validateField("account", event.target.value)
+                      const normalizedValue = normalizeCredentialValue(event.target.value)
+                      if (normalizedValue !== account) {
+                        setAccount(normalizedValue)
+                      }
+                      validateField("account", normalizedValue)
                     }}
                     placeholder={copy.accountPlaceholder}
                     autoComplete="username"
@@ -997,7 +1012,11 @@ export default function LoginPage() {
                       }
                     }}
                     onBlur={(event) => {
-                      validateField("password", event.target.value)
+                      const normalizedValue = normalizeCredentialValue(event.target.value)
+                      if (normalizedValue !== password) {
+                        setPassword(normalizedValue)
+                      }
+                      validateField("password", normalizedValue)
                     }}
                     placeholder={copy.passwordPlaceholder}
                     autoComplete="current-password"

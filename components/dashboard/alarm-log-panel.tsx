@@ -306,11 +306,6 @@ function makeRTAlarm(offsetSec = 0): AlarmEntry {
   }
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  "未恢复": "#ef4444", "已确认": "#f97316", "已恢复": "#00d4aa",
-  "Active": "#ef4444", "Acknowledged": "#f97316", "Recovered": "#00d4aa",
-}
-
 const normalizeAlarmSource = (value: string) => value.trim().toUpperCase().replace(/[\s_-]/g, "")
 
 const getBcuSequence = (value?: string | null) => {
@@ -533,7 +528,6 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
   const labelLineHeight = boostMetric(scale.fluid(14, 20))
   const minRowHeight = Math.round(boostMetric(scale.fluid(38, 52)))
   const leftLabelWidth = Math.round(LEFT_W * Math.min(historyTypographyBoost, 1.16))
-  const tickLabelOffset = Math.round(64 * Math.min(historyTypographyBoost, 1.12))
   const tickHeaderHeight = Math.round(boostMetric(scale.fluid(18, 22)))
   const [viewStart, setViewStart] = useState(0)
   const [viewEnd,   setViewEnd]   = useState(DAY_SECONDS)
@@ -608,11 +602,13 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
   const pct = (value: number) => `${((value - viewStart) / span) * 100}%`
 
   const tickStep = resolveTimelineTickStep(span)
-  const majorTickStep = resolveTimelineMajorTickStep(tickStep)
   const ticks    = Array.from({ length: Math.ceil(DAY_SECONDS / tickStep) + 1 }, (_, i) => i * tickStep)
     .filter(value => value >= viewStart && value <= viewEnd)
   const tickLabelPaddingX = Math.round(Math.max(6, tickSize * 0.5))
   const tickLabelHeight = Math.round(Math.max(22, tickSize * 1.85))
+  const edgeTickLabelInset = Math.round(Math.max(6, tickLabelPaddingX))
+  const guideWidth = Number(Math.max(1.1, boostMetric(scale.fluid(1.05, 1.45))).toFixed(2))
+  const guideDotSize = Math.round(Math.max(4, boostMetric(scale.fluid(4, 5.5))))
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (!e.shiftKey) {
@@ -674,40 +670,41 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="relative shrink-0 overflow-hidden" style={{ marginLeft: tickLabelOffset, height: tickHeaderHeight }}>
-          {ticks.map((value, index) => {
-            const isFirstTick = index === 0
-            const isLastTick = index === ticks.length - 1
-            const isMajorTick = value === 0 || value === DAY_SECONDS || value % majorTickStep === 0
-            const isAnchorTick = value === 0 || value === 12 * 60 * 60 || value === DAY_SECONDS
+        <div className="flex shrink-0">
+          <div className="shrink-0" style={{ width: leftLabelWidth }} />
+          <div className="relative min-w-0 flex-1 overflow-visible" style={{ height: tickHeaderHeight }}>
+            {ticks.map((value, index) => {
+              const isFirstTick = index === 0
+              const isLastTick = index === ticks.length - 1
 
-            return (
-              <span
-                key={value}
-                className={`absolute whitespace-nowrap tabular-nums ${
-                  isFirstTick ? "left-0" : isLastTick ? "right-0" : "-translate-x-1/2"
-                }`}
-                style={{
-                  ...(isFirstTick || isLastTick ? {} : { left: pct(value) }),
-                  fontSize: tickSize,
-                  lineHeight: `${tickLabelHeight}px`,
-                  paddingInline: tickLabelPaddingX,
-                  height: tickLabelHeight,
-                  fontWeight: isAnchorTick ? 800 : isMajorTick ? 700 : 600,
-                  color: isAnchorTick ? "#f4fbff" : isMajorTick ? "#d9ecff" : "#8eb8ea",
-                  letterSpacing: isAnchorTick ? "0.06em" : "0.04em",
-                  textShadow: isAnchorTick
-                    ? "0 0 16px rgba(145,210,255,0.56), 0 0 6px rgba(145,210,255,0.34)"
-                    : isMajorTick
-                      ? "0 0 14px rgba(120,182,255,0.48), 0 0 6px rgba(120,182,255,0.32)"
-                      : "0 0 8px rgba(120,182,255,0.22)",
-                  opacity: isAnchorTick ? 1 : isMajorTick ? 1 : 0.92,
-                }}
-              >
-                {fmt(value)}
-              </span>
-            )
-          })}
+              return (
+                <span
+                  key={value}
+                  className="absolute whitespace-nowrap tabular-nums"
+                  style={{
+                    left: pct(value),
+                    transform: isFirstTick
+                      ? "translateX(-50%)"
+                      : isLastTick
+                        ? `translateX(calc(-100% - ${edgeTickLabelInset}px))`
+                        : "translateX(-50%)",
+                    fontSize: tickSize,
+                    lineHeight: `${tickLabelHeight}px`,
+                    paddingInline: tickLabelPaddingX,
+                    height: tickLabelHeight,
+                    textAlign: "center",
+                    fontWeight: 700,
+                    color: "#d8ecff",
+                    letterSpacing: "0.05em",
+                    textShadow: "0 0 12px rgba(120,182,255,0.36), 0 0 5px rgba(120,182,255,0.18)",
+                    opacity: 0.98,
+                  }}
+                >
+                  {fmt(value)}
+                </span>
+              )
+            })}
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto
@@ -740,14 +737,46 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
 
             <div
               ref={containerRef}
-              className={`min-w-0 flex-1 ${zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
+              className={`relative min-w-0 flex-1 ${zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
               onWheel={handleWheel}
               onMouseDown={startDrag}
             >
+              <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                {ticks.map((value) => {
+                  return (
+                    <Fragment key={`guide-${value}`}>
+                      <div
+                        className="absolute top-0 rounded-full"
+                        style={{
+                          left: pct(value),
+                          width: guideDotSize,
+                          height: guideDotSize,
+                          transform: "translate(-50%, -18%)",
+                          background: "radial-gradient(circle, rgba(224,243,255,0.86) 0%, rgba(132,194,255,0.72) 44%, rgba(77,141,226,0.28) 72%, rgba(77,141,226,0) 100%)",
+                          boxShadow: "0 0 6px rgba(132,194,255,0.18)",
+                          opacity: 0.82,
+                        }}
+                      />
+                      <div
+                        className="absolute inset-y-0"
+                        style={{
+                          left: pct(value),
+                          width: guideWidth,
+                          transform: "translateX(-50%)",
+                          borderRadius: 999,
+                          backgroundImage: "repeating-linear-gradient(180deg, rgba(154,206,252,0.72) 0 8px, rgba(90,154,232,0.54) 8px 12px, rgba(90,154,232,0) 12px 20px)",
+                          boxShadow: "0 0 4px rgba(102,168,240,0.08)",
+                          opacity: 0.76,
+                        }}
+                      />
+                    </Fragment>
+                  )
+                })}
+              </div>
               {timelineRows.map((row) => (
                 <div
                   key={row.type}
-                  className="relative"
+                  className="relative z-[1]"
                   onMouseEnter={() => setHoveredRow(row.type)}
                   onMouseLeave={() => setHoveredRow((current) => (current === row.type ? null : current))}
                   style={{ height: row.height }}
@@ -760,52 +789,6 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
                       boxShadow: hoveredRow === row.type ? "inset 0 0 0 1px rgba(122,180,255,0.16)" : undefined,
                     }}
                   />
-                  {ticks.map(value => {
-                    const isMajorTick = value === 0 || value === DAY_SECONDS || value % majorTickStep === 0
-                    const isAnchorTick = value === 0 || value === 12 * 60 * 60 || value === DAY_SECONDS
-
-                    return (
-                      <Fragment key={value}>
-                        {isMajorTick && (
-                          <div
-                            className="absolute top-0"
-                            style={{
-                              left: pct(value),
-                              width: isAnchorTick ? 3 : 2,
-                              height: isAnchorTick ? 14 : 10,
-                              borderRadius: 999,
-                              background: isAnchorTick
-                                ? "linear-gradient(180deg, rgba(158,220,255,0.95), rgba(95,166,255,0.55))"
-                                : "linear-gradient(180deg, rgba(110,176,255,0.72), rgba(72,124,210,0.42))",
-                              boxShadow: isAnchorTick
-                                ? "0 0 10px rgba(120,192,255,0.28)"
-                                : "0 0 6px rgba(84,138,220,0.18)",
-                              transform: "translateX(-50%)",
-                              opacity: isAnchorTick ? 1 : 0.94,
-                            }}
-                          />
-                        )}
-                        <div
-                          className="absolute inset-y-0"
-                          style={{
-                            left: pct(value),
-                            width: isAnchorTick ? 2 : isMajorTick ? 2 : 1,
-                            background: isAnchorTick
-                              ? "linear-gradient(180deg, rgba(124,192,255,0.72), rgba(58,104,176,0.34))"
-                              : isMajorTick
-                                ? "linear-gradient(180deg, rgba(84,138,220,0.52), rgba(38,72,132,0.3))"
-                                : "linear-gradient(180deg, rgba(26,46,90,0.58), rgba(26,46,90,0.22))",
-                            boxShadow: isAnchorTick
-                              ? "0 0 10px rgba(124,192,255,0.22)"
-                              : isMajorTick
-                                ? "0 0 8px rgba(84,138,220,0.16)"
-                                : undefined,
-                            opacity: isAnchorTick ? 1 : isMajorTick ? 1 : 0.78,
-                          }}
-                        />
-                      </Fragment>
-                    )
-                  })}
                   <div className="absolute inset-x-0 bottom-0 h-px bg-[#1a2654]/30" />
                   {row.events
                     .filter(ev => ev.end > viewStart && ev.start < viewEnd)
@@ -883,6 +866,7 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
   const legendBarWidth = Math.round(boostMetric(scale.fluid(10, 14)))
   const legendTextWidth = Math.round(boostMetric(scale.fluid(26, 36)))
   const levelColumnWidth = Math.round(boostMetric(scale.fluid(62, 82)))
+  const typeColumnMinWidth = Math.round(boostMetric(scale.fluid(108, 148)))
   const matrixMinHeight = Math.round(boostMetric(scale.fluid(252, 336)))
   const matrixCellHeight = Math.round(boostMetric(scale.fluid(26, 32)))
   if (items.length === 0) return null
@@ -907,7 +891,8 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
     0.0001,
     ...visibleLevels.flatMap((level) => typeOrder.map((typeName) => matrix.get(level)?.get(typeName) ?? 0))
   )
-  const gridTemplateColumns = `${levelColumnWidth}px repeat(${typeOrder.length}, minmax(0, 1fr))`
+  const gridTemplateColumns = `${levelColumnWidth}px repeat(${typeOrder.length}, minmax(${typeColumnMinWidth}px, 1fr))`
+  const matrixGridMinWidth = levelColumnWidth + typeOrder.length * typeColumnMinWidth
   const legendHigh = alarmMatrixRgb(1)
   const legendMid = alarmMatrixRgb(0.55)
   const legendLow = alarmMatrixRgb(0.06)
@@ -916,8 +901,8 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
   return (
     <div
       ref={scale.ref}
-      className="shrink-0 flex min-h-0 flex-col rounded-lg border border-[#1a3060] bg-[#070d20]/80 px-3 py-2"
-      style={{ ...scale.rootStyle, minHeight: matrixMinHeight }}
+      className="shrink-0 flex min-h-0 flex-col overflow-hidden rounded-lg border border-[#1a3060] bg-[#070d20]/80 px-3 py-2"
+      style={{ ...scale.rootStyle, height: matrixMinHeight, minHeight: matrixMinHeight }}
     >
       <div className="mb-2 flex items-center gap-2">
         <div className="h-3.5 w-[3px] rounded-full bg-[#00d4aa]" style={{ boxShadow: "0 0 6px #00d4aa80" }} />
@@ -927,7 +912,7 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
       </div>
 
       <div className="flex min-h-0 flex-1 items-stretch" style={{ columnGap: legendGap }}>
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto
+        <div className="h-full min-h-0 flex-1 overflow-x-auto overflow-y-auto
           [&::-webkit-scrollbar]:w-[5px]
           [&::-webkit-scrollbar]:h-[5px]
           [&::-webkit-scrollbar-track]:rounded-full
@@ -936,15 +921,23 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
         [&::-webkit-scrollbar-thumb]:bg-[#1e3a6e]
         [&::-webkit-scrollbar-thumb:hover]:bg-[#2d5499]
         [&::-webkit-scrollbar-corner]:bg-[#060c1f]">
-          <div className="grid min-w-0 gap-x-1 gap-y-1" style={{ gridTemplateColumns }}>
+          <div className="grid gap-x-1 gap-y-1" style={{ gridTemplateColumns, minWidth: matrixGridMinWidth }}>
             <div />
             {typeOrder.map((typeName) => (
               <div key={typeName} className="min-w-0 px-[2px] text-center">
                 <span
-                  className="block whitespace-normal break-words font-bold leading-tight tracking-[0.02em] text-[#a7c7ff]"
+                  className="mx-auto block overflow-hidden text-center font-bold tracking-[0.02em] text-[#a7c7ff]"
                   style={{
+                    display: "-webkit-box",
                     fontSize: labelSize,
+                    lineHeight: 1.18,
+                    maxWidth: `${typeColumnMinWidth - 8}px`,
+                    minHeight: `${Math.ceil(labelSize * 2.36)}px`,
                     textShadow: "0 0 10px rgba(98,154,255,0.18)",
+                    WebkitBoxOrient: "vertical",
+                    WebkitLineClamp: 2,
+                    wordBreak: "normal",
+                    overflowWrap: "normal",
                   }}
                 >
                   {typeName}
@@ -1060,46 +1053,15 @@ function hexToRgb(hex: string): string {
   return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`
 }
 
-// ── 等级标识 ──────────────────────────────────────────────────────────────────
-function LevelIndicator({ lv, zh }: { lv: number; zh: boolean }) {
-  if (lv === 0) {
-    return (
-      <div className="inline-flex items-center rounded-full border border-[#7b879d]/35 bg-[#1a2337] px-2 py-0.5">
-        <span className="font-semibold" style={{ color: LV_BRIGHT[0], fontSize: 11 }}>
-          {zh ? "其他" : "Other"}
-        </span>
-      </div>
-    )
-  }
-
-  return (
-    <div className="inline-flex items-center gap-1 rounded-full border px-2 py-1"
-      style={{
-        borderColor: `${LV_COLOR[lv]}44`,
-        background: `linear-gradient(135deg, ${LV_SURFACE[lv]}, rgba(${hexToRgb(LV_COLOR[lv])}, 0.08))`,
-        boxShadow: `inset 0 0 0 1px rgba(${hexToRgb(LV_COLOR[lv])}, 0.08)`,
-      }}>
-      {[1, 2, 3, 4, 5].map(i => (
-        <div key={i} className="h-2 w-2 rounded-full transition-colors"
-          style={{
-            backgroundColor: i <= lv ? LV_COLOR[lv] : "#16213f",
-            boxShadow: i <= lv ? `0 0 7px ${LV_COLOR[lv]}aa` : "inset 0 0 0 1px rgba(95,121,173,0.18)",
-          }} />
-      ))}
-      <span className="ml-1 font-semibold tracking-[0.04em]" style={{ color: LV_BRIGHT[lv], fontSize: 10 }}>
-        {zh ? LV_LABEL[lv].zh : LV_LABEL[lv].en}
-      </span>
-    </div>
-  )
-}
-
 // ── 告警行 ────────────────────────────────────────────────────────────────────
 function AlarmRow({
+  index,
   alarm,
   zh,
   tableFontSize,
   headerFontSize,
 }: {
+  index: number
   alarm: AlarmEntry
   zh: boolean
   tableFontSize: number
@@ -1115,7 +1077,10 @@ function AlarmRow({
     <tr className={`border-b border-[#1a2654]/50 transition-colors last:border-0 ${
       alarm.lv >= 5 ? "bg-[#3a0e0e]/30" : "hover:bg-[#1a2654]/20"
     }`}>
-      <td className="py-2 pl-3 pr-2 tabular-nums text-[#7ab0f0]" style={{ fontSize: tableFontSize }}>{timePart}</td>
+      <td className="py-2 pl-3 pr-2 tabular-nums text-[#6a8abf]" style={{ fontSize: tableFontSize }}>
+        {index}
+      </td>
+      <td className="py-2 pr-2 tabular-nums text-[#7ab0f0]" style={{ fontSize: tableFontSize }}>{timePart}</td>
       <td className="py-2 pr-2">
         <div
           className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1"
@@ -1139,14 +1104,8 @@ function AlarmRow({
         </span>
       </td>
       <td className="py-2 pr-2 text-[#7b8ab8]" style={{ fontSize: tableFontSize }}>{(zh ? GRP_LABEL[alarm.group]?.zh : GRP_LABEL[alarm.group]?.en) ?? alarm.group}</td>
-      <td className="py-2 pr-2"><LevelIndicator lv={alarm.lv} zh={zh} /></td>
       <td className="py-2 pr-2 whitespace-normal break-words text-[#7b8ab8]" style={{ fontSize: tableFontSize }}>
         <span className="text-[#dbe8ff]">{alarm.ref}</span>{" / "}{alarm.rref}
-      </td>
-      <td className="py-2 pr-2">
-        <span className="font-medium" style={{ color: STATUS_COLOR[zh ? alarm.statusZh : alarm.statusEn], fontSize: tableFontSize }}>
-          {zh ? alarm.statusZh : alarm.statusEn}
-        </span>
       </td>
       <td className="py-2 pr-3 font-medium" style={{ color: action.color, fontSize: tableFontSize }}>
         {zh ? action.zh : action.en}
@@ -1156,11 +1115,13 @@ function AlarmRow({
 }
 
 function HistoryAlarmListRow({
+  index,
   item,
   zh,
   tableFontSize,
   headerFontSize,
 }: {
+  index: number
   item: FaultListItem
   zh: boolean
   tableFontSize: number
@@ -1173,7 +1134,10 @@ function HistoryAlarmListRow({
 
   return (
     <tr className={`border-b border-[#1a2654]/50 transition-colors last:border-0 ${level >= 5 ? "bg-[#3a0e0e]/26" : "hover:bg-[#1a2654]/20"}`}>
-      <td className="py-2 pl-3 pr-2 align-top">
+      <td className="py-2 pl-3 pr-2 align-top tabular-nums text-[#6a8abf]" style={{ fontSize: tableFontSize }}>
+        {index}
+      </td>
+      <td className="py-2 pr-2 align-top">
         <div className="font-semibold text-[#dbe8ff]" style={{ fontSize: headerFontSize }}>
           {item.faultName}
         </div>
@@ -1246,7 +1210,7 @@ export function AlarmLogPanel({
   const tableFontSize = boostPanelMetric(scale.fluid(11, 15))
   const headerFontSize = boostPanelMetric(scale.fluid(12, 16))
   const historyColumnScale = Math.min(panelTypographyBoost, 1.12)
-  const historyTableMinWidth = Math.round(1280 * historyColumnScale)
+  const historyTableMinWidth = Math.round(1380 * historyColumnScale)
 
   const REALTIME_LIMIT = 15
 
@@ -1433,26 +1397,8 @@ export function AlarmLogPanel({
     return levelMatched && groupMatched
   })
 
-  const levelCounts = useMemo(
-    () => {
-      if (mode === "history" && isHistoryTableView) {
-        return visibleLevels.map((level) => ({
-          level,
-          count: historyFaultListItems.filter((item) => item.levelValue === level).length,
-        }))
-      }
-
-      return visibleLevels.map((level) => ({
-        level,
-        count: baseData.filter((alarm) => alarm.lv === level).length,
-      }))
-    },
-    [baseData, historyFaultListItems, isHistoryTableView, mode, visibleLevels]
-  )
-
   const cnt = {
     total:  mode === "history" && isHistoryTableView ? historyFaultListItems.length : baseData.length,
-    active: mode === "realtime" ? baseData.filter(a => a.statusZh === "未恢复").length : 0,
   }
 
   const showTable = mode === "realtime" || viewMode === "table"
@@ -1504,41 +1450,6 @@ export function AlarmLogPanel({
         )}
 
         <div className="ml-auto flex items-center gap-1.5">
-          {cnt.active > 0 && (
-            <span className="rounded-full border border-[#ef4444]/30 bg-[#3a0e0e] px-2.5 py-0.5 font-semibold text-[#ef4444]" style={{ fontSize: badgeSize }}>
-              {zh ? `活动 ${cnt.active}` : `Active ${cnt.active}`}
-            </span>
-          )}
-          {!hideHeaderSummary && levelCounts.map(({ level, count }) => (
-            <span
-              key={`badge-${level}`}
-              className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-semibold"
-              style={{
-                fontSize: badgeSize,
-                color: LV_BRIGHT[level],
-                border: `1px solid ${LV_COLOR[level]}52`,
-                background: `linear-gradient(135deg, ${LV_SURFACE[level]}, rgba(${hexToRgb(LV_COLOR[level])}, 0.08))`,
-                boxShadow: `inset 0 0 0 1px rgba(${hexToRgb(LV_COLOR[level])}, 0.08), 0 0 10px rgba(${hexToRgb(LV_COLOR[level])}, 0.10)`,
-              }}
-            >
-              <span
-                className="inline-block h-2 w-2 shrink-0 rounded-full"
-                style={{ backgroundColor: LV_COLOR[level], boxShadow: `0 0 8px ${LV_COLOR[level]}aa` }}
-              />
-              <span className="tracking-[0.05em] text-[#b7caf0]/88">
-                {zh ? LV_LABEL[level].zh : LV_LABEL[level].en}
-              </span>
-              <span className="rounded-full px-1.5 py-[1px] font-bold tabular-nums"
-                style={{
-                  color: LV_BRIGHT[level],
-                  backgroundColor: `rgba(${hexToRgb(LV_COLOR[level])}, 0.14)`,
-                  boxShadow: `inset 0 0 0 1px rgba(${hexToRgb(LV_COLOR[level])}, 0.10)`,
-                }}>
-                {zh ? `${count}条` : count}
-              </span>
-            </span>
-          ))}
-
           {/* 历史模式：甘特 / 列表 切换 */}
           {mode === "history" && (
             <div className="ml-1 flex overflow-hidden rounded-lg border border-[#1e3a70]">
@@ -1659,10 +1570,11 @@ export function AlarmLogPanel({
               [&::-webkit-scrollbar-thumb]:bg-[#1e3a6e]
               [&::-webkit-scrollbar-thumb:hover]:bg-[#2d5499]
               [&::-webkit-scrollbar-corner]:bg-[#060c1f]`}>
-              <table className="w-full border-collapse text-left" style={{ tableLayout: "fixed", minWidth: mode === "history" ? historyTableMinWidth : 760 }}>
+              <table className="w-full border-collapse text-left" style={{ tableLayout: "fixed", minWidth: mode === "history" ? historyTableMinWidth : 648 }}>
                 <colgroup>
                   {mode === "history" ? (
                     <>
+                      <col style={{ width: `${Math.round(58 * historyColumnScale)}px` }} />
                       <col style={{ width: `${Math.round(240 * historyColumnScale)}px` }} />
                       <col style={{ width: `${Math.round(100 * historyColumnScale)}px` }} />
                       <col style={{ width: `${Math.round(92 * historyColumnScale)}px` }} />
@@ -1674,13 +1586,12 @@ export function AlarmLogPanel({
                     </>
                   ) : (
                     <>
+                      <col style={{ width: "52px" }} />
                       <col style={{ width: "58px" }} />
                       <col style={{ width: "96px" }} />
                       <col style={{ width: "168px" }} />
                       <col style={{ width: "64px" }} />
-                      <col style={{ width: "72px" }} />
                       <col style={{ width: "126px" }} />
-                      <col style={{ width: "68px" }} />
                       <col style={{ width: "76px" }} />
                     </>
                   )}
@@ -1690,6 +1601,7 @@ export function AlarmLogPanel({
                     {[
                       ...(mode === "history"
                         ? [
+                            zh ? "序号" : "No.",
                             zh ? "故障" : "Fault",
                             zh ? "严重度" : "Severity",
                             zh ? "等级" : "Level",
@@ -1700,13 +1612,12 @@ export function AlarmLogPanel({
                             zh ? "处置建议" : "Action Hint",
                           ]
                         : [
+                            zh ? "序号" : "No.",
                             zh ? "时间" : "Time",
                             zh ? "等级" : "Level",
                             zh ? "告警名称" : "Alarm",
                             zh ? "分类" : "Type",
-                            zh ? "等级标识" : "Level Mark",
                             zh ? "触发 / 恢复" : "Trig / Recv",
-                            zh ? "状态" : "Status",
                             zh ? "处置" : "Action",
                           ]),
                     ].map(h => (
@@ -1719,14 +1630,15 @@ export function AlarmLogPanel({
                 <tbody>
                   {mode === "history" && historyError ? (
                     <tr>
-                      <td colSpan={8} className="py-10 text-center text-[#7b8ab8]" style={{ fontSize: infoSize }}>
+                      <td colSpan={9} className="py-10 text-center text-[#7b8ab8]" style={{ fontSize: infoSize }}>
                         {historyError}
                       </td>
                     </tr>
                   ) : mode === "history" ? (
-                    historyTableDisplayed.map((item) => (
+                    historyTableDisplayed.map((item, index) => (
                       <HistoryAlarmListRow
                         key={item.id}
+                        index={index + 1}
                         item={item}
                         zh={zh}
                         tableFontSize={tableFontSize}
@@ -1735,14 +1647,15 @@ export function AlarmLogPanel({
                     ))
                   ) : displayed.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-10 text-center text-[#5f79ad]" style={{ fontSize: infoSize }}>
+                      <td colSpan={7} className="py-10 text-center text-[#5f79ad]" style={{ fontSize: infoSize }}>
                         {historyEmptyText}
                       </td>
                     </tr>
                   ) : (
-                    displayed.map(alarm => (
+                    displayed.map((alarm, index) => (
                       <AlarmRow
                         key={alarm.key ?? `${alarm.time}-${alarm.source}-${alarm.nameZh}`}
+                        index={index + 1}
                         alarm={alarm}
                         zh={zh}
                         tableFontSize={tableFontSize}
