@@ -437,8 +437,9 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     marginRight: active && (edge === "end" || edge === "solo") ? -2 : 0,
   })
 
-  const renderAlarmMonitoringPage = () => (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+  const renderAlarmMonitoringPage = () => {
+    return (
+      <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       <div
         className="relative flex shrink-0 items-center gap-3 overflow-visible border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
       >
@@ -461,7 +462,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
                   {active && mode === "realtime" && (
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#04241c]" />
                   )}
-                  {mode === "realtime" ? (zh ? "实时监控" : "Live") : (zh ? "历史查询" : "History")}
+                  {mode === "realtime" ? (zh ? "实时监测" : "Live") : (zh ? "历史查询" : "History")}
                 </button>
               )
             })}
@@ -479,15 +480,15 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           {renderPageBcuSelector(alarmDeviceId, setAlarmDeviceId)}
         </div>
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-12 gap-4">
-        <div className="col-span-12 min-h-0 lg:col-span-6">
+      <div className="grid min-h-0 flex-1 grid-cols-12 gap-4 overflow-hidden">
+        <div className="col-span-12 min-h-0 min-w-0 lg:col-span-6">
           <BCUStatusQuery
             mode={bcuMode}
             date={bcuMode === "history" ? historyDate : undefined}
             deviceId={alarmDeviceId || undefined}
           />
         </div>
-        <div className="col-span-12 min-h-0 lg:col-span-6">
+        <div className="col-span-12 min-h-0 min-w-0 lg:col-span-6">
           <AlarmLogPanel
             mode={bcuMode}
             date={bcuMode === "history" ? historyDate : undefined}
@@ -495,8 +496,9 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           />
         </div>
       </div>
-    </div>
-  )
+      </div>
+    )
+  }
 
   const renderComingSoonBanner = () => {
     return (
@@ -504,7 +506,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#f59e0b]/35 bg-[linear-gradient(180deg,rgba(36,24,10,0.7),rgba(18,14,8,0.6))] px-3 py-1.5 text-[#ffd089] shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset,0_10px_24px_rgba(0,0,0,0.2)] backdrop-blur-[4px]">
           <Wrench className="h-3.5 w-3.5 shrink-0" />
           <span className="font-semibold tracking-[0.04em]" style={{ fontSize: pageControlLabelSize }}>
-            {zh ? "Demo 预览 · 功能开发中，敬请期待" : "Demo preview · Full version coming soon"}
+            {zh ? "功能开发中，敬请期待" : "Full version coming soon"}
           </span>
         </div>
       </div>
@@ -784,7 +786,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         {activeTab === "alarm-monitoring" && (
           <div className="relative h-full min-h-0 overflow-hidden">
             {renderAlarmMonitoringPage()}
-            {renderComingSoonBanner()}
+            {bcuMode === "realtime" && renderComingSoonBanner()}
           </div>
         )}
 

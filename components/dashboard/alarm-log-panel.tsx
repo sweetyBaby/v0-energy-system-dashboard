@@ -1080,8 +1080,8 @@ function AlarmRow({
       <td className="py-2 pl-3 pr-2 tabular-nums text-[#6a8abf]" style={{ fontSize: tableFontSize }}>
         {index}
       </td>
-      <td className="py-2 pr-2 tabular-nums text-[#7ab0f0]" style={{ fontSize: tableFontSize }}>{timePart}</td>
-      <td className="py-2 pr-2">
+      <td className="py-2 pl-2 pr-2 text-left tabular-nums text-[#7ab0f0]" style={{ fontSize: tableFontSize }}>{timePart}</td>
+      <td className="py-2 pl-2 pr-2 text-left">
         <div
           className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1"
           style={{
@@ -1097,17 +1097,17 @@ function AlarmRow({
           </span>
         </div>
       </td>
-      <td className="relative max-w-0 py-2 pr-2">
+      <td className="relative max-w-0 py-2 pl-2 pr-2 text-left">
         <span className="block whitespace-normal break-words leading-[1.35] text-[#dbe8ff]" style={{ fontSize: headerFontSize }}>
           {isActive && <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#ef4444] align-middle" />}
           {zh ? alarm.nameZh : alarm.nameEn}
         </span>
       </td>
-      <td className="py-2 pr-2 text-[#7b8ab8]" style={{ fontSize: tableFontSize }}>{(zh ? GRP_LABEL[alarm.group]?.zh : GRP_LABEL[alarm.group]?.en) ?? alarm.group}</td>
-      <td className="py-2 pr-2 whitespace-normal break-words text-[#7b8ab8]" style={{ fontSize: tableFontSize }}>
+      <td className="py-2 pl-2 pr-2 text-left text-[#7b8ab8]" style={{ fontSize: tableFontSize }}>{(zh ? GRP_LABEL[alarm.group]?.zh : GRP_LABEL[alarm.group]?.en) ?? alarm.group}</td>
+      <td className="py-2 pl-2 pr-2 text-left whitespace-normal break-words text-[#7b8ab8]" style={{ fontSize: tableFontSize }}>
         <span className="text-[#dbe8ff]">{alarm.ref}</span>{" / "}{alarm.rref}
       </td>
-      <td className="py-2 pr-3 font-medium" style={{ color: action.color, fontSize: tableFontSize }}>
+      <td className="py-2 pl-2 pr-3 text-left font-medium" style={{ color: action.color, fontSize: tableFontSize }}>
         {zh ? action.zh : action.en}
       </td>
     </tr>
@@ -1137,12 +1137,12 @@ function HistoryAlarmListRow({
       <td className="py-2 pl-3 pr-2 align-top tabular-nums text-[#6a8abf]" style={{ fontSize: tableFontSize }}>
         {index}
       </td>
-      <td className="py-2 pr-2 align-top">
+      <td className="py-2 pl-2 pr-2 align-top text-left">
         <div className="font-semibold text-[#dbe8ff]" style={{ fontSize: headerFontSize }}>
           {item.faultName}
         </div>
       </td>
-      <td className="py-2 pr-2 align-top">
+      <td className="py-2 pl-2 pr-2 align-top text-left">
         <span
           className="inline-flex rounded-full border px-2 py-0.5 font-semibold"
           style={{
@@ -1156,7 +1156,7 @@ function HistoryAlarmListRow({
           {zh ? severity.zh : severity.en}
         </span>
       </td>
-      <td className="py-2 pr-2 align-top">
+      <td className="py-2 pl-2 pr-2 align-top text-left">
         <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5"
           style={{
             borderColor: `${color}55`,
@@ -1168,19 +1168,19 @@ function HistoryAlarmListRow({
           </span>
         </span>
       </td>
-      <td className="py-2 pr-2 align-top tabular-nums text-[#dbe8ff]" style={{ fontSize: tableFontSize }}>
+      <td className="py-2 pl-2 pr-2 align-top text-left tabular-nums text-[#dbe8ff]" style={{ fontSize: tableFontSize }}>
         {item.firstOccur || "--"}
       </td>
-      <td className="py-2 pr-2 align-top tabular-nums text-[#dbe8ff]" style={{ fontSize: tableFontSize }}>
+      <td className="py-2 pl-2 pr-2 align-top text-left tabular-nums text-[#dbe8ff]" style={{ fontSize: tableFontSize }}>
         {item.lastOccur || "--"}
       </td>
-      <td className="py-2 pr-2 align-top tabular-nums text-[#8fdcff]" style={{ fontSize: tableFontSize }}>
+      <td className="py-2 pl-2 pr-2 align-top text-left tabular-nums text-[#8fdcff]" style={{ fontSize: tableFontSize }}>
         {formatWindowDuration(item.windowDurationSeconds, zh)}
       </td>
-      <td className="py-2 pr-2 align-top tabular-nums text-[#dbe8ff]" style={{ fontSize: tableFontSize }}>
+      <td className="py-2 pl-2 pr-2 align-top text-left tabular-nums text-[#dbe8ff]" style={{ fontSize: tableFontSize }}>
         {item.rowCount}
       </td>
-      <td className="py-2 pr-3 align-top text-[#9fb7df]" style={{ fontSize: tableFontSize, lineHeight: 1.4 }}>
+      <td className="py-2 pl-2 pr-3 align-top text-left text-[#9fb7df]" style={{ fontSize: tableFontSize, lineHeight: 1.4 }}>
         {zh ? actionHint.zh : actionHint.en}
       </td>
     </tr>
@@ -1214,10 +1214,16 @@ export function AlarmLogPanel({
 
   const REALTIME_LIMIT = 15
 
-  const [viewMode,    setViewMode]    = useState<"gantt" | "table">("gantt")
-  const [levelFilter, setLevelFilter] = useState<LevelFilter>("all")
-  const [groupFilter, setGroupFilter] = useState<GroupFilter>("all")
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [historyViewMode, setHistoryViewMode] = useState<"gantt" | "table">("gantt")
+  const [levelFilters, setLevelFilters] = useState<Record<"realtime" | "history", LevelFilter>>({
+    realtime: "all",
+    history: "all",
+  })
+  const [groupFilters, setGroupFilters] = useState<Record<"realtime" | "history", GroupFilter>>({
+    realtime: "all",
+    history: "all",
+  })
+  const [fullscreenMode, setFullscreenMode] = useState<"realtime" | "history" | null>(null)
   const normalizedDeviceId = deviceId?.trim() || undefined
   const selectedDeviceName = useMemo(
     () => selectedProject.devices.find((device) => device.deviceId === deviceId)?.deviceName ?? null,
@@ -1350,13 +1356,15 @@ export function AlarmLogPanel({
     () => getVisibleLevels(historyFaultListItems.map((item) => item.levelValue)),
     [historyFaultListItems]
   )
+  const levelFilter = levelFilters[mode]
+  const groupFilter = groupFilters[mode]
   const realtimeFiltered = selectedDeviceName
     ? liveAlarms.filter((alarm) => matchesAlarmDevice(alarm.source, selectedDeviceName))
     : liveAlarms
   const historyFiltered = historyApiAlarms
 
   const timelineEvents = deriveTimelineEvents(historyFiltered)
-  const isHistoryTableView = mode === "history" && viewMode === "table"
+  const isHistoryTableView = mode === "history" && historyViewMode === "table"
   const historyTableDisplayed = historyFaultListItems.filter((item) => levelFilter === "all" || item.levelValue === Number(levelFilter.replace("level:", "")))
 
   // ── 当前模式数据源 ──────────────────────────────────────────────────────────
@@ -1385,9 +1393,9 @@ export function AlarmLogPanel({
 
     const activeLevel = Number(levelFilter.replace("level:", ""))
     if (!visibleLevels.includes(activeLevel)) {
-      setLevelFilter("all")
+      setLevelFilters((current) => ({ ...current, [mode]: "all" }))
     }
-  }, [levelFilter, visibleLevels])
+  }, [levelFilter, mode, visibleLevels])
 
   const displayed = sorted.filter(a => {
     const levelMatched = levelFilter === "all" || a.lv === Number(levelFilter.replace("level:", ""))
@@ -1401,10 +1409,11 @@ export function AlarmLogPanel({
     total:  mode === "history" && isHistoryTableView ? historyFaultListItems.length : baseData.length,
   }
 
-  const showTable = mode === "realtime" || viewMode === "table"
-  const hideHeaderSummary = mode === "history" && viewMode === "gantt"
+  const showTable = mode === "realtime" || historyViewMode === "table"
+  const hideHeaderSummary = mode === "history" && historyViewMode === "gantt"
   const historyEmptyText = zh ? "该日期无告警记录" : "No alarm records"
   const isHistoryListEmpty = mode === "history" && historyTableDisplayed.length === 0
+  const isFullscreen = fullscreenMode === mode
 
   useEffect(() => {
     if (!isFullscreen) {
@@ -1414,7 +1423,7 @@ export function AlarmLogPanel({
     const previousOverflow = document.body.style.overflow
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setIsFullscreen(false)
+        setFullscreenMode((current) => (current === mode ? null : current))
       }
     }
 
@@ -1453,17 +1462,17 @@ export function AlarmLogPanel({
           {/* 历史模式：甘特 / 列表 切换 */}
           {mode === "history" && (
             <div className="ml-1 flex overflow-hidden rounded-lg border border-[#1e3a70]">
-              <button onClick={() => setViewMode("gantt")} title={zh ? "甘特图" : "Gantt"}
+              <button onClick={() => setHistoryViewMode("gantt")} title={zh ? "甘特图" : "Gantt"}
                 className={`flex h-7 w-8 items-center justify-center transition-all ${
-                  viewMode === "gantt"
+                  historyViewMode === "gantt"
                     ? "bg-[#0f2a60] text-[#00d4aa] shadow-inner"
                     : "bg-[#070e28] text-[#4a6aaa] hover:bg-[#0d1e48] hover:text-[#7ab4f8]"
                 }`}>
                 <BarChart2 className="h-4 w-4" />
               </button>
-              <button onClick={() => setViewMode("table")} title={zh ? "列表" : "List"}
+              <button onClick={() => setHistoryViewMode("table")} title={zh ? "列表" : "List"}
                 className={`flex h-7 w-8 items-center justify-center border-l border-[#1e3a70] transition-all ${
-                  viewMode === "table"
+                  historyViewMode === "table"
                     ? "bg-[#0f2a60] text-[#00d4aa] shadow-inner"
                     : "bg-[#070e28] text-[#4a6aaa] hover:bg-[#0d1e48] hover:text-[#7ab4f8]"
                 }`}>
@@ -1473,7 +1482,7 @@ export function AlarmLogPanel({
           )}
           <button
             type="button"
-            onClick={() => setIsFullscreen((current) => !current)}
+            onClick={() => setFullscreenMode((current) => (current === mode ? null : mode))}
             title={isFullscreen ? (zh ? "退出全屏" : "Exit fullscreen") : (zh ? "全屏放大" : "Fullscreen")}
             className="flex h-7 items-center gap-1 rounded-lg border border-[#1e3a70] bg-[#070e28] px-2 text-[#7ab4f8] transition-all hover:bg-[#0d1e48] hover:text-[#b7e3ff]"
             style={{ fontSize: badgeSize }}
@@ -1485,7 +1494,7 @@ export function AlarmLogPanel({
       </div>
 
       {/* ── 历史甘特视图 + 类型统计 ── */}
-      {mode === "history" && viewMode === "gantt" && (
+      {mode === "history" && historyViewMode === "gantt" && (
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto pr-1">
           {isHistoryLoading ? (
             <div className="flex min-h-0 flex-1 items-center justify-center">
@@ -1519,7 +1528,7 @@ export function AlarmLogPanel({
               {(["all", ...visibleLevels.map((level) => `level:${level}` as const)] as LevelFilter[]).map((levelKey) => {
                 const level = levelKey === "all" ? null : Number(levelKey.replace("level:", ""))
                 return (
-                <button key={levelKey} onClick={() => setLevelFilter(levelKey)}
+                <button key={levelKey} onClick={() => setLevelFilters((current) => ({ ...current, [mode]: levelKey }))}
                   className={`rounded-md px-2.5 py-1 font-semibold transition-all ${
                     levelFilter === levelKey ? "bg-[#00d4aa] text-[#07162b]" : "bg-[#0e1e3a] text-[#5a7aaa] hover:bg-[#142040] hover:text-[#90b8f0]"
                   }`}
@@ -1534,7 +1543,9 @@ export function AlarmLogPanel({
                 <div className="relative min-w-[128px]">
                   <select
                     value={groupFilter}
-                    onChange={(event) => setGroupFilter(event.target.value as GroupFilter)}
+                    onChange={(event) =>
+                      setGroupFilters((current) => ({ ...current, [mode]: event.target.value as GroupFilter }))
+                    }
                     className="h-7 w-full appearance-none rounded-md border border-[#1e3a70] bg-[#0e1e3a] pl-2.5 pr-7 font-semibold text-[#8fe7ff] outline-none transition-colors hover:border-[#2a4f92] focus:border-[#3b7bd6]"
                     style={{ fontSize: badgeSize }}
                   >
@@ -1607,9 +1618,9 @@ export function AlarmLogPanel({
                             zh ? "等级" : "Level",
                             zh ? "首次发生" : "First Occur",
                             zh ? "最后发生" : "Last Occur",
-                            zh ? "持续窗口" : "Window Duration",
+                            zh ? "持续时间" : "Window Duration",
                             zh ? "当天出现次数" : "Count Today",
-                            zh ? "处置建议" : "Action Hint",
+                            zh ? "处理建议" : "Action Hint",
                           ]
                         : [
                             zh ? "序号" : "No.",
@@ -1618,7 +1629,7 @@ export function AlarmLogPanel({
                             zh ? "告警名称" : "Alarm",
                             zh ? "分类" : "Type",
                             zh ? "触发 / 恢复" : "Trig / Recv",
-                            zh ? "处置" : "Action",
+                            zh ? "处理建议" : "Action",
                           ]),
                     ].map(h => (
                       <th key={h} className="border-b border-[#1a2654] px-2 py-2 text-left font-semibold text-[#6a8abf] first:pl-3 last:pr-3" style={{ fontSize: tableFontSize }}>
