@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api-client"
 import { apiEndpoints } from "@/lib/api/endpoints"
+import { normalizeOptionalDeviceId } from "@/lib/device-selection"
 
 type OperationsApiResponse<T> = {
   msg: string
@@ -249,9 +250,10 @@ export const getOperationsCursorFromBundle = (bundle: RecentBundle | Incremental
 }
 
 export const fetchAuxRecent = async (projectId: string, options: RequestOptions = {}) => {
+  const deviceId = normalizeOptionalDeviceId(options.deviceId)
   const path = buildQueryPath(apiEndpoints.operations.auxRecent, {
     measurement: toMeasurement(projectId),
-    deviceId: options.deviceId,
+    deviceId,
   })
 
   const response = await apiClient.getRaw<OperationsApiResponse<AuxRealtimePoint[]>>(path, {
@@ -266,9 +268,10 @@ export const fetchAuxIncremental = async (
   since?: number,
   options: RequestOptions = {},
 ) => {
+  const deviceId = normalizeOptionalDeviceId(options.deviceId)
   const path = buildQueryPath(apiEndpoints.operations.auxIncremental, {
     measurement: toMeasurement(projectId),
-    deviceId: options.deviceId,
+    deviceId,
     since,
   })
 
@@ -280,9 +283,10 @@ export const fetchAuxIncremental = async (
 }
 
 export const fetchCellVoltageRecent = async (projectId: string, options: RequestOptions = {}) => {
+  const deviceId = normalizeOptionalDeviceId(options.deviceId)
   const path = buildQueryPath(apiEndpoints.operations.cellVoltageRecent, {
     measurement: toMeasurement(projectId),
-    deviceId: options.deviceId,
+    deviceId,
   })
 
   const response = await apiClient.getRaw<OperationsApiResponse<CellVoltagePoint[]>>(path, {
@@ -297,9 +301,10 @@ export const fetchCellVoltageIncremental = async (
   since?: number,
   options: RequestOptions = {},
 ) => {
+  const deviceId = normalizeOptionalDeviceId(options.deviceId)
   const path = buildQueryPath(apiEndpoints.operations.cellVoltageIncremental, {
     measurement: toMeasurement(projectId),
-    deviceId: options.deviceId,
+    deviceId,
     since,
   })
 
@@ -311,9 +316,10 @@ export const fetchCellVoltageIncremental = async (
 }
 
 export const fetchCellTemperatureRecent = async (projectId: string, options: RequestOptions = {}) => {
+  const deviceId = normalizeOptionalDeviceId(options.deviceId)
   const path = buildQueryPath(apiEndpoints.operations.cellTemperatureRecent, {
     measurement: toMeasurement(projectId),
-    deviceId: options.deviceId,
+    deviceId,
   })
 
   const response = await apiClient.getRaw<OperationsApiResponse<CellTemperaturePoint[]>>(path, {
@@ -328,9 +334,10 @@ export const fetchCellTemperatureIncremental = async (
   cursor: Pick<OperationsCursor, "cellTemperatureSeconds" | "cellTemperatureNanos">,
   options: RequestOptions = {},
 ) => {
+  const deviceId = normalizeOptionalDeviceId(options.deviceId)
   const path = buildQueryPath(apiEndpoints.operations.cellTemperatureIncremental, {
     measurement: toMeasurement(projectId),
-    deviceId: options.deviceId,
+    deviceId,
     seconds: cursor.cellTemperatureSeconds,
     nanos: cursor.cellTemperatureNanos,
   })

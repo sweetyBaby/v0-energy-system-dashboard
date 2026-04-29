@@ -1,12 +1,13 @@
 ﻿"use client"
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
-import { BarChart2, ChevronDown, Filter, List, Maximize2, Minimize2 } from "lucide-react"
+import { BarChart2, ChevronDown, Filter, List, Maximize2, Minimize2, WifiOff } from "lucide-react"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
+import { resolveProjectDeviceId } from "@/lib/device-selection"
 import { fetchFaultDetailList, fetchFaultList, type FaultDetailItem, type FaultListItem } from "@/lib/api/fault"
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
@@ -708,12 +709,12 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
         </div>
 
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto
-          [&::-webkit-scrollbar]:w-[5px]
+          [&::-webkit-scrollbar]:w-[7px]
           [&::-webkit-scrollbar-track]:rounded-full
-          [&::-webkit-scrollbar-track]:bg-[#060c1f]
+          [&::-webkit-scrollbar-track]:bg-[#0a1430]
           [&::-webkit-scrollbar-thumb]:rounded-full
-          [&::-webkit-scrollbar-thumb]:bg-[#1e3a6e]
-          [&::-webkit-scrollbar-thumb:hover]:bg-[#2d5499]">
+          [&::-webkit-scrollbar-thumb]:bg-[#2d5499]
+          [&::-webkit-scrollbar-thumb:hover]:bg-[#4080cc]">
           <div className="flex min-w-0">
             <div className="flex shrink-0 flex-col" style={{ width: leftLabelWidth }}>
               {timelineRows.map((row) => (
@@ -1224,18 +1225,21 @@ export function AlarmLogPanel({
     history: "all",
   })
   const [fullscreenMode, setFullscreenMode] = useState<"realtime" | "history" | null>(null)
-  const normalizedDeviceId = deviceId?.trim() || undefined
+  const effectiveDeviceId = useMemo(
+    () => resolveProjectDeviceId(selectedProject.devices, deviceId),
+    [deviceId, selectedProject.devices],
+  )
   const selectedDeviceName = useMemo(
-    () => selectedProject.devices.find((device) => device.deviceId === deviceId)?.deviceName ?? null,
-    [deviceId, selectedProject.devices]
+    () => selectedProject.devices.find((device) => device.deviceId === effectiveDeviceId)?.deviceName ?? null,
+    [effectiveDeviceId, selectedProject.devices]
   )
   const deviceNameMap = useMemo(
     () => new Map(selectedProject.devices.map((device) => [device.deviceId, device.deviceName])),
     [selectedProject.devices]
   )
   const historyRequestKey = useMemo(
-    () => `${selectedProject.projectId}::${normalizedDeviceId ?? ""}::${date ?? ""}`,
-    [date, normalizedDeviceId, selectedProject.projectId]
+    () => `${selectedProject.projectId}::${effectiveDeviceId ?? ""}::${date ?? ""}`,
+    [date, effectiveDeviceId, selectedProject.projectId]
   )
   const [historyFaultState, setHistoryFaultState] = useState<{ requestKey: string; items: FaultDetailItem[] } | null>(null)
   const [historyFaultListState, setHistoryFaultListState] = useState<{ requestKey: string; items: FaultListItem[] } | null>(null)
@@ -1277,7 +1281,7 @@ export function AlarmLogPanel({
       return
     }
 
-    if (!selectedProject.projectId || !date || !normalizedDeviceId) {
+    if (!selectedProject.projectId || !date || !effectiveDeviceId) {
       setIsHistoryLoading(false)
       setHistoryError(null)
       return
@@ -1297,16 +1301,16 @@ export function AlarmLogPanel({
       setHistoryError(null)
 
       try {
-        const [detailItems, listItems] = await Promise.all([
-          fetchFaultDetailList(selectedProject.projectId, date, {
-            deviceId: normalizedDeviceId,
-            signal: abortController.signal,
-          }),
-          fetchFaultList(selectedProject.projectId, date, {
-            deviceId: normalizedDeviceId,
-            signal: abortController.signal,
-          }),
-        ])
+          const [detailItems, listItems] = await Promise.all([
+            fetchFaultDetailList(selectedProject.projectId, date, {
+            deviceId: effectiveDeviceId,
+              signal: abortController.signal,
+            }),
+            fetchFaultList(selectedProject.projectId, date, {
+            deviceId: effectiveDeviceId,
+              signal: abortController.signal,
+            }),
+          ])
 
         if (cancelled) {
           return
@@ -1340,7 +1344,7 @@ export function AlarmLogPanel({
       cancelled = true
       abortController.abort()
     }
-  }, [date, hasMatchingHistoryFaultListState, hasMatchingHistoryFaultState, historyRequestKey, mode, normalizedDeviceId, selectedProject.projectId, zh])
+  }, [date, effectiveDeviceId, hasMatchingHistoryFaultListState, hasMatchingHistoryFaultState, historyRequestKey, mode, selectedProject.projectId, zh])
 
   const historyFaultItems = hasMatchingHistoryFaultState ? (historyFaultState?.items ?? []) : []
   const historyFaultListItems = hasMatchingHistoryFaultListState ? (historyFaultListState?.items ?? []) : []
@@ -1493,193 +1497,218 @@ export function AlarmLogPanel({
         </div>
       </div>
 
-      {/* ── 历史甘特视图 + 类型统计 ── */}
-      {mode === "history" && historyViewMode === "gantt" && (
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto pr-1">
-          {isHistoryLoading ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center">
-              <HistoryStyleLoadingIndicator text={zh ? "加载历史告警甘特图..." : "Loading alarm gantt..."} />
-            </div>
-          ) : historyError ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-[#1a3060] bg-[#080e28]/70 px-4 text-center text-[#7b8ab8]" style={{ fontSize: infoSize }}>
-              {historyError}
-            </div>
-          ) : historyFiltered.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-[#1a3060] bg-[#080e28]/70 px-4 text-center text-[#7b8ab8]" style={{ fontSize: infoSize }}>
-              {historyEmptyText}
-            </div>
-          ) : (
-            <>
-              <div className="min-h-[260px] flex-1 overflow-hidden">
-                <AlarmTimeline events={timelineEvents} zh={zh} visibleLevels={historyVisibleLevels} />
-              </div>
-              <AlarmTypeStats items={historyFaultItems} zh={zh} />
-            </>
-          )}
-        </div>
-      )}
+      {/* ── 内容区（甘特 / 表格）+ loading / error 遮罩 ── */}
+      <div className="relative min-h-0 flex-1 flex flex-col">
 
-      {/* ── 筛选栏 + 告警表格 ── */}
-      {showTable && (
-        <>
-          <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-            <Filter className="h-3.5 w-3.5 text-[#5f79ad]" />
-            <div className="flex gap-1">
-              {(["all", ...visibleLevels.map((level) => `level:${level}` as const)] as LevelFilter[]).map((levelKey) => {
-                const level = levelKey === "all" ? null : Number(levelKey.replace("level:", ""))
-                return (
-                <button key={levelKey} onClick={() => setLevelFilters((current) => ({ ...current, [mode]: levelKey }))}
-                  className={`rounded-md px-2.5 py-1 font-semibold transition-all ${
-                    levelFilter === levelKey ? "bg-[#00d4aa] text-[#07162b]" : "bg-[#0e1e3a] text-[#5a7aaa] hover:bg-[#142040] hover:text-[#90b8f0]"
-                  }`}
-                  style={{ fontSize: badgeSize }}>
-                  {levelKey === "all" ? (zh ? "全部" : "All") : (zh ? LV_LABEL[level ?? 0].zh : LV_LABEL[level ?? 0].en)}
-                </button>
-              )})}
-            </div>
-            {mode === "realtime" && (
+        {/* 历史甘特视图 + 类型统计 */}
+        {mode === "history" && historyViewMode === "gantt" && (
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto pr-1">
+            {!isHistoryLoading && !historyError && historyFiltered.length === 0 ? (
+              <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-[#1a3060] bg-[#080e28]/70 px-4 text-center text-[#7b8ab8]" style={{ fontSize: infoSize }}>
+                {historyEmptyText}
+              </div>
+            ) : (
               <>
-                <div className="h-4 w-px bg-[#1a2654]" />
-                <div className="relative min-w-[128px]">
-                  <select
-                    value={groupFilter}
-                    onChange={(event) =>
-                      setGroupFilters((current) => ({ ...current, [mode]: event.target.value as GroupFilter }))
-                    }
-                    className="h-7 w-full appearance-none rounded-md border border-[#1e3a70] bg-[#0e1e3a] pl-2.5 pr-7 font-semibold text-[#8fe7ff] outline-none transition-colors hover:border-[#2a4f92] focus:border-[#3b7bd6]"
-                    style={{ fontSize: badgeSize }}
-                  >
-                    {GROUP_FILTERS.map(group => (
-                      <option key={group} value={group}>
-                        {group === "all" ? (zh ? "全部分类" : "All Types") : (zh ? GRP_LABEL[group].zh : GRP_LABEL[group].en)}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#5f79ad]" />
+                <div className="min-h-[260px] flex-1 overflow-hidden">
+                  <AlarmTimeline events={timelineEvents} zh={zh} visibleLevels={historyVisibleLevels} />
                 </div>
+                <AlarmTypeStats items={historyFaultItems} zh={zh} />
               </>
             )}
           </div>
+        )}
 
-          {mode === "history" && isHistoryLoading ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-[#1a2654]/60">
-              <HistoryStyleLoadingIndicator text={zh ? "加载历史告警列表..." : "Loading alarm history..."} />
+        {/* 筛选栏 + 告警表格 */}
+        {showTable && (
+          <>
+            <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
+              <Filter className="h-3.5 w-3.5 text-[#5f79ad]" />
+              <div className="flex gap-1">
+                {(["all", ...visibleLevels.map((level) => `level:${level}` as const)] as LevelFilter[]).map((levelKey) => {
+                  const level = levelKey === "all" ? null : Number(levelKey.replace("level:", ""))
+                  return (
+                  <button key={levelKey} onClick={() => setLevelFilters((current) => ({ ...current, [mode]: levelKey }))}
+                    className={`rounded-md px-2.5 py-1 font-semibold transition-all ${
+                      levelFilter === levelKey ? "bg-[#00d4aa] text-[#07162b]" : "bg-[#0e1e3a] text-[#5a7aaa] hover:bg-[#142040] hover:text-[#90b8f0]"
+                    }`}
+                    style={{ fontSize: badgeSize }}>
+                    {levelKey === "all" ? (zh ? "全部" : "All") : (zh ? LV_LABEL[level ?? 0].zh : LV_LABEL[level ?? 0].en)}
+                  </button>
+                )})}
+              </div>
+              {mode === "realtime" && (
+                <>
+                  <div className="h-4 w-px bg-[#1a2654]" />
+                  <div className="relative min-w-[128px]">
+                    <select
+                      value={groupFilter}
+                      onChange={(event) =>
+                        setGroupFilters((current) => ({ ...current, [mode]: event.target.value as GroupFilter }))
+                      }
+                      className="h-7 w-full appearance-none rounded-md border border-[#1e3a70] bg-[#0e1e3a] pl-2.5 pr-7 font-semibold text-[#8fe7ff] outline-none transition-colors hover:border-[#2a4f92] focus:border-[#3b7bd6]"
+                      style={{ fontSize: badgeSize }}
+                    >
+                      {GROUP_FILTERS.map(group => (
+                        <option key={group} value={group}>
+                          {group === "all" ? (zh ? "全部分类" : "All Types") : (zh ? GRP_LABEL[group].zh : GRP_LABEL[group].en)}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#5f79ad]" />
+                  </div>
+                </>
+              )}
             </div>
-          ) : mode === "history" && !historyError && isHistoryListEmpty ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-[#1a2654]/60 bg-[#0a1330]/55 px-4 text-center text-[#5f79ad]" style={{ fontSize: infoSize }}>
-              {historyEmptyText}
-            </div>
-          ) : (
-            <div className={`min-h-0 flex-1 rounded-lg border border-[#1a2654]/60 ${
-              isHistoryListEmpty ? "overflow-hidden" : "overflow-auto"
-            }
-              [&::-webkit-scrollbar]:w-[5px]
-              [&::-webkit-scrollbar]:h-[5px]
-              [&::-webkit-scrollbar-track]:rounded-full
-              [&::-webkit-scrollbar-track]:bg-[#060c1f]
-              [&::-webkit-scrollbar-thumb]:rounded-full
-              [&::-webkit-scrollbar-thumb]:bg-[#1e3a6e]
-              [&::-webkit-scrollbar-thumb:hover]:bg-[#2d5499]
-              [&::-webkit-scrollbar-corner]:bg-[#060c1f]`}>
-              <table className="w-full border-collapse text-left" style={{ tableLayout: "fixed", minWidth: mode === "history" ? historyTableMinWidth : 648 }}>
-                <colgroup>
-                  {mode === "history" ? (
-                    <>
-                      <col style={{ width: `${Math.round(58 * historyColumnScale)}px` }} />
-                      <col style={{ width: `${Math.round(240 * historyColumnScale)}px` }} />
-                      <col style={{ width: `${Math.round(100 * historyColumnScale)}px` }} />
-                      <col style={{ width: `${Math.round(92 * historyColumnScale)}px` }} />
-                      <col style={{ width: `${Math.round(160 * historyColumnScale)}px` }} />
-                      <col style={{ width: `${Math.round(160 * historyColumnScale)}px` }} />
-                      <col style={{ width: `${Math.round(150 * historyColumnScale)}px` }} />
-                      <col style={{ width: `${Math.round(140 * historyColumnScale)}px` }} />
-                      <col style={{ width: `${Math.round(280 * historyColumnScale)}px` }} />
-                    </>
-                  ) : (
-                    <>
-                      <col style={{ width: "52px" }} />
-                      <col style={{ width: "58px" }} />
-                      <col style={{ width: "96px" }} />
-                      <col style={{ width: "168px" }} />
-                      <col style={{ width: "64px" }} />
-                      <col style={{ width: "126px" }} />
-                      <col style={{ width: "76px" }} />
-                    </>
-                  )}
-                </colgroup>
-                <thead>
-                  <tr className="sticky top-0 z-10 bg-[#101840]">
-                    {[
-                      ...(mode === "history"
-                        ? [
-                            zh ? "序号" : "No.",
-                            zh ? "故障" : "Fault",
-                            zh ? "严重度" : "Severity",
-                            zh ? "等级" : "Level",
-                            zh ? "首次发生" : "First Occur",
-                            zh ? "最后发生" : "Last Occur",
-                            zh ? "持续时间" : "Window Duration",
-                            zh ? "当天出现次数" : "Count Today",
-                            zh ? "处理建议" : "Action Hint",
-                          ]
-                        : [
-                            zh ? "序号" : "No.",
-                            zh ? "时间" : "Time",
-                            zh ? "等级" : "Level",
-                            zh ? "告警名称" : "Alarm",
-                            zh ? "分类" : "Type",
-                            zh ? "触发 / 恢复" : "Trig / Recv",
-                            zh ? "处理建议" : "Action",
-                          ]),
-                    ].map(h => (
-                      <th key={h} className="border-b border-[#1a2654] px-2 py-2 text-left font-semibold text-[#6a8abf] first:pl-3 last:pr-3" style={{ fontSize: tableFontSize }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {mode === "history" && historyError ? (
-                    <tr>
-                      <td colSpan={9} className="py-10 text-center text-[#7b8ab8]" style={{ fontSize: infoSize }}>
-                        {historyError}
-                      </td>
+
+            {mode === "history" && !isHistoryLoading && !historyError && isHistoryListEmpty ? (
+              <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-[#1a2654]/60 bg-[#0a1330]/55 px-4 text-center text-[#5f79ad]" style={{ fontSize: infoSize }}>
+                {historyEmptyText}
+              </div>
+            ) : (
+              <div className={`min-h-0 flex-1 rounded-lg border border-[#1a2654]/60 ${
+                isHistoryListEmpty ? "overflow-hidden" : "overflow-auto"
+              }
+                [&::-webkit-scrollbar]:w-[5px]
+                [&::-webkit-scrollbar]:h-[5px]
+                [&::-webkit-scrollbar-track]:rounded-full
+                [&::-webkit-scrollbar-track]:bg-[#060c1f]
+                [&::-webkit-scrollbar-thumb]:rounded-full
+                [&::-webkit-scrollbar-thumb]:bg-[#1e3a6e]
+                [&::-webkit-scrollbar-thumb:hover]:bg-[#2d5499]
+                [&::-webkit-scrollbar-corner]:bg-[#060c1f]`}>
+                <table className="w-full border-collapse text-left" style={{ tableLayout: "fixed", minWidth: mode === "history" ? historyTableMinWidth : 648 }}>
+                  <colgroup>
+                    {mode === "history" ? (
+                      <>
+                        <col style={{ width: `${Math.round(58 * historyColumnScale)}px` }} />
+                        <col style={{ width: `${Math.round(240 * historyColumnScale)}px` }} />
+                        <col style={{ width: `${Math.round(100 * historyColumnScale)}px` }} />
+                        <col style={{ width: `${Math.round(92 * historyColumnScale)}px` }} />
+                        <col style={{ width: `${Math.round(160 * historyColumnScale)}px` }} />
+                        <col style={{ width: `${Math.round(160 * historyColumnScale)}px` }} />
+                        <col style={{ width: `${Math.round(150 * historyColumnScale)}px` }} />
+                        <col style={{ width: `${Math.round(140 * historyColumnScale)}px` }} />
+                        <col style={{ width: `${Math.round(280 * historyColumnScale)}px` }} />
+                      </>
+                    ) : (
+                      <>
+                        <col style={{ width: "52px" }} />
+                        <col style={{ width: "58px" }} />
+                        <col style={{ width: "96px" }} />
+                        <col style={{ width: "168px" }} />
+                        <col style={{ width: "64px" }} />
+                        <col style={{ width: "126px" }} />
+                        <col style={{ width: "76px" }} />
+                      </>
+                    )}
+                  </colgroup>
+                  <thead>
+                    <tr className="sticky top-0 z-10 bg-[#101840]">
+                      {[
+                        ...(mode === "history"
+                          ? [
+                              zh ? "序号" : "No.",
+                              zh ? "故障" : "Fault",
+                              zh ? "严重度" : "Severity",
+                              zh ? "等级" : "Level",
+                              zh ? "首次发生" : "First Occur",
+                              zh ? "最后发生" : "Last Occur",
+                              zh ? "持续时间" : "Window Duration",
+                              zh ? "当天出现次数" : "Count Today",
+                              zh ? "处理建议" : "Action Hint",
+                            ]
+                          : [
+                              zh ? "序号" : "No.",
+                              zh ? "时间" : "Time",
+                              zh ? "等级" : "Level",
+                              zh ? "告警名称" : "Alarm",
+                              zh ? "分类" : "Type",
+                              zh ? "触发 / 恢复" : "Trig / Recv",
+                              zh ? "处理建议" : "Action",
+                            ]),
+                      ].map(h => (
+                        <th key={h} className="border-b border-[#1a2654] px-2 py-2 text-left font-semibold text-[#6a8abf] first:pl-3 last:pr-3" style={{ fontSize: tableFontSize }}>
+                          {h}
+                        </th>
+                      ))}
                     </tr>
-                  ) : mode === "history" ? (
-                    historyTableDisplayed.map((item, index) => (
-                      <HistoryAlarmListRow
-                        key={item.id}
-                        index={index + 1}
-                        item={item}
-                        zh={zh}
-                        tableFontSize={tableFontSize}
-                        headerFontSize={headerFontSize}
-                      />
-                    ))
-                  ) : displayed.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-10 text-center text-[#5f79ad]" style={{ fontSize: infoSize }}>
-                        {historyEmptyText}
-                      </td>
-                    </tr>
-                  ) : (
-                    displayed.map((alarm, index) => (
-                      <AlarmRow
-                        key={alarm.key ?? `${alarm.time}-${alarm.source}-${alarm.nameZh}`}
-                        index={index + 1}
-                        alarm={alarm}
-                        zh={zh}
-                        tableFontSize={tableFontSize}
-                        headerFontSize={headerFontSize}
-                      />
-                    ))
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {mode === "history" ? (
+                      historyTableDisplayed.map((item, index) => (
+                        <HistoryAlarmListRow
+                          key={item.id}
+                          index={index + 1}
+                          item={item}
+                          zh={zh}
+                          tableFontSize={tableFontSize}
+                          headerFontSize={headerFontSize}
+                        />
+                      ))
+                    ) : displayed.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-10 text-center text-[#5f79ad]" style={{ fontSize: infoSize }}>
+                          {historyEmptyText}
+                        </td>
+                      </tr>
+                    ) : (
+                      displayed.map((alarm, index) => (
+                        <AlarmRow
+                          key={alarm.key ?? `${alarm.time}-${alarm.source}-${alarm.nameZh}`}
+                          index={index + 1}
+                          alarm={alarm}
+                          zh={zh}
+                          tableFontSize={tableFontSize}
+                          headerFontSize={headerFontSize}
+                        />
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Loading 遮罩 */}
+        {mode === "history" && isHistoryLoading && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[rgba(5,12,29,0.24)] backdrop-blur-[1px]">
+            <HistoryStyleLoadingIndicator
+              text={historyViewMode === "gantt"
+                ? (zh ? "加载历史告警甘特图..." : "Loading alarm gantt...")
+                : (zh ? "加载历史告警列表..." : "Loading alarm history...")}
+              variant="overlay"
+            />
+          </div>
+        )}
+
+        {/* Error 遮罩 */}
+        {mode === "history" && historyError && !isHistoryLoading && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            <div
+              className="flex flex-col items-center gap-3 rounded-2xl px-8 py-6"
+              style={{
+                background: "linear-gradient(135deg, rgba(30,10,10,0.97) 0%, rgba(40,14,14,0.94) 100%)",
+                border: "1px solid rgba(220,53,34,0.35)",
+                boxShadow: "0 0 32px rgba(220,53,34,0.18), 0 8px 32px rgba(0,0,0,0.5)",
+              }}
+            >
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-full"
+                style={{
+                  background: "radial-gradient(circle, rgba(220,53,34,0.22) 0%, rgba(220,53,34,0.06) 100%)",
+                  border: "1px solid rgba(220,53,34,0.3)",
+                }}
+              >
+                <WifiOff className="h-6 w-6" style={{ color: "rgb(248,113,113)" }} />
+              </div>
+              <span className="font-bold tracking-wide" style={{ color: "rgb(252,165,165)", fontSize: headerFontSize }}>
+                {zh ? "历史告警数据加载失败" : "Failed to load alarm history"}
+              </span>
             </div>
-          )}
-        </>
-      )}
+          </div>
+        )}
+      </div>
       </div>
     </div>
   )

@@ -16,6 +16,8 @@ import { useLanguage } from "@/components/language-provider"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
+import { fetchDailyBcuStatusHistory } from "@/lib/api/cell-history"
+import { resolveProjectDeviceId } from "@/lib/device-selection"
 import {
   fetchOperationsIncrementalBundle,
   fetchOperationsRecentBundle,
@@ -517,9 +519,14 @@ export function BCUStatusQuery({
   const [isRealtimeLoading, setIsRealtimeLoading] = useState(mode === "realtime")
   const [realtimeError, setRealtimeError] = useState<string | null>(null)
   const cursorRef = useRef<OperationsCursor>({})
-  const normalizedDeviceId = deviceId?.trim() || undefined
-  const histData = useMemo(() => createHistorySeries(date, normalizedDeviceId), [date, normalizedDeviceId])
-  const effectiveHistoryData = historyData ?? histData
+  const effectiveDeviceId = useMemo(
+    () => resolveProjectDeviceId(selectedProject.devices, deviceId),
+    [deviceId, selectedProject.devices],
+  )
+  const [historyPoints, setHistoryPoints] = useState<OperationTrendPoint[]>([])
+  const [isHistoryLoading, setIsHistoryLoading] = useState(mode === "history" && !historyData)
+  const [historyFailed, setHistoryFailed] = useState(false)
+  const effectiveHistoryData = historyData ?? historyPoints
   const liveTimeLabel = rtOverview[rtOverview.length - 1]?.time.slice(0, 5) ?? "--:--"
   const isOverviewVariant = panelVariant === "overview"
   const titleSize = scale.clampText(0.9, 0.98, 1.16)
@@ -574,7 +581,7 @@ export function BCUStatusQuery({
 
     const loadRecent = async () => {
       const bundle = await fetchOperationsRecentBundle(selectedProject.projectId, {
-        deviceId: normalizedDeviceId,
+        deviceId: effectiveDeviceId,
         signal: abortController.signal,
       })
 
@@ -590,7 +597,7 @@ export function BCUStatusQuery({
     const pollIncremental = async () => {
       try {
         const bundle = await fetchOperationsIncrementalBundle(selectedProject.projectId, cursorRef.current, {
-          deviceId: normalizedDeviceId,
+          deviceId: effectiveDeviceId,
           signal: abortController.signal,
         })
 
@@ -642,7 +649,45 @@ export function BCUStatusQuery({
         clearInterval(timer)
       }
     }
-  }, [mode, normalizedDeviceId, selectedProject.projectId, zh])
+  }, [effectiveDeviceId, mode, selectedProject.projectId, zh])
+
+  useEffect(() => {
+    if (mode !== "history") return
+    if (historyData !== undefined) return
+    if (!date) {
+      setHistoryPoints([])
+      return
+    }
+
+    let cancelled = false
+    const abortController = new AbortController()
+
+    setIsHistoryLoading(true)
+    setHistoryFailed(false)
+    setHistoryPoints([])
+
+    fetchDailyBcuStatusHistory(selectedProject.projectId, date, {
+      deviceId: effectiveDeviceId,
+      signal: abortController.signal,
+    })
+      .then((data) => {
+        if (cancelled) return
+        setHistoryPoints(data)
+        setIsHistoryLoading(false)
+      })
+      .catch((error) => {
+        if (cancelled || abortController.signal.aborted) return
+        console.error(`Failed to load BCU history for ${selectedProject.projectId}`, error)
+        setHistoryFailed(true)
+        setHistoryPoints([])
+        setIsHistoryLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+      abortController.abort()
+    }
+  }, [date, effectiveDeviceId, historyData, mode, selectedProject.projectId])
 
   return (
     <div
@@ -726,6 +771,36 @@ export function BCUStatusQuery({
         {isRealtimeLoading && mode === "realtime" && (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[rgba(5,12,29,0.24)] backdrop-blur-[1px]">
             <HistoryStyleLoadingIndicator text={zh ? "加载运行状态数据..." : "Loading running status..."} variant="overlay" />
+          </div>
+        )}
+        {isHistoryLoading && mode === "history" && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[rgba(5,12,29,0.24)] backdrop-blur-[1px]">
+            <HistoryStyleLoadingIndicator text={zh ? "加载历史运行数据..." : "Loading history data..."} variant="overlay" />
+          </div>
+        )}
+        {historyFailed && mode === "history" && !isHistoryLoading && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            <div
+              className="flex flex-col items-center gap-3 rounded-2xl px-8 py-6"
+              style={{
+                background: "linear-gradient(135deg, rgba(30,10,10,0.97) 0%, rgba(40,14,14,0.94) 100%)",
+                border: "1px solid rgba(220,53,34,0.35)",
+                boxShadow: "0 0 32px rgba(220,53,34,0.18), 0 8px 32px rgba(0,0,0,0.5)",
+              }}
+            >
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-full"
+                style={{
+                  background: "radial-gradient(circle, rgba(220,53,34,0.22) 0%, rgba(220,53,34,0.06) 100%)",
+                  border: "1px solid rgba(220,53,34,0.3)",
+                }}
+              >
+                <WifiOff className="h-6 w-6" style={{ color: "rgb(248,113,113)" }} />
+              </div>
+              <span className="font-bold tracking-wide" style={{ color: "rgb(252,165,165)", fontSize: toastTitleSize }}>
+                {zh ? "历史数据加载失败" : "Failed to load history data"}
+              </span>
+            </div>
           </div>
         )}
         {/* Always render chart skeleton */}

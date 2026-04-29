@@ -132,7 +132,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
   const lerp = (min: number, max: number, progress: number) => min + (max - min) * progress
   const [analysisRange, setAnalysisRange] = useState<AnalysisRange>(15)
-  const [bcuMode, setBcuMode] = useState<BcuMode>("realtime")
+  const [bcuMode, setBcuMode] = useState<BcuMode>("history")
   const yesterday = formatDateInputValue(addDays(new Date(), -1))
   const [historyDate, setHistoryDate] = useState(yesterday)
   const [cellHistoryDate, setCellHistoryDate] = useState(yesterday)

@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api-client"
 import { apiEndpoints } from "@/lib/api/endpoints"
+import { normalizeOptionalDeviceId } from "@/lib/device-selection"
 import type { OperationTrendPoint } from "@/lib/api/operations"
 
 type CellHistoryApiResponse<T> = {
@@ -76,6 +77,20 @@ type DailyEnergySummary = {
   dischargeWh: number | null
   chargeEfficiencyCe: number | null
 }
+
+type DailyCellVoltagePoint = {
+  time: string
+  maxCellVolt: number | null
+  minCellVolt: number | null
+}
+
+type DailyCellTemperaturePoint = {
+  time: string
+  maxCellTemp: number | null
+  minCellTemp: number | null
+}
+
+type PartialHistoryMetricPoint = Partial<Pick<OperationTrendPoint, "maxCell" | "minCell" | "maxTemp" | "minTemp">>
 
 type DailyCellHistoryBundle = {
   historyData: HistoryPoint[]
@@ -628,9 +643,10 @@ const assertSuccessfulResponse = (response: CellHistoryApiResponse<unknown>, pat
 }
 
 const requestDaily = async (path: string, projectId: string, date: string, options: RequestOptions = {}) => {
+  const deviceId = normalizeOptionalDeviceId(options.deviceId)
   const queryPath = buildQueryPath(path, {
     measurement: options.measurement ?? projectId,
-    deviceId: options.deviceId,
+    deviceId,
     cellIndexes: options.detailCellIndexes?.length ? options.detailCellIndexes.join(",") : undefined,
     date,
   })
@@ -899,6 +915,122 @@ const parseBcuHistory = (data: unknown, date: string): OperationTrendPoint[] => 
   }
 
   return parseFlatBcuHistory(data, date)
+}
+
+const parseDailyCellVoltagePoints = (data: unknown, date: string): DailyCellVoltagePoint[] =>
+  coerceRows(data)
+    .map((row, index) => {
+      const timeMeta = extractTimeMeta(row, index, date)
+      const maxCellVolt = toFiniteNumber(getFieldValue(row, ["maxCellVolt", "maxVolt", "maxCellVoltage"]))
+      const minCellVolt = toFiniteNumber(getFieldValue(row, ["minCellVolt", "minVolt", "minCellVoltage"]))
+
+      if (maxCellVolt == null && minCellVolt == null) {
+        return null
+      }
+
+      return {
+        time: new Date(timeMeta.timestamp).toISOString(),
+        maxCellVolt,
+        minCellVolt,
+      } satisfies DailyCellVoltagePoint
+    })
+    .filter((row): row is DailyCellVoltagePoint => row !== null)
+
+const parseDailyCellTemperaturePoints = (data: unknown, date: string): DailyCellTemperaturePoint[] =>
+  coerceRows(data)
+    .map((row, index) => {
+      const timeMeta = extractTimeMeta(row, index, date)
+      const maxCellTemp = toFiniteNumber(getFieldValue(row, ["maxCellTemp", "maxTemp", "maxTemperature"]))
+      const minCellTemp = toFiniteNumber(getFieldValue(row, ["minCellTemp", "minTemp", "minTemperature"]))
+
+      if (maxCellTemp == null && minCellTemp == null) {
+        return null
+      }
+
+      return {
+        time: new Date(timeMeta.timestamp).toISOString(),
+        maxCellTemp,
+        minCellTemp,
+      } satisfies DailyCellTemperaturePoint
+    })
+    .filter((row): row is DailyCellTemperaturePoint => row !== null)
+
+const HISTORY_MERGE_TOLERANCE_MS = 30 * 1000
+
+const resolveHistoryTimestamp = (timestamps: number[], target: number) => {
+  if (timestamps.length === 0) {
+    return target
+  }
+
+  let nearest = timestamps[0]
+  let nearestDistance = Math.abs(nearest - target)
+
+  for (let index = 1; index < timestamps.length; index += 1) {
+    const current = timestamps[index]
+    const distance = Math.abs(current - target)
+    if (distance < nearestDistance) {
+      nearest = current
+      nearestDistance = distance
+    }
+  }
+
+  return nearestDistance <= HISTORY_MERGE_TOLERANCE_MS ? nearest : target
+}
+
+const mergeBcuHistoryMetrics = (
+  base: OperationTrendPoint[],
+  voltagePoints: DailyCellVoltagePoint[],
+  temperaturePoints: DailyCellTemperaturePoint[],
+) => {
+  const merged = new Map<number, OperationTrendPoint>()
+
+  for (const point of base) {
+    merged.set(point.timestamp, { ...point })
+  }
+
+  const applyPatch = (time: string, patch: PartialHistoryMetricPoint) => {
+    const timestamp = Date.parse(time)
+    if (Number.isNaN(timestamp)) {
+      return
+    }
+
+    const resolvedTimestamp = resolveHistoryTimestamp(Array.from(merged.keys()), timestamp)
+    const existing = merged.get(resolvedTimestamp)
+    const next: OperationTrendPoint = existing ?? {
+      timestamp: resolvedTimestamp,
+      isoTime: new Date(resolvedTimestamp).toISOString(),
+      time: extractTimeMeta({ time }, 0, "1970-01-01").time,
+      voltage: null,
+      current: null,
+      soc: null,
+      power: null,
+      maxTemp: null,
+      minTemp: null,
+      maxCell: null,
+      minCell: null,
+    }
+
+    merged.set(resolvedTimestamp, {
+      ...next,
+      ...patch,
+    })
+  }
+
+  voltagePoints.forEach((point) =>
+    applyPatch(point.time, {
+      maxCell: point.maxCellVolt == null ? null : Number(point.maxCellVolt) / 1000,
+      minCell: point.minCellVolt == null ? null : Number(point.minCellVolt) / 1000,
+    }),
+  )
+
+  temperaturePoints.forEach((point) =>
+    applyPatch(point.time, {
+      maxTemp: point.maxCellTemp,
+      minTemp: point.minCellTemp,
+    }),
+  )
+
+  return Array.from(merged.values()).sort((left, right) => left.timestamp - right.timestamp)
 }
 
 const parseDetailMetricPatches = (data: unknown): DetailMetricPatch[] => {
@@ -1180,6 +1312,33 @@ export const fetchDailyCellHistoryBcu = async (
 ): Promise<OperationTrendPoint[]> => {
   const data = await requestDaily(apiEndpoints.cellHistory.bcuDaily, projectId, date, options)
   return parseBcuHistory(data, date)
+}
+
+export const fetchDailyBcuStatusHistory = async (
+  projectId: string,
+  date: string,
+  options: RequestOptions = {},
+): Promise<OperationTrendPoint[]> => {
+  const settled = await Promise.allSettled([
+    requestDaily(apiEndpoints.cellHistory.bcuDaily, projectId, date, options),
+    requestDaily(apiEndpoints.cellHistory.voltageStatisticsDaily, projectId, date, options),
+    requestDaily(apiEndpoints.cellHistory.temperatureDaily, projectId, date, options),
+  ])
+
+  const [bcuResult, voltageResult, temperatureResult] = settled
+  const hasAnySuccess = settled.some((result) => result.status === "fulfilled")
+
+  if (!hasAnySuccess) {
+    const firstFailure = settled.find((result) => result.status === "rejected")
+    throw firstFailure?.status === "rejected" ? firstFailure.reason : new Error("Failed to load BCU status history")
+  }
+
+  const bcuHistory = bcuResult.status === "fulfilled" ? parseBcuHistory(bcuResult.value, date) : []
+  const cellVoltagePoints = voltageResult.status === "fulfilled" ? parseDailyCellVoltagePoints(voltageResult.value, date) : []
+  const cellTemperaturePoints =
+    temperatureResult.status === "fulfilled" ? parseDailyCellTemperaturePoints(temperatureResult.value, date) : []
+
+  return mergeBcuHistoryMetrics(bcuHistory, cellVoltagePoints, cellTemperaturePoints)
 }
 
 export const fetchDailyCellHistoryTrendBundle = async (

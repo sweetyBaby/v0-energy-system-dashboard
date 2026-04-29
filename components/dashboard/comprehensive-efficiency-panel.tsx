@@ -307,7 +307,7 @@ export function ComprehensiveEfficiencyPanel({
 
         const response = await fetchOverviewDailyList({
           projectId: selectedProject.projectId,
-          deviceId: selectedDeviceId === BCU_SELECTOR_ALL_VALUE ? "" : selectedDeviceId,
+          deviceId: selectedDeviceId === BCU_SELECTOR_ALL_VALUE ? undefined : selectedDeviceId,
           params: requestParams,
         })
 

@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api-client"
 import { apiEndpoints } from "@/lib/api/endpoints"
+import { normalizeOptionalDeviceId } from "@/lib/device-selection"
 
 type FaultDetailListResponse = {
   total?: number
@@ -193,9 +194,10 @@ const assertSuccessfulResponse = (response: { code?: number; msg?: string; messa
 }
 
 export const fetchFaultDetailList = async (projectId: string, statDate: string, options: RequestOptions = {}) => {
+  const deviceId = normalizeOptionalDeviceId(options.deviceId)
   const queryPath = buildQueryPath(apiEndpoints.fault.detailList, {
     projectId,
-    deviceId: options.deviceId,
+    deviceId,
     statDate,
   })
 
@@ -220,9 +222,10 @@ export const fetchFaultDetailList = async (projectId: string, statDate: string, 
 }
 
 export const fetchFaultList = async (projectId: string, statDate: string, options: RequestOptions = {}) => {
+  const deviceId = normalizeOptionalDeviceId(options.deviceId)
   const queryPath = buildQueryPath(apiEndpoints.fault.list, {
     projectId,
-    deviceId: options.deviceId,
+    deviceId,
     statDate,
   })
 

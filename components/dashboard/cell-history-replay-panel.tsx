@@ -7,6 +7,7 @@ import { useLanguage } from "@/components/language-provider"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
+import { resolveProjectDeviceId } from "@/lib/device-selection"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
@@ -1223,7 +1224,10 @@ export function CellHistoryReplayPanel({
     t2: true,
     t3: true,
   })
-  const normalizedDeviceId = deviceId?.trim() || undefined
+  const effectiveDeviceId = useMemo(
+    () => resolveProjectDeviceId(selectedProject.devices, deviceId),
+    [deviceId, selectedProject.devices],
+  )
   const effectiveDetailCells = useMemo(() => {
     if (viewMode === "detail") {
       return detailCells.slice(0, 3)
@@ -1235,8 +1239,8 @@ export function CellHistoryReplayPanel({
     return []
   }, [detailCells, selectedCell, viewMode])
   const detailRequestKey = useMemo(
-    () => `${selectedProject.projectId}::${normalizedDeviceId ?? ""}::${date}::${effectiveDetailCells.join(",")}`,
-    [date, effectiveDetailCells, normalizedDeviceId, selectedProject.projectId]
+    () => `${selectedProject.projectId}::${effectiveDeviceId ?? ""}::${date}::${effectiveDetailCells.join(",")}`,
+    [date, effectiveDetailCells, effectiveDeviceId, selectedProject.projectId]
   )
   const hasMatchingHistoryBundle = historyBundle !== null && historyBundle.requestKey === detailRequestKey
 
@@ -1264,12 +1268,12 @@ export function CellHistoryReplayPanel({
       setIsHistoryLoading(true)
       setHistoryError(null)
 
-      try {
-        const nextBundle = await fetchDailyCellHistory(selectedProject.projectId, date, {
-          deviceId: normalizedDeviceId,
-          includeBcuHistory: viewMode !== "detail",
-          ...(viewMode === "detail" ? { detailCellIndexes: effectiveDetailCells } : {}),
-          signal: abortController.signal,
+        try {
+          const nextBundle = await fetchDailyCellHistory(selectedProject.projectId, date, {
+          deviceId: effectiveDeviceId,
+            includeBcuHistory: viewMode !== "detail",
+            ...(viewMode === "detail" ? { detailCellIndexes: effectiveDetailCells } : {}),
+            signal: abortController.signal,
         })
 
         if (cancelled) {
@@ -1300,7 +1304,7 @@ export function CellHistoryReplayPanel({
       cancelled = true
       abortController.abort()
     }
-  }, [date, detailRequestKey, effectiveDetailCells, hasMatchingHistoryBundle, normalizedDeviceId, selectedProject.projectId, viewMode, zh])
+  }, [date, detailRequestKey, effectiveDetailCells, effectiveDeviceId, hasMatchingHistoryBundle, selectedProject.projectId, viewMode, zh])
 
   useEffect(() => {
     if (viewMode !== "overview") {
@@ -1315,11 +1319,11 @@ export function CellHistoryReplayPanel({
       setIsOverviewTrendLoading(true)
       setOverviewTrendError(null)
 
-      try {
-        const nextTrendBundle = await fetchDailyCellHistoryTrendBundle(selectedProject.projectId, date, {
-          deviceId: normalizedDeviceId,
-          signal: abortController.signal,
-        })
+        try {
+          const nextTrendBundle = await fetchDailyCellHistoryTrendBundle(selectedProject.projectId, date, {
+          deviceId: effectiveDeviceId,
+            signal: abortController.signal,
+          })
 
         if (cancelled) {
           return
@@ -1346,7 +1350,7 @@ export function CellHistoryReplayPanel({
       cancelled = true
       abortController.abort()
     }
-  }, [date, normalizedDeviceId, selectedProject.projectId, viewMode, zh])
+  }, [date, effectiveDeviceId, selectedProject.projectId, viewMode, zh])
 
   useEffect(() => {
     if (viewMode !== "overview") {
@@ -1361,11 +1365,11 @@ export function CellHistoryReplayPanel({
       setIsOverviewEnergyLoading(true)
       setOverviewEnergyError(null)
 
-      try {
-        const nextDailyEnergySummary = await fetchDailyCellHistoryEnergySummary(selectedProject.projectId, date, {
-          deviceId: normalizedDeviceId,
-          signal: abortController.signal,
-        })
+        try {
+          const nextDailyEnergySummary = await fetchDailyCellHistoryEnergySummary(selectedProject.projectId, date, {
+          deviceId: effectiveDeviceId,
+            signal: abortController.signal,
+          })
 
         if (cancelled) {
           return
@@ -1392,7 +1396,7 @@ export function CellHistoryReplayPanel({
       cancelled = true
       abortController.abort()
     }
-  }, [date, normalizedDeviceId, selectedProject.projectId, viewMode, zh])
+  }, [date, effectiveDeviceId, selectedProject.projectId, viewMode, zh])
 
   useEffect(() => {
     if (viewMode !== "overview") {
@@ -1407,11 +1411,11 @@ export function CellHistoryReplayPanel({
       setIsOverviewBcuLoading(true)
       setOverviewBcuError(null)
 
-      try {
-        const nextBcuHistory = await fetchDailyCellHistoryBcu(selectedProject.projectId, date, {
-          deviceId: normalizedDeviceId,
-          signal: abortController.signal,
-        })
+        try {
+          const nextBcuHistory = await fetchDailyCellHistoryBcu(selectedProject.projectId, date, {
+          deviceId: effectiveDeviceId,
+            signal: abortController.signal,
+          })
 
         if (cancelled) {
           return
@@ -1438,7 +1442,7 @@ export function CellHistoryReplayPanel({
       cancelled = true
       abortController.abort()
     }
-  }, [date, normalizedDeviceId, selectedProject.projectId, viewMode, zh])
+  }, [date, effectiveDeviceId, selectedProject.projectId, viewMode, zh])
 
   const activeHistoryBundle = hasMatchingHistoryBundle ? historyBundle.bundle : null
   const historyData = activeHistoryBundle?.historyData ?? EMPTY_HISTORY_DATA
@@ -2188,7 +2192,14 @@ export function CellHistoryReplayPanel({
           </NeonSection>
 
           <div className="relative min-h-0 overflow-hidden">
-            <BCUStatusQuery mode="history" date={date} hideCellSeries panelVariant="overview" historyData={bcuHistoryData} />
+            <BCUStatusQuery
+              mode="history"
+              date={date}
+              deviceId={effectiveDeviceId}
+              hideCellSeries
+              panelVariant="overview"
+              historyData={bcuHistoryData}
+            />
             {isOverviewBcuLoading && bcuHistoryData.length === 0 ? (
               <HistoryLoadingOverlay text={bcuLoadingText} backdrop={false} />
             ) : null}

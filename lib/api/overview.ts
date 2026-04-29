@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api-client"
 import { apiEndpoints } from "@/lib/api/endpoints"
 import { API_PLACEHOLDER, getMockProjectOptions } from "@/lib/api/project"
+import { normalizeOptionalDeviceId } from "@/lib/device-selection"
 
 export type DailyListRequest = {
   projectId: string
@@ -256,11 +257,11 @@ const sumMetric = (values: Array<number | null | undefined>, digits = 2) => {
 
 const normalizeDailyListPayload = (payload: DailyListRequest): DailyListRequest => ({
   ...payload,
-  deviceId: payload.deviceId?.trim() ?? "",
+  deviceId: normalizeOptionalDeviceId(payload.deviceId),
 })
 
 const resolveMockDevices = (payload: DailyListRequest): MockBcuDevice[] => {
-  const requestedDeviceId = payload.deviceId?.trim()
+  const requestedDeviceId = normalizeOptionalDeviceId(payload.deviceId)
   const matchedProject = MOCK_OVERVIEW_PROJECTS.find((project) => project.projectId === payload.projectId)
   const projectDevices = matchedProject?.devices ?? []
 
@@ -343,7 +344,7 @@ const buildMockAggregateRow = (
     updateTime: null,
     remark: null,
     id: null,
-    deviceId: payload.deviceId?.trim() || null,
+    deviceId: normalizeOptionalDeviceId(payload.deviceId) ?? null,
     projectId: payload.projectId,
     reportDate: rowDate ? formatIsoDate(rowDate) : null,
     month: month ?? undefined,
@@ -367,7 +368,7 @@ const buildMockAggregateRow = (
     avgVoltage: roundValue((maxVoltage + minVoltage) / 2, 2),
     projectName: null,
     delFlag: null,
-    children: payload.deviceId?.trim() ? [] : children,
+    children: normalizeOptionalDeviceId(payload.deviceId) ? [] : children,
   }
 }
 

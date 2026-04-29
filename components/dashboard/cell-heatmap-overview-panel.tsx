@@ -9,6 +9,7 @@ import {
   hasAnyHeatmapValue,
   type HeatmapCellMetrics,
 } from "@/lib/api/heatmap"
+import { resolveProjectDeviceId } from "@/lib/device-selection"
 import { AlertCircle, DatabaseZap, WifiOff } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 
@@ -296,7 +297,10 @@ export function CellHeatmapOverviewPanel({ deviceId }: { deviceId?: string }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
   const zh = language === "zh"
-  const normalizedDeviceId = deviceId?.trim() || undefined
+  const effectiveDeviceId = useMemo(
+    () => resolveProjectDeviceId(selectedProject.devices, deviceId),
+    [deviceId, selectedProject.devices],
+  )
 
   const [cells, setCells] = useState<HeatmapCellMetrics[]>(() => createEmptyHeatmapCells())
   const [isLoading, setIsLoading] = useState(true)
@@ -315,11 +319,11 @@ export function CellHeatmapOverviewPanel({ deviceId }: { deviceId?: string }) {
       currentController?.abort()
       currentController = new AbortController()
 
-      try {
-        const nextCells = await fetchLatestHeatmap(selectedProject.projectId, {
-          deviceId: normalizedDeviceId,
-          signal: currentController.signal,
-        })
+        try {
+          const nextCells = await fetchLatestHeatmap(selectedProject.projectId, {
+            deviceId: effectiveDeviceId,
+            signal: currentController.signal,
+          })
 
         if (cancelled || currentController.signal.aborted) {
           return
@@ -359,7 +363,7 @@ export function CellHeatmapOverviewPanel({ deviceId }: { deviceId?: string }) {
         clearInterval(timer)
       }
     }
-  }, [normalizedDeviceId, selectedProject.projectId, zh])
+  }, [effectiveDeviceId, selectedProject.projectId, zh])
 
   const hasData = useMemo(() => hasAnyHeatmapValue(cells), [cells])
   const cellMap = useMemo(() => toCellMap(cells), [cells])

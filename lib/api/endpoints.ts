@@ -85,6 +85,16 @@ export const apiEndpoints = {
      */
     bcuDaily: "/ems/bcu/history/daily",
     /**
+     * Daily max/min cell voltage for the selected BCU.
+     * Query: measurement = projectId, deviceId = BCU id, date = YYYY-MM-DD
+     */
+    voltageStatisticsDaily: "/ems/cell/statistics/daily",
+    /**
+     * Daily max/min cell temperature for the selected BCU.
+     * Query: measurement = projectId, deviceId = BCU id, date = YYYY-MM-DD
+     */
+    temperatureDaily: "/ems/cell/temperature/daily",
+    /**
      * Cell daily detail metrics.
      * Query: measurement = projectId, date = YYYY-MM-DD
      */

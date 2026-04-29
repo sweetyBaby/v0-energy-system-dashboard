@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api-client"
 import { apiEndpoints } from "@/lib/api/endpoints"
+import { normalizeOptionalDeviceId } from "@/lib/device-selection"
 
 type HeatmapApiResponse<T> = {
   msg?: string
@@ -98,9 +99,10 @@ const assertSuccessfulResponse = (response: HeatmapApiResponse<LatestHeatmapPayl
 }
 
 const fetchLatestPayload = async (path: string, projectId: string, options: RequestOptions = {}) => {
+  const deviceId = normalizeOptionalDeviceId(options.deviceId)
   const queryPath = buildQueryPath(path, {
     measurement: toMeasurement(projectId),
-    deviceId: options.deviceId,
+    deviceId,
   })
 
   const response = await apiClient.getRaw<HeatmapApiResponse<LatestHeatmapPayload>>(queryPath, {

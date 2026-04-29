@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api-client"
 import { apiEndpoints } from "@/lib/api/endpoints"
+import { normalizeOptionalDeviceId } from "@/lib/device-selection"
 
 type RawDailyTrendSummary = {
   maxVoltageDiff?: unknown
@@ -151,14 +152,15 @@ export const fetchDailyTrendRange = async (
   endDate: string,
   options?: { deviceId?: string; signal?: AbortSignal }
 ): Promise<DailyTrendRangeResult> => {
+  const deviceId = normalizeOptionalDeviceId(options?.deviceId)
   const params = new URLSearchParams({
     projectId,
     startDate,
     endDate,
   })
 
-  if (options?.deviceId) {
-    params.set("deviceId", options.deviceId)
+  if (deviceId) {
+    params.set("deviceId", deviceId)
   }
 
   const response = await apiClient.get<RawDailyTrendRangeData>(

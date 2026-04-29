@@ -114,12 +114,17 @@ export function RealtimeStatusBoard() {
   const [isHovered, setIsHovered] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const contentViewportRef = useRef<HTMLDivElement>(null)
+  const selectorTrackRef = useRef<HTMLDivElement>(null)
+  const selectorButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const previousIndexRef = useRef(0)
   const base = useContainerBase(containerRef)
   const [slideWidth, setSlideWidth] = useState(0)
   const snapshots = selectedProject.deviceRealtimeSnapshots
   const totalSlides = snapshots.length
   const activeSnapshot = snapshots[activeIndex] ?? snapshots[0] ?? null
+  const selectorUsesDistributedLayout = totalSlides <= 5
+  const selectorRailWidth =
+    totalSlides <= 2 ? "68%" : totalSlides === 3 ? "82%" : totalSlides === 4 ? "92%" : "100%"
   const clampText = (minRem: number, multiple: number, maxRem: number) =>
     `clamp(${minRem}rem, calc(var(--overview-root-size, 15px) * ${multiple}), ${maxRem}rem)`
   const fitText = (minRem: number, pixelSize: number, maxRem: number) =>
@@ -194,6 +199,28 @@ export function RealtimeStatusBoard() {
       observer.disconnect()
     }
   }, [])
+
+  useEffect(() => {
+    if (totalSlides <= 1) {
+      return
+    }
+
+    const activeDeviceId = snapshots[activeIndex]?.deviceId
+    if (!activeDeviceId) {
+      return
+    }
+
+    const button = selectorButtonRefs.current[activeDeviceId]
+    if (!button) {
+      return
+    }
+
+    button.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    })
+  }, [activeIndex, snapshots, totalSlides])
 
   if (!activeSnapshot) {
     return null
@@ -626,7 +653,7 @@ export function RealtimeStatusBoard() {
                     style={{ width: slideWidth > 0 ? `${slideWidth}px` : "100%" }}
                   >
                     <div className="flex h-full min-h-0 flex-row overflow-hidden" style={{ gap: `${base * 0.34}px` }}>
-                    <div className="flex shrink-0 flex-col items-center justify-center" style={{ width: `${socBarWidth}px`, gap: `${base * 0.5}px` }}>
+                    <div className="flex h-full min-h-0 shrink-0 flex-col items-center justify-center" style={{ minWidth: `${socBarWidth}px`, gap: `${base * 0.5}px` }}>
                       <div
                         className="rounded-t-[3px] transition-all duration-700"
                         style={{
@@ -638,10 +665,10 @@ export function RealtimeStatusBoard() {
                       />
 
                       <div
-                        className="relative overflow-hidden rounded-[12px] transition-all duration-700"
+                        className="relative min-h-0 flex-1 overflow-hidden rounded-[12px] transition-all duration-700"
                         style={{
                           width: `${socBarWidth}px`,
-                          height: `${socBarHeight}px`,
+                          maxHeight: `${socBarHeight}px`,
                           border: `1.5px solid ${slideColors.border}`,
                           background: "#020810",
                           boxShadow: `0 0 22px ${slideColors.glow}, inset 0 0 14px rgba(0,0,0,0.7)`,
@@ -702,9 +729,11 @@ export function RealtimeStatusBoard() {
                             fill="currentColor"
                           />
                           <span
-                            className="font-extrabold leading-none text-white"
+                            className="w-full font-extrabold leading-none tabular-nums text-white"
                             style={{
-                              fontSize: clampText(1.45, 1.75, 2.45),
+                              maxWidth: `calc(100% - ${base * 0.9}px)`,
+                              fontSize: fitText(1.02, base * 1.02, 1.84),
+                              textAlign: "center",
                               textShadow: "0 0 14px rgba(0,0,0,0.95)",
                             }}
                           >
@@ -714,7 +743,7 @@ export function RealtimeStatusBoard() {
                       </div>
 
                       <div
-                        className="shrink-0 rounded-full font-bold tracking-[0.03em] transition-all duration-700"
+                        className="shrink-0 whitespace-nowrap rounded-full font-bold tracking-[0.03em] transition-all duration-700"
                         style={{
                           fontSize: clampText(0.72, 0.84, 1.05),
                           padding: `${base * 0.2}px ${base * 0.7}px`,
@@ -819,7 +848,7 @@ export function RealtimeStatusBoard() {
         </div>
 
         {totalSlides > 1 ? (
-          <div className="flex shrink-0 items-center justify-center" style={{ gap: `${base * 1.1}px`, paddingTop: `${base * 0.08}px` }}>
+          <div className="flex w-full shrink-0 items-center" style={{ gap: `${base * 0.72}px`, paddingTop: `${base * 0.08}px` }}>
             <button
               type="button"
               onClick={goPrev}
@@ -851,42 +880,67 @@ export function RealtimeStatusBoard() {
             </button>
 
             <div
-              className="relative flex min-w-0 max-w-full items-center rounded-full border border-[#5db8ff]/34 bg-[linear-gradient(180deg,rgba(9,22,56,0.82),rgba(7,18,42,0.78))]"
+              className={`relative min-w-0 overflow-hidden rounded-full border border-[#5db8ff]/34 bg-[linear-gradient(180deg,rgba(9,22,56,0.82),rgba(7,18,42,0.78))] ${
+                selectorUsesDistributedLayout ? "mx-auto flex-[0_1_auto]" : "flex-1"
+              }`}
               style={{
+                width: selectorUsesDistributedLayout ? selectorRailWidth : undefined,
+                flexBasis: selectorUsesDistributedLayout ? selectorRailWidth : undefined,
                 padding: `${base * 0.14}px`,
-                gap: `${base * 0.14}px`,
                 boxShadow: "0 0 16px rgba(60,148,255,0.12), inset 0 0 0 1px rgba(125,211,252,0.04)",
               }}
             >
               <span className="pointer-events-none absolute inset-x-[8%] top-0 h-px bg-gradient-to-r from-transparent via-[#7eeeff]/42 to-transparent" />
               <span className="pointer-events-none absolute inset-x-[10%] bottom-0 h-px bg-gradient-to-r from-transparent via-[#47dcff]/32 to-transparent" />
-              {snapshots.map((snapshot, index) => {
-                const active = index === activeIndex
+              <div
+                ref={selectorTrackRef}
+                className={
+                  selectorUsesDistributedLayout
+                    ? "grid min-w-0 items-center overflow-hidden"
+                    : "no-scrollbar flex min-w-0 items-center overflow-x-auto"
+                }
+                style={{
+                  gap: `${base * 0.14}px`,
+                  paddingInline: `${base * 0.04}px`,
+                  gridTemplateColumns: selectorUsesDistributedLayout
+                    ? `repeat(${totalSlides}, minmax(0, 1fr))`
+                    : undefined,
+                }}
+              >
+                {snapshots.map((snapshot, index) => {
+                  const active = index === activeIndex
 
-                return (
-                  <button
-                    key={`${snapshot.deviceId}-selector`}
-                    type="button"
-                    onClick={() => setActiveIndex(index)}
-                    className="truncate rounded-full px-3 font-semibold transition-all"
-                    style={{
-                      minWidth: `${base * 5.6}px`,
-                      maxWidth: `${base * 8.1}px`,
-                      height: `${base * 1.92}px`,
-                      fontSize: fitText(0.72, base * 0.92, 1.08),
-                      color: active ? "#aefcff" : "rgba(220,232,255,0.64)",
-                      background: active
-                        ? "linear-gradient(180deg,rgba(17,54,112,0.94),rgba(8,25,62,0.98))"
-                        : "linear-gradient(180deg,rgba(11,28,67,0.2),rgba(7,19,44,0.14))",
-                      border: active ? "1px solid rgba(108,232,255,0.58)" : "1px solid transparent",
-                      boxShadow: active ? "0 0 14px rgba(88,234,255,0.2), inset 0 0 0 1px rgba(160,245,255,0.06)" : "none",
-                      textShadow: active ? "0 0 10px rgba(139,245,255,0.28)" : "none",
-                    }}
-                  >
-                    {snapshot.deviceName}
-                  </button>
-                )
-              })}
+                  return (
+                    <button
+                      key={`${snapshot.deviceId}-selector`}
+                      ref={(node) => {
+                        selectorButtonRefs.current[snapshot.deviceId] = node
+                      }}
+                      type="button"
+                      onClick={() => setActiveIndex(index)}
+                      title={snapshot.deviceName}
+                      className={`${selectorUsesDistributedLayout ? "min-w-0" : "shrink-0"} truncate rounded-full font-semibold transition-all`}
+                      style={{
+                        width: selectorUsesDistributedLayout ? "100%" : undefined,
+                        minWidth: selectorUsesDistributedLayout ? 0 : `${base * 4.4}px`,
+                        maxWidth: selectorUsesDistributedLayout ? "none" : `${base * 6.6}px`,
+                        height: `${base * 1.92}px`,
+                        paddingInline: `${base * (selectorUsesDistributedLayout ? 0.68 : 0.86)}px`,
+                        fontSize: fitText(0.66, base * (selectorUsesDistributedLayout ? 0.8 : 0.86), 1),
+                        color: active ? "#aefcff" : "rgba(220,232,255,0.64)",
+                        background: active
+                          ? "linear-gradient(180deg,rgba(17,54,112,0.94),rgba(8,25,62,0.98))"
+                          : "linear-gradient(180deg,rgba(11,28,67,0.2),rgba(7,19,44,0.14))",
+                        border: active ? "1px solid rgba(108,232,255,0.58)" : "1px solid transparent",
+                        boxShadow: active ? "0 0 14px rgba(88,234,255,0.2), inset 0 0 0 1px rgba(160,245,255,0.06)" : "none",
+                        textShadow: active ? "0 0 10px rgba(139,245,255,0.28)" : "none",
+                      }}
+                    >
+                      {snapshot.deviceName}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             <button

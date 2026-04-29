@@ -579,11 +579,11 @@ export function DashboardHeader({
             className={`relative ${
               zh
                 ? useCompactHeader
-                  ? "w-[116px] sm:w-[126px] lg:w-[138px]"
-                  : "w-[132px] sm:w-[144px] xl:w-[160px]"
+                  ? "w-[178px] sm:w-[208px] lg:w-[228px]"
+                  : "w-[220px] sm:w-[252px] xl:w-[292px]"
                 : useCompactHeader
-                  ? "w-[148px] sm:w-[170px] lg:w-[196px]"
-                  : "w-[182px] sm:w-[204px] xl:w-[236px]"
+                  ? "w-[200px] sm:w-[232px] lg:w-[256px]"
+                  : "w-[238px] sm:w-[272px] xl:w-[320px]"
             }`}
           >
             <button
@@ -601,12 +601,13 @@ export function DashboardHeader({
               } ${useCompactHeader ? "h-[30px]" : "h-[32px]"}`}
               style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
               aria-expanded={canSelectProject ? dropdownOpen : false}
+              title={projectLabel}
               aria-label={zh ? "切换项目" : "Switch project"}
             >
               <span className="pointer-events-none absolute left-[10px] top-0 h-full w-px bg-gradient-to-b from-[#1df2d7]/0 via-[#1df2d7]/35 to-[#1df2d7]/0" />
               <span className="pointer-events-none absolute inset-x-4 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3bd2ff]/60 to-transparent" />
               <div className="min-w-0 flex-1">
-                <div className="whitespace-nowrap text-[10.5px] font-semibold tracking-[0.02em] text-[#e7fbff] sm:text-[11.5px] sm:tracking-[0.04em] xl:text-[12px] xl:tracking-[0.05em]" style={{ textShadow: "0 0 12px rgba(104,230,255,0.35)" }}>
+                <div className="truncate text-[10.5px] font-semibold tracking-[0.02em] text-[#e7fbff] sm:text-[11.5px] sm:tracking-[0.04em] xl:text-[12px] xl:tracking-[0.05em]" style={{ textShadow: "0 0 12px rgba(104,230,255,0.35)" }}>
                   {projectLabel}
                 </div>
               </div>
@@ -632,7 +633,7 @@ export function DashboardHeader({
                           : "text-[#a7c8df] hover:bg-[rgba(18,44,72,0.72)]"
                       }`}
                     >
-                      <span className="whitespace-nowrap">{zh ? project.projectName : project.projectNameEn}</span>
+                      <span className="truncate" title={zh ? project.projectName : project.projectNameEn}>{zh ? project.projectName : project.projectNameEn}</span>
                       {isActive && <Check className="h-3.5 w-3.5 shrink-0" />}
                     </button>
                   )
