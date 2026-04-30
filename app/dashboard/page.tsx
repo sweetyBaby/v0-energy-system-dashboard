@@ -245,6 +245,11 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     [analysisCustomRange, analysisRange]
   )
   const displayAllBcuLabel = zh ? "全部BCU" : "All BCUs"
+  const projectBackgroundImage = useMemo(() => {
+    const candidate = selectedProject.image?.trim()
+    return candidate && candidate !== DEFAULT_PROJECT_IMAGE ? candidate : null
+  }, [selectedProject.image])
+  const [resolvedProjectBackgroundImage, setResolvedProjectBackgroundImage] = useState<string | null>(null)
 
   useEffect(() => {
     const validDeviceIds = new Set(pageBcuOptions.map((option) => option.value))
@@ -256,6 +261,34 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     setCellHistoryDeviceId((currentValue) => resolveDeviceId(currentValue))
     setAnalysisDeviceId((currentValue) => resolveDeviceId(currentValue))
   }, [firstPageBcuId, pageBcuOptions])
+
+  useEffect(() => {
+    if (!projectBackgroundImage) {
+      setResolvedProjectBackgroundImage(null)
+      return
+    }
+
+    let cancelled = false
+    setResolvedProjectBackgroundImage(null)
+
+    const image = new window.Image()
+    image.src = projectBackgroundImage
+    image.onload = () => {
+      if (!cancelled) {
+        setResolvedProjectBackgroundImage(projectBackgroundImage)
+      }
+    }
+    image.onerror = () => {
+      if (!cancelled) {
+        setResolvedProjectBackgroundImage(null)
+      }
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [projectBackgroundImage])
+
   const formatAnalysisRangeLabel = (range: DateRange | undefined) => {
     if (!range?.from) {
       return zh ? "选择日期范围" : "Select range"
@@ -537,19 +570,21 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
             <OverviewDataLoader />
             <div className="relative col-span-12 min-h-0 overflow-hidden rounded-b-xl border border-[#22d3ee]/30 border-t-0">
               <img
-                src={selectedProject.image || DEFAULT_PROJECT_IMAGE}
+                src={DEFAULT_PROJECT_IMAGE}
                 alt=""
                 aria-hidden
                 className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[1] brightness-[1.35] saturate-[1.12]"
-                onError={(event) => {
-                  const target = event.currentTarget
-                  if (target.src.endsWith(DEFAULT_PROJECT_IMAGE)) {
-                    return
-                  }
-
-                  target.src = DEFAULT_PROJECT_IMAGE
-                }}
               />
+              {resolvedProjectBackgroundImage ? (
+                <img
+                  key={resolvedProjectBackgroundImage}
+                  src={resolvedProjectBackgroundImage}
+                  alt=""
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[1] brightness-[1.35] saturate-[1.12]"
+                  onError={() => setResolvedProjectBackgroundImage(null)}
+                />
+              ) : null}
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(8,20,40,0.02)_0%,rgba(8,20,40,0.00)_32%,rgba(5,12,28,0.12)_72%,rgba(3,8,20,0.24)_100%)]" />
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00d4aa]/50 to-transparent" />
 
