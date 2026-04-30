@@ -8,8 +8,8 @@ Usage:
   bash deploy-company-server.sh
 
 Optional environment variables:
-  PROJECT_DIR=/ems/project
-  CONFIG_FILE=/ems/project/deploy-energy-dashboard.env
+  PROJECT_DIR=./
+  CONFIG_FILE=./deploy-energy-dashboard.env
   IMAGE_TAR=energy-dashboard.tar
   IMAGE_NAME=energy-dashboard:latest
   CONTAINER_NAME=energy-dashboard
@@ -23,7 +23,7 @@ Optional environment variables:
 Examples:
   bash deploy-company-server.sh
   NGINX_CONTAINER=2bff3a122fdd bash deploy-company-server.sh
-  CONFIG_FILE=/ems/project/deploy-energy-dashboard.env bash deploy-company-server.sh
+  CONFIG_FILE=./deploy-energy-dashboard.env bash deploy-company-server.sh
 EOF
 }
 
@@ -32,7 +32,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
-PROJECT_DIR="${PROJECT_DIR:-/ems/project}"
+PROJECT_DIR="${PROJECT_DIR:-./}"
 CONFIG_FILE="${CONFIG_FILE:-$PROJECT_DIR/deploy-energy-dashboard.env}"
 
 if [[ -f "$CONFIG_FILE" ]]; then
