@@ -3,6 +3,7 @@
 import { startTransition, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, ArrowRight, Eye, EyeOff, LockKeyhole, User } from "lucide-react"
+import { EnerCloudMark } from "@/components/brand/enercloud-mark"
 import { useLanguage } from "@/components/language-provider"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/hooks/use-toast"
@@ -71,36 +72,6 @@ function getFieldError(field: FormField, value: string, copy: Copy) {
   }
 
   return normalizeCredentialValue(value) ? null : copy.passwordRequired
-}
-
-function EnerCloudIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 78 66" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="enercloud-cloud" x1="8" y1="8" x2="68" y2="52" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#67F1FF" />
-          <stop offset="100%" stopColor="#255BFF" />
-        </linearGradient>
-        <linearGradient id="enercloud-bolt" x1="28" y1="10" x2="46" y2="48" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#EFFFFF" />
-          <stop offset="100%" stopColor="#45E3FF" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M23 54C13 54 8 47 8 39C8 30 14 23 24 22C25 12 33 7 42 7C51 7 58 12 61 20C69 21 74 27 74 35C74 45 67 54 55 54H23Z"
-        fill="rgba(6,18,44,0.16)"
-        stroke="url(#enercloud-cloud)"
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M43 13L31 31H39L33 50L48 28H40L43 13Z"
-        fill="url(#enercloud-bolt)"
-        stroke="rgba(92,242,255,0.22)"
-        strokeWidth="0.8"
-      />
-    </svg>
-  )
 }
 
 function TitleSideAccent({ side }: { side: "left" | "right" }) {
@@ -176,7 +147,10 @@ function TopBrandFrame({ subtitle }: { subtitle: string }) {
             <div className="absolute inset-x-[24%] bottom-0 h-px bg-gradient-to-r from-transparent via-[#52EAFF]/38 to-transparent" />
             <div className="absolute inset-x-[28%] top-[10px] h-px bg-gradient-to-r from-transparent via-[#52EAFF]/18 to-transparent" />
             <div className="relative flex items-center gap-3 sm:gap-4">
-              <EnerCloudIcon className="h-[48px] w-[48px] drop-shadow-[0_0_18px_rgba(68,232,255,0.24)] sm:h-[58px] sm:w-[58px]" />
+              <EnerCloudMark
+                className="h-[48px] w-[48px] text-[#f7fafc] drop-shadow-[0_0_18px_rgba(68,232,255,0.24)] sm:h-[58px] sm:w-[58px]"
+                glowClassName="text-[#24e5d9]/24"
+              />
               <div>
                 <div
                   className="bg-clip-text text-[2.8rem] font-black leading-none tracking-[0.01em] text-transparent sm:text-[4rem]"

@@ -1502,7 +1502,7 @@ export function AlarmLogPanel({
 
         {/* 历史甘特视图 + 类型统计 */}
         {mode === "history" && historyViewMode === "gantt" && (
-          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto pr-1">
+          <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto pr-1">
             {!isHistoryLoading && !historyError && historyFiltered.length === 0 ? (
               <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-[#1a3060] bg-[#080e28]/70 px-4 text-center text-[#7b8ab8]" style={{ fontSize: infoSize }}>
                 {historyEmptyText}
@@ -1565,17 +1565,9 @@ export function AlarmLogPanel({
                 {historyEmptyText}
               </div>
             ) : (
-              <div className={`min-h-0 flex-1 rounded-lg border border-[#1a2654]/60 ${
+              <div className={`no-scrollbar min-h-0 flex-1 rounded-lg border border-[#1a2654]/60 ${
                 isHistoryListEmpty ? "overflow-hidden" : "overflow-auto"
-              }
-                [&::-webkit-scrollbar]:w-[5px]
-                [&::-webkit-scrollbar]:h-[5px]
-                [&::-webkit-scrollbar-track]:rounded-full
-                [&::-webkit-scrollbar-track]:bg-[#060c1f]
-                [&::-webkit-scrollbar-thumb]:rounded-full
-                [&::-webkit-scrollbar-thumb]:bg-[#1e3a6e]
-                [&::-webkit-scrollbar-thumb:hover]:bg-[#2d5499]
-                [&::-webkit-scrollbar-corner]:bg-[#060c1f]`}>
+              }`}>
                 <table className="w-full border-collapse text-left" style={{ tableLayout: "fixed", minWidth: mode === "history" ? historyTableMinWidth : 648 }}>
                   <colgroup>
                     {mode === "history" ? (

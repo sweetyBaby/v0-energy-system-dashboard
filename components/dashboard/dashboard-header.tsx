@@ -2,7 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Check, ChevronDown, Globe, LogOut, Zap } from "lucide-react"
+import { Check, ChevronDown, Globe, LogOut } from "lucide-react"
+import { EnerCloudMark } from "@/components/brand/enercloud-mark"
 import {
   fetchProjectOptionsByDevice,
   fetchProjectDetail,
@@ -288,7 +289,6 @@ export function DashboardHeader({
   compact?: boolean
 }) {
   const router = useRouter()
-  const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const { projectOptions, selectedProject, setSelectedProject, isProjectOptionsLoading, projectOptionsError, resetProjectState } =
     useProject()
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -332,12 +332,6 @@ export function DashboardHeader({
   }
 
   useEffect(() => {
-    setCurrentTime(new Date())
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
-  useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
       if (!controlRef.current?.contains(event.target as Node)) {
         setDropdownOpen(false)
@@ -358,16 +352,6 @@ export function DashboardHeader({
       window.removeEventListener("keydown", handleKeyDown)
     }
   }, [])
-
-  const formatDate = (date: Date) => {
-    const y = date.getFullYear()
-    const mo = String(date.getMonth() + 1).padStart(2, "0")
-    const d = String(date.getDate()).padStart(2, "0")
-    const h = String(date.getHours()).padStart(2, "0")
-    const mi = String(date.getMinutes()).padStart(2, "0")
-    const s = String(date.getSeconds()).padStart(2, "0")
-    return `${y}/${mo}/${d} ${h}:${mi}:${s}`
-  }
 
   return (
     <header
@@ -416,56 +400,51 @@ export function DashboardHeader({
       <div
         className={`relative grid h-full items-center gap-2 px-3 sm:gap-3 sm:px-4 ${
           useCompactHeader
-            ? "grid-cols-[minmax(204px,264px)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(236px,316px)_minmax(0,1fr)_auto]"
-            : "grid-cols-[minmax(236px,316px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(296px,388px)_minmax(0,1fr)_auto]"
+            ? "grid-cols-[minmax(230px,296px)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(258px,346px)_minmax(0,1fr)_auto]"
+            : "grid-cols-[minmax(264px,356px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(336px,432px)_minmax(0,1fr)_auto]"
         }`}
       >
-        <div className="relative flex min-w-0 items-center gap-2 sm:gap-3">
+        <div className="relative flex min-w-0 items-center gap-2.5 sm:gap-3.5">
           <div
-            className={`relative flex shrink-0 items-center justify-center border border-[#27f0dd]/45 bg-[linear-gradient(180deg,rgba(7,45,54,0.98),rgba(4,20,28,0.98))] shadow-[0_0_18px_rgba(39,240,221,0.18),inset_0_0_0_1px_rgba(140,255,240,0.06)] ${
-              useCompactHeader ? "h-[32px] w-[32px]" : "h-[36px] w-[36px]"
+            className={`relative flex shrink-0 items-center justify-center rounded-[10px] bg-[radial-gradient(circle_at_50%_38%,rgba(36,229,217,0.18),rgba(7,25,34,0.9)_72%)] ${
+              useCompactHeader ? "h-[42px] w-[42px]" : "h-[48px] w-[48px]"
             }`}
-            style={{ clipPath: "polygon(8px 0%,100% 0%,100% calc(100% - 8px),calc(100% - 8px) 100%,0% 100%,0% 8px)" }}
           >
-            <span className="pointer-events-none absolute inset-x-[6px] top-[4px] h-px bg-gradient-to-r from-transparent via-[#8ffef0]/75 to-transparent" />
-            <span className="pointer-events-none absolute inset-[4px] border border-[#8ffef0]/10" />
-            <Zap
-              className={useCompactHeader ? "h-[14px] w-[14px] text-[#27f0dd]" : "h-[16px] w-[16px] text-[#27f0dd]"}
-              style={{ filter: "drop-shadow(0 0 6px rgba(39,240,221,0.7))" }}
+            <EnerCloudMark
+              className={useCompactHeader ? "h-[20px] w-[20px] text-[#f7fafc]" : "h-[24px] w-[24px] text-[#f7fafc]"}
+              glowClassName="text-[#24e5d9]/28"
             />
           </div>
 
-          {!useCompactHeader ? (
-            <div className="h-[8px] w-[8px] shrink-0 rounded-full bg-[#15ffaf] shadow-[0_0_10px_rgba(21,255,175,0.8)]" style={{ animation: "hdr-pulse 1.9s ease-in-out infinite" }} />
-          ) : null}
-
           <div
-            className={`relative min-w-0 flex-1 overflow-hidden border border-[#235f7f]/70 bg-[linear-gradient(180deg,rgba(8,29,44,0.98),rgba(4,14,27,1))] pt-1.5 pb-2 shadow-[0_0_28px_rgba(18,94,132,0.16),inset_0_0_0_1px_rgba(126,220,255,0.05)] ${
-              useCompactHeader ? "px-3" : "px-4"
+            className={`relative min-w-0 flex-1 overflow-hidden border border-[#235f7f]/70 bg-[linear-gradient(180deg,rgba(8,29,44,0.98),rgba(4,14,27,1))] shadow-[0_0_28px_rgba(18,94,132,0.16),inset_0_0_0_1px_rgba(126,220,255,0.05)] ${
+              useCompactHeader ? "px-4 py-2" : "px-5 py-2.5"
             }`}
-            style={{ clipPath: "polygon(12px 0%,100% 0%,calc(100% - 14px) 100%,0% 100%)" }}
+            style={{ clipPath: "polygon(14px 0%,100% 0%,calc(100% - 16px) 100%,0% 100%)" }}
           >
-            <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#7de9ff]/70 to-transparent" />
-            <span className="pointer-events-none absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-[#20e1c4]/40 to-transparent" />
-            <span className="pointer-events-none absolute left-3 top-1/2 h-10 w-32 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(103,232,249,0.18),transparent_72%)] blur-md" />
-            <span className="pointer-events-none absolute right-5 top-1/2 h-12 w-28 -translate-y-1/2 bg-[radial-gradient(circle,rgba(70,223,255,0.12),transparent_72%)] blur-lg" />
-            <div className="relative flex min-w-0 items-center justify-between gap-3">
+            <span className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-[#7de9ff]/70 to-transparent" />
+            <span className="pointer-events-none absolute inset-x-6 bottom-0 h-px bg-gradient-to-r from-transparent via-[#20e1c4]/40 to-transparent" />
+            <span className="pointer-events-none absolute left-4 top-1/2 h-11 w-36 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(103,232,249,0.18),transparent_72%)] blur-md" />
+            <span className="pointer-events-none absolute right-6 top-1/2 h-14 w-32 -translate-y-1/2 bg-[radial-gradient(circle,rgba(70,223,255,0.12),transparent_72%)] blur-lg" />
+            <div className="relative flex min-w-0 items-center justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <h1
                   className={`relative whitespace-nowrap font-black leading-[1.04] ${
                     useCompactHeader
-                      ? "text-[0.96rem] tracking-[0.08em] lg:text-[1.08rem] lg:tracking-[0.11em]"
-                      : "text-[1.08rem] tracking-[0.1em] xl:text-[1.24rem] xl:tracking-[0.13em]"
+                      ? "text-[1.08rem] tracking-[0.045em] lg:text-[1.2rem] lg:tracking-[0.06em]"
+                      : "text-[1.22rem] tracking-[0.05em] xl:text-[1.42rem] xl:tracking-[0.07em]"
                   }`}
                   style={{
-                    fontFamily: '"Segoe UI Semibold","Microsoft YaHei UI","Microsoft YaHei",sans-serif',
+                    fontFamily: '"Arial Black","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif',
                     color: "#effdff",
                     backgroundImage: "linear-gradient(180deg,#f8feff 0%,#d6f9ff 45%,#7effd7 100%)",
                     WebkitBackgroundClip: "text",
                     backgroundClip: "text",
                     WebkitTextFillColor: "transparent",
-                    textShadow: "0 0 14px rgba(111,236,255,0.34)",
-                    filter: "drop-shadow(0 0 16px rgba(60,223,255,0.42)) drop-shadow(0 0 26px rgba(60,223,255,0.18))",
+                    textShadow: "0 0 16px rgba(111,236,255,0.38)",
+                    filter: "drop-shadow(0 0 18px rgba(60,223,255,0.44)) drop-shadow(0 0 28px rgba(60,223,255,0.2))",
+                    transform: "scaleX(0.94)",
+                    transformOrigin: "left center",
                   }}
                 >
                   {zh ? "EnerCloud" : "EnerCloud"}
@@ -474,13 +453,13 @@ export function DashboardHeader({
 
               <div className="pointer-events-none flex shrink-0 items-center gap-2">
                 <div className="hidden min-[280px]:flex flex-col items-end gap-1.5">
-                  <span className="h-[2px] w-16 rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.95),rgba(126,255,215,0.85))] shadow-[0_0_12px_rgba(94,235,255,0.35)]" />
-                  <span className="h-[2px] w-11 rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.78),rgba(126,255,215,0.65))]" />
-                  <span className="h-[2px] w-7 rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.52),rgba(126,255,215,0.45))]" />
+                  <span className="h-[2px] w-[4.5rem] rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.95),rgba(126,255,215,0.85))] shadow-[0_0_12px_rgba(94,235,255,0.35)]" />
+                  <span className="h-[2px] w-[3.1rem] rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.78),rgba(126,255,215,0.65))]" />
+                  <span className="h-[2px] w-[2rem] rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.52),rgba(126,255,215,0.45))]" />
                 </div>
                 <div
                   className={`relative overflow-hidden border border-[#2ecfdf]/28 bg-[linear-gradient(180deg,rgba(13,42,61,0.78),rgba(7,24,38,0.9))] shadow-[0_0_18px_rgba(51,202,255,0.12),inset_0_0_0_1px_rgba(125,243,255,0.06)] ${
-                    useCompactHeader ? "h-4 w-6" : "h-[18px] w-7"
+                    useCompactHeader ? "h-[18px] w-7" : "h-5 w-8"
                   }`}
                   style={{ clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)" }}
                 >
@@ -491,7 +470,7 @@ export function DashboardHeader({
               </div>
             </div>
 
-            <div className="relative mt-1 h-[2px] w-full overflow-hidden rounded-full bg-[linear-gradient(90deg,rgba(34,64,95,0.14),rgba(41,123,174,0.6),rgba(65,230,214,0.34),rgba(34,64,95,0.08))]">
+            <div className="relative mt-1.5 h-[2px] w-full overflow-hidden rounded-full bg-[linear-gradient(90deg,rgba(34,64,95,0.14),rgba(41,123,174,0.6),rgba(65,230,214,0.34),rgba(34,64,95,0.08))]">
               <span
                 className="absolute inset-y-0 w-[24%] bg-[linear-gradient(90deg,transparent,rgba(169,244,255,0.95),transparent)]"
                 style={{ animation: "hdr-title-sweep 3.8s ease-in-out infinite" }}
@@ -556,25 +535,6 @@ export function DashboardHeader({
         </div>
 
         <div className="relative z-40 flex items-center gap-1.5 xl:gap-2" ref={controlRef}>
-          <div
-            className={`relative hidden items-center 2xl:flex ${useCompactHeader ? "h-[30px] gap-2 px-3" : "h-[36px] gap-2.5 px-3.5"}`}
-            style={{
-              clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)",
-              border: "1px solid rgba(53,188,245,0.34)",
-              background: "linear-gradient(180deg,rgba(9,29,48,0.96),rgba(4,17,31,0.98))",
-              boxShadow: "0 0 18px rgba(56,207,255,0.08), inset 0 0 0 1px rgba(129,224,255,0.05)",
-            }}
-          >
-            <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#6ee9ff]/75 to-transparent" />
-            <span className={`${useCompactHeader ? "h-1.5 w-1.5" : "h-2 w-2"} rounded-full bg-[#15ffaf] shadow-[0_0_8px_rgba(21,255,175,0.85)]`} />
-            <span
-              className="font-mono tabular-nums tracking-[0.12em] text-[#7de6ff]"
-              style={{ fontSize: useCompactHeader ? "11px" : "clamp(12px, 0.34vw + 8px, 15px)" }}
-            >
-              {currentTime ? formatDate(currentTime) : "----/--/-- --:--:--"}
-            </span>
-          </div>
-
           <div
             className={`relative ${
               zh

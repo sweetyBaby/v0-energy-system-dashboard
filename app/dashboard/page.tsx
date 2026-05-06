@@ -472,9 +472,9 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
 
   const renderAlarmMonitoringPage = () => {
     return (
-      <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+      <div className="no-scrollbar flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden">
       <div
-        className="relative flex shrink-0 items-center gap-3 overflow-visible border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
+        className="relative flex min-w-0 shrink-0 items-center gap-3 overflow-hidden border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
           <div className="flex items-center gap-3">
@@ -513,7 +513,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           {renderPageBcuSelector(alarmDeviceId, setAlarmDeviceId)}
         </div>
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-12 gap-4 overflow-hidden">
+      <div className="no-scrollbar grid min-h-0 flex-1 min-w-0 grid-cols-12 gap-4 overflow-hidden">
         <div className="col-span-12 min-h-0 min-w-0 lg:col-span-6">
           <BCUStatusQuery
             mode={bcuMode}

@@ -1,8 +1,16 @@
 ﻿"use client"
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
-import { CartesianGrid, Customized, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type WheelEvent as ReactWheelEvent,
+} from "react"
+import { Check, ChevronsUpDown, Maximize2, Minimize2 } from "lucide-react"
+import { CartesianGrid, Customized, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { useLanguage } from "@/components/language-provider"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { useProject } from "@/components/dashboard/dashboard-header"
@@ -96,11 +104,26 @@ type CachedHistoryBundle = {
   bundle: DailyCellHistoryBundle
 }
 
+type ViewportRange = {
+  startIndex: number
+  endIndex: number
+}
+
+type DragState = {
+  pointerId: number
+  startX: number
+  startRange: ViewportRange
+  container: HTMLDivElement
+}
+
+type TrendLegendKey = "max" | "min"
+
 
 const CELL_COUNT = 50
 const STEP_MINUTES = 15
 const TOTAL_POINTS = (24 * 60) / STEP_MINUTES
 const DAY_END_TIME_LABEL = "23:59:59"
+const MIN_VIEWPORT_POINTS = 8
 const EMPTY_HISTORY_DATA: HistoryPoint[] = []
 const EMPTY_OVERVIEW_DATA: OverviewPoint[] = []
 const EMPTY_CELL_METRICS: CellMetric[] = []
@@ -129,6 +152,7 @@ const pickerScrollbarClass =
 
 const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1)
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value)
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
 const getCellExtremes = (values: Array<{ cell: number; value: number | null | undefined }>) => {
   const validValues = values.filter((item): item is { cell: number; value: number } => isFiniteNumber(item.value))
@@ -179,6 +203,109 @@ const buildDynamicTimeTicks = (times: string[], visibleTickCount: number) => {
 const extendTrendToDayEnd = <T extends { time: string }>(rows: T[], resetFields: Partial<T> = {}): T[] => {
   if (!rows.length || rows[rows.length - 1]?.time === DAY_END_TIME_LABEL) return rows
   return [...rows, { ...rows[rows.length - 1], ...resetFields, time: DAY_END_TIME_LABEL }]
+}
+
+const normalizeViewportRange = (range: ViewportRange | null, totalPoints: number): ViewportRange | null => {
+  if (totalPoints <= 0) {
+    return null
+  }
+
+  if (!range) {
+    return {
+      startIndex: 0,
+      endIndex: totalPoints - 1,
+    }
+  }
+
+  const visibleSize = Math.min(totalPoints, Math.max(1, range.endIndex - range.startIndex + 1))
+  const maxStart = Math.max(0, totalPoints - visibleSize)
+  const startIndex = clamp(range.startIndex, 0, maxStart)
+
+  return {
+    startIndex,
+    endIndex: startIndex + visibleSize - 1,
+  }
+}
+
+const sliceViewportData = <T,>(rows: T[], range: ViewportRange | null) => {
+  const normalizedRange = normalizeViewportRange(range, rows.length)
+  if (!normalizedRange) {
+    return rows
+  }
+
+  return rows.slice(normalizedRange.startIndex, normalizedRange.endIndex + 1)
+}
+
+const zoomViewportRange = (
+  totalPoints: number,
+  currentRange: ViewportRange | null,
+  relativeX: number,
+  deltaY: number,
+): ViewportRange | null => {
+  if (totalPoints <= 1) {
+    return normalizeViewportRange(currentRange, totalPoints)
+  }
+
+  const normalizedRange = normalizeViewportRange(currentRange, totalPoints) ?? {
+    startIndex: 0,
+    endIndex: totalPoints - 1,
+  }
+  const currentSize = normalizedRange.endIndex - normalizedRange.startIndex + 1
+  const nextSize = clamp(
+    currentSize + (deltaY > 0 ? Math.max(1, Math.ceil(currentSize * 0.2)) : -Math.max(1, Math.ceil(currentSize * 0.2))),
+    Math.min(MIN_VIEWPORT_POINTS, totalPoints),
+    totalPoints,
+  )
+
+  if (nextSize === currentSize) {
+    return normalizedRange
+  }
+
+  const anchorIndex = clamp(
+    normalizedRange.startIndex + Math.round((currentSize - 1) * relativeX),
+    0,
+    totalPoints - 1,
+  )
+  let nextStart = Math.round(anchorIndex - relativeX * (nextSize - 1))
+  let nextEnd = nextStart + nextSize - 1
+
+  if (nextStart < 0) {
+    nextStart = 0
+    nextEnd = nextSize - 1
+  }
+
+  if (nextEnd > totalPoints - 1) {
+    nextEnd = totalPoints - 1
+    nextStart = nextEnd - nextSize + 1
+  }
+
+  return {
+    startIndex: nextStart,
+    endIndex: nextEnd,
+  }
+}
+
+const panViewportRange = (
+  totalPoints: number,
+  startRange: ViewportRange,
+  startX: number,
+  currentX: number,
+  width: number,
+): ViewportRange => {
+  const visibleSize = startRange.endIndex - startRange.startIndex + 1
+  const maxStart = totalPoints - visibleSize
+  if (maxStart <= 0) {
+    return startRange
+  }
+
+  const deltaX = startX - currentX
+  const pointDelta = Math.round((deltaX / Math.max(width, 1)) * visibleSize)
+  const startIndex = clamp(startRange.startIndex + pointDelta, 0, maxStart)
+
+  return {
+    startIndex,
+    endIndex: startIndex + visibleSize - 1,
+  }
 }
 
 const getCellTemps = (point: HistoryPoint, cell: number) => [point[`t1_${cell}`], point[`t2_${cell}`], point[`t3_${cell}`]]
@@ -406,18 +533,6 @@ function InnerFrame({ title, accent = "#74ebff", compact = false, children }: { 
     </div>
   )
 }
-
-
-function LegendItem({ label, color, dashed = false, compact = false }: { label: string; color: string; dashed?: boolean; compact?: boolean }) {
-  const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
-  return (
-    <div ref={scale.ref} className={`flex items-center ${compact ? "gap-1.5" : "gap-2"} text-[#96bdd4]`} style={{ fontSize: compact ? scale.fluid(10, 14) : scale.fluid(11, 15) }}>
-      <span className={`block h-[2px] ${compact ? "w-4" : "w-5"} ${dashed ? "border-t-2 border-dashed" : ""}`} style={dashed ? { borderColor: color } : { backgroundColor: color, boxShadow: `0 0 8px ${color}` }} />
-      <span>{label}</span>
-    </div>
-  )
-}
-
 function ChartPlaceholder({ text }: { text: string }) {
   const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
   return (
@@ -1224,6 +1339,14 @@ export function CellHistoryReplayPanel({
     t2: true,
     t3: true,
   })
+  const [isTrendCardFullscreen, setIsTrendCardFullscreen] = useState(false)
+  const [hiddenTrendLegendKeys, setHiddenTrendLegendKeys] = useState<TrendLegendKey[]>([])
+  const [detailViewportRange, setDetailViewportRange] = useState<ViewportRange | null>(null)
+  const [overviewTrendViewportRange, setOverviewTrendViewportRange] = useState<ViewportRange | null>(null)
+  const [isDraggingDetailTimeline, setIsDraggingDetailTimeline] = useState(false)
+  const [isDraggingOverviewTrendTimeline, setIsDraggingOverviewTrendTimeline] = useState(false)
+  const detailDragStateRef = useRef<DragState | null>(null)
+  const overviewTrendDragStateRef = useRef<DragState | null>(null)
   const effectiveDeviceId = useMemo(
     () => resolveProjectDeviceId(selectedProject.devices, deviceId),
     [deviceId, selectedProject.devices],
@@ -1721,6 +1844,36 @@ export function CellHistoryReplayPanel({
       }),
     [historyData, temperatureExtremeTrends, viewMode, zh]
   )
+  const overviewTrendTotalPoints = useMemo(
+    () => temperatureTrendCharts.reduce((maxPoints, chart) => Math.max(maxPoints, chart.data.length), voltageTrendData.length),
+    [temperatureTrendCharts, voltageTrendData.length]
+  )
+
+  useEffect(() => {
+    overviewTrendDragStateRef.current = null
+    setIsDraggingOverviewTrendTimeline(false)
+    setOverviewTrendViewportRange((currentRange) => normalizeViewportRange(currentRange, overviewTrendTotalPoints))
+  }, [overviewTrendTotalPoints])
+
+  const visibleVoltageTrendData = useMemo(
+    () => sliceViewportData(voltageTrendData, overviewTrendViewportRange),
+    [overviewTrendViewportRange, voltageTrendData]
+  )
+  const visibleTemperatureTrendCharts = useMemo(
+    () =>
+      temperatureTrendCharts.map((chart) => ({
+        ...chart,
+        data: sliceViewportData(chart.data, overviewTrendViewportRange),
+      })),
+    [overviewTrendViewportRange, temperatureTrendCharts]
+  )
+  const visibleOverviewTrendAxisTimes = useMemo(() => {
+    if (visibleVoltageTrendData.length > 0) {
+      return visibleVoltageTrendData.map((item) => item.time)
+    }
+
+    return visibleTemperatureTrendCharts.find((chart) => chart.data.length > 0)?.data.map((item) => item.time) ?? []
+  }, [visibleTemperatureTrendCharts, visibleVoltageTrendData])
 
   const isCompactCanvas = availableSize.width > 0 && (availableSize.width < 1280 || availableSize.height < 760)
   const isTightCanvas = availableSize.width > 0 && (availableSize.width < 1120 || availableSize.height < 700)
@@ -1730,9 +1883,14 @@ export function CellHistoryReplayPanel({
   const trendChartUsableWidth = Math.max(availableSize.width * trendPaneFraction - trendAxisReservedWidth, 320)
   const trendVisibleTickCount = Math.max(2, Math.floor(trendChartUsableWidth / trendAxisLabelWidth))
   const trendSyncId = "cell-history-extreme-trend"
+  const canZoomOverviewTrend = overviewTrendTotalPoints > MIN_VIEWPORT_POINTS
+  const overviewTrendVisiblePointCount = visibleOverviewTrendAxisTimes.length
+  const canPanOverviewTrend = Boolean(
+    overviewTrendViewportRange && overviewTrendVisiblePointCount > 0 && overviewTrendVisiblePointCount < overviewTrendTotalPoints
+  )
   const trendXAxisTicks = useMemo(
-    () => buildDynamicTimeTicks(voltageTrendData.map((item) => item.time), trendVisibleTickCount),
-    [voltageTrendData, trendVisibleTickCount]
+    () => buildDynamicTimeTicks(visibleOverviewTrendAxisTimes, trendVisibleTickCount),
+    [trendVisibleTickCount, visibleOverviewTrendAxisTimes]
   )
   const trendXAxisInterval = Math.max(trendXAxisTicks.length - 1, 0)
   const voltageTrendSummary = useMemo(() => {
@@ -1837,6 +1995,17 @@ export function CellHistoryReplayPanel({
     [historyData, detailSeries]
   )
 
+  useEffect(() => {
+    detailDragStateRef.current = null
+    setIsDraggingDetailTimeline(false)
+    setDetailViewportRange((currentRange) => normalizeViewportRange(currentRange, detailReplayData.length))
+  }, [detailReplayData.length])
+
+  const visibleDetailReplayData = useMemo(
+    () => sliceViewportData(detailReplayData, detailViewportRange),
+    [detailReplayData, detailViewportRange]
+  )
+
   const detailCellSummaries = useMemo(() => {
     return detailSeries.map((series) => {
       const metrics = cellMetrics.find((item) => item.cell === series.cell)
@@ -1857,25 +2026,31 @@ export function CellHistoryReplayPanel({
   const detailAxisReservedWidth = isTightCanvas ? 220 : isCompactCanvas ? 248 : 276
   const detailChartUsableWidth = Math.max(availableSize.width - detailAxisReservedWidth, 320)
   const detailVisibleTickCount = Math.max(2, Math.floor(detailChartUsableWidth / detailAxisLabelWidth))
+  const detailSyncId = "cell-history-detail-replay"
+  const canZoomDetail = detailReplayData.length > MIN_VIEWPORT_POINTS
+  const canPanDetail = Boolean(
+    detailViewportRange && visibleDetailReplayData.length > 0 && visibleDetailReplayData.length < detailReplayData.length
+  )
   const detailTickStep = useMemo(() => {
-    if (detailReplayData.length <= 2 || detailReplayData.length <= detailVisibleTickCount) {
+    if (visibleDetailReplayData.length <= 2 || visibleDetailReplayData.length <= detailVisibleTickCount) {
       return 1
     }
 
-    return Math.max(1, Math.ceil((detailReplayData.length - 1) / Math.max(detailVisibleTickCount - 1, 1)))
-  }, [detailReplayData.length, detailVisibleTickCount])
+    return Math.max(1, Math.ceil((visibleDetailReplayData.length - 1) / Math.max(detailVisibleTickCount - 1, 1)))
+  }, [detailVisibleTickCount, visibleDetailReplayData.length])
   const detailXAxisTicks = useMemo(
     () =>
       Array.from(
         new Set(
-          detailReplayData
+          visibleDetailReplayData
             .map((item, index) => ({ time: String(item.time), index }))
-            .filter(({ index }) => index === 0 || index === detailReplayData.length - 1 || index % detailTickStep === 0)
+            .filter(({ index }) => index === 0 || index === visibleDetailReplayData.length - 1 || index % detailTickStep === 0)
             .map(({ time }) => time)
         )
       ),
-    [detailReplayData, detailTickStep]
+    [detailTickStep, visibleDetailReplayData]
   )
+  const detailXAxisInterval = Math.max(detailXAxisTicks.length - 1, 0)
 
   const hasHistoryData = historyData.length > 0 && overviewData.length > 0 && cellMetrics.length > 0
   const hasVoltageOverviewData = voltageTrendFallback != null
@@ -1910,6 +2085,361 @@ export function CellHistoryReplayPanel({
       : zh
         ? "该电芯暂无趋势数据"
         : "No trend data for this cell"
+  const trendLegendItems = [
+    { key: "max", label: zh ? "最大值" : "Max", color: "#ffd36b" },
+    { key: "min", label: zh ? "最小值" : "Min", color: "#6ee7ff" },
+  ] as const satisfies Array<{ key: TrendLegendKey; label: string; color: string }>
+
+  const isTrendLegendVisible = (legendKey: TrendLegendKey) => !hiddenTrendLegendKeys.includes(legendKey)
+
+  const handleToggleTrendLegend = (legendKey: TrendLegendKey) => {
+    const visibleCount = trendLegendItems.filter((item) => isTrendLegendVisible(item.key)).length
+    if (isTrendLegendVisible(legendKey) && visibleCount <= 1) return
+
+    setHiddenTrendLegendKeys((current) =>
+      current.includes(legendKey) ? current.filter((key) => key !== legendKey) : [...current, legendKey]
+    )
+  }
+
+  const handleDetailAxisWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    if (!canZoomDetail || detailReplayData.length <= 1) {
+      return
+    }
+
+    event.preventDefault()
+    const rect = event.currentTarget.getBoundingClientRect()
+    const relativeX = clamp((event.clientX - rect.left) / Math.max(rect.width, 1), 0, 1)
+    const nextRange = zoomViewportRange(detailReplayData.length, detailViewportRange, relativeX, event.deltaY)
+    if (nextRange) {
+      setDetailViewportRange(nextRange)
+    }
+  }
+
+  const stopDetailTimelineDrag = (pointerId?: number) => {
+    const activeDrag = detailDragStateRef.current
+    if (pointerId != null && activeDrag?.pointerId !== pointerId) {
+      return
+    }
+
+    if (activeDrag?.container.hasPointerCapture(activeDrag.pointerId)) {
+      activeDrag.container.releasePointerCapture(activeDrag.pointerId)
+    }
+
+    detailDragStateRef.current = null
+    setIsDraggingDetailTimeline(false)
+  }
+
+  const handleDetailTimelinePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!canPanDetail || !detailViewportRange) {
+      return
+    }
+
+    event.preventDefault()
+    detailDragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startRange: detailViewportRange,
+      container: event.currentTarget,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setIsDraggingDetailTimeline(true)
+  }
+
+  const handleDetailTimelinePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const activeDrag = detailDragStateRef.current
+    if (!activeDrag || activeDrag.pointerId !== event.pointerId) {
+      return
+    }
+
+    event.preventDefault()
+    const rect = activeDrag.container.getBoundingClientRect()
+    setDetailViewportRange(panViewportRange(detailReplayData.length, activeDrag.startRange, activeDrag.startX, event.clientX, rect.width))
+  }
+
+  const handleOverviewTrendAxisWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    if (!canZoomOverviewTrend || overviewTrendTotalPoints <= 1) {
+      return
+    }
+
+    event.preventDefault()
+    const rect = event.currentTarget.getBoundingClientRect()
+    const relativeX = clamp((event.clientX - rect.left) / Math.max(rect.width, 1), 0, 1)
+    const nextRange = zoomViewportRange(overviewTrendTotalPoints, overviewTrendViewportRange, relativeX, event.deltaY)
+    if (nextRange) {
+      setOverviewTrendViewportRange(nextRange)
+    }
+  }
+
+  const stopOverviewTrendTimelineDrag = (pointerId?: number) => {
+    const activeDrag = overviewTrendDragStateRef.current
+    if (pointerId != null && activeDrag?.pointerId !== pointerId) {
+      return
+    }
+
+    if (activeDrag?.container.hasPointerCapture(activeDrag.pointerId)) {
+      activeDrag.container.releasePointerCapture(activeDrag.pointerId)
+    }
+
+    overviewTrendDragStateRef.current = null
+    setIsDraggingOverviewTrendTimeline(false)
+  }
+
+  const handleOverviewTrendTimelinePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!canPanOverviewTrend || !overviewTrendViewportRange) {
+      return
+    }
+
+    event.preventDefault()
+    overviewTrendDragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startRange: overviewTrendViewportRange,
+      container: event.currentTarget,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setIsDraggingOverviewTrendTimeline(true)
+  }
+
+  const handleOverviewTrendTimelinePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const activeDrag = overviewTrendDragStateRef.current
+    if (!activeDrag || activeDrag.pointerId !== event.pointerId) {
+      return
+    }
+
+    event.preventDefault()
+    const rect = activeDrag.container.getBoundingClientRect()
+    setOverviewTrendViewportRange(
+      panViewportRange(overviewTrendTotalPoints, activeDrag.startRange, activeDrag.startX, event.clientX, rect.width)
+    )
+  }
+
+  useEffect(() => {
+    if (!isTrendCardFullscreen) {
+      return
+    }
+
+    const previousOverflow = document.body.style.overflow
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsTrendCardFullscreen(false)
+      }
+    }
+
+    document.body.style.overflow = "hidden"
+    window.addEventListener("keydown", handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [isTrendCardFullscreen])
+
+  useEffect(() => {
+    if (viewMode === "detail" && isTrendCardFullscreen) {
+      setIsTrendCardFullscreen(false)
+    }
+  }, [isTrendCardFullscreen, viewMode])
+
+  const renderOverviewTrendSection = (fullscreen = false) => (
+    <NeonSection
+      title={zh ? "电压/温度趋势" : "Voltage / Temperature Trend"}
+      className={`h-full ${fullscreen ? "px-2.5 pt-3 pb-2" : "px-1.5 pt-2.5 pb-1"}`}
+      inlineSubtitle
+      headerVariant="bcu"
+      headerExtra={
+        <div className="ml-auto flex items-center justify-end gap-3 self-center pr-1">
+          {trendLegendItems.map((item) => {
+            const visible = isTrendLegendVisible(item.key)
+
+            return (
+              <button
+                key={`trend-legend-${item.key}`}
+                type="button"
+                onClick={() => handleToggleTrendLegend(item.key)}
+                aria-pressed={visible}
+                aria-disabled={visible && trendLegendItems.filter((legendItem) => isTrendLegendVisible(legendItem.key)).length <= 1}
+                className={`flex items-center gap-1 transition-all ${visible ? "text-[#96bdd4]" : "text-[#547084]"}`}
+                style={{ fontSize: panelScale.fluid(10, 14) }}
+              >
+                <span
+                  className="block h-[2px] w-4"
+                  style={{
+                    backgroundColor: item.color,
+                    boxShadow: visible ? `0 0 8px ${item.color}` : "none",
+                    opacity: visible ? 1 : 0.4,
+                  }}
+                />
+                <span>{item.label}</span>
+              </button>
+            )
+          })}
+          <button
+            type="button"
+            onClick={() => setIsTrendCardFullscreen((current) => !current)}
+            title={isTrendCardFullscreen ? (zh ? "退出全屏" : "Exit fullscreen") : (zh ? "全屏放大" : "Fullscreen")}
+            className="flex h-7 items-center gap-1 rounded-lg border border-[#1e3a70] bg-[#070e28] px-2 text-[#7ab4f8] transition-all hover:bg-[#0d1e48] hover:text-[#b7e3ff]"
+            style={{ fontSize: panelScale.fluid(10, 14) }}
+          >
+            {isTrendCardFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            <span className="hidden sm:inline">{isTrendCardFullscreen ? (zh ? "缩小" : "Restore") : (zh ? "全屏" : "Fullscreen")}</span>
+          </button>
+        </div>
+      }
+    >
+      <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
+        <div
+          className={`flex min-h-0 flex-1 overflow-hidden rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] p-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)] ${
+            canPanOverviewTrend ? (isDraggingOverviewTrendTimeline ? "cursor-grabbing" : "cursor-grab") : ""
+          }`}
+          onWheel={handleOverviewTrendAxisWheel}
+          onPointerDown={handleOverviewTrendTimelinePointerDown}
+          onPointerMove={handleOverviewTrendTimelinePointerMove}
+          onPointerUp={(event) => stopOverviewTrendTimelineDrag(event.pointerId)}
+          onPointerCancel={(event) => stopOverviewTrendTimelineDrag(event.pointerId)}
+          onLostPointerCapture={(event) => stopOverviewTrendTimelineDrag(event.pointerId)}
+          style={{ touchAction: canPanOverviewTrend ? "none" : "auto", userSelect: "none" }}
+        >
+          <div className="flex min-h-0 flex-1 items-stretch gap-2">
+            <div className="grid min-h-0 flex-1 grid-rows-[1.28fr_repeat(3,minmax(0,1fr))] overflow-hidden">
+              <div className="relative min-h-0 flex-[1.28] border-b border-[#214260]/90">
+                <div className="flex h-full min-h-0">
+                  {hasVoltageTrendData ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={visibleVoltageTrendData} syncId={trendSyncId} syncMethod="index" margin={{ top: 8, right: 18, left: 0, bottom: 0 }}>
+                        <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="time" tick={false} axisLine={false} tickLine={false} interval={trendXAxisInterval} height={0} />
+                        <YAxis
+                          tick={{ fill: "#88a8be", fontSize: chartFontSize }}
+                          axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
+                          tickLine={false}
+                          width={52}
+                          tickFormatter={(value) => `${Number(value).toFixed(2)}V`}
+                          domain={["dataMin - 0.4", "dataMax + 0.4"]}
+                        />
+                        <Tooltip content={<ExtremeTrendTooltip unit="V" digits={3} zh={zh} />} />
+                        {isTrendLegendVisible("max") ? (
+                          <Line
+                            type="monotone"
+                            dataKey="max"
+                            name={zh ? "最大值" : "Max"}
+                            stroke="#ffd36b"
+                            strokeWidth={2.2}
+                            dot={(props: any) => renderTrendHighlightDot(props, "isMaxHighlight", "#ffd36b", "#fff4cf", 4.5, 1.5)}
+                            isAnimationActive={false}
+                          />
+                        ) : null}
+                        {isTrendLegendVisible("min") ? (
+                          <Line
+                            type="monotone"
+                            dataKey="min"
+                            name={zh ? "最小值" : "Min"}
+                            stroke="#6ee7ff"
+                            strokeWidth={2.2}
+                            dot={(props: any) => renderTrendHighlightDot(props, "isMinHighlight", "#6ee7ff", "#d6fbff", 4.5, 1.5)}
+                            isAnimationActive={false}
+                          />
+                        ) : null}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <ChartPlaceholder text={trendPlaceholderText} />
+                  )}
+                </div>
+              </div>
+
+              {visibleTemperatureTrendCharts.map((chart, index) => {
+                const isLast = index === visibleTemperatureTrendCharts.length - 1
+                return (
+                  <div key={chart.key} className={`relative min-h-0 flex-1 ${!isLast ? "border-b border-[#214260]/90" : ""}`}>
+                    <div className="flex h-full min-h-0">
+                      {chart.data.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={chart.data} syncId={trendSyncId} syncMethod="index" margin={{ top: 8, right: 18, left: 0, bottom: isLast ? 6 : 0 }}>
+                            <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
+                            <XAxis
+                              dataKey="time"
+                              tick={isLast ? { fill: "#88a8be", fontSize: chartFontSize } : false}
+                              axisLine={false}
+                              tickLine={false}
+                              ticks={isLast ? trendXAxisTicks : undefined}
+                              interval={isLast ? 0 : trendXAxisInterval}
+                              height={isLast ? 22 : 0}
+                            />
+                            <YAxis
+                              tick={{ fill: "#88a8be", fontSize: chartFontSize }}
+                              axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
+                              tickLine={false}
+                              tickFormatter={(value) => `${Number(value).toFixed(0)}°C`}
+                              domain={["dataMin - 1", "dataMax + 1"]}
+                              width={52}
+                            />
+                            <Tooltip content={<ExtremeTrendTooltip unit="°C" digits={1} zh={zh} />} />
+                            {isTrendLegendVisible("max") ? (
+                              <Line
+                                type="monotone"
+                                dataKey="max"
+                                name={zh ? "最大值" : "Max"}
+                                stroke="#ffd36b"
+                                strokeWidth={1.9}
+                                dot={(props: any) => renderTrendHighlightDot(props, "isMaxHighlight", "#ffd36b", "#fff4cf", 4, 1.4)}
+                                isAnimationActive={false}
+                              />
+                            ) : null}
+                            {isTrendLegendVisible("min") ? (
+                              <Line
+                                type="monotone"
+                                dataKey="min"
+                                name={zh ? "最小值" : "Min"}
+                                stroke="#6ee7ff"
+                                strokeWidth={1.9}
+                                dot={(props: any) => renderTrendHighlightDot(props, "isMinHighlight", "#6ee7ff", "#d6fbff", 4, 1.4)}
+                                isAnimationActive={false}
+                              />
+                            ) : null}
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <ChartPlaceholder text={trendPlaceholderText} />
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className={`grid shrink-0 grid-rows-[1.28fr_repeat(3,minmax(0,1fr))] overflow-hidden rounded-[12px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))] self-stretch ${fullscreen ? "w-[220px]" : "w-[172px]"}`}>
+              <div className="flex min-h-0 flex-[1.28] items-start border-b border-[#214260]/90 px-3 py-2">
+                <div className="w-full">
+                  <div className="font-semibold leading-5 tracking-[0.04em] text-[#dff7ff]" style={{ fontSize: summaryTitleSize }}>{voltageTrendSummary.header}</div>
+                  <div className="mt-3 space-y-2 leading-5 text-[#dff7ff]" style={{ fontSize: summaryTextSize }}>
+                    <div>{voltageTrendSummary.maxText}</div>
+                    <div className="text-[#bfe8ff]">{voltageTrendSummary.minText}</div>
+                  </div>
+                </div>
+              </div>
+              {temperatureTrendSummaries.map((chart, index) => {
+                const isLast = index === temperatureTrendSummaries.length - 1
+                return (
+                  <div key={`${chart.key}-summary`} className={`flex min-h-0 flex-1 items-start px-3 py-2 ${!isLast ? "border-b border-[#214260]/90" : ""}`}>
+                    <div className="w-full">
+                      <div className="font-semibold leading-5 tracking-[0.04em] text-[#dff7ff]" style={{ fontSize: summaryTitleSize }}>{chart.header}</div>
+                      <div className="mt-3 space-y-2 leading-5 text-[#dff7ff]" style={{ fontSize: summaryTextSize }}>
+                        <div>{chart.maxText}</div>
+                        <div className="text-[#bfe8ff]">{chart.minText}</div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+        {isOverviewTrendLoading && !hasVoltageTrendData && !hasTemperatureTrendData ? (
+          <HistoryLoadingOverlay text={trendLoadingText} backdrop={false} />
+        ) : null}
+      </div>
+    </NeonSection>
+  )
 
   if (viewMode === "detail") {
     const detailMetricLegend = [
@@ -2011,10 +2541,19 @@ export function CellHistoryReplayPanel({
                           <div className="font-semibold tracking-[0.05em] text-[#eefbff]" style={{ fontSize: detailCellTitleSize }}>{zh ? `电芯 #${cell.cell}` : `Cell #${cell.cell}`}</div>
                         </div>
                   </div>
-                  <div className="flex min-h-0 flex-1">
+                  <div
+                    className={`flex min-h-0 flex-1 ${canPanDetail ? (isDraggingDetailTimeline ? "cursor-grabbing" : "cursor-grab") : ""}`}
+                    onWheel={handleDetailAxisWheel}
+                    onPointerDown={handleDetailTimelinePointerDown}
+                    onPointerMove={handleDetailTimelinePointerMove}
+                    onPointerUp={(event) => stopDetailTimelineDrag(event.pointerId)}
+                    onPointerCancel={(event) => stopDetailTimelineDrag(event.pointerId)}
+                    onLostPointerCapture={(event) => stopDetailTimelineDrag(event.pointerId)}
+                    style={{ touchAction: canPanDetail ? "none" : "auto", userSelect: "none" }}
+                  >
                     {hasCellTrendData ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={detailReplayData} syncId="cell-history-detail-replay" syncMethod="index" margin={{ top: 12, right: 14, left: 0, bottom: isLast ? 6 : 0 }}>
+                        <LineChart data={visibleDetailReplayData} syncId={detailSyncId} syncMethod="index" margin={{ top: 12, right: 14, left: 0, bottom: isLast ? 6 : 0 }}>
                               <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
                               <XAxis
                                 dataKey="time"
@@ -2023,7 +2562,7 @@ export function CellHistoryReplayPanel({
                                 tickLine={false}
                                 tickFormatter={(value) => formatAxisTimeLabel(String(value))}
                                 ticks={isLast ? detailXAxisTicks : undefined}
-                                interval={isLast ? 0 : trendXAxisInterval}
+                                interval={isLast ? 0 : detailXAxisInterval}
                                 height={isLast ? 22 : 0}
                               />
                               <YAxis
@@ -2207,154 +2746,16 @@ export function CellHistoryReplayPanel({
         </div>
 
         <div className="h-full min-h-0">
-          <NeonSection
-            title={zh ? "电压/温度趋势" : "Voltage / Temperature Trend"}
-            className="h-full px-1.5 pt-2.5 pb-1"
-            inlineSubtitle
-            headerVariant="bcu"
-            headerExtra={
-              <div className="ml-auto flex items-center justify-end gap-4 self-center pr-1">
-                <LegendItem label={zh ? "最大值" : "Max"} color="#ffd36b" />
-                <LegendItem label={zh ? "最小值" : "Min"} color="#6ee7ff" />
-              </div>
-            }
-          >
-            <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
-              <div className="flex min-h-0 flex-1 overflow-hidden rounded-[16px] border border-[#1f4068] bg-[linear-gradient(180deg,rgba(10,20,44,0.9),rgba(8,16,37,0.96))] p-2 shadow-[inset_0_0_16px_rgba(25,92,148,0.08)]">
-                <div className="flex min-h-0 flex-1 items-stretch gap-2">
-                  <div className="grid min-h-0 flex-1 grid-rows-[1.28fr_repeat(3,minmax(0,1fr))] overflow-hidden">
-                  <div className="relative min-h-0 flex-[1.28] border-b border-[#214260]/90">
-                    <div className="flex h-full min-h-0">
-                      {hasVoltageTrendData ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={voltageTrendData} syncId={trendSyncId} syncMethod="index" margin={{ top: 8, right: 18, left: 0, bottom: 0 }}>
-                            <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="time" tick={false} axisLine={false} tickLine={false} interval={trendXAxisInterval} height={0} />
-                            <YAxis
-                              tick={{ fill: "#88a8be", fontSize: chartFontSize }}
-                              axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
-                              tickLine={false}
-                              width={52}
-                              tickFormatter={(value) => `${Number(value).toFixed(2)}V`}
-                              domain={["dataMin - 0.4", "dataMax + 0.4"]}
-                            />
-                            <Tooltip content={<ExtremeTrendTooltip unit="V" digits={3} zh={zh} />} />
-                            <Line
-                              type="monotone"
-                              dataKey="max"
-                              name={zh ? "最大值" : "Max"}
-                              stroke="#ffd36b"
-                              strokeWidth={2.2}
-                              dot={(props: any) => renderTrendHighlightDot(props, "isMaxHighlight", "#ffd36b", "#fff4cf", 4.5, 1.5)}
-                              isAnimationActive={false}
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="min"
-                              name={zh ? "最小值" : "Min"}
-                              stroke="#6ee7ff"
-                              strokeWidth={2.2}
-                              dot={(props: any) => renderTrendHighlightDot(props, "isMinHighlight", "#6ee7ff", "#d6fbff", 4.5, 1.5)}
-                              isAnimationActive={false}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <ChartPlaceholder text={trendPlaceholderText} />
-                      )}
-                    </div>
-                  </div>
-
-                  {temperatureTrendCharts.map((chart, index) => {
-                    const isLast = index === temperatureTrendCharts.length - 1
-                    return (
-                      <div key={chart.key} className={`relative min-h-0 flex-1 ${!isLast ? "border-b border-[#214260]/90" : ""}`}>
-                        <div className="flex h-full min-h-0">
-                          {chart.data.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={chart.data} syncId={trendSyncId} syncMethod="index" margin={{ top: 8, right: 18, left: 0, bottom: isLast ? 6 : 0 }}>
-                                <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
-                                <XAxis
-                                  dataKey="time"
-                                  tick={isLast ? { fill: "#88a8be", fontSize: chartFontSize } : false}
-                                  axisLine={false}
-                                  tickLine={false}
-                                  ticks={isLast ? trendXAxisTicks : undefined}
-                                  interval={isLast ? 0 : trendXAxisInterval}
-                                  height={isLast ? 22 : 0}
-                                />
-                                <YAxis
-                                  tick={{ fill: "#88a8be", fontSize: chartFontSize }}
-                                  axisLine={{ stroke: "#355978", strokeOpacity: 0.35 }}
-                                  tickLine={false}
-                                  tickFormatter={(value) => `${Number(value).toFixed(0)}°C`}
-                                  domain={["dataMin - 1", "dataMax + 1"]}
-                                  width={52}
-                                />
-                                <Tooltip content={<ExtremeTrendTooltip unit="°C" digits={1} zh={zh} />} />
-                                <Line
-                                  type="monotone"
-                                  dataKey="max"
-                                  name={zh ? "最大值" : "Max"}
-                                  stroke="#ffd36b"
-                                  strokeWidth={1.9}
-                                  dot={(props: any) => renderTrendHighlightDot(props, "isMaxHighlight", "#ffd36b", "#fff4cf", 4, 1.4)}
-                                  isAnimationActive={false}
-                                />
-                                <Line
-                                  type="monotone"
-                                  dataKey="min"
-                                  name={zh ? "最小值" : "Min"}
-                                  stroke="#6ee7ff"
-                                  strokeWidth={1.9}
-                                  dot={(props: any) => renderTrendHighlightDot(props, "isMinHighlight", "#6ee7ff", "#d6fbff", 4, 1.4)}
-                                  isAnimationActive={false}
-                                />
-                              </LineChart>
-                            </ResponsiveContainer>
-                          ) : (
-                            <ChartPlaceholder text={trendPlaceholderText} />
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                  </div>
-
-                  <div className="grid w-[172px] shrink-0 grid-rows-[1.28fr_repeat(3,minmax(0,1fr))] overflow-hidden rounded-[12px] border border-[#214260] bg-[linear-gradient(180deg,rgba(11,24,48,0.9),rgba(8,16,34,0.96))] self-stretch">
-                  <div className="flex min-h-0 flex-[1.28] items-start border-b border-[#214260]/90 px-3 py-2">
-                    <div className="w-full">
-                      <div className="font-semibold leading-5 tracking-[0.04em] text-[#dff7ff]" style={{ fontSize: summaryTitleSize }}>{voltageTrendSummary.header}</div>
-                      <div className="mt-3 space-y-2 leading-5 text-[#dff7ff]" style={{ fontSize: summaryTextSize }}>
-                        <div>{voltageTrendSummary.maxText}</div>
-                        <div className="text-[#bfe8ff]">{voltageTrendSummary.minText}</div>
-                      </div>
-                    </div>
-                  </div>
-                  {temperatureTrendSummaries.map((chart, index) => {
-                    const isLast = index === temperatureTrendSummaries.length - 1
-                    return (
-                      <div key={`${chart.key}-summary`} className={`flex min-h-0 flex-1 items-start px-3 py-2 ${!isLast ? "border-b border-[#214260]/90" : ""}`}>
-                        <div className="w-full">
-                          <div className="font-semibold leading-5 tracking-[0.04em] text-[#dff7ff]" style={{ fontSize: summaryTitleSize }}>{chart.header}</div>
-                          <div className="mt-3 space-y-2 leading-5 text-[#dff7ff]" style={{ fontSize: summaryTextSize }}>
-                            <div>{chart.maxText}</div>
-                            <div className="text-[#bfe8ff]">{chart.minText}</div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  </div>
-                </div>
-              </div>
-              {isOverviewTrendLoading && !hasVoltageTrendData && !hasTemperatureTrendData ? (
-                <HistoryLoadingOverlay text={trendLoadingText} backdrop={false} />
-              ) : null}
-            </div>
-          </NeonSection>
+          {renderOverviewTrendSection()}
         </div>
       </div>
+      {isTrendCardFullscreen ? (
+        <div className="fixed inset-0 z-[230] bg-[#020614]/88 p-3 backdrop-blur-sm md:p-4">
+          <div className="h-full rounded-[24px] border border-[#24508c] bg-[linear-gradient(180deg,#071124,#050c1d)] p-2 shadow-[0_24px_90px_rgba(0,0,0,0.55)]">
+            {renderOverviewTrendSection(true)}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

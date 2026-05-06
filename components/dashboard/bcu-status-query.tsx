@@ -1,7 +1,15 @@
 "use client"
 
 import { AlertCircle, DatabaseZap, WifiOff } from "lucide-react"
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type WheelEvent as ReactWheelEvent,
+} from "react"
 import {
   CartesianGrid,
   Line,
@@ -62,7 +70,19 @@ type SectionPair = {
 
 type ChartSection = SectionSingle | SectionPair
 
+type ViewportRange = {
+  startIndex: number
+  endIndex: number
+}
+
+type DragState = {
+  pointerId: number
+  startX: number
+  startRange: ViewportRange
+}
+
 const REALTIME_POLL_MS = 10_000
+const MIN_BCU_VIEWPORT_POINTS = 12
 const TOOLTIP_STYLE = {
   backgroundColor: "#0d1233",
   border: "1px solid #1a2654",
@@ -106,7 +126,19 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 
 const round = (value: number, digits = 1) => Number(value.toFixed(digits))
 const HOUR_MS = 60 * 60 * 1000
+const FIVE_MINUTES_MS = 5 * 60 * 1000
 const COMPACT_TIME_AXIS_BREAKPOINT = 980
+const TIME_AXIS_STEPS_MS = [
+  FIVE_MINUTES_MS,
+  10 * 60 * 1000,
+  15 * 60 * 1000,
+  30 * 60 * 1000,
+  HOUR_MS,
+  HOUR_MS * 2,
+  HOUR_MS * 4,
+  HOUR_MS * 6,
+  HOUR_MS * 12,
+]
 
 const formatFiveMin = (slot: number) => {
   const totalMinutes = slot * 5
@@ -130,7 +162,7 @@ const formatHourAxisTick = (timestamp: number) => {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`
 }
 
-const buildHourlyTimeTicks = (start: number, end: number, stepMs: number) => {
+const buildTimeTicks = (start: number, end: number, stepMs: number) => {
   if (!Number.isFinite(start) || !Number.isFinite(end)) {
     return []
   }
@@ -146,7 +178,75 @@ const buildHourlyTimeTicks = (start: number, end: number, stepMs: number) => {
     ticks.push(tick)
   }
 
-  return ticks.length > 0 ? ticks : [start]
+  if (ticks.length > 0) {
+    return ticks
+  }
+
+  return end - start <= stepMs ? [start, end] : [start]
+}
+
+const inferSampleStepMs = (points: OperationTrendPoint[]) => {
+  if (points.length <= 1) {
+    return FIVE_MINUTES_MS
+  }
+
+  const positiveDiffs: number[] = []
+
+  for (let index = 1; index < points.length; index += 1) {
+    const diff = points[index].timestamp - points[index - 1].timestamp
+    if (diff > 0) {
+      positiveDiffs.push(diff)
+    }
+  }
+
+  if (positiveDiffs.length === 0) {
+    return FIVE_MINUTES_MS
+  }
+
+  positiveDiffs.sort((left, right) => left - right)
+  return positiveDiffs[Math.floor(positiveDiffs.length / 2)] ?? FIVE_MINUTES_MS
+}
+
+const resolveTimeAxisStepMs = (start: number, end: number, chartWidth: number, history: boolean) => {
+  const durationMs = Math.max(end - start, FIVE_MINUTES_MS)
+  const labelWidth = history
+    ? chartWidth < COMPACT_TIME_AXIS_BREAKPOINT
+      ? 76
+      : 88
+    : chartWidth < COMPACT_TIME_AXIS_BREAKPOINT
+      ? 64
+      : 76
+  const maxTickCount = Math.max(2, Math.floor(chartWidth / Math.max(labelWidth, 1)))
+
+  for (const stepMs of TIME_AXIS_STEPS_MS) {
+    if (durationMs / stepMs <= maxTickCount) {
+      return stepMs
+    }
+  }
+
+  return TIME_AXIS_STEPS_MS[TIME_AXIS_STEPS_MS.length - 1] ?? HOUR_MS
+}
+
+const normalizeViewportRange = (range: ViewportRange | null, totalPoints: number): ViewportRange | null => {
+  if (totalPoints <= 0) {
+    return null
+  }
+
+  if (!range) {
+    return {
+      startIndex: 0,
+      endIndex: totalPoints - 1,
+    }
+  }
+
+  const visibleSize = Math.min(totalPoints, Math.max(1, range.endIndex - range.startIndex + 1))
+  const maxStart = Math.max(0, totalPoints - visibleSize)
+  const startIndex = clamp(range.startIndex, 0, maxStart)
+
+  return {
+    startIndex,
+    endIndex: startIndex + visibleSize - 1,
+  }
 }
 
 const getDailyLoadFactor = (hour: number) => {
@@ -334,6 +434,11 @@ function TrendStackedChart({
   const syncId = history ? "history-bcu" : "realtime-bcu"
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [chartWidth, setChartWidth] = useState(0)
+  const [viewportRange, setViewportRange] = useState<ViewportRange | null>(null)
+  const [isDraggingTimeline, setIsDraggingTimeline] = useState(false)
+  const dragStateRef = useRef<DragState | null>(null)
+  const previousDataLengthRef = useRef(0)
+  const previousHistoryRef = useRef(history)
 
   useEffect(() => {
     const node = containerRef.current
@@ -355,30 +460,214 @@ function TrendStackedChart({
     return () => observer.disconnect()
   }, [])
 
-  const timeAxisStepMs = chartWidth < COMPACT_TIME_AXIS_BREAKPOINT ? HOUR_MS * 2 : HOUR_MS
+  useEffect(() => {
+    dragStateRef.current = null
+    setIsDraggingTimeline(false)
+    setViewportRange((currentRange) => {
+      if (previousHistoryRef.current !== history) {
+        previousHistoryRef.current = history
+        previousDataLengthRef.current = data.length
+        return null
+      }
+
+      const previousLength = previousDataLengthRef.current
+      previousDataLengthRef.current = data.length
+
+      if (!currentRange) {
+        return null
+      }
+
+      const wasFullRange =
+        previousLength > 0 &&
+        currentRange.startIndex === 0 &&
+        currentRange.endIndex >= previousLength - 1
+
+      if (wasFullRange) {
+        return null
+      }
+
+      const wasPinnedToLatest = previousLength > 0 && currentRange.endIndex >= previousLength - 1
+      if (!history && wasPinnedToLatest) {
+        const visibleSize = Math.min(data.length, Math.max(1, currentRange.endIndex - currentRange.startIndex + 1))
+        return {
+          startIndex: Math.max(0, data.length - visibleSize),
+          endIndex: data.length - 1,
+        }
+      }
+
+      return normalizeViewportRange(currentRange, data.length)
+    })
+  }, [data.length, history])
+
+  const visibleData = useMemo(() => {
+    const normalizedRange = normalizeViewportRange(viewportRange, data.length)
+    if (!normalizedRange) {
+      return data
+    }
+
+    return data.slice(normalizedRange.startIndex, normalizedRange.endIndex + 1)
+  }, [data, viewportRange])
+
   const timeAxisLabelWidth = history ? (chartWidth < COMPACT_TIME_AXIS_BREAKPOINT ? 76 : 88) : chartWidth < COMPACT_TIME_AXIS_BREAKPOINT ? 64 : 76
   const xAxisRightPadding = Math.max(14, Math.round(timeAxisLabelWidth * 0.42))
-  const xAxisLeftPadding = 4
+  const canZoom = data.length > MIN_BCU_VIEWPORT_POINTS
+  const normalizedViewportRange = useMemo(() => normalizeViewportRange(viewportRange, data.length), [data.length, viewportRange])
+  const canPan = Boolean(
+    viewportRange && visibleData.length > 0 && visibleData.length < data.length
+  )
+  const hasCustomViewport = Boolean(
+    viewportRange && visibleData.length > 0 && visibleData.length < data.length
+  )
+  const xAxisLeftPadding = hasCustomViewport ? 0 : 4
   const xAxisDomain = useMemo<[number, number]>(() => {
-    if (data.length === 0) {
+    if (visibleData.length === 0) {
       const now = Date.now()
       const start = history ? now - HOUR_MS : getDayStartTimestamp(now)
       return [start, Math.max(now, start + HOUR_MS)]
     }
 
-    const firstTimestamp = data[0]?.timestamp ?? 0
-    const latestTimestamp = data[data.length - 1]?.timestamp ?? firstTimestamp
-    const start = history ? firstTimestamp : getDayStartTimestamp(latestTimestamp)
-    const end = Math.max(latestTimestamp, start + HOUR_MS)
+    const stepMs = inferSampleStepMs(visibleData)
+    const firstTimestamp = visibleData[0]?.timestamp ?? 0
+    const latestTimestamp = visibleData[visibleData.length - 1]?.timestamp ?? firstTimestamp
+    const dayStartTimestamp = getDayStartTimestamp(latestTimestamp)
+    const start = history || hasCustomViewport ? Math.max(firstTimestamp, dayStartTimestamp) : dayStartTimestamp
+    const end = latestTimestamp
+
+    if (end <= start) {
+      return [start, start + stepMs]
+    }
+
     return [start, end]
-  }, [data, history])
+  }, [hasCustomViewport, history, visibleData])
+  const timeAxisStepMs = useMemo(
+    () => resolveTimeAxisStepMs(xAxisDomain[0], xAxisDomain[1], chartWidth, history),
+    [chartWidth, history, xAxisDomain],
+  )
   const xAxisTicks = useMemo(
-    () => buildHourlyTimeTicks(xAxisDomain[0], xAxisDomain[1], timeAxisStepMs),
+    () => buildTimeTicks(xAxisDomain[0], xAxisDomain[1], timeAxisStepMs),
     [xAxisDomain, timeAxisStepMs],
   )
 
+  const handleAxisWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    if (!canZoom || data.length <= 1 || !containerRef.current) {
+      return
+    }
+
+    event.preventDefault()
+    const rect = containerRef.current.getBoundingClientRect()
+    const currentRange = normalizeViewportRange(viewportRange, data.length) ?? {
+      startIndex: 0,
+      endIndex: data.length - 1,
+    }
+    const currentSize = currentRange.endIndex - currentRange.startIndex + 1
+    const nextSize = clamp(
+      currentSize + (event.deltaY > 0 ? Math.max(1, Math.ceil(currentSize * 0.2)) : -Math.max(1, Math.ceil(currentSize * 0.2))),
+      Math.min(MIN_BCU_VIEWPORT_POINTS, data.length),
+      data.length,
+    )
+
+    if (nextSize === currentSize) {
+      return
+    }
+
+    const relativeX = clamp((event.clientX - rect.left) / Math.max(rect.width, 1), 0, 1)
+    const anchorIndex = clamp(
+      currentRange.startIndex + Math.round((currentSize - 1) * relativeX),
+      0,
+      data.length - 1,
+    )
+    let nextStart = Math.round(anchorIndex - relativeX * (nextSize - 1))
+    let nextEnd = nextStart + nextSize - 1
+
+    if (nextStart < 0) {
+      nextStart = 0
+      nextEnd = nextSize - 1
+    }
+
+    if (nextEnd > data.length - 1) {
+      nextEnd = data.length - 1
+      nextStart = nextEnd - nextSize + 1
+    }
+
+    setViewportRange({
+      startIndex: nextStart,
+      endIndex: nextEnd,
+    })
+  }
+
+  const stopTimelineDrag = (pointerId?: number) => {
+    const activeDrag = dragStateRef.current
+    if (pointerId != null && activeDrag?.pointerId !== pointerId) {
+      return
+    }
+
+    if (activeDrag && containerRef.current?.hasPointerCapture(activeDrag.pointerId)) {
+      containerRef.current.releasePointerCapture(activeDrag.pointerId)
+    }
+
+    dragStateRef.current = null
+    setIsDraggingTimeline(false)
+  }
+
+  const handleTimelinePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const normalizedRange = normalizeViewportRange(viewportRange, data.length)
+    if (!canPan || !containerRef.current || !normalizedRange) {
+      return
+    }
+
+    event.preventDefault()
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startRange: normalizedRange,
+    }
+    containerRef.current.setPointerCapture(event.pointerId)
+    setIsDraggingTimeline(true)
+  }
+
+  const handleTimelinePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!containerRef.current || dragStateRef.current?.pointerId !== event.pointerId) {
+      return
+    }
+
+    event.preventDefault()
+
+    const rect = containerRef.current.getBoundingClientRect()
+    const visibleSize = dragStateRef.current.startRange.endIndex - dragStateRef.current.startRange.startIndex + 1
+    const maxStart = data.length - visibleSize
+    if (maxStart <= 0) {
+      return
+    }
+
+    const deltaX = dragStateRef.current.startX - event.clientX
+    const pointDelta = Math.round((deltaX / Math.max(rect.width, 1)) * visibleSize)
+    const nextStart = clamp(dragStateRef.current.startRange.startIndex + pointDelta, 0, maxStart)
+    const nextEnd = nextStart + visibleSize - 1
+
+    setViewportRange((currentRange) => {
+      if (currentRange && currentRange.startIndex === nextStart && currentRange.endIndex === nextEnd) {
+        return currentRange
+      }
+
+      return {
+        startIndex: nextStart,
+        endIndex: nextEnd,
+      }
+    })
+  }
+
   return (
-    <div ref={containerRef} className="flex h-full min-h-0 flex-col">
+    <div
+      ref={containerRef}
+      className={`relative flex h-full min-h-0 flex-col ${canPan ? (isDraggingTimeline ? "cursor-grabbing" : "cursor-grab") : ""}`}
+      onWheel={handleAxisWheel}
+      onPointerDown={handleTimelinePointerDown}
+      onPointerMove={handleTimelinePointerMove}
+      onPointerUp={(event) => stopTimelineDrag(event.pointerId)}
+      onPointerCancel={(event) => stopTimelineDrag(event.pointerId)}
+      onLostPointerCapture={(event) => stopTimelineDrag(event.pointerId)}
+      style={{ touchAction: canPan ? "none" : "auto", userSelect: "none" }}
+    >
       {visibleSections.map((section, index) => {
         const isLast = index === visibleSections.length - 1
         const chartTop = section.kind === "pair" ? 24 : 8
@@ -402,7 +691,7 @@ function TrendStackedChart({
 
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={data}
+                data={visibleData}
                 syncId={syncId}
                 syncMethod="index"
                 margin={{ top: chartTop, right: xAxisRightPadding, left: xAxisLeftPadding, bottom: isLast ? 2 : 0 }}
