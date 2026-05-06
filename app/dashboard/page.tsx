@@ -474,7 +474,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     return (
       <div className="no-scrollbar flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden">
       <div
-        className="relative flex min-w-0 shrink-0 items-center gap-3 overflow-hidden border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
+        className="relative z-20 flex min-w-0 shrink-0 items-center gap-3 overflow-visible border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
           <div className="flex items-center gap-3">
