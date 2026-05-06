@@ -3,24 +3,13 @@ type EnerCloudMarkProps = {
   glowClassName?: string
 }
 
-export function EnerCloudMark({ className, glowClassName = "text-[#24e5d9]/25" }: EnerCloudMarkProps) {
+export function EnerCloudMark({ className }: EnerCloudMarkProps) {
   return (
-    <svg className={className} viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path
-        d="M63 44H142M63 44V90H121M38 136H128M38 136V90H58"
-        className={glowClassName}
-        stroke="currentColor"
-        strokeWidth="34"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M63 44H142M63 44V90H121M38 136H128M38 136V90H58"
-        stroke="currentColor"
-        strokeWidth="28"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/enervenue-logo-mark-white.png"
+      alt="Logo"
+      className={`object-contain ${className ?? ""}`}
+    />
   )
 }
