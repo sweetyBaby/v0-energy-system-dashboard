@@ -1,6 +1,7 @@
 ﻿"use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import type { DateRange } from "react-day-picker"
 import { Battery, Calendar, Wrench, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
@@ -15,6 +16,7 @@ import { CellMatrixPanel } from "@/components/dashboard/cell-matrix-panel"
 import { ComprehensiveEfficiencyPanel } from "@/components/dashboard/comprehensive-efficiency-panel"
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
 import { DashboardHeader, ProjectProvider, useProject } from "@/components/dashboard/dashboard-header"
+import { DashboardSidebar, type SidebarTab } from "@/components/dashboard/dashboard-sidebar"
 import { HistoryDatePicker } from "@/components/dashboard/history-date-picker"
 import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
 import { RealtimeStatusBoard } from "@/components/dashboard/realtime-status-board"
@@ -38,6 +40,7 @@ type DashboardTab =
   | "analysis"
   | "history"
   | "alarm-monitoring"
+  | "efficiency"
   | "reports"
 
 type BcuMode = "realtime" | "history"
@@ -46,6 +49,7 @@ type AnalysisRange = AnalysisPresetRange | "custom"
 type CellHistoryViewMode = "overview" | "detail"
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const SIDEBAR_STORAGE_KEY = "dashboard-sidebar-expanded"
 
 const formatDateInputValue = (date: Date) => {
   const year = date.getFullYear()
@@ -74,15 +78,6 @@ const ANALYSIS_RANGES: { key: AnalysisRange; zh: string; en: string }[] = [
   { key: "custom", zh: "自定义", en: "Custom" },
 ]
 
-const TAB_META: Record<DashboardTab, { zh: string; en: string }> = {
-  realtime: { zh: "总览", en: "Overview" },
-  history: { zh: "运行状态", en: "Operations" },
-  "alarm-monitoring": { zh: "告警监测", en: "Alarm" },
-  bms: { zh: "电芯矩阵", en: "Cell Matrix" },
-  "cell-history": { zh: "电芯历史", en: "Cell History" },
-  analysis: { zh: "数据分析", en: "Analysis" },
-  reports: { zh: "报表中心", en: "Reports" },
-}
 
 function OverviewDataLoader() {
   const {
@@ -825,6 +820,17 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           </div>
         )}
 
+        {activeTab === "efficiency" && (
+          <div className="grid h-full min-h-0 grid-cols-2 gap-3 overflow-auto p-3">
+            <div className="min-h-0">
+              <ComprehensiveEfficiencyPanel />
+            </div>
+            <div className="min-h-0">
+              <PowerCurveQuery />
+            </div>
+          </div>
+        )}
+
         {activeTab === "reports" && (
           <div className="relative h-full min-h-0 overflow-hidden">
             <ReportCenterPanel />
@@ -884,30 +890,57 @@ function DashboardMain({ activeTab }: { activeTab: DashboardTab }) {
   )
 }
 
-export default function EnergyStorageDashboard() {
+function DashboardApp() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("realtime")
   const { isCompactViewport } = useDashboardViewport()
-  const tabs = (Object.keys(TAB_META) as DashboardTab[])
-    .filter((key) => key !== "bms")
-    .map((key) => ({
-      key,
-      label: TAB_META[key],
-    }))
+  const searchParams = useSearchParams()
+  const initialProjectId = searchParams.get("projectId")
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    const storedValue = window.localStorage.getItem(SIDEBAR_STORAGE_KEY)
+
+    if (storedValue === "0" || storedValue === "1") {
+      setIsSidebarExpanded(storedValue === "1")
+      return
+    }
+
+    setIsSidebarExpanded(false)
+  }, [isCompactViewport])
+
+  useEffect(() => {
+    if (isSidebarExpanded == null) {
+      return
+    }
+
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, isSidebarExpanded ? "1" : "0")
+  }, [isSidebarExpanded])
 
   return (
-    <ProjectProvider>
+    <ProjectProvider initialProjectId={initialProjectId}>
       <div className="relative flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#060b16] text-[#e8f4fc]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.12),transparent_24%),radial-gradient(circle_at_24%_32%,rgba(59,130,246,0.08),transparent_26%),radial-gradient(circle_at_80%_18%,rgba(34,211,238,0.06),transparent_22%)]" />
         <div className="relative z-10 flex h-full flex-col overflow-hidden">
-          <DashboardHeader
-            activeTab={activeTab}
-            onTabChange={(tab) => setActiveTab(tab as DashboardTab)}
-            tabs={tabs}
-            compact={isCompactViewport}
-          />
-          <DashboardMain activeTab={activeTab} />
+          <DashboardHeader compact={isCompactViewport} />
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <DashboardSidebar
+              activeTab={activeTab as SidebarTab}
+              onTabChange={(tab) => setActiveTab(tab as DashboardTab)}
+              expanded={isSidebarExpanded ?? false}
+              onExpandedChange={(expanded) => setIsSidebarExpanded(expanded)}
+            />
+            <DashboardMain activeTab={activeTab} />
+          </div>
         </div>
       </div>
     </ProjectProvider>
+  )
+}
+
+export default function EnergyStorageDashboard() {
+  return (
+    <Suspense>
+      <DashboardApp />
+    </Suspense>
   )
 }

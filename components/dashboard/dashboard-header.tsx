@@ -1,8 +1,8 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Check, ChevronDown, Globe, LogOut } from "lucide-react"
+import { Globe, LogOut, Map } from "lucide-react"
 import { EnerCloudMark } from "@/components/brand/enercloud-mark"
 import {
   fetchProjectOptionsByDevice,
@@ -23,14 +23,6 @@ import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { clearStoredAuthToken } from "@/lib/auth-storage"
 import { logoutWithCloud } from "@/lib/api/auth"
-
-type DashboardHeaderTab = {
-  key: string
-  label: {
-    zh: string
-    en: string
-  }
-}
 
 export type Project = ProjectOption & {
   projectName: string
@@ -56,6 +48,10 @@ const defaultProjectOption: ProjectOption = {
   projectNameEn: "Loading projects",
   picPath: "",
   devices: [],
+  longitude: null,
+  latitude: null,
+  region: "",
+  installedCapacityMw: null,
 }
 
 const buildProjectView = (
@@ -100,7 +96,7 @@ const ProjectContext = createContext<{
 
 export const useProject = () => useContext(ProjectContext)
 
-export function ProjectProvider({ children }: { children: React.ReactNode }) {
+export function ProjectProvider({ children, initialProjectId }: { children: React.ReactNode; initialProjectId?: string | null }) {
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState(defaultProjectOption.id)
   const [projectDetails, setProjectDetails] = useState<Record<string, RawProjectDetail | null>>({})
@@ -153,11 +149,19 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (projectOptions.length === 0) return
 
+    if (initialProjectId) {
+      const target = projectOptions.find((p) => p.projectId === initialProjectId)
+      if (target) {
+        setSelectedProjectId(target.id)
+        return
+      }
+    }
+
     const hasSelectedProject = projectOptions.some((project) => project.id === selectedProjectId)
     if (!hasSelectedProject) {
       setSelectedProjectId(projectOptions[0].id)
     }
-  }, [projectOptions, selectedProjectId])
+  }, [projectOptions, selectedProjectId, initialProjectId])
 
   const projectOption =
     projectOptions.find((project) => project.id === selectedProjectId) ?? projectOptions[0] ?? defaultProjectOption
@@ -277,52 +281,32 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function DashboardHeader({
-  activeTab,
-  onTabChange,
-  tabs,
-  compact = false,
-}: {
-  activeTab: string
-  onTabChange: (tab: string) => void
-  tabs: DashboardHeaderTab[]
-  compact?: boolean
-}) {
+export function DashboardHeader({ compact = false }: { compact?: boolean }) {
   const router = useRouter()
-  const { projectOptions, selectedProject, setSelectedProject, isProjectOptionsLoading, projectOptionsError, resetProjectState } =
-    useProject()
-  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const { selectedProject, isProjectOptionsLoading, projectOptionsError, resetProjectState } = useProject()
   const { language, setLanguage } = useLanguage()
-  const controlRef = useRef<HTMLDivElement>(null)
   const { isCompactWidth, isShortHeight } = useDashboardViewport()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const zh = language === "zh"
   const useCompactHeader = compact || isCompactWidth || isShortHeight
-  const canSelectProject = projectOptions.length > 0
-  const projectLabel = canSelectProject
-    ? zh
-      ? selectedProject.projectName
-      : selectedProject.projectNameEn
+  const hasProject = !!selectedProject.projectId
+  const projectLabel = hasProject
+    ? zh ? selectedProject.projectName : selectedProject.projectNameEn
     : isProjectOptionsLoading
-      ? "Loading projects"
-        : projectOptionsError
-          ? "Failed to load projects"
-          : "No projects"
+      ? zh ? "加载中..." : "Loading..."
+      : projectOptionsError
+        ? zh ? "加载失败" : "Load failed"
+        : zh ? "暂无项目" : "No projects"
   const logoutLabel = zh ? "退出登录" : "Logout"
 
   const handleLogout = async () => {
-    if (isLoggingOut) {
-      return
-    }
-
+    if (isLoggingOut) return
     setIsLoggingOut(true)
-
     try {
       await logoutWithCloud()
     } catch (error) {
       console.error("Failed to logout from backend", error)
     } finally {
-      setDropdownOpen(false)
       resetProjectState()
       clearStoredAuthToken()
       router.replace("/")
@@ -331,44 +315,18 @@ export function DashboardHeader({
     }
   }
 
-  useEffect(() => {
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!controlRef.current?.contains(event.target as Node)) {
-        setDropdownOpen(false)
-      }
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setDropdownOpen(false)
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown)
-    window.addEventListener("keydown", handleKeyDown)
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown)
-      window.removeEventListener("keydown", handleKeyDown)
-    }
-  }, [])
-
   return (
     <header
-      className={`relative z-30 shrink-0 overflow-visible border-b border-[#16344f] bg-[linear-gradient(180deg,#06111f_0%,#040b16_100%)] shadow-[0_12px_30px_rgba(0,0,0,0.32)] ${
-        useCompactHeader ? "h-[64px] lg:h-[68px]" : "h-[68px] 2xl:h-[72px]"
+      className={`relative z-30 shrink-0 border-b border-[#16344f] bg-[linear-gradient(180deg,#06111f_0%,#040b16_100%)] shadow-[0_8px_24px_rgba(0,0,0,0.32)] ${
+        useCompactHeader ? "h-[56px]" : "h-[62px]"
       }`}
     >
       <style>{`
         @keyframes hdr-scan {
           0% { transform: translateX(-18%); opacity: 0; }
           10% { opacity: .18; }
-          55% { opacity: .26; }
+          90% { opacity: .18; }
           100% { transform: translateX(18%); opacity: 0; }
-        }
-        @keyframes hdr-pulse {
-          0%,100% { opacity: .45; }
-          50% { opacity: 1; }
         }
         @keyframes hdr-title-sweep {
           0% { transform: translateX(-110%); opacity: 0; }
@@ -378,277 +336,117 @@ export function DashboardHeader({
           100% { transform: translateX(120%); opacity: 0; }
         }
       `}</style>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-40%,rgba(34,211,238,0.32),transparent_38%),radial-gradient(circle_at_18%_40%,rgba(22,163,255,0.16),transparent_36%),radial-gradient(circle_at_82%_32%,rgba(0,212,170,0.12),transparent_26%),linear-gradient(90deg,rgba(4,14,26,0.98),rgba(8,22,38,0.84)_52%,rgba(4,14,26,0.98))]" />
-      <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent,transparent_118px,rgba(84,191,255,0.055)_119px),repeating-linear-gradient(0deg,transparent,transparent_7px,rgba(0,212,170,0.02)_8px)] opacity-80" />
-      <div className="pointer-events-none absolute inset-x-[18%] top-0 h-full bg-[linear-gradient(90deg,transparent,rgba(74,228,255,0.18),transparent)]" style={{ animation: "hdr-scan 5.2s linear infinite" }} />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#68e6ff] to-transparent shadow-[0_0_20px_rgba(104,230,255,0.9),0_0_40px_rgba(104,230,255,0.4)]" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#1ce1c2]/80 to-transparent shadow-[0_0_8px_rgba(28,225,194,0.5)]" />
-      <div className="pointer-events-none absolute left-0 top-0 h-10 w-10 border-l-2 border-t-2 border-[#29e4d4]/70" />
-      <div className="pointer-events-none absolute right-0 top-0 h-10 w-10 border-r-2 border-t-2 border-[#29e4d4]/70" />
-      <div className="pointer-events-none absolute left-0 bottom-0 h-10 w-10 border-l-2 border-b-2 border-[#1ce1c2]/50" />
-      <div className="pointer-events-none absolute right-0 bottom-0 h-10 w-10 border-r-2 border-b-2 border-[#1ce1c2]/50" />
-      <div className="pointer-events-none absolute left-0 top-0 h-1 w-1 bg-[#68e6ff] shadow-[0_0_8px_rgba(104,230,255,1)]" />
-      <div className="pointer-events-none absolute right-0 top-0 h-1 w-1 bg-[#68e6ff] shadow-[0_0_8px_rgba(104,230,255,1)]" />
 
-      {!useCompactHeader ? (
-        <>
-          <div className="pointer-events-none absolute left-[320px] right-[360px] top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-[#46dfff]/30 to-transparent" />
-          <div className="pointer-events-none absolute left-[420px] right-[440px] top-1/2 h-[22px] -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,rgba(53,208,255,0.2),transparent_72%)]" />
-        </>
-      ) : null}
+      {/* Background decorations */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-40%,rgba(34,211,238,0.28),transparent_38%),radial-gradient(circle_at_18%_40%,rgba(22,163,255,0.12),transparent_36%),radial-gradient(circle_at_82%_32%,rgba(0,212,170,0.10),transparent_26%)]" />
+      <div className="pointer-events-none absolute inset-x-[20%] top-0 h-full bg-[linear-gradient(90deg,transparent,rgba(74,228,255,0.12),transparent)]" style={{ animation: "hdr-scan 5.5s linear infinite" }} />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#68e6ff] to-transparent shadow-[0_0_20px_rgba(104,230,255,0.9)]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#1ce1c2]/60 to-transparent" />
+      <div className="pointer-events-none absolute left-0 top-0 h-8 w-8 border-l-2 border-t-2 border-[#29e4d4]/60" />
+      <div className="pointer-events-none absolute right-0 top-0 h-8 w-8 border-r-2 border-t-2 border-[#29e4d4]/60" />
 
-      <div
-        className={`relative grid h-full items-center gap-2 px-3 sm:gap-3 sm:px-4 ${
-          useCompactHeader
-            ? "grid-cols-[minmax(230px,296px)_minmax(0,1fr)_auto] lg:grid-cols-[minmax(258px,346px)_minmax(0,1fr)_auto]"
-            : "grid-cols-[minmax(264px,356px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(336px,432px)_minmax(0,1fr)_auto]"
-        }`}
-      >
-        <div className="relative flex min-w-0 items-center gap-2.5 sm:gap-3.5">
+      <div className="relative flex h-full items-center justify-between gap-4 px-4">
+        {/* Left: Logo + Brand + Project name */}
+        <div className="flex min-w-0 items-center gap-3">
           <div
             className={`relative flex shrink-0 items-center justify-center rounded-[10px] bg-[radial-gradient(circle_at_50%_38%,rgba(36,229,217,0.18),rgba(7,25,34,0.9)_72%)] ${
-              useCompactHeader ? "h-[42px] w-[42px]" : "h-[48px] w-[48px]"
+              useCompactHeader ? "h-[38px] w-[38px]" : "h-[44px] w-[44px]"
             }`}
           >
             <EnerCloudMark
-              className={useCompactHeader ? "h-[20px] w-[20px] text-[#f7fafc]" : "h-[24px] w-[24px] text-[#f7fafc]"}
+              className={useCompactHeader ? "h-[18px] w-[18px] text-[#f7fafc]" : "h-[22px] w-[22px] text-[#f7fafc]"}
               glowClassName="text-[#24e5d9]/28"
             />
           </div>
 
-          <div
-            className={`relative min-w-0 flex-1 overflow-hidden border border-[#235f7f]/70 bg-[linear-gradient(180deg,rgba(8,29,44,0.98),rgba(4,14,27,1))] shadow-[0_0_28px_rgba(18,94,132,0.16),inset_0_0_0_1px_rgba(126,220,255,0.05)] ${
-              useCompactHeader ? "px-4 py-2" : "px-5 py-2.5"
-            }`}
-            style={{ clipPath: "polygon(14px 0%,100% 0%,calc(100% - 16px) 100%,0% 100%)" }}
-          >
-            <span className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-[#7de9ff]/70 to-transparent" />
-            <span className="pointer-events-none absolute inset-x-6 bottom-0 h-px bg-gradient-to-r from-transparent via-[#20e1c4]/40 to-transparent" />
-            <span className="pointer-events-none absolute left-4 top-1/2 h-11 w-36 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(103,232,249,0.18),transparent_72%)] blur-md" />
-            <span className="pointer-events-none absolute right-6 top-1/2 h-14 w-32 -translate-y-1/2 bg-[radial-gradient(circle,rgba(70,223,255,0.12),transparent_72%)] blur-lg" />
-            <div className="relative flex min-w-0 items-center justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <h1
-                  className={`relative whitespace-nowrap font-black leading-[1.04] ${
-                    useCompactHeader
-                      ? "text-[1.08rem] tracking-[0.045em] lg:text-[1.2rem] lg:tracking-[0.06em]"
-                      : "text-[1.22rem] tracking-[0.05em] xl:text-[1.42rem] xl:tracking-[0.07em]"
-                  }`}
-                  style={{
-                    fontFamily: '"Arial Black","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif',
-                    color: "#effdff",
-                    backgroundImage: "linear-gradient(180deg,#f8feff 0%,#d6f9ff 45%,#7effd7 100%)",
-                    WebkitBackgroundClip: "text",
-                    backgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    textShadow: "0 0 16px rgba(111,236,255,0.38)",
-                    filter: "drop-shadow(0 0 18px rgba(60,223,255,0.44)) drop-shadow(0 0 28px rgba(60,223,255,0.2))",
-                    transform: "scaleX(0.94)",
-                    transformOrigin: "left center",
-                  }}
-                >
-                  {zh ? "EnerCloud" : "EnerCloud"}
-                </h1>
-              </div>
-
-              <div className="pointer-events-none flex shrink-0 items-center gap-2">
-                <div className="hidden min-[280px]:flex flex-col items-end gap-1.5">
-                  <span className="h-[2px] w-[4.5rem] rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.95),rgba(126,255,215,0.85))] shadow-[0_0_12px_rgba(94,235,255,0.35)]" />
-                  <span className="h-[2px] w-[3.1rem] rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.78),rgba(126,255,215,0.65))]" />
-                  <span className="h-[2px] w-[2rem] rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.52),rgba(126,255,215,0.45))]" />
-                </div>
-                <div
-                  className={`relative overflow-hidden border border-[#2ecfdf]/28 bg-[linear-gradient(180deg,rgba(13,42,61,0.78),rgba(7,24,38,0.9))] shadow-[0_0_18px_rgba(51,202,255,0.12),inset_0_0_0_1px_rgba(125,243,255,0.06)] ${
-                    useCompactHeader ? "h-[18px] w-7" : "h-5 w-8"
-                  }`}
-                  style={{ clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)" }}
-                >
-                  <span className="absolute inset-x-1.5 top-0 h-px bg-gradient-to-r from-transparent via-[#8ef6ff]/70 to-transparent" />
-                  <span className="absolute left-1.5 top-1/2 h-[3px] w-[3px] -translate-y-1/2 rounded-full bg-[#8ef6ff] shadow-[0_0_8px_rgba(142,246,255,0.9)]" />
-                  <span className="absolute right-1.5 top-1/2 h-px w-2.5 -translate-y-1/2 bg-[linear-gradient(90deg,rgba(142,246,255,0.18),rgba(126,255,215,0.8))]" />
-                </div>
-              </div>
-            </div>
-
-            <div className="relative mt-1.5 h-[2px] w-full overflow-hidden rounded-full bg-[linear-gradient(90deg,rgba(34,64,95,0.14),rgba(41,123,174,0.6),rgba(65,230,214,0.34),rgba(34,64,95,0.08))]">
-              <span
-                className="absolute inset-y-0 w-[24%] bg-[linear-gradient(90deg,transparent,rgba(169,244,255,0.95),transparent)]"
-                style={{ animation: "hdr-title-sweep 3.8s ease-in-out infinite" }}
-              />
-              <span className="absolute right-[16%] top-1/2 h-[4px] w-[4px] -translate-y-1/2 rounded-full bg-[#88fbff] shadow-[0_0_10px_rgba(136,251,255,0.9)]" />
-              <span className="absolute right-[8%] top-1/2 h-[4px] w-[4px] -translate-y-1/2 rounded-full bg-[#58ffd0] shadow-[0_0_10px_rgba(88,255,208,0.8)]" />
-            </div>
-          </div>
-        </div>
-
-        <div className="relative min-w-0">
-          <div
-            className={`relative flex items-center overflow-hidden border border-[#2a6688]/72 bg-[linear-gradient(180deg,rgba(9,28,44,0.98),rgba(4,14,28,1))] px-1.5 shadow-[0_0_28px_rgba(36,204,255,0.12),inset_0_0_0_1px_rgba(129,224,255,0.04)] sm:px-2 ${
-              useCompactHeader ? "h-[36px] lg:h-[38px]" : "h-[40px] sm:h-[42px]"
-            }`}
-            style={{ clipPath: "polygon(12px 0%,calc(100% - 12px) 0%,100% 50%,calc(100% - 12px) 100%,12px 100%,0% 50%)" }}
-          >
-            <span className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#6ee9ff]/75 to-transparent" />
-            <span className="pointer-events-none absolute inset-x-10 bottom-0 h-px bg-gradient-to-r from-transparent via-[#1ce1c2]/45 to-transparent" />
-            <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1.5 sm:px-2">
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab.key
-                const label = zh ? tab.label.zh : tab.label.en
-
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => onTabChange(tab.key)}
-                    className={`group relative shrink-0 whitespace-nowrap font-semibold transition-all ${
-                      useCompactHeader ? "h-[26px] px-2 sm:h-[28px] sm:px-2.5" : "h-[28px] px-2.5 sm:h-[30px] sm:px-3 xl:h-[32px] xl:px-3.5"
-                    } ${
-                      isActive
-                        ? "border border-[#2cead7]/60 bg-[linear-gradient(180deg,rgba(12,102,122,0.96),rgba(7,48,67,0.94))] text-[#e8ffff] shadow-[0_0_18px_rgba(44,234,215,0.2),inset_0_0_0_1px_rgba(139,255,247,0.12)]"
-                        : "border border-[#163d59]/55 bg-[linear-gradient(180deg,rgba(8,24,39,0.86),rgba(4,14,26,0.88))] text-[#8fb7cb] hover:border-[#2a88ad]/55 hover:text-[#d9f7ff]"
-                    }`}
-                    style={{
-                      fontSize: useCompactHeader
-                        ? zh
-                          ? "clamp(10px, 0.3vw + 8px, 13px)"
-                          : "clamp(9px, 0.28vw + 7.5px, 12px)"
-                        : zh
-                          ? "clamp(11px, 0.36vw + 9px, 15px)"
-                          : "clamp(10px, 0.34vw + 8.5px, 14px)",
-                      letterSpacing: zh ? "0.08em" : "0.04em",
-                      clipPath: isActive
-                        ? "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)"
-                        : "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)",
-                    }}
-                    aria-pressed={isActive}
-                  >
-                    <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#8ef8ff]/50 to-transparent" />
-                    {isActive ? <span className="pointer-events-none absolute inset-x-2 bottom-0 h-px bg-gradient-to-r from-transparent via-[#2fe8d7] to-transparent" /> : null}
-                    <span className="relative flex items-center justify-center gap-2">
-                      {isActive && <span className="h-1.5 w-1.5 rounded-full bg-[#2ff4db] shadow-[0_0_8px_rgba(47,244,219,0.85)]" />}
-                      <span>{label}</span>
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="relative z-40 flex items-center gap-1.5 xl:gap-2" ref={controlRef}>
-          <div
-            className={`relative ${
-              zh
-                ? useCompactHeader
-                  ? "w-[178px] sm:w-[208px] lg:w-[228px]"
-                  : "w-[220px] sm:w-[252px] xl:w-[292px]"
-                : useCompactHeader
-                  ? "w-[200px] sm:w-[232px] lg:w-[256px]"
-                  : "w-[238px] sm:w-[272px] xl:w-[320px]"
-            }`}
-          >
-            <button
-              onClick={() => {
-                if (!canSelectProject) {
-                  return
-                }
-
-                setDropdownOpen((prev) => !prev)
+          <div>
+            <h1
+              className="font-black leading-tight"
+              style={{
+                fontSize: useCompactHeader ? "1.1rem" : "1.3rem",
+                letterSpacing: "0.05em",
+                fontFamily: '"Arial Black","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif',
+                backgroundImage: "linear-gradient(180deg,#f8feff 0%,#d6f9ff 45%,#7effd7 100%)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                filter: "drop-shadow(0 0 14px rgba(60,223,255,0.4))",
               }}
-              className={`group relative flex w-full items-center justify-between gap-2 border border-[#225d7a]/75 bg-[linear-gradient(180deg,rgba(7,24,39,0.96),rgba(4,13,25,0.98))] px-3 text-left shadow-[0_0_18px_rgba(56,207,255,0.08),inset_0_0_0_1px_rgba(126,220,255,0.04)] transition-all ${
-                canSelectProject
-                  ? "hover:border-[#38cfff]/70 hover:shadow-[0_0_22px_rgba(56,207,255,0.18),inset_0_0_0_1px_rgba(126,220,255,0.08)]"
-                  : "cursor-default opacity-75"
-              } ${useCompactHeader ? "h-[30px]" : "h-[32px]"}`}
-              style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
-              aria-expanded={canSelectProject ? dropdownOpen : false}
-              title={projectLabel}
-              aria-label={zh ? "切换项目" : "Switch project"}
             >
-              <span className="pointer-events-none absolute left-[10px] top-0 h-full w-px bg-gradient-to-b from-[#1df2d7]/0 via-[#1df2d7]/35 to-[#1df2d7]/0" />
-              <span className="pointer-events-none absolute inset-x-4 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3bd2ff]/60 to-transparent" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[10.5px] font-semibold tracking-[0.02em] text-[#e7fbff] sm:text-[11.5px] sm:tracking-[0.04em] xl:text-[12px] xl:tracking-[0.05em]" style={{ textShadow: "0 0 12px rgba(104,230,255,0.35)" }}>
-                  {projectLabel}
-                </div>
-              </div>
-              <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#68dfff] transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {dropdownOpen && canSelectProject && (
-              <div className="absolute right-0 top-full z-50 mt-2 min-w-full overflow-hidden rounded-[12px] border border-[#2a6d8e]/70 bg-[linear-gradient(180deg,rgba(4,16,30,0.98),rgba(2,10,20,0.98))] shadow-[0_16px_48px_rgba(0,0,0,0.56),0_0_24px_rgba(40,180,255,0.08)]">
-                <div className="h-px bg-gradient-to-r from-transparent via-[#50dcff]/70 to-transparent" />
-                {projectOptions.map((project) => {
-                  const isActive = selectedProject.id === project.id
-
-                  return (
-                    <button
-                      key={project.id}
-                      onClick={() => {
-                        setSelectedProject(project)
-                        setDropdownOpen(false)
-                      }}
-                      className={`flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-[12.5px] transition-colors ${
-                        isActive
-                          ? "bg-[linear-gradient(90deg,rgba(10,57,82,0.92),rgba(6,29,52,0.92))] text-[#2cf3dd]"
-                          : "text-[#a7c8df] hover:bg-[rgba(18,44,72,0.72)]"
-                      }`}
-                    >
-                      <span className="truncate" title={zh ? project.projectName : project.projectNameEn}>{zh ? project.projectName : project.projectNameEn}</span>
-                      {isActive && <Check className="h-3.5 w-3.5 shrink-0" />}
-                    </button>
-                  )
-                })}
+              EnerCloud
+            </h1>
+            {hasProject && (
+              <div className="mt-0.5 truncate text-[10px] tracking-[0.04em] text-[#3a7a96]" style={{ maxWidth: "260px" }}>
+                {projectLabel}
               </div>
             )}
           </div>
+        </div>
 
+        {/* Right: Back to Map + Language + Logout */}
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Back to map */}
+          <button
+            type="button"
+            onClick={() => router.push("/project-map")}
+            className={`relative flex items-center gap-1.5 overflow-hidden border border-[#1a4a62]/70 bg-[linear-gradient(180deg,rgba(6,22,38,0.96),rgba(3,12,24,0.98))] px-3 text-[#4a9ab8] transition-all hover:border-[#26f0dc]/50 hover:text-[#26f0dc] ${
+              useCompactHeader ? "h-[28px]" : "h-[30px]"
+            }`}
+            style={{ clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)" }}
+            title={zh ? "返回项目地图" : "Back to Map"}
+          >
+            <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#26f0dc]/30 to-transparent" />
+            <Map className="h-[12px] w-[12px] shrink-0" />
+            <span className="text-[11px] font-semibold tracking-[0.06em]">
+              {zh ? "切换项目" : "Projects"}
+            </span>
+          </button>
+
+          {/* Language switcher */}
           <div
-            className={`relative flex items-center overflow-hidden ${useCompactHeader ? "h-[30px]" : "h-[32px]"}`}
+            className={`relative flex items-center overflow-hidden ${useCompactHeader ? "h-[28px]" : "h-[30px]"}`}
             style={{
-              clipPath: "polygon(0% 0%,calc(100% - 10px) 0%,100% 100%,0% 100%)",
-              border: "1px solid rgba(53,188,245,0.45)",
+              clipPath: "polygon(0% 0%,calc(100% - 8px) 0%,100% 100%,0% 100%)",
+              border: "1px solid rgba(53,188,245,0.4)",
               background: "linear-gradient(180deg,rgba(9,29,48,0.98),rgba(4,17,31,0.98))",
-              boxShadow: "0 0 18px rgba(56,207,255,0.12),inset 0 0 0 1px rgba(129,224,255,0.06)",
             }}
           >
-            <span className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-[#6ee9ff]/80 to-transparent" />
-            <div className="flex items-center px-2.5">
-              <Globe className="h-[13px] w-[13px] text-[#62dfff]" style={{ filter: "drop-shadow(0 0 4px rgba(98,223,255,0.8))" }} />
+            <span className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-[#6ee9ff]/70 to-transparent" />
+            <div className="flex items-center px-2">
+              <Globe className="h-[12px] w-[12px] text-[#62dfff]" />
             </div>
-            <div className="h-4 w-px bg-[#38cfff]/30" />
+            <div className="h-3.5 w-px bg-[#38cfff]/30" />
             {(["zh", "en"] as const).map((lang) => {
               const isActive = language === lang
               return (
                 <button
                   key={lang}
                   onClick={() => setLanguage(lang)}
-                  className={`relative px-2.5 text-[12px] font-bold tracking-[0.08em] transition-all ${
+                  className={`relative px-2.5 text-[11px] font-bold tracking-[0.08em] transition-all ${
                     isActive ? "text-[#26f0dc]" : "text-[#5a7f95] hover:text-[#9feeff]"
                   }`}
-                  style={isActive ? { textShadow: "0 0 12px rgba(38,240,220,0.7),0 0 4px rgba(38,240,220,0.9)" } : undefined}
+                  style={isActive ? { textShadow: "0 0 10px rgba(38,240,220,0.8)" } : undefined}
                 >
-                  {isActive && <span className="absolute -bottom-px left-1/2 h-px w-3 -translate-x-1/2 bg-[#26f0dc] shadow-[0_0_6px_rgba(38,240,220,0.8)]" />}
                   {lang === "zh" ? "中" : "EN"}
                 </button>
               )
             })}
           </div>
 
+          {/* Logout */}
           <button
             type="button"
-            onClick={() => {
-              void handleLogout()
-            }}
-            className={`relative flex items-center gap-1.5 overflow-hidden border border-[#7a3942]/75 bg-[linear-gradient(180deg,rgba(46,14,24,0.96),rgba(24,8,14,0.98))] px-3 text-[#ffd7dd] shadow-[0_0_18px_rgba(255,93,122,0.1),inset_0_0_0_1px_rgba(255,180,194,0.05)] transition-all hover:border-[#ff6d88]/70 hover:text-white hover:shadow-[0_0_22px_rgba(255,109,136,0.18),inset_0_0_0_1px_rgba(255,180,194,0.08)] ${
-              useCompactHeader ? "h-[30px]" : "h-[32px]"
-            }`}
-            style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
-            aria-label={logoutLabel}
+            onClick={() => void handleLogout()}
             disabled={isLoggingOut}
+            className={`relative flex items-center gap-1.5 overflow-hidden border border-[#7a3942]/70 bg-[linear-gradient(180deg,rgba(46,14,24,0.96),rgba(24,8,14,0.98))] px-3 text-[#ffd7dd] transition-all hover:border-[#ff6d88]/70 hover:text-white disabled:opacity-50 ${
+              useCompactHeader ? "h-[28px]" : "h-[30px]"
+            }`}
+            style={{ clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)" }}
+            aria-label={logoutLabel}
           >
-            <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#ff9fb2]/65 to-transparent" />
-            <LogOut className="h-[13px] w-[13px] shrink-0" />
-            <span className="text-[12px] font-semibold tracking-[0.06em]">{logoutLabel}</span>
+            <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#ff9fb2]/60 to-transparent" />
+            <LogOut className="h-[12px] w-[12px] shrink-0" />
+            <span className="text-[11px] font-semibold tracking-[0.06em]">{logoutLabel}</span>
           </button>
         </div>
       </div>

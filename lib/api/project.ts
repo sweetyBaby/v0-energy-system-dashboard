@@ -11,6 +11,10 @@ export type ProjectOption = {
   projectNameEn: string
   picPath: string
   devices: ProjectDevice[]
+  longitude: number | null
+  latitude: number | null
+  region: string
+  installedCapacityMw: number | null
 }
 
 export type ProjectDevice = {
@@ -58,6 +62,11 @@ export type ProjectListByDeviceResponse = {
   rows: RawProjectListByDeviceRow[]
   code: number
   msg: string
+}
+
+const KNOWN_PROJECT_COORDINATES: Record<string, { longitude: number; latitude: number }> = {
+  "360c0347c09c4735900b9df32f3b8ff7": { longitude: 119.95, latitude: 31.77 },
+  "9964201b369549b4b04c29bfe3863daa": { longitude: 109.99, latitude: 39.81 },
 }
 
 const PROJECT_LIST_IMAGES: Record<string, string> = {
@@ -549,6 +558,8 @@ export const normalizeProjectOptionsFromListByDevice = (
     const devices = normalizeProjectDevices(resolveProjectListDevices(row))
     const picPath = resolveProjectImage(row.picPath)
 
+    const coords = KNOWN_PROJECT_COORDINATES[projectId] ?? null
+
     return {
       id: optionId,
       projectId,
@@ -560,6 +571,10 @@ export const normalizeProjectOptionsFromListByDevice = (
           : `Project ${index + 1}`,
       picPath,
       devices,
+      longitude: coords?.longitude ?? null,
+      latitude: coords?.latitude ?? null,
+      region: hasValue(row.region) ? String(row.region).trim() : "",
+      installedCapacityMw: null,
     }
   })
 }

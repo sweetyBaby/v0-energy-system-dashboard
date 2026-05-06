@@ -729,7 +729,7 @@ export default function LoginPage() {
       persistAuthToken(response.token, remember)
 
       startTransition(() => {
-        router.push("/dashboard")
+        router.push("/project-map")
       })
     } catch (error) {
       const fallbackMessage = locale === "zh" ? "登录失败，请稍后重试" : "Login failed. Please try again."
