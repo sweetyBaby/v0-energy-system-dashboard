@@ -122,8 +122,9 @@ type TrendLegendKey = "max" | "min"
 const CELL_COUNT = 50
 const STEP_MINUTES = 15
 const TOTAL_POINTS = (24 * 60) / STEP_MINUTES
-const DAY_END_TIME_LABEL = "23:59:59"
+const DAY_END_TIME_LABEL = "23:59"
 const MIN_VIEWPORT_POINTS = 8
+const CLEAN_DAY_TICK_STEPS_MINUTES = [30, 60, 120, 180, 240] as const
 const EMPTY_HISTORY_DATA: HistoryPoint[] = []
 const EMPTY_OVERVIEW_DATA: OverviewPoint[] = []
 const EMPTY_CELL_METRICS: CellMetric[] = []
@@ -169,7 +170,6 @@ const getCellExtremes = (values: Array<{ cell: number; value: number | null | un
 const formatTimeLabel = (index: number) =>
   `${String(Math.floor((index * STEP_MINUTES) / 60)).padStart(2, "0")}:${String((index * STEP_MINUTES) % 60).padStart(2, "0")}`
 
-const toTrendTimeLabel = (time: string) => `${time}:00`
 const formatAxisTimeLabel = (time: string) => {
   const trimmed = time.trim()
   const timeMatch = trimmed.match(/^(\d{2}:\d{2})(?::\d{2})?$/)
@@ -185,19 +185,142 @@ const formatAxisTimeLabel = (time: string) => {
   return trimmed
 }
 
-const buildDynamicTimeTicks = (times: string[], visibleTickCount: number) => {
-  if (times.length <= 2) {
-    return Array.from(new Set(times))
+const toTrendTimeLabel = (time: string) => formatAxisTimeLabel(time)
+
+const parseAxisTimeLabelToMinutes = (time: string) => {
+  const match = formatAxisTimeLabel(time).match(/^(\d{2}):(\d{2})$/)
+  if (!match) {
+    return null
   }
 
-  if (times.length <= visibleTickCount) {
-    return Array.from(new Set(times))
+  return Number(match[1]) * 60 + Number(match[2])
+}
+
+const buildDynamicTimeTickCandidates = (times: string[], visibleTickCount: number) => {
+  const ordered = times.map((time, index) => ({ time, index }))
+  if (ordered.length <= 2) {
+    return ordered
   }
 
-  const step = Math.max(1, Math.ceil((times.length - 1) / Math.max(visibleTickCount - 1, 1)))
-  return Array.from(
-    new Set(times.filter((time, index) => index === 0 || index === times.length - 1 || index % step === 0)),
-  )
+  if (ordered.length <= visibleTickCount) {
+    return ordered
+  }
+
+  const step = Math.max(1, Math.ceil((ordered.length - 1) / Math.max(visibleTickCount - 1, 1)))
+  return ordered.filter(({ index }) => index === 0 || index === ordered.length - 1 || index % step === 0)
+}
+
+const buildFullDayTimeTickCandidates = (times: string[], visibleTickCount: number) => {
+  const ordered = times
+    .map((time, index) => ({
+      time,
+      index,
+      minuteOfDay: parseAxisTimeLabelToMinutes(time),
+    }))
+    .filter((item): item is { time: string; index: number; minuteOfDay: number } => item.minuteOfDay != null)
+
+  if (ordered.length <= 2) {
+    return ordered.map(({ time, index }) => ({ time, index }))
+  }
+
+  const stepMinutes =
+    CLEAN_DAY_TICK_STEPS_MINUTES.find((step) => Math.ceil((24 * 60) / step) <= Math.max(visibleTickCount, 2)) ??
+    CLEAN_DAY_TICK_STEPS_MINUTES[CLEAN_DAY_TICK_STEPS_MINUTES.length - 1]
+
+  const aligned = ordered.filter(({ minuteOfDay }) => minuteOfDay % stepMinutes === 0)
+  const first = ordered[0]
+  const last = ordered[ordered.length - 1]
+
+  if (aligned.length >= 2) {
+    return Array.from(new Map([first, ...aligned, last].map((item) => [item.time, { time: item.time, index: item.index }])).values())
+  }
+
+  return buildDynamicTimeTickCandidates(times, visibleTickCount)
+}
+
+const filterCategoricalTimeTicksByLabelSpacing = (
+  candidates: Array<{ time: string; index: number }>,
+  totalCount: number,
+  plotWidth: number,
+  minimumLabelGapPx: number,
+) => {
+  if (candidates.length <= 1 || totalCount <= 1) {
+    return candidates.map((item) => item.time)
+  }
+
+  const usableWidth = Math.max(plotWidth, minimumLabelGapPx)
+  const denominator = Math.max(totalCount - 1, 1)
+  const firstCandidate = candidates[0]
+  const lastCandidate = candidates[candidates.length - 1]
+  const filteredFromEnd: Array<{ time: string; index: number }> = []
+  let nextKeptX = Number.POSITIVE_INFINITY
+  let nextKeptLabel = ""
+
+  for (let index = candidates.length - 1; index >= 1; index -= 1) {
+    const candidate = candidates[index]
+    const label = formatAxisTimeLabel(candidate.time)
+    const positionX = (candidate.index / denominator) * usableWidth
+
+    if (!filteredFromEnd.length) {
+      filteredFromEnd.push(candidate)
+      nextKeptX = positionX
+      nextKeptLabel = label
+      continue
+    }
+
+    if (label === nextKeptLabel) {
+      continue
+    }
+
+    if (nextKeptX - positionX < minimumLabelGapPx) {
+      continue
+    }
+
+    filteredFromEnd.push(candidate)
+    nextKeptX = positionX
+    nextKeptLabel = label
+  }
+
+  const ascending = filteredFromEnd.reverse()
+  const hasFirst = ascending.some((item) => item.time === firstCandidate.time)
+  if (!hasFirst) {
+    ascending.unshift(firstCandidate)
+  }
+
+  while (ascending.length > 2) {
+    const firstGap = ((ascending[1].index - ascending[0].index) / denominator) * usableWidth
+    if (firstGap >= minimumLabelGapPx) {
+      break
+    }
+
+    ascending.splice(1, 1)
+  }
+
+  const hasLast = ascending.some((item) => item.time === lastCandidate.time)
+  if (!hasLast) {
+    ascending.push(lastCandidate)
+  }
+
+  return ascending.map((item) => item.time)
+}
+
+const createCategoricalTimeTickRenderer = (ticks: string[], formatter: (value: string) => string, fontSize: number) => {
+  const firstTick = ticks[0]
+  const lastTick = ticks[ticks.length - 1]
+
+  return ({ x = 0, y = 0, payload }: { x?: number; y?: number; payload?: { value?: string } }) => {
+    const value = String(payload?.value ?? "")
+    if (!value) {
+      return <text x={x} y={y} fill="transparent" />
+    }
+
+    const anchor = value === firstTick ? "start" : value === lastTick ? "end" : "middle"
+    return (
+      <text x={x} y={y + 12} fill="#88a8be" fontSize={fontSize} textAnchor={anchor}>
+        {formatter(value)}
+      </text>
+    )
+  }
 }
 
 const extendTrendToDayEnd = <T extends { time: string }>(rows: T[], resetFields: Partial<T> = {}): T[] => {
@@ -1885,12 +2008,25 @@ export function CellHistoryReplayPanel({
   const trendSyncId = "cell-history-extreme-trend"
   const canZoomOverviewTrend = overviewTrendTotalPoints > MIN_VIEWPORT_POINTS
   const overviewTrendVisiblePointCount = visibleOverviewTrendAxisTimes.length
+  const isOverviewTrendFullDayView = overviewTrendVisiblePointCount > 0 && overviewTrendVisiblePointCount === overviewTrendTotalPoints
   const canPanOverviewTrend = Boolean(
     overviewTrendViewportRange && overviewTrendVisiblePointCount > 0 && overviewTrendVisiblePointCount < overviewTrendTotalPoints
   )
   const trendXAxisTicks = useMemo(
-    () => buildDynamicTimeTicks(visibleOverviewTrendAxisTimes, trendVisibleTickCount),
-    [trendVisibleTickCount, visibleOverviewTrendAxisTimes]
+    () =>
+      filterCategoricalTimeTicksByLabelSpacing(
+        isOverviewTrendFullDayView
+          ? buildFullDayTimeTickCandidates(visibleOverviewTrendAxisTimes, trendVisibleTickCount)
+          : buildDynamicTimeTickCandidates(visibleOverviewTrendAxisTimes, trendVisibleTickCount),
+        visibleOverviewTrendAxisTimes.length,
+        trendChartUsableWidth,
+        trendAxisLabelWidth
+      ),
+    [isOverviewTrendFullDayView, trendAxisLabelWidth, trendChartUsableWidth, trendVisibleTickCount, visibleOverviewTrendAxisTimes]
+  )
+  const trendTimeTickRenderer = useMemo(
+    () => createCategoricalTimeTickRenderer(trendXAxisTicks, formatAxisTimeLabel, chartFontSize),
+    [chartFontSize, trendXAxisTicks]
   )
   const trendXAxisInterval = Math.max(trendXAxisTicks.length - 1, 0)
   const voltageTrendSummary = useMemo(() => {
@@ -2028,6 +2164,7 @@ export function CellHistoryReplayPanel({
   const detailVisibleTickCount = Math.max(2, Math.floor(detailChartUsableWidth / detailAxisLabelWidth))
   const detailSyncId = "cell-history-detail-replay"
   const canZoomDetail = detailReplayData.length > MIN_VIEWPORT_POINTS
+  const isDetailFullDayView = visibleDetailReplayData.length > 0 && visibleDetailReplayData.length === detailReplayData.length
   const canPanDetail = Boolean(
     detailViewportRange && visibleDetailReplayData.length > 0 && visibleDetailReplayData.length < detailReplayData.length
   )
@@ -2040,15 +2177,24 @@ export function CellHistoryReplayPanel({
   }, [detailVisibleTickCount, visibleDetailReplayData.length])
   const detailXAxisTicks = useMemo(
     () =>
-      Array.from(
-        new Set(
-          visibleDetailReplayData
-            .map((item, index) => ({ time: String(item.time), index }))
-            .filter(({ index }) => index === 0 || index === visibleDetailReplayData.length - 1 || index % detailTickStep === 0)
-            .map(({ time }) => time)
-        )
+      filterCategoricalTimeTicksByLabelSpacing(
+        isDetailFullDayView
+          ? buildFullDayTimeTickCandidates(
+              visibleDetailReplayData.map((item) => String(item.time)),
+              detailVisibleTickCount
+            )
+          : visibleDetailReplayData
+              .map((item, index) => ({ time: String(item.time), index }))
+              .filter(({ index }) => index === 0 || index === visibleDetailReplayData.length - 1 || index % detailTickStep === 0),
+        visibleDetailReplayData.length,
+        detailChartUsableWidth,
+        detailAxisLabelWidth
       ),
-    [detailTickStep, visibleDetailReplayData]
+    [detailAxisLabelWidth, detailChartUsableWidth, detailTickStep, detailVisibleTickCount, isDetailFullDayView, visibleDetailReplayData]
+  )
+  const detailTimeTickRenderer = useMemo(
+    () => createCategoricalTimeTickRenderer(detailXAxisTicks, formatAxisTimeLabel, chartFontSize),
+    [chartFontSize, detailXAxisTicks]
   )
   const detailXAxisInterval = Math.max(detailXAxisTicks.length - 1, 0)
 
@@ -2358,9 +2504,10 @@ export function CellHistoryReplayPanel({
                             <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
                             <XAxis
                               dataKey="time"
-                              tick={isLast ? { fill: "#88a8be", fontSize: chartFontSize } : false}
+                              tick={isLast ? trendTimeTickRenderer : false}
                               axisLine={false}
                               tickLine={false}
+                              tickFormatter={(value) => formatAxisTimeLabel(String(value))}
                               ticks={isLast ? trendXAxisTicks : undefined}
                               interval={isLast ? 0 : trendXAxisInterval}
                               height={isLast ? 22 : 0}
@@ -2557,7 +2704,7 @@ export function CellHistoryReplayPanel({
                               <CartesianGrid stroke="#173354" strokeDasharray="3 3" vertical={false} />
                               <XAxis
                                 dataKey="time"
-                                tick={isLast ? { fill: "#88a8be", fontSize: chartFontSize } : false}
+                                tick={isLast ? detailTimeTickRenderer : false}
                                 axisLine={false}
                                 tickLine={false}
                                 tickFormatter={(value) => formatAxisTimeLabel(String(value))}
@@ -2738,6 +2885,7 @@ export function CellHistoryReplayPanel({
               hideCellSeries
               panelVariant="overview"
               historyData={bcuHistoryData}
+              enableFullscreen
             />
             {isOverviewBcuLoading && bcuHistoryData.length === 0 ? (
               <HistoryLoadingOverlay text={bcuLoadingText} backdrop={false} />

@@ -429,6 +429,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           <BCUStatusQuery
             mode="realtime"
             deviceId={runningStatusDeviceId || undefined}
+            enableFullscreen
             headerExtra={
               pageBcuOptions.length > 1
                 ? renderPageBcuSelector(runningStatusDeviceId, setRunningStatusDeviceId)
@@ -472,7 +473,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
 
   const renderAlarmMonitoringPage = () => {
     return (
-      <div className="no-scrollbar flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden">
+      <div className="no-scrollbar flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden overscroll-none">
       <div
         className="relative z-20 flex min-w-0 shrink-0 items-center gap-3 overflow-visible border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
       >
@@ -513,15 +514,16 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           {renderPageBcuSelector(alarmDeviceId, setAlarmDeviceId)}
         </div>
       </div>
-      <div className="no-scrollbar grid min-h-0 flex-1 min-w-0 grid-cols-12 gap-4 overflow-hidden">
-        <div className="col-span-12 min-h-0 min-w-0 lg:col-span-6">
+      <div className="no-scrollbar grid min-h-0 flex-1 min-w-0 grid-cols-12 grid-rows-1 gap-4 overflow-hidden overscroll-none">
+        <div className="col-span-12 row-span-1 min-h-0 min-w-0 lg:col-span-6">
           <BCUStatusQuery
             mode={bcuMode}
             date={bcuMode === "history" ? historyDate : undefined}
             deviceId={alarmDeviceId || undefined}
+            enableFullscreen
           />
         </div>
-        <div className="col-span-12 min-h-0 min-w-0 lg:col-span-6">
+        <div className="col-span-12 row-span-1 min-h-0 min-w-0 lg:col-span-6">
           <AlarmLogPanel
             mode={bcuMode}
             date={bcuMode === "history" ? historyDate : undefined}

@@ -309,7 +309,6 @@ export function DashboardHeader({
           ? "Failed to load projects"
           : "No projects"
   const logoutLabel = zh ? "退出登录" : "Logout"
-
   const handleLogout = async () => {
     if (isLoggingOut) {
       return
@@ -404,29 +403,31 @@ export function DashboardHeader({
             : "grid-cols-[minmax(264px,356px)_minmax(0,1fr)_auto] xl:grid-cols-[minmax(336px,432px)_minmax(0,1fr)_auto]"
         }`}
       >
-        <div className="relative flex min-w-0 items-center gap-2.5 sm:gap-3.5">
+        <div className="relative flex min-w-0 items-center gap-2 sm:gap-3">
           <div
-            className={`relative flex shrink-0 items-center justify-center rounded-[10px] bg-[radial-gradient(circle_at_50%_38%,rgba(36,229,217,0.18),rgba(7,25,34,0.9)_72%)] ${
+            className={`relative flex shrink-0 items-center justify-center ${
               useCompactHeader ? "h-[42px] w-[42px]" : "h-[48px] w-[48px]"
             }`}
           >
+            <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(92,231,255,0.26),transparent_68%)] blur-md" />
             <EnerCloudMark
-              className={useCompactHeader ? "h-[20px] w-[20px] text-[#f7fafc]" : "h-[24px] w-[24px] text-[#f7fafc]"}
+              className={useCompactHeader ? "relative z-10 h-[24px] w-auto drop-shadow-[0_0_12px_rgba(111,236,255,0.34)]" : "relative z-10 h-[28px] w-auto drop-shadow-[0_0_16px_rgba(111,236,255,0.38)]"}
               glowClassName="text-[#24e5d9]/28"
             />
           </div>
 
           <div
-            className={`relative min-w-0 flex-1 overflow-hidden border border-[#235f7f]/70 bg-[linear-gradient(180deg,rgba(8,29,44,0.98),rgba(4,14,27,1))] shadow-[0_0_28px_rgba(18,94,132,0.16),inset_0_0_0_1px_rgba(126,220,255,0.05)] ${
-              useCompactHeader ? "px-4 py-2" : "px-5 py-2.5"
+            className={`relative min-w-0 flex-1 overflow-hidden rounded-[14px] border border-[#235f7f]/70 bg-[linear-gradient(180deg,rgba(8,29,44,0.98),rgba(4,14,27,1))] shadow-[0_0_28px_rgba(18,94,132,0.16),inset_0_0_0_1px_rgba(126,220,255,0.05)] ${
+              useCompactHeader ? "px-3.5 py-1.5" : "px-4.5 py-2"
             }`}
-            style={{ clipPath: "polygon(14px 0%,100% 0%,calc(100% - 16px) 100%,0% 100%)" }}
+            style={{ clipPath: "polygon(14px 0%,100% 0%,calc(100% - 18px) 100%,0% 100%,0% 12px)" }}
           >
-            <span className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-[#7de9ff]/70 to-transparent" />
-            <span className="pointer-events-none absolute inset-x-6 bottom-0 h-px bg-gradient-to-r from-transparent via-[#20e1c4]/40 to-transparent" />
+            <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#7de9ff]/70 to-transparent" />
+            <span className="pointer-events-none absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-[#20e1c4]/40 to-transparent" />
             <span className="pointer-events-none absolute left-4 top-1/2 h-11 w-36 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(103,232,249,0.18),transparent_72%)] blur-md" />
-            <span className="pointer-events-none absolute right-6 top-1/2 h-14 w-32 -translate-y-1/2 bg-[radial-gradient(circle,rgba(70,223,255,0.12),transparent_72%)] blur-lg" />
-            <div className="relative flex min-w-0 items-center justify-between gap-4">
+            <span className="pointer-events-none absolute right-5 top-1/2 h-14 w-32 -translate-y-1/2 bg-[radial-gradient(circle,rgba(70,223,255,0.12),transparent_72%)] blur-lg" />
+            <span className="pointer-events-none absolute left-0 top-0 h-full w-10 bg-[linear-gradient(135deg,rgba(125,233,255,0.1),transparent_55%)]" />
+            <div className="relative flex min-w-0 items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <h1
                   className={`relative whitespace-nowrap font-black leading-[1.04] ${
@@ -451,17 +452,17 @@ export function DashboardHeader({
                 </h1>
               </div>
 
-              <div className="pointer-events-none flex shrink-0 items-center gap-2">
-                <div className="hidden min-[280px]:flex flex-col items-end gap-1.5">
-                  <span className="h-[2px] w-[4.5rem] rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.95),rgba(126,255,215,0.85))] shadow-[0_0_12px_rgba(94,235,255,0.35)]" />
-                  <span className="h-[2px] w-[3.1rem] rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.78),rgba(126,255,215,0.65))]" />
-                  <span className="h-[2px] w-[2rem] rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.52),rgba(126,255,215,0.45))]" />
+              <div className="pointer-events-none flex shrink-0 items-center gap-2.5">
+                <div className="hidden min-[300px]:flex flex-col items-end gap-1.5">
+                  <span className="h-px w-[4.75rem] rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.95),rgba(126,255,215,0.85))] shadow-[0_0_12px_rgba(94,235,255,0.35)]" />
+                  <span className="h-px w-[3.4rem] rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.7),rgba(126,255,215,0.46))]" />
+                  <span className="h-px w-[2.2rem] rounded-full bg-[linear-gradient(90deg,rgba(57,180,219,0),rgba(121,234,255,0.4),rgba(126,255,215,0.24))]" />
                 </div>
                 <div
-                  className={`relative overflow-hidden border border-[#2ecfdf]/28 bg-[linear-gradient(180deg,rgba(13,42,61,0.78),rgba(7,24,38,0.9))] shadow-[0_0_18px_rgba(51,202,255,0.12),inset_0_0_0_1px_rgba(125,243,255,0.06)] ${
+                  className={`relative overflow-hidden rounded-[6px] border border-[#2ecfdf]/28 bg-[linear-gradient(180deg,rgba(13,42,61,0.78),rgba(7,24,38,0.9))] shadow-[0_0_18px_rgba(51,202,255,0.12),inset_0_0_0_1px_rgba(125,243,255,0.06)] ${
                     useCompactHeader ? "h-[18px] w-7" : "h-5 w-8"
                   }`}
-                  style={{ clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)" }}
+                  style={{ clipPath: "polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%)" }}
                 >
                   <span className="absolute inset-x-1.5 top-0 h-px bg-gradient-to-r from-transparent via-[#8ef6ff]/70 to-transparent" />
                   <span className="absolute left-1.5 top-1/2 h-[3px] w-[3px] -translate-y-1/2 rounded-full bg-[#8ef6ff] shadow-[0_0_8px_rgba(142,246,255,0.9)]" />

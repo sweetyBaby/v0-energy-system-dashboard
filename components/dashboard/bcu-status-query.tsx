@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertCircle, DatabaseZap, WifiOff } from "lucide-react"
+import { AlertCircle, DatabaseZap, Maximize2, Minimize2, WifiOff } from "lucide-react"
 import {
   useEffect,
   useMemo,
@@ -127,6 +127,8 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 const round = (value: number, digits = 1) => Number(value.toFixed(digits))
 const HOUR_MS = 60 * 60 * 1000
 const FIVE_MINUTES_MS = 5 * 60 * 1000
+const DAY_MS = 24 * HOUR_MS
+const DAY_END_DISPLAY_OFFSET_MS = 1000
 const COMPACT_TIME_AXIS_BREAKPOINT = 980
 const TIME_AXIS_STEPS_MS = [
   FIVE_MINUTES_MS,
@@ -151,6 +153,25 @@ const getDayStartTimestamp = (timestamp: number) => {
   const date = new Date(timestamp)
   date.setHours(0, 0, 0, 0)
   return date.getTime()
+}
+
+const getHistoryDayBounds = (date?: string, fallbackTimestamp = Date.now()) => {
+  const resolvedDate = date ? new Date(`${date}T00:00:00`) : new Date(fallbackTimestamp)
+
+  if (Number.isNaN(resolvedDate.getTime())) {
+    const dayStart = getDayStartTimestamp(fallbackTimestamp)
+    return {
+      start: dayStart,
+      end: dayStart + DAY_MS - DAY_END_DISPLAY_OFFSET_MS,
+    }
+  }
+
+  resolvedDate.setHours(0, 0, 0, 0)
+  const start = resolvedDate.getTime()
+  return {
+    start,
+    end: start + DAY_MS - DAY_END_DISPLAY_OFFSET_MS,
+  }
 }
 
 const formatHourAxisTick = (timestamp: number) => {
@@ -178,11 +199,91 @@ const buildTimeTicks = (start: number, end: number, stepMs: number) => {
     ticks.push(tick)
   }
 
-  if (ticks.length > 0) {
+  return Array.from(new Set([start, ...ticks, end])).sort((left, right) => left - right)
+}
+
+const filterTimeTicksByLabelSpacing = (
+  ticks: number[],
+  start: number,
+  end: number,
+  plotWidth: number,
+  minimumLabelGapPx: number,
+) => {
+  if (ticks.length <= 1 || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
     return ticks
   }
 
-  return end - start <= stepMs ? [start, end] : [start]
+  const usableWidth = Math.max(plotWidth, minimumLabelGapPx)
+  const span = end - start
+  const firstTick = ticks[0]
+  const lastTick = ticks[ticks.length - 1]
+  const filteredFromEnd: number[] = []
+  let nextKeptX = Number.POSITIVE_INFINITY
+  let nextKeptLabel = ""
+
+  for (let index = ticks.length - 1; index >= 1; index -= 1) {
+    const tick = ticks[index]
+    const label = formatHourAxisTick(tick)
+    const positionX = ((tick - start) / span) * usableWidth
+
+    if (!filteredFromEnd.length) {
+      filteredFromEnd.push(tick)
+      nextKeptX = positionX
+      nextKeptLabel = label
+      continue
+    }
+
+    if (label === nextKeptLabel) {
+      continue
+    }
+
+    if (nextKeptX - positionX < minimumLabelGapPx) {
+      continue
+    }
+
+    filteredFromEnd.push(tick)
+    nextKeptX = positionX
+    nextKeptLabel = label
+  }
+
+  const ascending = filteredFromEnd.reverse()
+  if (!ascending.includes(firstTick)) {
+    ascending.unshift(firstTick)
+  }
+
+  while (ascending.length > 2) {
+    const firstGap = ((ascending[1] - ascending[0]) / span) * usableWidth
+    if (firstGap >= minimumLabelGapPx) {
+      break
+    }
+
+    ascending.splice(1, 1)
+  }
+
+  if (!ascending.includes(lastTick)) {
+    ascending.push(lastTick)
+  }
+
+  return ascending
+}
+
+const createNumericTimeTickRenderer = (ticks: number[], formatter: (value: number) => string, fontSize: number) => {
+  const firstTick = ticks[0]
+  const lastTick = ticks[ticks.length - 1]
+
+  return ({ x = 0, y = 0, payload }: { x?: number; y?: number; payload?: { value?: number } }) => {
+    const value = Number(payload?.value)
+    if (!Number.isFinite(value)) {
+      return <text x={x} y={y} fill="transparent" />
+    }
+
+    const anchor = value === firstTick ? "start" : value === lastTick ? "end" : "middle"
+    return (
+      <text x={x} y={y + 12} fill="#7b8ab8" fontSize={fontSize} textAnchor={anchor}>
+        {formatter(value)}
+      </text>
+    )
+  }
 }
 
 const inferSampleStepMs = (points: OperationTrendPoint[]) => {
@@ -412,6 +513,7 @@ function TrendStackedChart({
   data,
   zh,
   history,
+  historyDate,
   hideCellSeries = false,
   axisFontSize,
   yAxisFontSize,
@@ -422,6 +524,7 @@ function TrendStackedChart({
   data: OperationTrendPoint[]
   zh: boolean
   history: boolean
+  historyDate?: string
   hideCellSeries?: boolean
   axisFontSize: number
   yAxisFontSize: number
@@ -519,10 +622,22 @@ function TrendStackedChart({
     viewportRange && visibleData.length > 0 && visibleData.length < data.length
   )
   const xAxisLeftPadding = hasCustomViewport ? 0 : 4
+  const xAxisPlotWidth = Math.max(120, chartWidth - 44 - xAxisRightPadding - xAxisLeftPadding)
   const xAxisDomain = useMemo<[number, number]>(() => {
+    if (history && !hasCustomViewport) {
+      const referenceTimestamp = visibleData[0]?.timestamp ?? data[0]?.timestamp ?? Date.now()
+      const { start, end } = getHistoryDayBounds(historyDate, referenceTimestamp)
+      return [start, end]
+    }
+
     if (visibleData.length === 0) {
       const now = Date.now()
-      const start = history ? now - HOUR_MS : getDayStartTimestamp(now)
+      if (history) {
+        const { start, end } = getHistoryDayBounds(historyDate, now)
+        return [start, end]
+      }
+
+      const start = getDayStartTimestamp(now)
       return [start, Math.max(now, start + HOUR_MS)]
     }
 
@@ -538,14 +653,22 @@ function TrendStackedChart({
     }
 
     return [start, end]
-  }, [hasCustomViewport, history, visibleData])
+  }, [data, hasCustomViewport, history, historyDate, visibleData])
   const timeAxisStepMs = useMemo(
-    () => resolveTimeAxisStepMs(xAxisDomain[0], xAxisDomain[1], chartWidth, history),
-    [chartWidth, history, xAxisDomain],
+    () => resolveTimeAxisStepMs(xAxisDomain[0], xAxisDomain[1], xAxisPlotWidth, history),
+    [history, xAxisDomain, xAxisPlotWidth],
   )
   const xAxisTicks = useMemo(
     () => buildTimeTicks(xAxisDomain[0], xAxisDomain[1], timeAxisStepMs),
     [xAxisDomain, timeAxisStepMs],
+  )
+  const visibleXAxisTicks = useMemo(
+    () => filterTimeTicksByLabelSpacing(xAxisTicks, xAxisDomain[0], xAxisDomain[1], xAxisPlotWidth, timeAxisLabelWidth),
+    [timeAxisLabelWidth, xAxisDomain, xAxisPlotWidth, xAxisTicks],
+  )
+  const timeAxisTickRenderer = useMemo(
+    () => createNumericTimeTickRenderer(visibleXAxisTicks, formatHourAxisTick, axisFontSize),
+    [axisFontSize, visibleXAxisTicks],
   )
 
   const handleAxisWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
@@ -700,12 +823,12 @@ function TrendStackedChart({
                 <XAxis
                   type="number"
                   dataKey="timestamp"
-                  tick={!isLast ? false : { fill: "#7b8ab8", fontSize: axisFontSize }}
+                  tick={!isLast ? false : timeAxisTickRenderer}
                   axisLine={isLast ? { stroke: "#1a2654", strokeOpacity: 0.4 } : false}
                   tickLine={false}
                   height={isLast ? 18 : 0}
                   domain={xAxisDomain}
-                  ticks={isLast ? xAxisTicks : undefined}
+                  ticks={isLast ? visibleXAxisTicks : undefined}
                   interval={0}
                   minTickGap={6}
                   padding={{ left: xAxisLeftPadding, right: xAxisRightPadding }}
@@ -791,6 +914,7 @@ export function BCUStatusQuery({
   hideCellSeries = false,
   panelVariant = "default",
   historyData,
+  enableFullscreen = false,
 }: {
   mode?: BCUStatusMode
   date?: string
@@ -799,6 +923,7 @@ export function BCUStatusQuery({
   hideCellSeries?: boolean
   panelVariant?: "default" | "overview"
   historyData?: OperationTrendPoint[]
+  enableFullscreen?: boolean
 }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
@@ -815,9 +940,11 @@ export function BCUStatusQuery({
   const [historyPoints, setHistoryPoints] = useState<OperationTrendPoint[]>([])
   const [isHistoryLoading, setIsHistoryLoading] = useState(mode === "history" && !historyData)
   const [historyFailed, setHistoryFailed] = useState(false)
+  const [fullscreenMode, setFullscreenMode] = useState<BCUStatusMode | null>(null)
   const effectiveHistoryData = historyData ?? historyPoints
   const liveTimeLabel = rtOverview[rtOverview.length - 1]?.time.slice(0, 5) ?? "--:--"
   const isOverviewVariant = panelVariant === "overview"
+  const isFullscreen = enableFullscreen && fullscreenMode === mode
   const titleSize = scale.clampText(0.9, 0.98, 1.16)
   const pillFontSize = scale.fluid(11, 13.5)
   const axisFontSize = scale.chart(9, 12)
@@ -978,14 +1105,36 @@ export function BCUStatusQuery({
     }
   }, [date, effectiveDeviceId, historyData, mode, selectedProject.projectId])
 
+  useEffect(() => {
+    if (!isFullscreen) {
+      return
+    }
+
+    const previousOverflow = document.body.style.overflow
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setFullscreenMode((current) => (current === mode ? null : current))
+      }
+    }
+
+    document.body.style.overflow = "hidden"
+    window.addEventListener("keydown", handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [isFullscreen, mode])
+
   return (
-    <div
+    <div className={isFullscreen ? "fixed inset-0 z-[215] bg-[#020614]/88 p-3 backdrop-blur-sm md:p-4" : "h-full"}>
+      <div
       ref={scale.ref}
-      className={`flex h-full min-h-0 flex-col overflow-hidden ${
+      className={`flex min-h-0 flex-col overflow-hidden ${
         isOverviewVariant
           ? "relative rounded-[20px] border border-[#254873]/80 bg-[radial-gradient(circle_at_top_right,rgba(38,109,178,0.15),transparent_28%),linear-gradient(180deg,rgba(10,19,44,0.97),rgba(6,12,29,0.98))] p-3 shadow-[0_0_0_1px_rgba(88,181,255,0.08),0_18px_42px_rgba(1,7,19,0.42),inset_0_0_28px_rgba(44,126,198,0.06)]"
           : "rounded-lg border border-[#1a2654] bg-[#0d1233] p-3"
-      }`}
+      } ${isFullscreen ? "h-full border-[#24508c] shadow-[0_24px_90px_rgba(0,0,0,0.55)]" : "h-full"}`}
       style={scale.rootStyle}
     >
       {isOverviewVariant ? <div className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#8feaff]/[0.05]" /> : null}
@@ -1004,7 +1153,21 @@ export function BCUStatusQuery({
             </span>
           ) : null}
         </div>
-        {headerExtra ? <div className="ml-auto flex shrink-0 items-center gap-2">{headerExtra}</div> : null}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {headerExtra}
+          {enableFullscreen ? (
+            <button
+              type="button"
+              onClick={() => setFullscreenMode((current) => (current === mode ? null : mode))}
+              title={isFullscreen ? (zh ? "退出全屏" : "Exit fullscreen") : (zh ? "全屏放大" : "Fullscreen")}
+              className="flex h-7 items-center gap-1 rounded-lg border border-[#1e3a70] bg-[#070e28] px-2 text-[#7ab4f8] transition-all hover:bg-[#0d1e48] hover:text-[#b7e3ff]"
+              style={{ fontSize: pillFontSize }}
+            >
+              {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{isFullscreen ? (zh ? "缩小" : "Restore") : (zh ? "全屏" : "Fullscreen")}</span>
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="relative min-h-0 flex-1">
@@ -1097,6 +1260,7 @@ export function BCUStatusQuery({
           data={mode === "realtime" ? rtOverview : effectiveHistoryData}
           zh={zh}
           history={mode !== "realtime"}
+          historyDate={date}
           hideCellSeries={hideCellSeries}
           axisFontSize={axisFontSize}
           yAxisFontSize={yAxisFontSize}
@@ -1105,6 +1269,7 @@ export function BCUStatusQuery({
           legendFontSize={legendFontSize}
         />
       </div>
+    </div>
     </div>
   )
 }

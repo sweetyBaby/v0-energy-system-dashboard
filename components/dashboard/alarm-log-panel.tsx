@@ -490,6 +490,7 @@ function deriveTimelineEvents(alarms: AlarmEntry[]): TimelineEvent[] {
 
 const LEFT_W  = 132
 const DAY_SECONDS = 24 * 60 * 60
+const DAY_END_DISPLAY_SECONDS = DAY_SECONDS - 1
 const TIMELINE_TICK_STEPS = [
   10 * 60,
   15 * 60,
@@ -592,7 +593,7 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
   }, [events, labelLineHeight, laneGap, laneHeight, minRowHeight, rowPaddingY, zh])
 
   const fmt = (value: number, includeSeconds = false) => {
-    const safeValue = Math.max(0, Math.min(DAY_SECONDS, Math.round(value)))
+    const safeValue = Math.max(0, Math.min(DAY_END_DISPLAY_SECONDS, Math.floor(value)))
     const h = Math.floor(safeValue / 3600) % 24
     const m = Math.floor((safeValue % 3600) / 60)
     const s = safeValue % 60
@@ -603,8 +604,13 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
   const pct = (value: number) => `${((value - viewStart) / span) * 100}%`
 
   const tickStep = resolveTimelineTickStep(span)
-  const ticks    = Array.from({ length: Math.ceil(DAY_SECONDS / tickStep) + 1 }, (_, i) => i * tickStep)
-    .filter(value => value >= viewStart && value <= viewEnd)
+  const ticks = Array.from(
+    new Set(
+      [viewStart, viewEnd, ...Array.from({ length: Math.ceil(DAY_SECONDS / tickStep) + 1 }, (_, i) => i * tickStep)]
+        .filter((value) => value >= viewStart && value <= viewEnd)
+        .map((value) => Math.round(value))
+    )
+  ).sort((left, right) => left - right)
   const tickLabelPaddingX = Math.round(Math.max(6, tickSize * 0.5))
   const tickLabelHeight = Math.round(Math.max(22, tickSize * 1.85))
   const edgeTickLabelInset = Math.round(Math.max(6, tickLabelPaddingX))
@@ -913,7 +919,7 @@ function AlarmTypeStats({ items, zh }: { items: FaultDetailItem[]; zh: boolean }
       </div>
 
       <div className="flex min-h-0 flex-1 items-stretch" style={{ columnGap: legendGap }}>
-        <div className="h-full min-h-0 flex-1 overflow-x-auto overflow-y-auto
+        <div className="h-full min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-contain [scrollbar-gutter:stable]
           [&::-webkit-scrollbar]:w-[5px]
           [&::-webkit-scrollbar]:h-[5px]
           [&::-webkit-scrollbar-track]:rounded-full
@@ -1502,7 +1508,7 @@ export function AlarmLogPanel({
 
         {/* 历史甘特视图 + 类型统计 */}
         {mode === "history" && historyViewMode === "gantt" && (
-          <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto pr-1">
+          <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto overscroll-contain pr-1">
             {!isHistoryLoading && !historyError && historyFiltered.length === 0 ? (
               <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-[#1a3060] bg-[#080e28]/70 px-4 text-center text-[#7b8ab8]" style={{ fontSize: infoSize }}>
                 {historyEmptyText}
@@ -1565,8 +1571,8 @@ export function AlarmLogPanel({
                 {historyEmptyText}
               </div>
             ) : (
-              <div className={`no-scrollbar min-h-0 flex-1 rounded-lg border border-[#1a2654]/60 ${
-                isHistoryListEmpty ? "overflow-hidden" : "overflow-auto"
+              <div className={`min-h-0 flex-1 rounded-lg border border-[#1a2654]/60 [scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-[6px] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3] ${
+                isHistoryListEmpty ? "overflow-hidden" : "overflow-x-auto overflow-y-auto"
               }`}>
                 <table className="w-full border-collapse text-left" style={{ tableLayout: "fixed", minWidth: mode === "history" ? historyTableMinWidth : 648 }}>
                   <colgroup>
