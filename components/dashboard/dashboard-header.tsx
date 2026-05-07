@@ -298,7 +298,6 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
         ? zh ? "加载失败" : "Load failed"
         : zh ? "暂无项目" : "No projects"
   const logoutLabel = zh ? "退出登录" : "Logout"
-
   const handleLogout = async () => {
     if (isLoggingOut) return
     setIsLoggingOut(true)
@@ -353,6 +352,7 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
               useCompactHeader ? "h-[38px] w-[38px]" : "h-[44px] w-[44px]"
             }`}
           >
+            <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(92,231,255,0.26),transparent_68%)] blur-md" />
             <EnerCloudMark
               className={useCompactHeader ? "h-[18px] w-[18px] text-[#f7fafc]" : "h-[22px] w-[22px] text-[#f7fafc]"}
               glowClassName="text-[#24e5d9]/28"

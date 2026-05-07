@@ -193,6 +193,10 @@ const formatTimeByMinutes = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`
 
 const getTimeLabelFromDate = (date: Date) => `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`
+const getTimeLabelWithSecondsFromDate = (date: Date) =>
+  `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`
+const DAY_MS = 24 * 60 * 60 * 1000
+const DAY_END_TIMESTAMP_OFFSET_MS = 1000
 
 const toFiniteNumber = (value: unknown) => {
   if (typeof value === "number") {
@@ -315,6 +319,18 @@ const toDateFromTimeLike = (value: unknown, date: string, fallbackMinutes: numbe
   return Number.isNaN(composed.getTime()) ? null : composed
 }
 
+const clampHistoryDateToRequestedDay = (dateValue: Date, date: string) => {
+  const dayStart = new Date(`${date}T00:00:00`)
+  if (Number.isNaN(dayStart.getTime())) {
+    return dateValue
+  }
+
+  const dayStartTimestamp = dayStart.getTime()
+  const dayEndTimestamp = dayStartTimestamp + DAY_MS - DAY_END_TIMESTAMP_OFFSET_MS
+  const safeTimestamp = Math.min(Math.max(dateValue.getTime(), dayStartTimestamp), dayEndTimestamp)
+  return new Date(safeTimestamp)
+}
+
 const extractTimeMeta = (row: Record<string, unknown>, index: number, date: string) => {
   const timeValue =
     getFieldValue(row, ["time", "_time", "timestamp", "ts", "datetime", "recordTime", "createTime", "occurTime"]) ??
@@ -329,9 +345,11 @@ const extractTimeMeta = (row: Record<string, unknown>, index: number, date: stri
     }
   }
 
+  const safeDateValue = clampHistoryDateToRequestedDay(dateValue, date)
+
   return {
-    time: getTimeLabelFromDate(dateValue),
-    timestamp: dateValue.getTime(),
+    time: getTimeLabelFromDate(safeDateValue),
+    timestamp: safeDateValue.getTime(),
   }
 }
 
@@ -851,7 +869,7 @@ const parseNestedBcuHistory = (data: unknown, date: string): OperationTrendPoint
       const existing = merged.get(key) ?? {
         timestamp: timeMeta.timestamp,
         isoTime: new Date(timeMeta.timestamp).toISOString(),
-        time: timeMeta.time,
+        time: getTimeLabelWithSecondsFromDate(new Date(timeMeta.timestamp)),
         voltage: null,
         current: null,
         soc: null,
@@ -894,7 +912,7 @@ const parseFlatBcuHistory = (data: unknown, date: string): OperationTrendPoint[]
       return {
         timestamp: timeMeta.timestamp,
         isoTime: new Date(timeMeta.timestamp).toISOString(),
-        time: timeMeta.time,
+        time: getTimeLabelWithSecondsFromDate(new Date(timeMeta.timestamp)),
         voltage,
         current,
         soc,
@@ -957,9 +975,32 @@ const parseDailyCellTemperaturePoints = (data: unknown, date: string): DailyCell
 
 const HISTORY_MERGE_TOLERANCE_MS = 30 * 1000
 
-const resolveHistoryTimestamp = (timestamps: number[], target: number) => {
+const inferHistoryMergeToleranceMs = (timestamps: number[]) => {
+  if (timestamps.length <= 1) {
+    return HISTORY_MERGE_TOLERANCE_MS
+  }
+
+  const positiveDiffs: number[] = []
+
+  for (let index = 1; index < timestamps.length; index += 1) {
+    const diff = timestamps[index] - timestamps[index - 1]
+    if (diff > 0) {
+      positiveDiffs.push(diff)
+    }
+  }
+
+  if (positiveDiffs.length === 0) {
+    return HISTORY_MERGE_TOLERANCE_MS
+  }
+
+  positiveDiffs.sort((left, right) => left - right)
+  const medianStep = positiveDiffs[Math.floor(positiveDiffs.length / 2)] ?? HISTORY_MERGE_TOLERANCE_MS
+  return Math.max(HISTORY_MERGE_TOLERANCE_MS, Math.min(medianStep, 5 * 60 * 1000))
+}
+
+const resolveHistoryTimestamp = (timestamps: number[], target: number, toleranceMs = HISTORY_MERGE_TOLERANCE_MS) => {
   if (timestamps.length === 0) {
-    return target
+    return null
   }
 
   let nearest = timestamps[0]
@@ -974,7 +1015,7 @@ const resolveHistoryTimestamp = (timestamps: number[], target: number) => {
     }
   }
 
-  return nearestDistance <= HISTORY_MERGE_TOLERANCE_MS ? nearest : target
+  return nearestDistance <= toleranceMs ? nearest : null
 }
 
 const mergeBcuHistoryMetrics = (
@@ -983,6 +1024,8 @@ const mergeBcuHistoryMetrics = (
   temperaturePoints: DailyCellTemperaturePoint[],
 ) => {
   const merged = new Map<number, OperationTrendPoint>()
+  const baseTimestamps = base.map((point) => point.timestamp).sort((left, right) => left - right)
+  const mergeToleranceMs = inferHistoryMergeToleranceMs(baseTimestamps)
 
   for (const point of base) {
     merged.set(point.timestamp, { ...point })
@@ -994,12 +1037,19 @@ const mergeBcuHistoryMetrics = (
       return
     }
 
-    const resolvedTimestamp = resolveHistoryTimestamp(Array.from(merged.keys()), timestamp)
+    const resolvedTimestamp =
+      baseTimestamps.length > 0
+        ? resolveHistoryTimestamp(baseTimestamps, timestamp, mergeToleranceMs)
+        : timestamp
+    if (resolvedTimestamp == null) {
+      return
+    }
+
     const existing = merged.get(resolvedTimestamp)
     const next: OperationTrendPoint = existing ?? {
       timestamp: resolvedTimestamp,
       isoTime: new Date(resolvedTimestamp).toISOString(),
-      time: extractTimeMeta({ time }, 0, "1970-01-01").time,
+      time: getTimeLabelWithSecondsFromDate(new Date(resolvedTimestamp)),
       voltage: null,
       current: null,
       soc: null,
