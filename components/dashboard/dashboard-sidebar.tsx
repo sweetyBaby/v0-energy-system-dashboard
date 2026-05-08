@@ -13,6 +13,7 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import { useProject } from "@/components/dashboard/dashboard-header"
 
 export type SidebarTab =
   | "realtime"
@@ -58,6 +59,7 @@ export function DashboardSidebar({
   alarmCount = 0,
 }: DashboardSidebarProps) {
   const router = useRouter()
+  const { selectedProject } = useProject()
   const { language } = useLanguage()
   const zh = language === "zh"
 
@@ -68,6 +70,9 @@ export function DashboardSidebar({
   const expandLabel = zh ? "展开菜单" : "Expand menu"
   const switchProjectLabel = zh ? "项目地图" : "Map"
   const backToMapLabel = zh ? "返回项目地图" : "Back to Map"
+  const backToMapHref = selectedProject.projectId
+    ? `/project-map?projectId=${encodeURIComponent(selectedProject.projectId)}`
+    : "/project-map"
 
   return (
     <aside
@@ -167,7 +172,7 @@ export function DashboardSidebar({
         <div className="group relative">
           <button
             type="button"
-            onClick={() => router.push("/project-map")}
+            onClick={() => router.push(backToMapHref)}
             title={!expanded ? backToMapLabel : undefined}
             className={`flex w-full items-center rounded-md text-[#2a5a70] transition-all hover:bg-[rgba(10,40,60,0.5)] hover:text-[#26f0dc] ${
               expanded ? "gap-2 px-2.5 py-2" : "justify-center px-0 py-3"

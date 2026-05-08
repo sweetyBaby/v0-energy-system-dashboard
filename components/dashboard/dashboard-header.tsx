@@ -1,9 +1,10 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Globe, LogOut, Map } from "lucide-react"
+import { Check, ChevronDown, Globe, LogOut, Map } from "lucide-react"
 import { EnerCloudMark } from "@/components/brand/enercloud-mark"
+import { DashboardTopControls } from "@/components/dashboard/dashboard-top-controls"
 import {
   fetchProjectOptionsByDevice,
   fetchProjectDetail,
@@ -51,6 +52,11 @@ const defaultProjectOption: ProjectOption = {
   longitude: null,
   latitude: null,
   region: "",
+  status: null,
+  ratedPower: null,
+  ratedCapacity: null,
+  commissioningDate: null,
+  workingDate: null,
   installedCapacityMw: null,
 }
 
@@ -283,21 +289,43 @@ export function ProjectProvider({ children, initialProjectId }: { children: Reac
 
 export function DashboardHeader({ compact = false }: { compact?: boolean }) {
   const router = useRouter()
-  const { selectedProject, isProjectOptionsLoading, projectOptionsError, resetProjectState } = useProject()
+  const { projectOptions, selectedProject, setSelectedProject, isProjectOptionsLoading, projectOptionsError, resetProjectState } = useProject()
   const { language, setLanguage } = useLanguage()
   const { isCompactWidth, isShortHeight } = useDashboardViewport()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false)
+  const projectMenuRef = useRef<HTMLDivElement | null>(null)
   const zh = language === "zh"
   const useCompactHeader = compact || isCompactWidth || isShortHeight
   const hasProject = !!selectedProject.projectId
   const projectLabel = hasProject
-    ? zh ? selectedProject.projectName : selectedProject.projectNameEn
+    ? zh ? selectedProject.projectName : selectedProject.projectNameEn || selectedProject.projectName
     : isProjectOptionsLoading
       ? zh ? "加载中..." : "Loading..."
       : projectOptionsError
         ? zh ? "加载失败" : "Load failed"
         : zh ? "暂无项目" : "No projects"
   const logoutLabel = zh ? "退出登录" : "Logout"
+  const backToMapLabel = zh ? "返回项目地图" : "Back to Project Map"
+  const backToMapHref = hasProject
+    ? `/project-map?projectId=${encodeURIComponent(selectedProject.projectId)}`
+    : "/project-map"
+
+  useEffect(() => {
+    if (!isProjectMenuOpen) {
+      return
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!projectMenuRef.current?.contains(event.target as Node)) {
+        setIsProjectMenuOpen(false)
+      }
+    }
+
+    window.addEventListener("mousedown", handlePointerDown)
+    return () => window.removeEventListener("mousedown", handlePointerDown)
+  }, [isProjectMenuOpen])
+
   const handleLogout = async () => {
     if (isLoggingOut) return
     setIsLoggingOut(true)
@@ -345,7 +373,7 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
       <div className="pointer-events-none absolute right-0 top-0 h-8 w-8 border-r-2 border-t-2 border-[#29e4d4]/60" />
 
       <div className="relative flex h-full items-center justify-between gap-4 px-4">
-        {/* Left: Logo + Brand + Project name */}
+        {/* Left: Logo + Brand */}
         <div className="flex min-w-0 items-center gap-3">
           <div
             className={`relative flex shrink-0 items-center justify-center rounded-[10px] bg-[radial-gradient(circle_at_50%_38%,rgba(36,229,217,0.18),rgba(7,25,34,0.9)_72%)] ${
@@ -359,46 +387,102 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
             />
           </div>
 
-          <div>
-            <h1
-              className="font-black leading-tight"
-              style={{
-                fontSize: useCompactHeader ? "1.1rem" : "1.3rem",
-                letterSpacing: "0.05em",
-                fontFamily: '"Arial Black","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif',
-                backgroundImage: "linear-gradient(180deg,#f8feff 0%,#d6f9ff 45%,#7effd7 100%)",
-                WebkitBackgroundClip: "text",
-                backgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                filter: "drop-shadow(0 0 14px rgba(60,223,255,0.4))",
-              }}
-            >
-              EnerCloud
-            </h1>
-            {hasProject && (
-              <div className="mt-0.5 truncate text-[10px] tracking-[0.04em] text-[#3a7a96]" style={{ maxWidth: "260px" }}>
-                {projectLabel}
-              </div>
-            )}
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-baseline gap-3">
+              <h1
+                className="shrink-0 font-black leading-tight"
+                style={{
+                  fontSize: useCompactHeader ? "1.1rem" : "1.3rem",
+                  letterSpacing: "0.05em",
+                  fontFamily: '"Arial Black","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif',
+                  backgroundImage: "linear-gradient(180deg,#f8feff 0%,#d6f9ff 45%,#7effd7 100%)",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  filter: "drop-shadow(0 0 14px rgba(60,223,255,0.4))",
+                }}
+              >
+                EnerCloud
+              </h1>
+            </div>
           </div>
         </div>
 
-        {/* Right: Back to Map + Language + Logout */}
         <div className="flex shrink-0 items-center gap-2">
+          <div ref={projectMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setIsProjectMenuOpen((current) => !current)}
+              className={`flex min-w-[12rem] items-center justify-between gap-3 border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] px-3 text-left text-[#dffbff] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset] ${
+                useCompactHeader ? "h-[28px]" : "h-[34px]"
+              }`}
+              style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
+              aria-haspopup="menu"
+              aria-expanded={isProjectMenuOpen}
+            >
+              <span className="truncate text-sm font-semibold" title={projectLabel}>
+                {projectLabel}
+              </span>
+              <ChevronDown className={`h-4 w-4 shrink-0 text-[#8de7f5] transition-transform ${isProjectMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {isProjectMenuOpen && (
+              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 min-w-[15rem] overflow-hidden rounded-[18px] border border-[#2a8293]/55 bg-[linear-gradient(180deg,rgba(7,24,38,0.98),rgba(4,14,25,0.98))] shadow-[0_20px_48px_rgba(0,0,0,0.42)]">
+                {projectOptions.map((project) => {
+                  const optionLabel = zh ? project.projectName : project.projectNameEn || project.projectName
+                  const isActive = selectedProject.id === project.id
+
+                  return (
+                    <button
+                      key={project.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedProject(project)
+                        setIsProjectMenuOpen(false)
+                      }}
+                      className={`flex w-full items-center justify-between gap-3 px-5 py-4 text-left text-sm transition-colors ${
+                        isActive
+                          ? "bg-[rgba(26,86,110,0.45)] text-[#27f2ec]"
+                          : "text-[#d9ecff] hover:bg-[rgba(15,52,74,0.5)]"
+                      }`}
+                    >
+                      <span className="truncate font-semibold">{optionLabel}</span>
+                      {isActive ? <Check className="h-4 w-4 shrink-0" /> : null}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <DashboardTopControls
+          compact={useCompactHeader}
+          action={{
+            icon: Map,
+            labelZh: "返回项目地图",
+            labelEn: "Back to Project Map",
+            onClick: () => router.push(backToMapHref),
+          }}
+          isLoggingOut={isLoggingOut}
+          onLogout={() => void handleLogout()}
+        />
+
+        {/* Right: Back to Map + Language + Logout */}
+        <div className="hidden flex shrink-0 items-center gap-2">
           {/* Back to map */}
           <button
             type="button"
-            onClick={() => router.push("/project-map")}
+            onClick={() => router.push(backToMapHref)}
             className={`relative flex items-center gap-1.5 overflow-hidden border border-[#1a4a62]/70 bg-[linear-gradient(180deg,rgba(6,22,38,0.96),rgba(3,12,24,0.98))] px-3 text-[#4a9ab8] transition-all hover:border-[#26f0dc]/50 hover:text-[#26f0dc] ${
               useCompactHeader ? "h-[28px]" : "h-[30px]"
             }`}
             style={{ clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)" }}
-            title={zh ? "返回项目地图" : "Back to Map"}
+            title={backToMapLabel}
           >
             <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#26f0dc]/30 to-transparent" />
             <Map className="h-[12px] w-[12px] shrink-0" />
             <span className="text-[11px] font-semibold tracking-[0.06em]">
-              {zh ? "切换项目" : "Projects"}
+              {backToMapLabel}
             </span>
           </button>
 
@@ -449,6 +533,7 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
             <span className="text-[11px] font-semibold tracking-[0.06em]">{logoutLabel}</span>
           </button>
         </div>
+      </div>
       </div>
     </header>
   )

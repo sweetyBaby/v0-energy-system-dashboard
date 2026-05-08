@@ -10,8 +10,11 @@ export const metadata: Metadata = {
   description: "Real-time monitoring, analytics, replay, and reporting for energy storage systems.",
   generator: "v0.app",
   icons: {
-    icon: "/enervenue-logo-mark-white.png",
-    shortcut: "/enervenue-logo-mark-white.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/enervenue-logo-mark-white.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
   },
 }
 

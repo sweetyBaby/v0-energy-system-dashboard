@@ -14,6 +14,11 @@ export type ProjectOption = {
   longitude: number | null
   latitude: number | null
   region: string
+  status: string | null
+  ratedPower: string | null
+  ratedCapacity: string | null
+  commissioningDate: string | null
+  workingDate: string | null
   installedCapacityMw: number | null
 }
 
@@ -547,6 +552,22 @@ const resolveProjectImage = (picPath?: string | null, fallbackImage?: string | n
   return DEFAULT_PROJECT_IMAGE
 }
 
+const parseInstalledCapacityMw = (value: string | null | undefined) => {
+  if (!hasValue(value)) return null
+
+  const normalized = String(value).trim().replace(/,/g, "")
+  const match = normalized.match(/(\d+(?:\.\d+)?)\s*(GW|MW|KW)/i)
+  if (!match) return null
+
+  const numericValue = Number(match[1])
+  if (Number.isNaN(numericValue)) return null
+
+  const unit = match[2].toUpperCase()
+  if (unit === "GW") return numericValue * 1000
+  if (unit === "KW") return numericValue / 1000
+  return numericValue
+}
+
 export const normalizeProjectOptionsFromListByDevice = (
   rows: RawProjectListByDeviceRow[] | null | undefined
 ): ProjectOption[] => {
@@ -574,7 +595,15 @@ export const normalizeProjectOptionsFromListByDevice = (
       longitude: coords?.longitude ?? null,
       latitude: coords?.latitude ?? null,
       region: hasValue(row.region) ? String(row.region).trim() : "",
-      installedCapacityMw: null,
+      status: hasValue(row.status) ? String(row.status).trim() : null,
+      ratedPower: hasValue(row.ratedPower) ? String(row.ratedPower).trim() : null,
+      ratedCapacity: hasValue(row.ratedCapacity) ? String(row.ratedCapacity).trim() : null,
+      commissioningDate: hasValue(row.commissioningDate) ? String(row.commissioningDate).trim() : null,
+      workingDate: hasValue(row.workingDate) ? String(row.workingDate).trim() : null,
+      installedCapacityMw:
+        parseInstalledCapacityMw(row.ratedPower) ??
+        parseInstalledCapacityMw(row.ratedCapacity) ??
+        null,
     }
   })
 }
