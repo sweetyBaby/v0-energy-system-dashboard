@@ -272,10 +272,45 @@ const clusterMappableProjects = (projects: ProjectOption[]): ProjectCluster[] =>
   }))
 }
 
+// [minLng, minLat, maxLng, maxLat] bounding boxes for country detection
+const COUNTRY_BBOX: Record<string, [number, number, number, number]> = {
+  "China":        [73,  15, 136, 54],
+  "Mongolia":     [87,  41, 120, 52],
+  "Russia":       [27,  41, 180, 82],
+  "India":        [68,   7,  97, 37],
+  "Japan":        [122, 24, 146, 46],
+  "South Korea":  [125, 33, 130, 39],
+  "Australia":    [113, -44, 154, -10],
+  "United States of America": [-170, 18, -66, 72],
+  "Germany":      [6,  47,  15, 55],
+  "Brazil":       [-74, -34, -34,  6],
+}
+
 const getFallbackFocusFrame = (): FocusFrame => ({
-  center: [12, 16],
-  zoom: 1.02,
+  center: [108, 35],
+  zoom: 2.5,
 })
+
+const computeFocusFrame = (projects: ProjectOption[]): FocusFrame => {
+  if (!projects.length) return getFallbackFocusFrame()
+
+  const lngs = projects.map((p) => p.longitude!)
+  const lats  = projects.map((p) => p.latitude!)
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
+  const minLat  = Math.min(...lats),  maxLat  = Math.max(...lats)
+  const centerLng = (minLng + maxLng) / 2
+  const centerLat  = (minLat  + maxLat)  / 2
+  const span = Math.max(maxLng - minLng, maxLat - minLat)
+
+  let zoom: number
+  if (span < 1)  zoom = 6
+  else if (span < 5)  zoom = 4
+  else if (span < 15) zoom = 3
+  else if (span < 35) zoom = 2
+  else zoom = 1.5
+
+  return { center: [centerLng, centerLat], zoom }
+}
 
 const toNumberOrNull = (value: unknown) => {
   if (typeof value !== "number" || Number.isNaN(value)) return null
@@ -346,7 +381,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [metricsLoading, setMetricsLoading] = useState(false)
   const [efficiencyItems, setEfficiencyItems] = useState<EfficiencyItem[]>([])
   const [energyRankingMode, setEnergyRankingMode] = useState<EnergyRankingMode>("charge")
-  const [activeClusterId, setActiveClusterId] = useState<string | null>(null)
+  const [hoveredClusterId, setHoveredClusterId] = useState<string | null>(null)
   const hoverExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -456,8 +491,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const projectClusters = useMemo(() => clusterMappableProjects(mappableProjects), [mappableProjects])
 
   const activeCluster = useMemo(
-    () => projectClusters.find((c) => c.id === activeClusterId) ?? null,
-    [activeClusterId, projectClusters]
+    () => projectClusters.find((c) => c.id === hoveredClusterId) ?? null,
+    [hoveredClusterId, projectClusters]
   )
 
   const totalInstalledMw = useMemo(
@@ -510,7 +545,21 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     [activeProject, efficiencyItems]
   )
 
-  const focusFrame = useMemo(() => getFallbackFocusFrame(), [])
+  const focusFrame = useMemo(() => computeFocusFrame(mappableProjects), [mappableProjects])
+
+  const highlightedCountries = useMemo(() => {
+    const set = new Set<string>()
+    for (const p of mappableProjects) {
+      const lng = p.longitude!
+      const lat = p.latitude!
+      for (const [country, [minLng, minLat, maxLng, maxLat]] of Object.entries(COUNTRY_BBOX)) {
+        if (lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat) {
+          set.add(country)
+        }
+      }
+    }
+    return set
+  }, [mappableProjects])
   const topEfficiencyItems = useMemo(() => efficiencyItems.slice(0, 5), [efficiencyItems])
 
   const maxEfficiencyScore = useMemo(() => {
@@ -596,15 +645,32 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
   const handleClusterClick = useCallback(
     (cluster: ProjectCluster) => {
-      if (cluster.projects.length === 1) {
-        handleMarkerClick(cluster.projects[0])
-      } else {
-        setActiveClusterId((prev) => (prev === cluster.id ? null : cluster.id))
-        setHoveredId(null)
-      }
+      // Navigate to whichever project is currently shown in the detail card
+      const target = cluster.projects.find((p) => p.id === hoveredId) ?? cluster.projects[0]
+      handleMarkerClick(target)
     },
-    [handleMarkerClick]
+    [handleMarkerClick, hoveredId]
   )
+
+  const handleClusterHover = useCallback(
+    (cluster: ProjectCluster) => {
+      if (hoverExitTimerRef.current) {
+        clearTimeout(hoverExitTimerRef.current)
+        hoverExitTimerRef.current = null
+      }
+      setHoveredClusterId(cluster.id)
+      setHoveredId(cluster.projects[0].id)
+    },
+    []
+  )
+
+  const handleClusterHoverEnd = useCallback(() => {
+    if (hoverExitTimerRef.current) clearTimeout(hoverExitTimerRef.current)
+    hoverExitTimerRef.current = setTimeout(() => {
+      setHoveredClusterId(null)
+      setHoveredId(null)
+    }, 160)
+  }, [])
 
   const handleProjectHover = useCallback((projectId: string | null) => {
     if (hoverExitTimerRef.current) {
@@ -612,6 +678,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       hoverExitTimerRef.current = null
     }
 
+    setHoveredClusterId(null)
     setHoveredId(projectId)
   }, [])
 
@@ -621,6 +688,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     }
 
     hoverExitTimerRef.current = setTimeout(() => {
+      setHoveredClusterId(null)
       setHoveredId(null)
     }, 120)
   }, [])
@@ -631,6 +699,17 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     },
     [router]
   )
+
+  // Switch the active project within a cluster card without touching cluster hover state
+  const handleSelectProjectInCluster = useCallback((projectId: string) => {
+    if (hoverExitTimerRef.current) clearTimeout(hoverExitTimerRef.current)
+    setHoveredId(projectId)
+  }, [])
+
+  // Keep the card visible while the mouse is over it — just cancel the exit timer
+  const handleCardMouseEnter = useCallback(() => {
+    if (hoverExitTimerRef.current) clearTimeout(hoverExitTimerRef.current)
+  }, [])
 
   const handleLogout = async () => {
     if (isLoggingOut) return
@@ -774,37 +853,42 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       {({ geographies }: { geographies: GeographyFeature[] }) =>
                         geographies
                           .filter((geo: GeographyFeature) => !EXCLUDED_COUNTRY_NAMES.has(geo.properties?.name ?? ""))
-                          .map((geo: GeographyFeature) => (
-                            <Geography
-                              key={geo.rsmKey}
-                              geography={geo}
-                              style={{
-                                default: {
-                                  fill: "#183549",
-                                  stroke: "#5e87a0",
-                                  strokeWidth: 0.54,
-                                  outline: "none",
-                                },
-                                hover: {
-                                  fill: "#224860",
-                                  stroke: "#9be8ea",
-                                  strokeWidth: 0.74,
-                                  outline: "none",
-                                },
-                                pressed: {
-                                  fill: "#224860",
-                                  stroke: "#9be8ea",
-                                  strokeWidth: 0.74,
-                                  outline: "none",
-                                },
-                              }}
-                            />
-                          ))
+                          .map((geo: GeographyFeature) => {
+                            const hasProject = highlightedCountries.has(geo.properties?.name ?? "")
+                            return (
+                              <Geography
+                                key={geo.rsmKey}
+                                geography={geo}
+                                style={{
+                                  default: {
+                                    fill: hasProject ? "#1b5068" : "#183549",
+                                    stroke: hasProject ? "#3d94b4" : "#4a7a96",
+                                    strokeWidth: hasProject ? 0.8 : 0.44,
+                                    outline: "none",
+                                    filter: hasProject ? "drop-shadow(0 0 6px rgba(46,196,220,0.22))" : "none",
+                                  },
+                                  hover: {
+                                    fill: hasProject ? "#236080" : "#1e4560",
+                                    stroke: "#7dd4e8",
+                                    strokeWidth: 0.8,
+                                    outline: "none",
+                                    filter: hasProject ? "drop-shadow(0 0 8px rgba(46,196,220,0.32))" : "none",
+                                  },
+                                  pressed: {
+                                    fill: "#1e4560",
+                                    stroke: "#7dd4e8",
+                                    strokeWidth: 0.8,
+                                    outline: "none",
+                                  },
+                                }}
+                              />
+                            )
+                          })
                       }
                     </Geographies>
 
                     {projectClusters.map((cluster) => {
-                      const isClusterActive = activeClusterId === cluster.id
+                      const isClusterActive = hoveredClusterId === cluster.id
 
                       if (cluster.projects.length > 1) {
                         const regionName = cluster.projects[0].region || (zh ? "未标注" : "Unknown")
@@ -815,6 +899,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                             key={cluster.id}
                             coordinates={cluster.coordinates}
                             onClick={() => handleClusterClick(cluster)}
+                            onMouseEnter={() => handleClusterHover(cluster)}
+                            onMouseLeave={handleClusterHoverEnd}
                           >
                             {/* Area halo — dashed ring to visually mark the region */}
                             <circle
@@ -981,58 +1067,41 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </div>
               </div>
 
-              {activeCluster ? (
-                <div className="absolute bottom-4 left-4 right-4 z-20 sm:right-auto sm:w-[22rem] lg:bottom-5 lg:left-5">
-                  <div className="overflow-hidden rounded-[20px] border border-[#294e62] bg-[linear-gradient(180deg,rgba(7,18,29,0.96),rgba(5,12,20,0.99))] shadow-[0_20px_44px_rgba(0,0,0,0.34)] backdrop-blur-[16px]">
-                    <div className="border-b border-[#23465b] px-4 py-3.5">
-                      <div className="text-[11px] font-medium tracking-[0.14em] text-[#87cfc7]">
-                        {zh ? "区域项目" : "Projects in Area"}
-                      </div>
-                      <div className="mt-1 flex items-baseline gap-2">
-                        <span className="text-[17px] font-black text-[#f6fbff]">
-                          {activeCluster.projects[0].region || (zh ? "此区域" : "This Area")}
-                        </span>
-                        <span className="text-[13px] font-semibold text-[#6b99b2]">
-                          · {activeCluster.projects.length}{zh ? " 个项目" : " projects"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-2 p-3">
-                      {activeCluster.projects.map((project) => {
-                        const lifecycle = normalizeLifecycle(project)
-                        const styles = getLifecycleStyles(lifecycle)
-                        return (
-                          <button
-                            key={project.id}
-                            type="button"
-                            onClick={() => handleProjectNavigate(project)}
-                            className="flex w-full items-center gap-3 rounded-[13px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-3 py-2.5 text-left transition-all hover:border-[#2b6f80] hover:bg-[rgba(14,32,50,0.92)]"
-                          >
-                            <div className={`h-2 w-2 shrink-0 rounded-full ${styles.dot}`} />
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-[13px] font-semibold text-[#f2fbff]">
-                                {getProjectName(project, zh)}
-                              </div>
-                            </div>
-                            <div className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${styles.badge}`}>
-                              {getLifecycleShortText(lifecycle, zh)}
-                            </div>
-                            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[#4b8ba8]" />
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {!activeCluster && activeProject ? (
+              {activeProject ? (
                 <div
                   className="absolute bottom-4 left-4 right-4 z-20 sm:right-auto sm:w-[22rem] lg:bottom-5 lg:left-5"
-                  onMouseEnter={() => handleProjectHover(activeProject.id)}
-                  onMouseLeave={handleProjectHoverEnd}
+                  onMouseEnter={handleCardMouseEnter}
+                  onMouseLeave={activeCluster ? handleClusterHoverEnd : handleProjectHoverEnd}
                 >
                   <div className="overflow-hidden rounded-[20px] border border-[#294e62] bg-[linear-gradient(180deg,rgba(7,18,29,0.94),rgba(5,12,20,0.98))] shadow-[0_20px_44px_rgba(0,0,0,0.34)] backdrop-blur-[16px]">
+                    {/* Cluster project switcher — only shown when multiple projects share this marker */}
+                    {activeCluster && activeCluster.projects.length > 1 ? (
+                      <div className="border-b border-[#1d3f52] px-4 pt-3.5 pb-3">
+                        <div className="mb-2 text-[10px] font-medium tracking-[0.12em] text-[#5a8fa8]">
+                          {activeCluster.projects[0].region || (zh ? "此区域" : "This Area")}
+                          &nbsp;·&nbsp;{activeCluster.projects.length}{zh ? " 个项目" : " projects"}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {activeCluster.projects.map((p) => {
+                            const isSelected = hoveredId === p.id
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => handleSelectProjectInCluster(p.id)}
+                                className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition-all ${
+                                  isSelected
+                                    ? "border-[#2dd8ca] bg-[rgba(33,217,204,0.14)] text-[#4ffff3]"
+                                    : "border-[#21455a] text-[#7faec2] hover:border-[#2b6f80] hover:text-[#dff9ff]"
+                                }`}
+                              >
+                                {getProjectName(p, zh)}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="relative h-28 overflow-hidden border-b border-[#23465b]">
                       {hasText(activeProject.picPath) ? (
                         <img
@@ -1204,7 +1273,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
               <div className={`${PANEL_CLASS} px-3.5 py-3.5`}>
                 <SectionHeading icon={<ArrowUp className="h-4 w-4" />} title={zh ? "充放电排名" : "Charge / Discharge Ranking"} trailing="MWh" />
 
-                <div className="mt-3 inline-grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden rounded-[6px] border border-[#2d5778] bg-[linear-gradient(180deg,rgba(11,29,47,0.92),rgba(7,20,34,0.96))] shadow-[inset_0_1px_0_rgba(151,218,255,0.06)]">
+                <div className="mt-3 flex justify-end">
+                  <div className="inline-grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden rounded-[6px] border border-[#2d5778] bg-[linear-gradient(180deg,rgba(11,29,47,0.92),rgba(7,20,34,0.96))] shadow-[inset_0_1px_0_rgba(151,218,255,0.06)]">
                   <button
                     type="button"
                     onClick={() => setEnergyRankingMode("charge")}
@@ -1228,6 +1298,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                   >
                     {zh ? "放电" : "Discharge"}
                   </button>
+                  </div>
                 </div>
 
                 <div className="mt-3 grid gap-2.5">

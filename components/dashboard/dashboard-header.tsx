@@ -353,13 +353,15 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
             <button
               type="button"
               onClick={() => setIsProjectMenuOpen((current) => !current)}
-              className={`flex min-w-[12rem] items-center justify-between gap-3 border border-[#1f5872] bg-[linear-gradient(180deg,rgba(8,23,41,0.98),rgba(6,17,31,0.99))] px-3 text-left text-[#dffbff] shadow-[0_0_0_1px_rgba(34,211,238,0.05)_inset] ${
+              className={`relative flex min-w-[12rem] items-center justify-between gap-3 overflow-hidden border border-[#2d6a88] bg-[linear-gradient(180deg,rgba(9,25,45,0.98),rgba(6,16,30,0.99))] px-3 text-left text-[#dffbff] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset,0_10px_22px_rgba(0,0,0,0.2)] ${
                 useCompactHeader ? "h-[28px]" : "h-[34px]"
               }`}
               style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
               aria-haspopup="menu"
               aria-expanded={isProjectMenuOpen}
             >
+              <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#9deeff]/75 to-transparent" />
+              <span className="pointer-events-none absolute bottom-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-[#1ce1c2]/35 to-transparent" />
               <span className="truncate text-sm font-semibold" title={projectLabel}>
                 {projectLabel}
               </span>
@@ -367,7 +369,8 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
             </button>
 
             {isProjectMenuOpen && (
-              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 min-w-[15rem] overflow-hidden rounded-[18px] border border-[#2a8293]/55 bg-[linear-gradient(180deg,rgba(7,24,38,0.98),rgba(4,14,25,0.98))] shadow-[0_20px_48px_rgba(0,0,0,0.42)]">
+              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 min-w-[15rem] overflow-hidden rounded-[18px] border border-[#2a8293]/55 bg-[linear-gradient(180deg,rgba(8,26,40,0.98),rgba(4,14,25,0.99))] shadow-[0_20px_48px_rgba(0,0,0,0.42),0_0_0_1px_rgba(104,230,255,0.08)_inset]">
+                <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#8deeff]/70 to-transparent" />
                 {projectOptions.map((project) => {
                   const optionLabel = zh ? project.projectName : project.projectNameEn || project.projectName
                   const isActive = selectedProject.id === project.id
@@ -382,7 +385,7 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
                       }}
                       className={`flex w-full items-center justify-between gap-3 px-5 py-4 text-left text-sm transition-colors ${
                         isActive
-                          ? "bg-[rgba(26,86,110,0.45)] text-[#27f2ec]"
+                          ? "bg-[linear-gradient(90deg,rgba(14,77,102,0.62),rgba(11,48,69,0.48))] text-[#5ef7ef]"
                           : "text-[#d9ecff] hover:bg-[rgba(15,52,74,0.5)]"
                       }`}
                     >
