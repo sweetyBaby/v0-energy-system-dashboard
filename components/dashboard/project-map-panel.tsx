@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useRouter } from "next/navigation"
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps"
 import type { LucideIcon } from "lucide-react"
 import {
+  ArrowDown,
   ArrowRight,
   ArrowUp,
   CheckCircle2,
-  ChevronDown,
   Clock3,
   Hammer,
   Layers3,
@@ -306,18 +306,16 @@ function SectionHeading({ icon, title, trailing }: SectionHeadingProps) {
 
 export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { language } = useLanguage()
   const zh = language === "zh"
-  const restoreProjectId = searchParams.get("projectId")
 
   const [projects, setProjects] = useState<ProjectOption[]>([])
   const [loading, setLoading] = useState(true)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [metricsLoading, setMetricsLoading] = useState(false)
   const [efficiencyItems, setEfficiencyItems] = useState<EfficiencyItem[]>([])
+  const hoverExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -411,21 +409,12 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   }, [projects])
 
   useEffect(() => {
-    if (!restoreProjectId || !projects.length) return
-
-    const restoredProject = projects.find((project) => project.projectId === restoreProjectId)
-    if (restoredProject) {
-      setSelectedId(restoredProject.id)
-      setHoveredId(restoredProject.id)
+    return () => {
+      if (hoverExitTimerRef.current) {
+        clearTimeout(hoverExitTimerRef.current)
+      }
     }
-  }, [projects, restoreProjectId])
-
-  useEffect(() => {
-    if (restoreProjectId || selectedId || !projects.length) return
-
-    const initialProject = projects.find((project) => project.longitude != null && project.latitude != null) ?? projects[0]
-    setSelectedId(initialProject.id)
-  }, [projects, restoreProjectId, selectedId])
+  }, [])
 
   const mappableProjects = useMemo(
     () => projects.filter((project) => project.longitude != null && project.latitude != null),
@@ -476,12 +465,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     [hoveredId, projects]
   )
 
-  const selectedProject = useMemo(
-    () => projects.find((project) => project.id === selectedId) ?? null,
-    [projects, selectedId]
-  )
-
-  const activeProject = hoveredProject ?? selectedProject
+  const activeProject = hoveredProject
   const activeItem = useMemo(
     () => (activeProject ? efficiencyItems.find((item) => item.project.id === activeProject.id) ?? null : null),
     [activeProject, efficiencyItems]
@@ -548,14 +532,28 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
         return
       }
 
-      setSelectedId((prev) => (prev === project.id ? null : project.id))
-      setHoveredId(project.id)
+      router.push(`/dashboard?projectId=${project.projectId}`)
     },
-    [onProjectSelect]
+    [onProjectSelect, router]
   )
 
   const handleProjectHover = useCallback((projectId: string | null) => {
+    if (hoverExitTimerRef.current) {
+      clearTimeout(hoverExitTimerRef.current)
+      hoverExitTimerRef.current = null
+    }
+
     setHoveredId(projectId)
+  }, [])
+
+  const handleProjectHoverEnd = useCallback(() => {
+    if (hoverExitTimerRef.current) {
+      clearTimeout(hoverExitTimerRef.current)
+    }
+
+    hoverExitTimerRef.current = setTimeout(() => {
+      setHoveredId(null)
+    }, 120)
   }, [])
 
   const handleProjectNavigate = useCallback(
@@ -580,38 +578,23 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-[#07111d] text-[#e6f4fb]">
+    <div className="relative flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto bg-[#07111d] text-[#e6f4fb] xl:overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_12%,rgba(41,213,216,0.16),transparent_26%),radial-gradient(circle_at_84%_14%,rgba(71,131,255,0.12),transparent_30%),linear-gradient(180deg,rgba(6,17,29,0.92),rgba(3,9,17,1))]" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(54,102,129,0.06)_1px,transparent_1px),linear-gradient(0deg,rgba(54,102,129,0.05)_1px,transparent_1px)] bg-[size:88px_88px]" />
 
       <div className="relative z-10 flex h-full min-h-0 flex-col p-4">
-        <header className="relative shrink-0 overflow-hidden rounded-[22px] border border-[#1c4357] bg-[linear-gradient(180deg,rgba(6,16,28,0.98),rgba(4,10,18,0.98))] px-5 py-4 shadow-[0_18px_36px_rgba(0,0,0,0.24)]">
+        <header className="relative shrink-0 overflow-hidden rounded-[22px] border border-[#1c4357] bg-[linear-gradient(180deg,rgba(6,16,28,0.98),rgba(4,10,18,0.98))] px-5 py-3.5 shadow-[0_18px_36px_rgba(0,0,0,0.24)]">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#66ece1] to-transparent" />
           <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-[16px] border border-[#1d596a] bg-[radial-gradient(circle_at_50%_40%,rgba(43,239,217,0.22),rgba(6,22,32,0.94)_72%)] shadow-[0_10px_24px_rgba(0,0,0,0.18)]">
                 <EnerCloudMark className="h-5 w-5 text-[#f7fafc]" glowClassName="text-[#28f1dc]/28" />
               </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1
-                    className="text-[22px] font-black tracking-[0.04em]"
-                    style={{
-                      backgroundImage: "linear-gradient(180deg,#f7feff 0%,#ddfbff 52%,#77ffe1 100%)",
-                      WebkitBackgroundClip: "text",
-                      backgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                    }}
-                  >
-                    {zh ? "全球项目地图" : "Global Project Map"}
-                  </h1>
-                  <span className="rounded-full border border-[#244b61] bg-[rgba(8,24,37,0.88)] px-3 py-1 text-[11px] font-medium tracking-[0.08em] text-[#85a4b8]">
-                    {zh ? `${mappableProjects.length} / ${projects.length} 已定位` : `${mappableProjects.length} / ${projects.length} mapped`}
-                  </span>
-                </div>
-                <p className="mt-1 text-[13px] text-[#7b95a8]">
-                  {zh ? "聚焦项目分布、运行状态与关键能效指标" : "View site coverage, operating status, and performance signals in one place."}
-                </p>
+              <div
+                className="bg-clip-text text-[28px] font-black leading-none tracking-[0.01em] text-transparent"
+                style={{ backgroundImage: "linear-gradient(180deg,#ffffff 0%,#e2f7ff 38%,#8cecff 100%)" }}
+              >
+                EnerCloud
               </div>
             </div>
 
@@ -622,19 +605,19 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
         <section className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#1b4c60] bg-[linear-gradient(180deg,rgba(4,15,27,0.99),rgba(2,9,18,1))] shadow-[0_26px_56px_rgba(0,0,0,0.28)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(42,230,227,0.12),transparent_18%),radial-gradient(circle_at_85%_75%,rgba(58,140,255,0.1),transparent_24%)]" />
 
-          <div className="relative grid min-h-full gap-4 p-4 xl:h-full xl:grid-cols-[18rem_minmax(0,1fr)_18.5rem] 2xl:grid-cols-[19rem_minmax(0,1fr)_19.5rem]">
-            <aside className="order-2 flex min-h-0 flex-col gap-4 xl:order-1">
-              <div className={`${PANEL_CLASS} px-4 py-4`}>
+          <div className="relative grid min-h-full gap-3 p-3 xl:h-full xl:grid-cols-[16rem_minmax(0,1fr)_16.5rem] 2xl:grid-cols-[17rem_minmax(0,1fr)_17.25rem]">
+            <aside className="order-2 flex min-h-0 flex-col gap-4 xl:order-1 xl:overflow-y-auto xl:pr-1 xl:overscroll-contain custom-scrollbar">
+              <div className={`${PANEL_CLASS} px-3.5 py-3.5`}>
                 <SectionHeading icon={<Layers3 className="h-4 w-4" />} title={zh ? "项目状态" : "Project Status"} trailing={zh ? "实时汇总" : "LIVE"} />
-                <div className="mt-4 grid grid-cols-3 gap-3">
+                <div className="mt-3 grid grid-cols-3 gap-2">
                   {statusCards.map((item) => (
                     <div
                       key={item.key}
-                      className="rounded-[16px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.9),rgba(7,18,29,0.94))] px-3 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
+                      className="rounded-[14px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.9),rgba(7,18,29,0.94))] px-2.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
                     >
                       <div className="text-[11px] font-medium tracking-[0.08em] text-[#7f98ab]">{item.label}</div>
                       <div
-                        className={`mt-3 text-[30px] font-black leading-none ${
+                        className={`mt-2 text-[24px] font-black leading-none ${
                           item.accent === "green" ? "text-[#3de9d8]" : "text-[#edf6fb]"
                         }`}
                       >
@@ -644,93 +627,84 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                   ))}
                 </div>
 
-                <div className="mt-4 grid gap-3">
+                <div className="mt-2.5 grid grid-cols-2 gap-2">
                   {lifecycleItems.map((item) => (
                     <div
                       key={item.key}
-                      className="flex items-center gap-3 rounded-[16px] border border-[#21495e] bg-[rgba(8,20,31,0.72)] px-3 py-3"
+                      className="rounded-[14px] border border-[#21495e] bg-[rgba(8,20,31,0.72)] px-2.5 py-2.5"
                     >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[linear-gradient(180deg,rgba(19,44,59,0.94),rgba(11,24,36,0.94))] text-[#8fe2dc]">
-                        <item.icon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="text-[14px] font-semibold text-[#eef9ff]">{item.label}</div>
-                          <div className="text-[24px] font-black leading-none text-white">{item.value}</div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[linear-gradient(180deg,rgba(19,44,59,0.94),rgba(11,24,36,0.94))] text-[#8fe2dc]">
+                          <item.icon className="h-4 w-4" />
                         </div>
-                        <div className="mt-1 text-[12px] text-[#7f96aa]">{item.detail}</div>
+                        <div className="text-[20px] font-black leading-none text-white">{item.value}</div>
                       </div>
+                      <div className="mt-1.5 text-[12px] font-semibold text-[#eef9ff]">{item.label}</div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className={`${PANEL_CLASS} px-4 py-4`}>
-                <SectionHeading icon={<Zap className="h-4 w-4" />} title={zh ? "系统容量" : "System Capacity"} trailing={zh ? "设计值" : "DESIGN"} />
-                <div className="mt-4 grid gap-3">
-                  <div className="rounded-[16px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.88),rgba(7,18,29,0.94))] p-4">
+              <div className={`${PANEL_CLASS} px-3.5 py-3.5`}>
+                <SectionHeading icon={<Zap className="h-4 w-4" />} title={zh ? "系统容量" : "System Capacity"} trailing={zh ? "额定值" : "RATED"} />
+                <div className="mt-3 grid gap-2">
+                  <div className="rounded-[14px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.88),rgba(7,18,29,0.94))] p-3">
                     <div className="text-[12px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "装机功率" : "Installed Power"}</div>
-                    <div className="mt-3 flex items-end gap-2">
-                      <span className="text-[34px] font-black leading-none text-white">
+                    <div className="mt-2 flex items-end gap-1.5">
+                      <span className="text-[24px] font-black leading-none text-white">
                         {totalInstalledMw > 0 ? formatMetricNumber(totalInstalledMw * 1000, 1) : "0.0"}
                       </span>
-                      <span className="pb-1 text-[15px] font-semibold text-[#42e8d8]">kW</span>
-                    </div>
-                    <div className="mt-3 text-[12px] text-[#6f879b]">
-                      {zh ? `${mappableProjects.length} 个项目具备地图坐标` : `${mappableProjects.length} sites currently placed on the map`}
+                      <span className="pb-0.5 text-[12px] font-semibold text-[#42e8d8]">kW</span>
                     </div>
                   </div>
 
-                  <div className="rounded-[16px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.88),rgba(7,18,29,0.94))] p-4">
-                    <div className="text-[12px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "设计容量" : "Designed Capacity"}</div>
-                    <div className="mt-3 flex items-end gap-2">
-                      <span className="text-[34px] font-black leading-none text-white">
+                  <div className="rounded-[14px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.88),rgba(7,18,29,0.94))] p-3">
+                    <div className="text-[12px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "额定容量" : "Rated Capacity"}</div>
+                    <div className="mt-2 flex items-end gap-1.5">
+                      <span className="text-[24px] font-black leading-none text-white">
                         {totalDesignedCapacityKWh > 0 ? formatMetricNumber(totalDesignedCapacityKWh) : "0"}
                       </span>
-                      <span className="pb-1 text-[15px] font-semibold text-[#42e8d8]">kWh</span>
-                    </div>
-                    <div className="mt-3 text-[12px] text-[#6f879b]">
-                      {zh ? "按照项目额定参数汇总" : "Aggregated from project rated capacity fields"}
+                      <span className="pb-0.5 text-[12px] font-semibold text-[#42e8d8]">kWh</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className={`${PANEL_CLASS} px-4 py-4`}>
+              <div className={`${PANEL_CLASS} px-3.5 py-3.5`}>
                 <SectionHeading icon={<TrendingUp className="h-4 w-4" />} title={zh ? "累计电量" : "Cumulative Energy"} trailing={zh ? "全量统计" : "TOTAL"} />
-                <div className="mt-4 grid gap-3">
-                  <div className="rounded-[16px] border border-[#1f5f62] bg-[linear-gradient(180deg,rgba(7,31,36,0.82),rgba(7,20,28,0.92))] p-4">
+                <div className="mt-3 grid gap-2">
+                  <div className="rounded-[14px] border border-[#1f5f62] bg-[linear-gradient(180deg,rgba(7,31,36,0.82),rgba(7,20,28,0.92))] p-3">
                     <div className="flex items-center gap-2 text-[#86e4dc]">
                       <ArrowUp className="h-4 w-4" />
                       <span className="text-[12px] font-medium tracking-[0.08em]">{zh ? "累计充电" : "Total Charge"}</span>
                     </div>
-                    <div className="mt-3 flex items-end gap-2">
-                      <span className="text-[30px] font-black leading-none text-white">
+                    <div className="mt-2 flex items-end gap-1.5">
+                      <span className="text-[24px] font-black leading-none text-white">
                         {formatMetricNumber(totalChargeMWh, totalChargeMWh >= 100 ? 0 : 1)}
                       </span>
-                      <span className="pb-1 text-[14px] font-semibold text-[#35e6d5]">MWh</span>
+                      <span className="pb-0.5 text-[12px] font-semibold text-[#35e6d5]">MWh</span>
                     </div>
                   </div>
 
-                  <div className="rounded-[16px] border border-[#274e78] bg-[linear-gradient(180deg,rgba(10,25,47,0.82),rgba(7,16,30,0.94))] p-4">
+                  <div className="rounded-[14px] border border-[#274e78] bg-[linear-gradient(180deg,rgba(10,25,47,0.82),rgba(7,16,30,0.94))] p-3">
                     <div className="flex items-center gap-2 text-[#9ac7ff]">
-                      <ChevronDown className="h-4 w-4" />
+                      <ArrowDown className="h-4 w-4" />
                       <span className="text-[12px] font-medium tracking-[0.08em]">{zh ? "累计放电" : "Total Discharge"}</span>
                     </div>
-                    <div className="mt-3 flex items-end gap-2">
-                      <span className="text-[30px] font-black leading-none text-white">
+                    <div className="mt-2 flex items-end gap-1.5">
+                      <span className="text-[24px] font-black leading-none text-white">
                         {formatMetricNumber(totalDischargeMWh, totalDischargeMWh >= 100 ? 0 : 1)}
                       </span>
-                      <span className="pb-1 text-[14px] font-semibold text-[#5ea8ff]">MWh</span>
+                      <span className="pb-0.5 text-[12px] font-semibold text-[#5ea8ff]">MWh</span>
                     </div>
                   </div>
 
-                  <div className="rounded-[16px] border border-[#7a5a26] bg-[linear-gradient(180deg,rgba(54,38,13,0.48),rgba(28,19,6,0.6))] p-4">
+                  <div className="rounded-[14px] border border-[#7a5a26] bg-[linear-gradient(180deg,rgba(54,38,13,0.48),rgba(28,19,6,0.6))] p-3">
                     <div className="flex items-center gap-2 text-[#e7c67a]">
                       <Star className="h-4 w-4 fill-current" />
                       <span className="text-[12px] font-medium tracking-[0.08em]">{zh ? "综合效率" : "Average Efficiency"}</span>
                     </div>
-                    <div className="mt-3 text-[28px] font-black leading-none text-[#ffd38a]">{formatEfficiency(averageEfficiency)}</div>
+                    <div className="mt-2 text-[22px] font-black leading-none text-[#ffd38a]">{formatEfficiency(averageEfficiency)}</div>
                   </div>
                 </div>
               </div>
@@ -777,9 +751,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                     {mappableProjects.map((project) => {
                       const lifecycle = normalizeLifecycle(project)
                       const styles = getLifecycleStyles(lifecycle)
-                      const isSelected = selectedId === project.id
                       const isHovered = hoveredId === project.id
-                      const isActive = isSelected || isHovered
+                      const isActive = isHovered
                       const projectLabel = getProjectRegionLabel(project, zh)
                       const labelWidth = Math.max(72, Math.min(156, projectLabel.length * 7 + 28))
 
@@ -789,7 +762,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           coordinates={[project.longitude!, project.latitude!]}
                           onClick={() => handleMarkerClick(project)}
                           onMouseEnter={() => handleProjectHover(project.id)}
-                          onMouseLeave={() => handleProjectHover(null)}
+                          onMouseLeave={handleProjectHoverEnd}
                         >
                           <circle
                             r={isActive ? 18 : 13}
@@ -844,21 +817,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </ComposableMap>
               </div>
 
-              <div className="pointer-events-none absolute inset-x-4 top-4 z-20 flex flex-col gap-3 sm:inset-x-5 sm:top-5 sm:flex-row sm:items-start sm:justify-between">
-                <div className="max-w-[18rem] rounded-[18px] border border-[#23485d] bg-[rgba(5,18,29,0.84)] px-4 py-3 backdrop-blur-[10px]">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[linear-gradient(135deg,#2df0dc,#46c4ff)] text-[#05242d] shadow-[0_0_16px_rgba(45,240,220,0.25)]">
-                      <Layers3 className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <div className="text-[14px] font-bold tracking-[0.08em] text-[#f3ffff]">{zh ? "全球站点分布" : "Global Site Coverage"}</div>
-                      <div className="text-[12px] text-[#7e98ab]">
-                        {zh ? "悬停或点击站点查看项目详情" : "Hover or select a site to inspect project details."}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
+              <div className="pointer-events-none absolute inset-x-4 top-4 z-20 flex flex-col gap-3 sm:inset-x-5 sm:top-5 sm:flex-row sm:items-start sm:justify-end">
                 <div className="flex flex-wrap items-center gap-2">
                   {mapStatusLegend.map((item) => {
                     const styles = getLifecycleStyles(item.key)
@@ -871,13 +830,14 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </div>
               </div>
 
-              <div className="pointer-events-none absolute left-5 top-5 h-14 w-14 rounded-tl-[18px] border-l border-t border-[#59dce2]/26" />
-              <div className="pointer-events-none absolute bottom-5 right-5 h-14 w-14 rounded-br-[18px] border-b border-r border-[#59dce2]/22" />
-
               {activeProject ? (
-                <div className="absolute bottom-4 left-4 right-4 z-20 sm:right-auto sm:w-[24rem] lg:bottom-5 lg:left-5">
-                  <div className="overflow-hidden rounded-[22px] border border-[#294e62] bg-[linear-gradient(180deg,rgba(7,18,29,0.94),rgba(5,12,20,0.98))] shadow-[0_20px_44px_rgba(0,0,0,0.34)] backdrop-blur-[16px]">
-                    <div className="relative h-32 overflow-hidden border-b border-[#23465b]">
+                <div
+                  className="absolute bottom-4 left-4 right-4 z-20 sm:right-auto sm:w-[22rem] lg:bottom-5 lg:left-5"
+                  onMouseEnter={() => handleProjectHover(activeProject.id)}
+                  onMouseLeave={handleProjectHoverEnd}
+                >
+                  <div className="overflow-hidden rounded-[20px] border border-[#294e62] bg-[linear-gradient(180deg,rgba(7,18,29,0.94),rgba(5,12,20,0.98))] shadow-[0_20px_44px_rgba(0,0,0,0.34)] backdrop-blur-[16px]">
+                    <div className="relative h-28 overflow-hidden border-b border-[#23465b]">
                       {hasText(activeProject.picPath) ? (
                         <img
                           src={activeProject.picPath}
@@ -891,8 +851,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
                         <div className="flex items-end justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-[11px] font-medium tracking-[0.14em] text-[#87cfc7]">{zh ? "当前聚焦项目" : "Focused Project"}</div>
-                            <div className="mt-1 truncate text-[18px] font-black text-[#f6fbff]">
+                            <div className="text-[11px] font-medium tracking-[0.14em] text-[#87cfc7]">{zh ? "项目预览" : "Project Preview"}</div>
+                            <div className="mt-1 truncate text-[17px] font-black text-[#f6fbff]">
                               {getProjectName(activeProject, zh)}
                             </div>
                           </div>
@@ -907,27 +867,27 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       </div>
                     </div>
 
-                    <div className="space-y-3 px-4 py-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-[14px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-3 py-3">
+                    <div className="space-y-2.5 px-4 py-3.5">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="rounded-[13px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-3 py-2.5">
                           <div className="text-[11px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "区域" : "Region"}</div>
                           <div className="mt-1 truncate text-[14px] font-semibold text-[#f2fbff]">
                             {getProjectRegionLabel(activeProject, zh)}
                           </div>
                         </div>
-                        <div className="rounded-[14px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-3 py-3">
+                        <div className="rounded-[13px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-3 py-2.5">
                           <div className="text-[11px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "投运日期" : "Go-Live"}</div>
                           <div className="mt-1 truncate text-[14px] font-semibold text-[#f2fbff]">
                             {getProjectDateLabel(activeProject, zh)}
                           </div>
                         </div>
-                        <div className="rounded-[14px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-3 py-3">
-                          <div className="text-[11px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "设计容量" : "Capacity"}</div>
+                        <div className="rounded-[13px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-3 py-2.5">
+                          <div className="text-[11px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "额定容量" : "Rated Capacity"}</div>
                           <div className="mt-1 truncate text-[14px] font-semibold text-[#f2fbff]">
                             {getProjectCapacityLabel(activeProject, zh)}
                           </div>
                         </div>
-                        <div className="rounded-[14px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-3 py-3">
+                        <div className="rounded-[13px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-3 py-2.5">
                           <div className="text-[11px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "综合效率" : "Efficiency"}</div>
                           <div className="mt-1 truncate text-[14px] font-semibold text-[#f2fbff]">
                             {formatEfficiency(activeItem?.score ?? null)}
@@ -935,15 +895,15 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-[14px] border border-[#1f5b5f] bg-[rgba(7,29,34,0.72)] px-3 py-3">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="rounded-[13px] border border-[#1f5b5f] bg-[rgba(7,29,34,0.72)] px-3 py-2.5">
                           <div className="text-[11px] font-medium tracking-[0.08em] text-[#83e8de]">{zh ? "当前状态" : "Current State"}</div>
                           <div className="mt-1 flex items-center gap-2 text-[14px] font-semibold text-[#effaff]">
                             <CheckCircle2 className="h-4 w-4 text-[#3fe5d7]" />
                             <span>{zh ? activeItem?.runtimeLabelZh ?? "待补全" : activeItem?.runtimeLabelEn ?? "Pending"}</span>
                           </div>
                         </div>
-                        <div className="rounded-[14px] border border-[#234f76] bg-[rgba(11,24,43,0.76)] px-3 py-3">
+                        <div className="rounded-[13px] border border-[#234f76] bg-[rgba(11,24,43,0.76)] px-3 py-2.5">
                           <div className="text-[11px] font-medium tracking-[0.08em] text-[#97c8ff]">{zh ? "SOC / 功率" : "SOC / Power"}</div>
                           <div className="mt-1 text-[14px] font-semibold text-[#effaff]">
                             {formatSoc(activeItem?.socPercent ?? null, zh)} · {formatRealtimePower(activeItem?.powerKw ?? null, zh)}
@@ -951,14 +911,14 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-[14px] border border-[#1f5b5f] bg-[rgba(7,29,34,0.72)] px-3 py-3">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="rounded-[13px] border border-[#1f5b5f] bg-[rgba(7,29,34,0.72)] px-3 py-2.5">
                           <div className="text-[11px] font-medium tracking-[0.08em] text-[#83e8de]">{zh ? "累计充电" : "Total Charge"}</div>
                           <div className="mt-1 text-[14px] font-semibold text-[#74f2e6]">
                             {formatEnergySummary(activeItem?.totalChargeMWh ?? null, zh)}
                           </div>
                         </div>
-                        <div className="rounded-[14px] border border-[#234f76] bg-[rgba(11,24,43,0.76)] px-3 py-3">
+                        <div className="rounded-[13px] border border-[#234f76] bg-[rgba(11,24,43,0.76)] px-3 py-2.5">
                           <div className="text-[11px] font-medium tracking-[0.08em] text-[#97c8ff]">{zh ? "累计放电" : "Total Discharge"}</div>
                           <div className="mt-1 text-[14px] font-semibold text-[#9fccff]">
                             {formatEnergySummary(activeItem?.totalDischargeMWh ?? null, zh)}
@@ -969,7 +929,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       <button
                         type="button"
                         onClick={() => handleProjectNavigate(activeProject)}
-                        className="flex h-11 w-full items-center justify-center gap-2 rounded-[14px] border border-[#2b6f80] bg-[linear-gradient(135deg,rgba(33,217,204,0.2),rgba(42,132,213,0.2))] text-[14px] font-semibold text-[#dff9ff] transition-all hover:border-[#54dce0] hover:text-white"
+                        className="flex h-10 w-full items-center justify-center gap-2 rounded-[13px] border border-[#2b6f80] bg-[linear-gradient(135deg,rgba(33,217,204,0.2),rgba(42,132,213,0.2))] text-[13px] font-semibold text-[#dff9ff] transition-all hover:border-[#54dce0] hover:text-white"
                       >
                         {zh ? "进入项目详情" : "Open Project Dashboard"}
                         <ArrowRight className="h-4 w-4" />
@@ -977,13 +937,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className="absolute bottom-4 left-4 right-4 z-20 sm:right-auto sm:w-[22rem] lg:bottom-5 lg:left-5">
-                  <div className="rounded-[20px] border border-[#24485d] bg-[rgba(5,17,28,0.84)] px-4 py-4 text-[13px] text-[#7e98ab] backdrop-blur-[12px]">
-                    {zh ? "将鼠标移到站点上，或点击标记点查看项目详情。" : "Hover a site or click a marker to view project details."}
-                  </div>
-                </div>
-              )}
+              ) : null}
 
               {loading ? (
                 <div className="absolute inset-x-4 bottom-4 z-20 rounded-[14px] border border-[#235e71]/50 bg-[rgba(7,20,30,0.88)] px-4 py-3 text-[13px] text-[#94b5c2] sm:left-auto sm:right-5 sm:top-24 sm:bottom-auto sm:w-72">
@@ -992,28 +946,27 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
               ) : null}
             </div>
 
-            <aside className="order-3 flex min-h-0 flex-col gap-4 xl:overflow-hidden">
-              <div className={`${PANEL_CLASS} px-4 py-4`}>
+            <aside className="order-3 flex min-h-0 flex-col gap-3 xl:overflow-y-auto xl:pr-1 xl:overscroll-contain custom-scrollbar">
+              <div className={`${PANEL_CLASS} px-3.5 py-3.5`}>
                 <SectionHeading icon={<Star className="h-4 w-4" />} title={zh ? "能效排行" : "Efficiency Ranking"} trailing={zh ? "综合效率" : "EE"} />
-                <div className="mt-4 space-y-3.5">
+                <div className="mt-3 space-y-2.5">
                   {metricsLoading ? (
                     <div className="rounded-[14px] border border-[#245f72]/45 bg-[rgba(8,25,36,0.72)] px-3 py-4 text-[13px] text-[#92b5c2]">
                       {zh ? "正在加载能效排行..." : "Loading efficiency ranking..."}
                     </div>
                   ) : (
-                    topEfficiencyItems.slice(0, 4).map((item, index) => {
+                    topEfficiencyItems.slice(0, 3).map((item, index) => {
                       const styles = getLifecycleStyles(item.lifecycle)
-                      const progressWidth = `${Math.max(10, ((item.score ?? 0) / maxEfficiencyScore) * 100)}%`
+                      const efficiencyValue = item.score ?? 0
+                      const progressWidth =
+                        efficiencyValue <= 0 ? "0%" : `${Math.max(6, (efficiencyValue / maxEfficiencyScore) * 100)}%`
 
                       return (
-                        <div
-                          key={item.project.id}
-                          className="rounded-[16px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.78),rgba(7,18,28,0.92))] p-3.5"
-                        >
+                        <div key={item.project.id} className="rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.78),rgba(7,18,28,0.92))] p-2.5">
                           <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex items-start gap-3">
+                            <div className="min-w-0 flex items-start gap-2.5">
                               <div
-                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-[12px] font-black ${
+                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] text-[11px] font-black ${
                                   index === 0
                                     ? "bg-[#ffcf4f] text-[#181818]"
                                     : index === 1
@@ -1025,8 +978,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                               >
                                 {index + 1}
                               </div>
-                              <div className="min-w-0">
-                                <div className="truncate text-[14px] font-semibold text-[#eefcff]">{getProjectName(item.project, zh)}</div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[13px] font-semibold leading-[1.25] break-words text-[#eefcff]">{getProjectName(item.project, zh)}</div>
                                 <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-[#7f98ab]">
                                   <span>{getProjectRegionLabel(item.project, zh)}</span>
                                   <span className={`rounded-full border px-2 py-0.5 text-[10px] ${styles.badge}`}>
@@ -1035,8 +988,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                 </div>
                               </div>
                             </div>
-                            <div className="shrink-0 text-[22px] font-black leading-none text-[#3de9d8]">
-                              {formatEfficiency(item.score)}
+                            <div className="shrink-0 text-[20px] font-black leading-none text-[#3de9d8]">
+                              {formatEfficiency(efficiencyValue)}
                             </div>
                           </div>
                           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#102636]">
@@ -1052,9 +1005,9 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </div>
               </div>
 
-              <div className={`${PANEL_CLASS} min-h-0 flex-1 px-4 py-4 xl:overflow-hidden`}>
+              <div className={`${PANEL_CLASS} px-3.5 py-3.5`}>
                 <SectionHeading icon={<ArrowUp className="h-4 w-4" />} title={zh ? "充放电对比" : "Charge / Discharge"} trailing="MWh" />
-                <div className="mt-4 flex items-center justify-end gap-4 text-[11px] text-[#8aa7b8]">
+                <div className="mt-3 flex items-center justify-end gap-4 text-[11px] text-[#8aa7b8]">
                   <div className="flex items-center gap-1.5">
                     <span className="h-2 w-3 rounded-full bg-[#24edd7]" />
                     <span>{zh ? "充电" : "Charge"}</span>
@@ -1065,22 +1018,22 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-4 custom-scrollbar xl:h-full xl:overflow-y-auto xl:pr-1">
+                <div className="mt-3 grid gap-2.5">
                   {metricsLoading ? (
                     <div className="rounded-[14px] border border-[#245f72]/45 bg-[rgba(8,25,36,0.72)] px-3 py-4 text-[13px] text-[#92b5c2]">
                       {zh ? "正在加载充放电对比..." : "Loading charge/discharge comparison..."}
                     </div>
                   ) : (
-                    efficiencyItems.slice(0, 6).map((item) => (
+                    efficiencyItems.slice(0, 3).map((item) => (
                       <div
                         key={item.project.id}
-                        className="rounded-[16px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.78),rgba(7,18,28,0.92))] p-3.5"
+                        className="rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.78),rgba(7,18,28,0.92))] p-2.5"
                       >
-                        <div className="mb-3 flex items-center gap-2">
+                        <div className="mb-2.5 flex items-center gap-2">
                           <span className={`h-4 w-1 rounded-full ${getLifecycleStyles(item.lifecycle).dot}`} />
-                          <span className="truncate text-[14px] font-semibold text-[#ddeef7]">{getProjectName(item.project, zh)}</span>
+                          <span className="truncate text-[13px] font-semibold text-[#ddeef7]">{getProjectName(item.project, zh)}</span>
                         </div>
-                        <div className="space-y-2.5 text-[12px]">
+                        <div className="space-y-2 text-[12px]">
                           <div className="grid grid-cols-[1.5rem_minmax(0,1fr)_4rem] items-center gap-3">
                             <span className="text-[#7d96a9]">{zh ? "充" : "C"}</span>
                             <div className="h-1.5 overflow-hidden rounded-full bg-[#102636]">

@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react"
-import { Globe, LogOut } from "lucide-react"
+import { LogOut } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 type ActionConfig = {
@@ -16,6 +16,11 @@ type DashboardTopControlsProps = {
   onLogout: () => void
 }
 
+const LANGUAGE_OPTIONS = [
+  { key: "zh" as const, label: "中" },
+  { key: "en" as const, label: "EN" },
+]
+
 export function DashboardTopControls({
   compact = false,
   action,
@@ -24,11 +29,10 @@ export function DashboardTopControls({
 }: DashboardTopControlsProps) {
   const { language, setLanguage } = useLanguage()
   const zh = language === "zh"
-  const controlHeight = compact ? "h-[34px]" : "h-[38px]"
+  const controlHeight = compact ? "h-[34px]" : "h-[36px]"
   const buttonClass =
-    "inline-flex items-center gap-2 rounded-[14px] border border-[#284b6c] bg-[linear-gradient(180deg,rgba(8,18,34,0.94),rgba(5,13,24,0.96))] px-3.5 text-[12px] font-semibold text-[#97b2c8] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-all hover:border-[#3b678f] hover:text-[#f3fbff]"
+    "inline-flex items-center gap-2 rounded-full border border-[#31556f] bg-[rgba(8,18,34,0.9)] px-3 text-[12px] font-medium text-[#d7e7f2] transition-all hover:border-[#4f7b97] hover:bg-[rgba(11,24,43,0.96)]"
   const logoutLabel = zh ? "退出" : "Logout"
-  const languageLabel = zh ? "语言" : "Language"
 
   return (
     <div className="flex shrink-0 items-center gap-2">
@@ -40,27 +44,20 @@ export function DashboardTopControls({
       ) : null}
 
       <div
-        className={`flex items-center overflow-hidden rounded-[14px] border border-[#284b6c] bg-[linear-gradient(180deg,rgba(8,18,34,0.94),rgba(5,13,24,0.96))] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] ${controlHeight}`}
+        className={`flex items-center overflow-hidden rounded-full border border-[#31556f] bg-[rgba(8,18,34,0.9)] p-1 ${controlHeight}`}
       >
-        <div className="flex items-center gap-1.5 border-r border-[#23415d] px-2.5 text-[#7fd8d9]">
-          <Globe className="h-3.5 w-3.5" />
-          {!compact ? (
-            <span className="text-[11px] font-semibold tracking-[0.12em] text-[#86a6bc]">{languageLabel}</span>
-          ) : null}
-        </div>
-
-        {(["zh", "en"] as const).map((lang) => (
+        {LANGUAGE_OPTIONS.map((option) => (
           <button
-            key={lang}
+            key={option.key}
             type="button"
-            onClick={() => setLanguage(lang)}
-            className={`px-3 py-1.5 text-[12px] font-semibold tracking-[0.08em] transition-all ${
-              language === lang
-                ? "bg-[linear-gradient(180deg,rgba(57,228,214,0.92),rgba(22,183,213,0.88))] text-[#05222a] shadow-[0_0_18px_rgba(47,207,220,0.2)]"
-                : "text-[#8ea9bf] hover:bg-[rgba(16,39,59,0.72)] hover:text-[#eef8fc]"
+            onClick={() => setLanguage(option.key)}
+            className={`min-w-[38px] rounded-full px-2.5 py-1 text-[12px] font-semibold transition-all ${
+              language === option.key
+                ? "bg-[linear-gradient(180deg,rgba(82,236,255,0.98),rgba(39,205,240,0.92))] text-[#062432]"
+                : "text-[#88a5bb] hover:text-[#edf8ff]"
             }`}
           >
-            {lang === "zh" ? "中文" : "EN"}
+            {option.label}
           </button>
         ))}
       </div>

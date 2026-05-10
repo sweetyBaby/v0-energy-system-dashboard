@@ -105,29 +105,28 @@
 
 /* Custom scrollbar styles */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(7, 24, 36, 0.72);
+  background: rgba(7, 24, 36, 0.42);
   border-radius: 999px;
-  border: 1px solid rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.04);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(45, 231, 215, 0.92), rgba(79, 170, 255, 0.88));
+  background: linear-gradient(180deg, rgba(90, 151, 172, 0.72), rgba(71, 124, 158, 0.76));
   border-radius: 999px;
-  border: 1px solid rgba(220, 252, 255, 0.18);
-  box-shadow: 0 0 14px rgba(45, 231, 215, 0.2);
+  border: 1px solid rgba(220, 252, 255, 0.08);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(102, 246, 234, 0.98), rgba(101, 181, 255, 0.96));
+  background: linear-gradient(180deg, rgba(112, 178, 201, 0.82), rgba(87, 145, 184, 0.86));
 }
 
 /* Firefox scrollbar support */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(67, 220, 230, 0.95) rgba(7, 24, 36, 0.72);
+  scrollbar-color: rgba(94, 154, 176, 0.78) rgba(7, 24, 36, 0.42);
 }
