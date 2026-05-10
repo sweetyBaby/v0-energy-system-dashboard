@@ -23,7 +23,7 @@ export function NavBrand({ compact = false }: NavBrandProps) {
       <div className="min-w-0">
         
         <span
-          className="mt-0.5 block shrink-0 truncate font-black uppercase leading-tight"
+          className="mt-0.5 block shrink-0 truncate font-black leading-tight"
           style={{
             fontSize: compact ? "1.12rem" : "1.46rem",
             letterSpacing: compact ? "0.09em" : "0.12em",
