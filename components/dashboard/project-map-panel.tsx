@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { DashboardHeaderShell } from "@/components/dashboard/dashboard-header-shell"
 import { DashboardTopControls } from "@/components/dashboard/dashboard-top-controls"
+import { HeaderInfoBar } from "@/components/dashboard/header-info-bar"
 import { NavBrand } from "@/components/dashboard/nav-brand"
 import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
@@ -733,9 +734,11 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       <DashboardHeaderShell compact={useCompactHeader}>
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <NavBrand compact={useCompactHeader} />
-         
         </div>
-        <DashboardTopControls compact={useCompactHeader} isLoggingOut={isLoggingOut} onLogout={handleLogout} />
+        <div className="flex shrink-0 items-center gap-2">
+          <HeaderInfoBar compact={useCompactHeader} />
+          <DashboardTopControls compact={useCompactHeader} isLoggingOut={isLoggingOut} onLogout={handleLogout} />
+        </div>
       </DashboardHeaderShell>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col p-2">

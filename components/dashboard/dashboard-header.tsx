@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Check, ChevronDown, Map } from "lucide-react"
 import { DashboardHeaderShell } from "@/components/dashboard/dashboard-header-shell"
 import { DashboardTopControls } from "@/components/dashboard/dashboard-top-controls"
+import { HeaderInfoBar } from "@/components/dashboard/header-info-bar"
 import { NavBrand } from "@/components/dashboard/nav-brand"
 import {
   fetchProjectOptionsByDevice,
@@ -347,26 +348,29 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
     <DashboardHeaderShell compact={useCompactHeader}>
       <div className="flex min-w-0 flex-1 items-center gap-4">
         <NavBrand compact={useCompactHeader} />
-
-      
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
+        <HeaderInfoBar
+          compact={useCompactHeader}
+          latitude={selectedProject.latitude}
+          longitude={selectedProject.longitude}
+        />
         <div ref={projectMenuRef} className="relative">
           <button
             type="button"
             onClick={() => setIsProjectMenuOpen((current) => !current)}
-            className={`relative flex min-w-[14rem] max-w-[20rem] items-center justify-between gap-3 overflow-hidden rounded-[16px] border border-[#294960] bg-[linear-gradient(180deg,rgba(10,23,38,0.96),rgba(6,14,25,0.98))] px-4 text-left text-[#e7f8ff] shadow-[0_0_0_1px_rgba(117,198,234,0.05)_inset,0_12px_26px_rgba(0,0,0,0.18)] transition-all hover:border-[#4d8dae] ${
-              useCompactHeader ? "h-[36px]" : "h-[40px]"
+            className={`relative flex min-w-[9rem] max-w-[18rem] items-center justify-between gap-2 overflow-hidden rounded-[12px] border border-[#28475d] bg-[linear-gradient(180deg,rgba(9,21,35,0.94),rgba(6,14,25,0.98))] px-3 text-left text-[#d7e7f2] shadow-[0_0_0_1px_rgba(117,198,234,0.05)_inset,0_10px_24px_rgba(0,0,0,0.16)] transition-all hover:border-[#4f88a9] hover:text-[#f4fcff] ${
+              useCompactHeader ? "h-[30px]" : "h-[34px]"
             }`}
             aria-haspopup="menu"
             aria-expanded={isProjectMenuOpen}
           >
-            <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#9deeff]/70 to-transparent" />
-            <span className="truncate text-sm font-semibold" title={projectLabel}>
+            <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/68 to-transparent" />
+            <span className="truncate text-[11px] font-medium" title={projectLabel}>
               {projectLabel}
             </span>
-            <ChevronDown className={`h-4 w-4 shrink-0 text-[#8de7f5] transition-transform ${isProjectMenuOpen ? "rotate-180" : ""}`} />
+            <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#8de7f5] transition-transform ${isProjectMenuOpen ? "rotate-180" : ""}`} />
           </button>
 
           {isProjectMenuOpen && (
@@ -385,7 +389,7 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
                       setIsProjectMenuOpen(false)
                       window.history.replaceState(null, '', `/dashboard?projectId=${encodeURIComponent(project.projectId)}`)
                     }}
-                    className={`flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left text-sm transition-colors ${
+                    className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-[12px] transition-colors ${
                       isActive
                         ? "bg-[linear-gradient(90deg,rgba(18,68,94,0.72),rgba(11,34,52,0.5))] text-[#6af6ef]"
                         : "text-[#d9ecff] hover:bg-[rgba(15,52,74,0.34)]"
