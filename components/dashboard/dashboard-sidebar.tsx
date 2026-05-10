@@ -89,8 +89,8 @@ export function DashboardSidebar({
   const collapsedW = 68
   const collapseLabel = zh ? "折叠菜单" : "Collapse menu"
   const expandLabel = zh ? "展开菜单" : "Expand menu"
-  const switchProjectLabel = zh ? "项目地图" : "Map"
-  const backToMapLabel = zh ? "返回项目地图" : "Back to Map"
+  const switchProjectLabel = zh ? "项目地图" : "Project Map"
+  const backToMapLabel = zh ? "项目地图" : "Project Map"
   const backToMapHref = selectedProject.projectId
     ? `/project-map?projectId=${encodeURIComponent(selectedProject.projectId)}`
     : "/project-map"

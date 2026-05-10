@@ -160,13 +160,13 @@ export function ProjectProvider({ children, initialProjectId }: { children: Reac
         setSelectedProjectId(target.id)
         return
       }
+
+      setSelectedProjectId(projectOptions[0].id)
+      return
     }
 
-    const hasSelectedProject = projectOptions.some((project) => project.id === selectedProjectId)
-    if (!hasSelectedProject) {
-      setSelectedProjectId(projectOptions[0].id)
-    }
-  }, [projectOptions, selectedProjectId, initialProjectId])
+    setSelectedProjectId(projectOptions[0].id)
+  }, [projectOptions, initialProjectId])
 
   const projectOption =
     projectOptions.find((project) => project.id === selectedProjectId) ?? projectOptions[0] ?? defaultProjectOption
@@ -383,6 +383,7 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
                     onClick={() => {
                       setSelectedProject(project)
                       setIsProjectMenuOpen(false)
+                      window.history.replaceState(null, '', `/dashboard?projectId=${encodeURIComponent(project.projectId)}`)
                     }}
                     className={`flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left text-sm transition-colors ${
                       isActive

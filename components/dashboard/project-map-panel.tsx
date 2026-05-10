@@ -25,6 +25,7 @@ import { fetchProjectOptionsByDevice, fetchProjectRealtime, type ProjectOption }
 
 const GEO_URL = "/world-atlas.json"
 const EXCLUDED_COUNTRY_NAMES = new Set(["Antarctica", "Fr. S. Antarctic Lands"])
+const HOVER_EXIT_DELAY_MS = 220
 
 type MapCoordinates = [number, number]
 type LifecycleKey = "commissioned" | "construction" | "planned"
@@ -384,6 +385,22 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [hoveredClusterId, setHoveredClusterId] = useState<string | null>(null)
   const hoverExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const clearHoverExitTimer = useCallback(() => {
+    if (hoverExitTimerRef.current) {
+      clearTimeout(hoverExitTimerRef.current)
+      hoverExitTimerRef.current = null
+    }
+  }, [])
+
+  const scheduleHoverExit = useCallback(() => {
+    clearHoverExitTimer()
+    hoverExitTimerRef.current = setTimeout(() => {
+      setHoveredClusterId(null)
+      setHoveredId(null)
+      hoverExitTimerRef.current = null
+    }, HOVER_EXIT_DELAY_MS)
+  }, [clearHoverExitTimer])
+
   useEffect(() => {
     let cancelled = false
 
@@ -654,44 +671,26 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
   const handleClusterHover = useCallback(
     (cluster: ProjectCluster) => {
-      if (hoverExitTimerRef.current) {
-        clearTimeout(hoverExitTimerRef.current)
-        hoverExitTimerRef.current = null
-      }
+      clearHoverExitTimer()
       setHoveredClusterId(cluster.id)
       setHoveredId(cluster.projects[0].id)
     },
-    []
+    [clearHoverExitTimer]
   )
 
   const handleClusterHoverEnd = useCallback(() => {
-    if (hoverExitTimerRef.current) clearTimeout(hoverExitTimerRef.current)
-    hoverExitTimerRef.current = setTimeout(() => {
-      setHoveredClusterId(null)
-      setHoveredId(null)
-    }, 30)
-  }, [])
+    scheduleHoverExit()
+  }, [scheduleHoverExit])
 
   const handleProjectHover = useCallback((projectId: string | null) => {
-    if (hoverExitTimerRef.current) {
-      clearTimeout(hoverExitTimerRef.current)
-      hoverExitTimerRef.current = null
-    }
-
+    clearHoverExitTimer()
     setHoveredClusterId(null)
     setHoveredId(projectId)
-  }, [])
+  }, [clearHoverExitTimer])
 
   const handleProjectHoverEnd = useCallback(() => {
-    if (hoverExitTimerRef.current) {
-      clearTimeout(hoverExitTimerRef.current)
-    }
-
-    hoverExitTimerRef.current = setTimeout(() => {
-      setHoveredClusterId(null)
-      setHoveredId(null)
-    }, 30)
-  }, [])
+    scheduleHoverExit()
+  }, [scheduleHoverExit])
 
   const handleProjectNavigate = useCallback(
     (project: ProjectOption) => {
@@ -702,14 +701,14 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
   // Switch the active project within a cluster card without touching cluster hover state
   const handleSelectProjectInCluster = useCallback((projectId: string) => {
-    if (hoverExitTimerRef.current) clearTimeout(hoverExitTimerRef.current)
+    clearHoverExitTimer()
     setHoveredId(projectId)
-  }, [])
+  }, [clearHoverExitTimer])
 
   // Keep the card visible while the mouse is over it — just cancel the exit timer
   const handleCardMouseEnter = useCallback(() => {
-    if (hoverExitTimerRef.current) clearTimeout(hoverExitTimerRef.current)
-  }, [])
+    clearHoverExitTimer()
+  }, [clearHoverExitTimer])
 
   const handleLogout = async () => {
     if (isLoggingOut) return
