@@ -352,15 +352,15 @@ const pickRuntimeLabel = (project: ProjectOption, powerKw: number | null, isOnli
 
 function SectionHeading({ icon, title, trailing }: SectionHeadingProps) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       <div className="flex items-center justify-between gap-2.5">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-[9px] border border-[#25576a] bg-[linear-gradient(180deg,rgba(11,31,44,0.95),rgba(8,20,31,0.96))] text-[#7ce8df] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="flex h-6.5 w-6.5 items-center justify-center rounded-[9px] border border-[#25576a] bg-[linear-gradient(180deg,rgba(11,31,44,0.95),rgba(8,20,31,0.96))] text-[#7ce8df] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             {icon}
           </div>
-          <span className="truncate text-[14px] font-bold tracking-[0.07em] text-[#f2fbff]">{title}</span>
+          <span className="truncate text-[13px] font-bold tracking-[0.06em] text-[#f2fbff]">{title}</span>
         </div>
-        {trailing ? <div className="text-[11px] font-medium tracking-[0.12em] text-[#71879b]">{trailing}</div> : null}
+        {trailing ? <div className="text-[10px] font-medium tracking-[0.1em] text-[#71879b]">{trailing}</div> : null}
       </div>
       <div className="h-px w-full bg-[linear-gradient(90deg,rgba(54,222,214,0.55),rgba(54,222,214,0.08),transparent)]" />
     </div>
@@ -738,23 +738,23 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
         <DashboardTopControls compact={useCompactHeader} isLoggingOut={isLoggingOut} onLogout={handleLogout} />
       </DashboardHeaderShell>
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col p-2.5">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col p-2">
         <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#1b4c60] bg-[linear-gradient(180deg,rgba(4,15,27,0.99),rgba(2,9,18,1))] shadow-[0_26px_56px_rgba(0,0,0,0.28)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(42,230,227,0.12),transparent_18%),radial-gradient(circle_at_85%_75%,rgba(58,140,255,0.1),transparent_24%)]" />
 
           <div className="relative grid min-h-full gap-2 p-2 xl:h-full xl:grid-cols-[13.75rem_minmax(0,1fr)_14.25rem] 2xl:grid-cols-[14.25rem_minmax(0,1fr)_14.75rem]">
-            <aside className="order-2 flex min-h-0 flex-col gap-2.5 xl:order-1 xl:overflow-y-auto xl:pr-0.5 xl:overscroll-contain custom-scrollbar">
-              <div className={`${PANEL_CLASS} px-2.5 py-2.5`}>
+            <aside className="order-2 flex min-h-0 flex-col gap-2 xl:order-1 xl:overflow-y-hidden xl:pr-0.5">
+              <div className={`${PANEL_CLASS} px-2.5 py-2`}>
                 <SectionHeading icon={<Layers3 className="h-4 w-4" />} title={zh ? "项目状态" : "Project Status"} trailing={zh ? "实时汇总" : "LIVE"} />
-                <div className="mt-2 grid grid-cols-3 gap-1.5">
+                <div className="mt-1.5 grid grid-cols-3 gap-1.5">
                   {statusCards.map((item) => (
                     <div
                       key={item.key}
-                      className="rounded-[14px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.9),rgba(7,18,29,0.94))] px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
+                      className="rounded-[14px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.9),rgba(7,18,29,0.94))] px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
                     >
-                      <div className="text-[11px] font-medium tracking-[0.08em] text-[#7f98ab]">{item.label}</div>
+                      <div className="text-[10px] font-medium tracking-[0.06em] text-[#7f98ab]">{item.label}</div>
                       <div
-                        className={`mt-1 text-[20px] font-black leading-none ${
+                        className={`mt-1 text-[18px] font-black leading-none ${
                           item.accent === "green" ? "text-[#3de9d8]" : "text-[#edf6fb]"
                         }`}
                       >
@@ -764,41 +764,41 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                   ))}
                 </div>
 
-                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                   {lifecycleItems.map((item) => (
                     <div
                       key={item.key}
-                      className="rounded-[14px] border border-[#21495e] bg-[rgba(8,20,31,0.72)] px-2.5 py-2"
+                      className="rounded-[14px] border border-[#21495e] bg-[rgba(8,20,31,0.72)] px-2.5 py-1.5"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-[9px] bg-[linear-gradient(180deg,rgba(19,44,59,0.94),rgba(11,24,36,0.94))] text-[#8fe2dc]">
-                          <item.icon className="h-4 w-4" />
+                        <div className="flex h-6.5 w-6.5 items-center justify-center rounded-[9px] bg-[linear-gradient(180deg,rgba(19,44,59,0.94),rgba(11,24,36,0.94))] text-[#8fe2dc]">
+                          <item.icon className="h-3.5 w-3.5" />
                         </div>
-                        <div className="text-[18px] font-black leading-none text-white">{item.value}</div>
+                        <div className="text-[16px] font-black leading-none text-white">{item.value}</div>
                       </div>
-                      <div className="mt-1 text-[12px] font-semibold text-[#eef9ff]">{item.label}</div>
+                      <div className="mt-0.5 text-[11px] font-semibold text-[#eef9ff]">{item.label}</div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className={`${PANEL_CLASS} px-2.5 py-2.5`}>
+              <div className={`${PANEL_CLASS} px-2.5 py-2`}>
                 <SectionHeading icon={<Zap className="h-4 w-4" />} title={zh ? "系统容量" : "System Capacity"} trailing={zh ? "额定值" : "RATED"} />
-                <div className="mt-2 grid gap-1.5">
-                  <div className="rounded-[14px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.88),rgba(7,18,29,0.94))] px-2.5 py-2">
-                    <div className="text-[12px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "装机功率" : "Installed Power"}</div>
-                    <div className="mt-1.5 flex items-end gap-1.5">
-                      <span className="text-[20px] font-black leading-none text-white">
+                <div className="mt-1.5 grid gap-1.5">
+                  <div className="rounded-[14px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.88),rgba(7,18,29,0.94))] px-2.5 py-1.5">
+                    <div className="text-[11px] font-medium tracking-[0.06em] text-[#7f98ab]">{zh ? "装机功率" : "Installed Power"}</div>
+                    <div className="mt-1 flex items-end gap-1">
+                      <span className="text-[18px] font-black leading-none text-white">
                         {totalInstalledMw > 0 ? formatMetricNumber(totalInstalledMw * 1000, 1) : "0.0"}
                       </span>
                       <span className="pb-0.5 text-[12px] font-semibold text-[#42e8d8]">kW</span>
                     </div>
                   </div>
 
-                  <div className="rounded-[14px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.88),rgba(7,18,29,0.94))] px-2.5 py-2">
-                    <div className="text-[12px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "额定容量" : "Rated Capacity"}</div>
-                    <div className="mt-1.5 flex items-end gap-1.5">
-                      <span className="text-[20px] font-black leading-none text-white">
+                  <div className="rounded-[14px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.88),rgba(7,18,29,0.94))] px-2.5 py-1.5">
+                    <div className="text-[11px] font-medium tracking-[0.06em] text-[#7f98ab]">{zh ? "额定容量" : "Rated Capacity"}</div>
+                    <div className="mt-1 flex items-end gap-1">
+                      <span className="text-[18px] font-black leading-none text-white">
                         {totalDesignedCapacityKWh > 0 ? formatMetricNumber(totalDesignedCapacityKWh) : "0"}
                       </span>
                       <span className="pb-0.5 text-[12px] font-semibold text-[#42e8d8]">kWh</span>
@@ -807,16 +807,16 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </div>
               </div>
 
-              <div className={`${PANEL_CLASS} px-2.5 py-2.5`}>
+              <div className={`${PANEL_CLASS} px-2.5 py-2`}>
                 <SectionHeading icon={<TrendingUp className="h-4 w-4" />} title={zh ? "累计电量" : "Cumulative Energy"} trailing={zh ? "全量统计" : "TOTAL"} />
-                <div className="mt-2 grid gap-1.5">
+                <div className="mt-1.5 grid gap-1.5">
                   <div className="rounded-[14px] border border-[#1f5f62] bg-[linear-gradient(180deg,rgba(7,31,36,0.82),rgba(7,20,28,0.92))] px-2.5 py-2">
                     <div className="flex items-center gap-2 text-[#86e4dc]">
-                      <ArrowUp className="h-4 w-4" />
-                      <span className="text-[12px] font-medium tracking-[0.08em]">{zh ? "累计充电" : "Total Charge"}</span>
+                      <ArrowUp className="h-3.5 w-3.5" />
+                      <span className="text-[11px] font-medium tracking-[0.06em]">{zh ? "累计充电" : "Total Charge"}</span>
                     </div>
-                    <div className="mt-1.5 flex items-end gap-1.5">
-                      <span className="text-[20px] font-black leading-none text-white">
+                    <div className="mt-1 flex items-end gap-1">
+                      <span className="text-[18px] font-black leading-none text-white">
                         {formatMetricNumber(totalChargeMWh, totalChargeMWh >= 100 ? 0 : 1)}
                       </span>
                       <span className="pb-0.5 text-[12px] font-semibold text-[#35e6d5]">MWh</span>
@@ -825,11 +825,11 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
                   <div className="rounded-[14px] border border-[#274e78] bg-[linear-gradient(180deg,rgba(10,25,47,0.82),rgba(7,16,30,0.94))] px-2.5 py-2">
                     <div className="flex items-center gap-2 text-[#9ac7ff]">
-                      <ArrowDown className="h-4 w-4" />
-                      <span className="text-[12px] font-medium tracking-[0.08em]">{zh ? "累计放电" : "Total Discharge"}</span>
+                      <ArrowDown className="h-3.5 w-3.5" />
+                      <span className="text-[11px] font-medium tracking-[0.06em]">{zh ? "累计放电" : "Total Discharge"}</span>
                     </div>
-                    <div className="mt-1.5 flex items-end gap-1.5">
-                      <span className="text-[20px] font-black leading-none text-white">
+                    <div className="mt-1 flex items-end gap-1">
+                      <span className="text-[18px] font-black leading-none text-white">
                         {formatMetricNumber(totalDischargeMWh, totalDischargeMWh >= 100 ? 0 : 1)}
                       </span>
                       <span className="pb-0.5 text-[12px] font-semibold text-[#5ea8ff]">MWh</span>
@@ -838,10 +838,10 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
                   <div className="rounded-[14px] border border-[#7a5a26] bg-[linear-gradient(180deg,rgba(54,38,13,0.48),rgba(28,19,6,0.6))] px-2.5 py-2">
                     <div className="flex items-center gap-2 text-[#e7c67a]">
-                      <Star className="h-4 w-4 fill-current" />
-                      <span className="text-[12px] font-medium tracking-[0.08em]">{zh ? "综合效率" : "Average Efficiency"}</span>
+                      <Star className="h-3.5 w-3.5 fill-current" />
+                      <span className="text-[11px] font-medium tracking-[0.06em]">{zh ? "综合效率" : "Average Efficiency"}</span>
                     </div>
-                    <div className="mt-1.5 text-[19px] font-black leading-none text-[#ffd38a]">{formatEfficiency(averageEfficiency)}</div>
+                    <div className="mt-1 text-[17px] font-black leading-none text-[#ffd38a]">{formatEfficiency(averageEfficiency)}</div>
                   </div>
                 </div>
               </div>
@@ -1222,7 +1222,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
             </div>
 
             <aside className="order-3 flex min-h-0 flex-col gap-2 xl:overflow-y-auto xl:pr-0.5 xl:overscroll-contain custom-scrollbar">
-              <div className={`${PANEL_CLASS} px-2.5 py-2.5`}>
+              <div className={`${PANEL_CLASS} px-2.5 py-2`}>
                 <SectionHeading icon={<Star className="h-4 w-4" />} title={zh ? "能效排行" : "Efficiency Ranking"} trailing={zh ? "综合效率" : "EE"} />
                 <div className="mt-2 space-y-1.5">
                   {metricsLoading ? (
