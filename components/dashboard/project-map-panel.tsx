@@ -563,6 +563,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   )
 
   const focusFrame = useMemo(() => computeFocusFrame(mappableProjects), [mappableProjects])
+  const markerScale = focusFrame.zoom > 0 ? 1 / focusFrame.zoom : 1
 
   const highlightedCountries = useMemo(() => {
     const set = new Set<string>()
@@ -894,7 +895,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
                       if (cluster.projects.length > 1) {
                         const regionName = cluster.projects[0].region || (zh ? "未标注" : "Unknown")
-                        const regionLabelW = Math.max(34, Math.min(90, regionName.length * 9 + 14))
+                        const regionLabelW = Math.max(26, Math.min(70, regionName.length * 7 + 10))
 
                         return (
                           <Marker
@@ -904,59 +905,61 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                             onMouseEnter={() => handleClusterHover(cluster)}
                             onMouseLeave={handleClusterHoverEnd}
                           >
-                            {/* Area halo — dashed ring to visually mark the region */}
-                            <circle
-                              r={isClusterActive ? 46 : 38}
-                              fill="rgba(46,241,223,0.05)"
-                              stroke="rgba(46,241,223,0.24)"
-                              strokeWidth={1}
-                              strokeDasharray="5 3"
-                              style={{ transition: "all 0.3s ease" }}
-                            />
-                            {/* Outer ring */}
-                            <circle
-                              r={isClusterActive ? 24 : 18}
-                              fill="transparent"
-                              stroke="rgba(46,241,223,0.36)"
-                              strokeWidth={isClusterActive ? 2 : 1.5}
-                              opacity={isClusterActive ? 1 : 0.75}
-                              style={{ transition: "all 0.2s ease" }}
-                            />
-                            {/* Badge */}
-                            <circle
-                              r={isClusterActive ? 15 : 12}
-                              fill={isClusterActive ? "rgba(10,48,58,0.97)" : "rgba(7,30,40,0.94)"}
-                              stroke={isClusterActive ? "#2ef1df" : "#1db8ae"}
-                              strokeWidth={isClusterActive ? 1.8 : 1.4}
-                              style={{ transition: "all 0.2s ease", filter: "drop-shadow(0 0 12px rgba(46,241,223,0.32))" }}
-                            />
-                            {/* Project count */}
-                            <text
-                              y={4}
-                              textAnchor="middle"
-                              style={{ fontSize: "11px", fontWeight: 900, fill: isClusterActive ? "#a8fff8" : "#6ee8df", letterSpacing: "0", transition: "all 0.2s ease" }}
-                            >
-                              {cluster.projects.length}
-                            </text>
-                            {/* Region name label chip below marker */}
-                            <g transform={`translate(0 ${isClusterActive ? 30 : 24})`} style={{ transition: "all 0.2s ease" }}>
-                              <rect
-                                x={-regionLabelW / 2}
-                                y={0}
-                                width={regionLabelW}
-                                height={16}
-                                rx={8}
-                                fill="rgba(4,14,24,0.90)"
-                                stroke={isClusterActive ? "rgba(46,241,223,0.55)" : "rgba(46,241,223,0.30)"}
+                            <g transform={`scale(${markerScale})`}>
+                              {/* Area halo — dashed ring to visually mark the region */}
+                              <circle
+                                r={isClusterActive ? 26 : 20}
+                                fill="rgba(46,241,223,0.05)"
+                                stroke="rgba(46,241,223,0.24)"
                                 strokeWidth={0.8}
+                                strokeDasharray="4 2.5"
+                                style={{ transition: "all 0.3s ease" }}
                               />
+                              {/* Outer ring */}
+                              <circle
+                                r={isClusterActive ? 14 : 10}
+                                fill="transparent"
+                                stroke="rgba(46,241,223,0.36)"
+                                strokeWidth={isClusterActive ? 1.5 : 1.2}
+                                opacity={isClusterActive ? 1 : 0.75}
+                                style={{ transition: "all 0.2s ease" }}
+                              />
+                              {/* Badge */}
+                              <circle
+                                r={isClusterActive ? 9 : 7}
+                                fill={isClusterActive ? "rgba(10,48,58,0.97)" : "rgba(7,30,40,0.94)"}
+                                stroke={isClusterActive ? "#2ef1df" : "#1db8ae"}
+                                strokeWidth={isClusterActive ? 1.4 : 1.1}
+                                style={{ transition: "all 0.2s ease", filter: "drop-shadow(0 0 8px rgba(46,241,223,0.32))" }}
+                              />
+                              {/* Project count */}
                               <text
-                                y={11}
+                                y={3}
                                 textAnchor="middle"
-                                style={{ fontSize: "9px", fontWeight: 700, fill: isClusterActive ? "#6ee8df" : "#4abfb4", letterSpacing: "0.06em" }}
+                                style={{ fontSize: "8px", fontWeight: 900, fill: isClusterActive ? "#a8fff8" : "#6ee8df", letterSpacing: "0", transition: "all 0.2s ease" }}
                               >
-                                {regionName}
+                                {cluster.projects.length}
                               </text>
+                              {/* Region name label chip below marker */}
+                              <g transform={`translate(0 ${isClusterActive ? 18 : 13})`} style={{ transition: "all 0.2s ease" }}>
+                                <rect
+                                  x={-regionLabelW / 2}
+                                  y={0}
+                                  width={regionLabelW}
+                                  height={12}
+                                  rx={6}
+                                  fill="rgba(4,14,24,0.90)"
+                                  stroke={isClusterActive ? "rgba(46,241,223,0.55)" : "rgba(46,241,223,0.30)"}
+                                  strokeWidth={0.7}
+                                />
+                                <text
+                                  y={8.5}
+                                  textAnchor="middle"
+                                  style={{ fontSize: "7px", fontWeight: 700, fill: isClusterActive ? "#6ee8df" : "#4abfb4", letterSpacing: "0.06em" }}
+                                >
+                                  {regionName}
+                                </text>
+                              </g>
                             </g>
                           </Marker>
                         )
@@ -968,8 +971,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       const isHovered = hoveredId === project.id
                       const isActive = isHovered
                       const projectLabel = getProjectRegionLabel(project, zh)
-                      const labelWidth = Math.max(72, Math.min(156, projectLabel.length * 7 + 28))
-                      const regionLabelW = Math.max(32, Math.min(88, projectLabel.length * 9 + 12))
+                      const labelWidth = Math.max(70, Math.min(140, projectLabel.length * 11 + 30))
+                      const regionLabelW = Math.max(36, Math.min(90, projectLabel.length * 10 + 12))
 
                       return (
                         <Marker
@@ -979,76 +982,78 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           onMouseEnter={() => handleProjectHover(project.id)}
                           onMouseLeave={handleProjectHoverEnd}
                         >
-                          <circle
-                            r={isActive ? 18 : 13}
-                            fill="transparent"
-                            stroke={styles.ringStroke}
-                            strokeWidth={isActive ? 2 : 1.3}
-                            opacity={isActive ? 0.95 : 0.55}
-                            style={{ transition: "all 0.2s ease" }}
-                          />
-                          <circle
-                            r={isActive ? 8.5 : 6.3}
-                            fill={styles.markerFill}
-                            opacity={0.22}
-                            style={{ transition: "all 0.2s ease", filter: styles.shadow }}
-                          />
-                          <circle
-                            r={isActive ? 5.8 : 4.8}
-                            fill={styles.markerFill}
-                            stroke={styles.markerStroke}
-                            strokeWidth={1}
-                            style={{ transition: "all 0.2s ease", filter: styles.shadow }}
-                          />
-                          <circle
-                            r={isActive ? 2.7 : 2.4}
-                            fill="#f8ffff"
-                            style={{ transition: "all 0.2s ease", filter: "drop-shadow(0 0 8px rgba(255,255,255,0.36))" }}
-                          />
+                          <g transform={`scale(${markerScale})`}>
+                            <circle
+                              r={isActive ? 10 : 7}
+                              fill="transparent"
+                              stroke={styles.ringStroke}
+                              strokeWidth={isActive ? 1.5 : 1}
+                              opacity={isActive ? 0.95 : 0.55}
+                              style={{ transition: "all 0.2s ease" }}
+                            />
+                            <circle
+                              r={isActive ? 5 : 3.5}
+                              fill={styles.markerFill}
+                              opacity={0.22}
+                              style={{ transition: "all 0.2s ease", filter: styles.shadow }}
+                            />
+                            <circle
+                              r={isActive ? 3.2 : 2.6}
+                              fill={styles.markerFill}
+                              stroke={styles.markerStroke}
+                              strokeWidth={0.8}
+                              style={{ transition: "all 0.2s ease", filter: styles.shadow }}
+                            />
+                            <circle
+                              r={isActive ? 2 : 1.6}
+                              fill="#f8ffff"
+                              style={{ transition: "all 0.2s ease", filter: "drop-shadow(0 0 6px rgba(255,255,255,0.36))" }}
+                            />
 
-                          {/* Always-visible region label chip */}
-                          {!isActive ? (
-                            <g transform="translate(0 18)">
-                              <rect
-                                x={-regionLabelW / 2}
-                                y={0}
-                                width={regionLabelW}
-                                height={14}
-                                rx={7}
-                                fill="rgba(4,14,24,0.82)"
-                                stroke={styles.ringStroke}
-                                strokeWidth={0.7}
-                              />
-                              <text
-                                y={10}
-                                textAnchor="middle"
-                                style={{ fontSize: "8px", fontWeight: 700, fill: styles.markerFill, opacity: 0.85, letterSpacing: "0.04em" }}
-                              >
-                                {projectLabel}
-                              </text>
-                            </g>
-                          ) : null}
-
-                          {/* Hover callout above */}
-                          {isActive ? (
-                            <>
-                              <line x1={0} y1={-7} x2={0} y2={-24} stroke={styles.markerFill} strokeWidth={1.3} opacity={0.9} />
-                              <g transform="translate(12 -36)">
+                            {/* Always-visible region label chip */}
+                            {!isActive ? (
+                              <g transform="translate(0 12)">
                                 <rect
-                                  width={labelWidth}
-                                  height={26}
-                                  rx={13}
-                                  fill="rgba(5,16,28,0.94)"
-                                  stroke={styles.markerFill}
-                                  strokeWidth={1}
+                                  x={-regionLabelW / 2}
+                                  y={0}
+                                  width={regionLabelW}
+                                  height={14}
+                                  rx={7}
+                                  fill="rgba(4,14,24,0.82)"
+                                  stroke={styles.ringStroke}
+                                  strokeWidth={0.6}
                                 />
-                                <circle cx={13} cy={13} r={3} fill={styles.markerFill} />
-                                <text x={24} y={17} style={{ fontSize: "11px", fontWeight: 700, fill: "#effaff" }}>
+                                <text
+                                  y={10}
+                                  textAnchor="middle"
+                                  style={{ fontSize: "10px", fontWeight: 700, fill: styles.markerFill, opacity: 0.9, letterSpacing: "0.04em" }}
+                                >
                                   {projectLabel}
                                 </text>
                               </g>
-                            </>
-                          ) : null}
+                            ) : null}
+
+                            {/* Hover callout above */}
+                            {isActive ? (
+                              <>
+                                <line x1={0} y1={-5} x2={0} y2={-18} stroke={styles.markerFill} strokeWidth={1} opacity={0.9} />
+                                <g transform="translate(8 -30)">
+                                  <rect
+                                    width={labelWidth}
+                                    height={24}
+                                    rx={12}
+                                    fill="rgba(5,16,28,0.94)"
+                                    stroke={styles.markerFill}
+                                    strokeWidth={0.8}
+                                  />
+                                  <circle cx={12} cy={12} r={3} fill={styles.markerFill} />
+                                  <text x={21} y={16} style={{ fontSize: "11px", fontWeight: 700, fill: "#effaff" }}>
+                                    {projectLabel}
+                                  </text>
+                                </g>
+                              </>
+                            ) : null}
+                          </g>
                         </Marker>
                       )
                     })}
