@@ -14,9 +14,11 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react"
+import { DashboardHeaderShell } from "@/components/dashboard/dashboard-header-shell"
 import { DashboardTopControls } from "@/components/dashboard/dashboard-top-controls"
 import { NavBrand } from "@/components/dashboard/nav-brand"
 import { useLanguage } from "@/components/language-provider"
+import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { logoutWithCloud } from "@/lib/api/auth"
 import { clearStoredAuthToken } from "@/lib/auth-storage"
 import { fetchProjectOptionsByDevice, fetchProjectRealtime, type ProjectOption } from "@/lib/api/project"
@@ -69,6 +71,12 @@ type EfficiencyItem = {
 }
 
 type EnergyRankingMode = "charge" | "discharge"
+
+type ProjectCluster = {
+  id: string
+  coordinates: [number, number]
+  projects: ProjectOption[]
+}
 
 type SectionHeadingProps = {
   icon: ReactNode
@@ -246,6 +254,24 @@ const getProjectCapacityLabel = (project: ProjectOption, zh: boolean) => {
 const getProjectRegionLabel = (project: ProjectOption, zh: boolean) =>
   project.region || (zh ? "未标注区域" : "Unspecified")
 
+const clusterMappableProjects = (projects: ProjectOption[]): ProjectCluster[] => {
+  const buckets = new Map<string, { firstCoords: [number, number]; projects: ProjectOption[] }>()
+  for (const project of projects) {
+    const lng = Math.round(project.longitude! * 100) / 100
+    const lat = Math.round(project.latitude! * 100) / 100
+    const key = `${lng}_${lat}`
+    if (!buckets.has(key)) {
+      buckets.set(key, { firstCoords: [project.longitude!, project.latitude!], projects: [] })
+    }
+    buckets.get(key)!.projects.push(project)
+  }
+  return Array.from(buckets.entries()).map(([key, { firstCoords, projects }]) => ({
+    id: `cluster_${key}`,
+    coordinates: firstCoords,
+    projects,
+  }))
+}
+
 const getFallbackFocusFrame = (): FocusFrame => ({
   center: [12, 16],
   zoom: 1.02,
@@ -309,7 +335,9 @@ function SectionHeading({ icon, title, trailing }: SectionHeadingProps) {
 export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const router = useRouter()
   const { language } = useLanguage()
+  const { isCompactWidth, isShortHeight } = useDashboardViewport()
   const zh = language === "zh"
+  const useCompactHeader = isCompactWidth || isShortHeight
 
   const [projects, setProjects] = useState<ProjectOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -318,6 +346,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [metricsLoading, setMetricsLoading] = useState(false)
   const [efficiencyItems, setEfficiencyItems] = useState<EfficiencyItem[]>([])
   const [energyRankingMode, setEnergyRankingMode] = useState<EnergyRankingMode>("charge")
+  const [activeClusterId, setActiveClusterId] = useState<string | null>(null)
   const hoverExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -422,6 +451,13 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const mappableProjects = useMemo(
     () => projects.filter((project) => project.longitude != null && project.latitude != null),
     [projects]
+  )
+
+  const projectClusters = useMemo(() => clusterMappableProjects(mappableProjects), [mappableProjects])
+
+  const activeCluster = useMemo(
+    () => projectClusters.find((c) => c.id === activeClusterId) ?? null,
+    [activeClusterId, projectClusters]
   )
 
   const totalInstalledMw = useMemo(
@@ -558,6 +594,18 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     [onProjectSelect, router]
   )
 
+  const handleClusterClick = useCallback(
+    (cluster: ProjectCluster) => {
+      if (cluster.projects.length === 1) {
+        handleMarkerClick(cluster.projects[0])
+      } else {
+        setActiveClusterId((prev) => (prev === cluster.id ? null : cluster.id))
+        setHoveredId(null)
+      }
+    },
+    [handleMarkerClick]
+  )
+
   const handleProjectHover = useCallback((projectId: string | null) => {
     if (hoverExitTimerRef.current) {
       clearTimeout(hoverExitTimerRef.current)
@@ -599,18 +647,17 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto bg-[#07111d] text-[#e6f4fb] xl:overflow-hidden">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#07111d] text-[#e6f4fb]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_12%,rgba(41,213,216,0.16),transparent_26%),radial-gradient(circle_at_84%_14%,rgba(71,131,255,0.12),transparent_30%),linear-gradient(180deg,rgba(6,17,29,0.92),rgba(3,9,17,1))]" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(54,102,129,0.06)_1px,transparent_1px),linear-gradient(0deg,rgba(54,102,129,0.05)_1px,transparent_1px)] bg-[size:88px_88px]" />
 
-      <div className="relative z-10 flex h-full min-h-0 flex-col p-4">
-        <header className="relative flex h-[62px] shrink-0 items-center justify-between overflow-hidden rounded-[22px] border border-[#1c4357] bg-[linear-gradient(180deg,rgba(6,16,28,0.98),rgba(4,10,18,0.98))] px-5 shadow-[0_18px_36px_rgba(0,0,0,0.24)]">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#66ece1] to-transparent" />
-          <NavBrand />
-          <DashboardTopControls isLoggingOut={isLoggingOut} onLogout={handleLogout} />
-        </header>
+      <DashboardHeaderShell compact={useCompactHeader}>
+        <NavBrand compact={useCompactHeader} />
+        <DashboardTopControls compact={useCompactHeader} isLoggingOut={isLoggingOut} onLogout={handleLogout} />
+      </DashboardHeaderShell>
 
-        <section className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#1b4c60] bg-[linear-gradient(180deg,rgba(4,15,27,0.99),rgba(2,9,18,1))] shadow-[0_26px_56px_rgba(0,0,0,0.28)]">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col p-4">
+        <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#1b4c60] bg-[linear-gradient(180deg,rgba(4,15,27,0.99),rgba(2,9,18,1))] shadow-[0_26px_56px_rgba(0,0,0,0.28)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(42,230,227,0.12),transparent_18%),radial-gradient(circle_at_85%_75%,rgba(58,140,255,0.1),transparent_24%)]" />
 
           <div className="relative grid min-h-full gap-3 p-3 xl:h-full xl:grid-cols-[16rem_minmax(0,1fr)_16.5rem] 2xl:grid-cols-[17rem_minmax(0,1fr)_17.25rem]">
@@ -756,19 +803,91 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       }
                     </Geographies>
 
-                    {mappableProjects.map((project) => {
+                    {projectClusters.map((cluster) => {
+                      const isClusterActive = activeClusterId === cluster.id
+
+                      if (cluster.projects.length > 1) {
+                        const regionName = cluster.projects[0].region || (zh ? "未标注" : "Unknown")
+                        const regionLabelW = Math.max(34, Math.min(90, regionName.length * 9 + 14))
+
+                        return (
+                          <Marker
+                            key={cluster.id}
+                            coordinates={cluster.coordinates}
+                            onClick={() => handleClusterClick(cluster)}
+                          >
+                            {/* Area halo — dashed ring to visually mark the region */}
+                            <circle
+                              r={isClusterActive ? 46 : 38}
+                              fill="rgba(46,241,223,0.05)"
+                              stroke="rgba(46,241,223,0.24)"
+                              strokeWidth={1}
+                              strokeDasharray="5 3"
+                              style={{ transition: "all 0.3s ease" }}
+                            />
+                            {/* Outer ring */}
+                            <circle
+                              r={isClusterActive ? 24 : 18}
+                              fill="transparent"
+                              stroke="rgba(46,241,223,0.36)"
+                              strokeWidth={isClusterActive ? 2 : 1.5}
+                              opacity={isClusterActive ? 1 : 0.75}
+                              style={{ transition: "all 0.2s ease" }}
+                            />
+                            {/* Badge */}
+                            <circle
+                              r={isClusterActive ? 15 : 12}
+                              fill={isClusterActive ? "rgba(10,48,58,0.97)" : "rgba(7,30,40,0.94)"}
+                              stroke={isClusterActive ? "#2ef1df" : "#1db8ae"}
+                              strokeWidth={isClusterActive ? 1.8 : 1.4}
+                              style={{ transition: "all 0.2s ease", filter: "drop-shadow(0 0 12px rgba(46,241,223,0.32))" }}
+                            />
+                            {/* Project count */}
+                            <text
+                              y={4}
+                              textAnchor="middle"
+                              style={{ fontSize: "11px", fontWeight: 900, fill: isClusterActive ? "#a8fff8" : "#6ee8df", letterSpacing: "0", transition: "all 0.2s ease" }}
+                            >
+                              {cluster.projects.length}
+                            </text>
+                            {/* Region name label chip below marker */}
+                            <g transform={`translate(0 ${isClusterActive ? 30 : 24})`} style={{ transition: "all 0.2s ease" }}>
+                              <rect
+                                x={-regionLabelW / 2}
+                                y={0}
+                                width={regionLabelW}
+                                height={16}
+                                rx={8}
+                                fill="rgba(4,14,24,0.90)"
+                                stroke={isClusterActive ? "rgba(46,241,223,0.55)" : "rgba(46,241,223,0.30)"}
+                                strokeWidth={0.8}
+                              />
+                              <text
+                                y={11}
+                                textAnchor="middle"
+                                style={{ fontSize: "9px", fontWeight: 700, fill: isClusterActive ? "#6ee8df" : "#4abfb4", letterSpacing: "0.06em" }}
+                              >
+                                {regionName}
+                              </text>
+                            </g>
+                          </Marker>
+                        )
+                      }
+
+                      const project = cluster.projects[0]
                       const lifecycle = normalizeLifecycle(project)
                       const styles = getLifecycleStyles(lifecycle)
                       const isHovered = hoveredId === project.id
                       const isActive = isHovered
                       const projectLabel = getProjectRegionLabel(project, zh)
                       const labelWidth = Math.max(72, Math.min(156, projectLabel.length * 7 + 28))
+                      const regionLabelW = Math.max(32, Math.min(88, projectLabel.length * 9 + 12))
 
                       return (
                         <Marker
-                          key={project.id}
-                          coordinates={[project.longitude!, project.latitude!]}
-                          onClick={() => handleMarkerClick(project)}
+                          key={cluster.id}
+                          coordinates={cluster.coordinates}
+                          onClick={() => handleClusterClick(cluster)}
                           onMouseEnter={() => handleProjectHover(project.id)}
                           onMouseLeave={handleProjectHoverEnd}
                         >
@@ -799,6 +918,30 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                             style={{ transition: "all 0.2s ease", filter: "drop-shadow(0 0 8px rgba(255,255,255,0.36))" }}
                           />
 
+                          {/* Always-visible region label chip */}
+                          {!isActive ? (
+                            <g transform="translate(0 18)">
+                              <rect
+                                x={-regionLabelW / 2}
+                                y={0}
+                                width={regionLabelW}
+                                height={14}
+                                rx={7}
+                                fill="rgba(4,14,24,0.82)"
+                                stroke={styles.ringStroke}
+                                strokeWidth={0.7}
+                              />
+                              <text
+                                y={10}
+                                textAnchor="middle"
+                                style={{ fontSize: "8px", fontWeight: 700, fill: styles.markerFill, opacity: 0.85, letterSpacing: "0.04em" }}
+                              >
+                                {projectLabel}
+                              </text>
+                            </g>
+                          ) : null}
+
+                          {/* Hover callout above */}
                           {isActive ? (
                             <>
                               <line x1={0} y1={-7} x2={0} y2={-24} stroke={styles.markerFill} strokeWidth={1.3} opacity={0.9} />
@@ -838,7 +981,52 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </div>
               </div>
 
-              {activeProject ? (
+              {activeCluster ? (
+                <div className="absolute bottom-4 left-4 right-4 z-20 sm:right-auto sm:w-[22rem] lg:bottom-5 lg:left-5">
+                  <div className="overflow-hidden rounded-[20px] border border-[#294e62] bg-[linear-gradient(180deg,rgba(7,18,29,0.96),rgba(5,12,20,0.99))] shadow-[0_20px_44px_rgba(0,0,0,0.34)] backdrop-blur-[16px]">
+                    <div className="border-b border-[#23465b] px-4 py-3.5">
+                      <div className="text-[11px] font-medium tracking-[0.14em] text-[#87cfc7]">
+                        {zh ? "区域项目" : "Projects in Area"}
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-2">
+                        <span className="text-[17px] font-black text-[#f6fbff]">
+                          {activeCluster.projects[0].region || (zh ? "此区域" : "This Area")}
+                        </span>
+                        <span className="text-[13px] font-semibold text-[#6b99b2]">
+                          · {activeCluster.projects.length}{zh ? " 个项目" : " projects"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-2 p-3">
+                      {activeCluster.projects.map((project) => {
+                        const lifecycle = normalizeLifecycle(project)
+                        const styles = getLifecycleStyles(lifecycle)
+                        return (
+                          <button
+                            key={project.id}
+                            type="button"
+                            onClick={() => handleProjectNavigate(project)}
+                            className="flex w-full items-center gap-3 rounded-[13px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-3 py-2.5 text-left transition-all hover:border-[#2b6f80] hover:bg-[rgba(14,32,50,0.92)]"
+                          >
+                            <div className={`h-2 w-2 shrink-0 rounded-full ${styles.dot}`} />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-[13px] font-semibold text-[#f2fbff]">
+                                {getProjectName(project, zh)}
+                              </div>
+                            </div>
+                            <div className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${styles.badge}`}>
+                              {getLifecycleShortText(lifecycle, zh)}
+                            </div>
+                            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[#4b8ba8]" />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {!activeCluster && activeProject ? (
                 <div
                   className="absolute bottom-4 left-4 right-4 z-20 sm:right-auto sm:w-[22rem] lg:bottom-5 lg:left-5"
                   onMouseEnter={() => handleProjectHover(activeProject.id)}

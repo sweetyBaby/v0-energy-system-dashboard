@@ -72,6 +72,8 @@ export type ProjectListByDeviceResponse = {
 const KNOWN_PROJECT_COORDINATES: Record<string, { longitude: number; latitude: number }> = {
   "360c0347c09c4735900b9df32f3b8ff7": { longitude: 119.95, latitude: 31.77 },
   "9964201b369549b4b04c29bfe3863daa": { longitude: 109.99, latitude: 39.81 },
+  // 2S5P测试项目 — 常州市武进区（与金坛同城，共享聚合坐标）
+  "594c35b6891f492b80fb25a933afe9e1": { longitude: 119.95, latitude: 31.77 },
 }
 
 const PROJECT_LIST_IMAGES: Record<string, string> = {
@@ -79,6 +81,8 @@ const PROJECT_LIST_IMAGES: Record<string, string> = {
     "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
   "9964201b369549b4b04c29bfe3863daa":
     "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
+  "594c35b6891f492b80fb25a933afe9e1":
+    "https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=1600&h=900&fit=crop",
 }
 
 export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse = {
@@ -577,7 +581,7 @@ export const normalizeProjectOptionsFromListByDevice = (
     const optionId = normalizeProjectOptionId(row, index)
     const projectId = hasValue(row.projectId) ? String(row.projectId).trim() : optionId
     const devices = normalizeProjectDevices(resolveProjectListDevices(row))
-    const picPath = resolveProjectImage(row.picPath)
+    const picPath = resolveProjectImage(row.picPath, PROJECT_LIST_IMAGES[projectId])
 
     const coords = KNOWN_PROJECT_COORDINATES[projectId] ?? null
 

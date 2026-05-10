@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { useRouter } from "next/navigation"
 import {
   Activity,
@@ -43,6 +44,28 @@ const SIDEBAR_TABS: SidebarTabMeta[] = [
   { key: "reports", icon: FileText, zh: "报表中心", en: "Reports" },
 ]
 
+const getSidebarLabelWidth = (label: string, zh: boolean) => {
+  let width = 0
+
+  for (const char of label) {
+    if (char === " ") {
+      width += 3.4
+    } else if (char === ".") {
+      width += 3.2
+    } else if (/[A-Z]/.test(char)) {
+      width += 7.4
+    } else if (/[a-z0-9]/.test(char)) {
+      width += 6.25
+    } else if (/[\u3400-\u9fff\uf900-\ufaff]/.test(char)) {
+      width += 12.2
+    } else {
+      width += 6.5
+    }
+  }
+
+  return Math.ceil(width + (zh ? 2 : 4))
+}
+
 type DashboardSidebarProps = {
   activeTab: SidebarTab
   onTabChange: (tab: SidebarTab) => void
@@ -64,8 +87,6 @@ export function DashboardSidebar({
   const zh = language === "zh"
 
   const collapsedW = 68
-  const expandedW = zh ? 156 : 176
-  const labelWidth = zh ? 72 : 98
   const collapseLabel = zh ? "折叠菜单" : "Collapse menu"
   const expandLabel = zh ? "展开菜单" : "Expand menu"
   const switchProjectLabel = zh ? "项目地图" : "Map"
@@ -73,6 +94,11 @@ export function DashboardSidebar({
   const backToMapHref = selectedProject.projectId
     ? `/project-map?projectId=${encodeURIComponent(selectedProject.projectId)}`
     : "/project-map"
+  const labelWidth = useMemo(() => {
+    const sidebarLabels = [...SIDEBAR_TABS.map((tab) => (zh ? tab.zh : tab.en)), switchProjectLabel]
+    return Math.max(...sidebarLabels.map((label) => getSidebarLabelWidth(label, zh)))
+  }, [switchProjectLabel, zh])
+  const expandedW = labelWidth + (zh ? 48 : 42)
 
   return (
     <aside
@@ -102,7 +128,7 @@ export function DashboardSidebar({
         </button>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden px-1.5 py-1">
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden px-1 py-1">
         {SIDEBAR_TABS.map(({ key, icon: Icon, zh: zhLabel, en: enLabel }) => {
           const isActive = activeTab === key
           const label = zh ? zhLabel : enLabel
@@ -115,7 +141,7 @@ export function DashboardSidebar({
                 onClick={() => onTabChange(key)}
                 title={!expanded ? label : undefined}
                 className={`relative flex w-full items-center rounded-md transition-all ${
-                  expanded ? "gap-2 px-2.5 py-2" : "justify-center px-0 py-3"
+                  expanded ? "gap-1.5 px-1.5 py-2" : "justify-center px-0 py-3"
                 } ${
                   isActive
                     ? "bg-[linear-gradient(135deg,rgba(12,102,122,0.9),rgba(7,48,67,0.85))] text-[#e8ffff] shadow-[0_0_12px_rgba(44,234,215,0.12)]"
@@ -168,22 +194,24 @@ export function DashboardSidebar({
         })}
       </nav>
 
-      <div className="shrink-0 border-t border-[#16344f] px-1.5 pb-3 pt-2">
+      <div className="shrink-0 border-t border-[#16344f] px-1 pb-3 pt-2">
         <div className="group relative">
           <button
             type="button"
             onClick={() => router.push(backToMapHref)}
             title={!expanded ? backToMapLabel : undefined}
-            className={`flex w-full items-center rounded-md text-[#2a5a70] transition-all hover:bg-[rgba(10,40,60,0.5)] hover:text-[#26f0dc] ${
-              expanded ? "gap-2 px-2.5 py-2" : "justify-center px-0 py-3"
+            className={`flex w-full items-center text-[#7bb5c7] transition-all hover:text-[#dffcff] ${
+              expanded ? "gap-1.5 px-1.5 py-2" : "justify-center px-0 py-3"
             }`}
           >
-            <Map style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+            <Map
+              style={{ width: "16px", height: "16px", flexShrink: 0 }}
+              className="text-[#5ce9de] drop-shadow-[0_0_6px_rgba(92,233,222,0.42)] transition-all group-hover:scale-105 group-hover:text-[#93fff8]"
+            />
             <span
-              className="whitespace-nowrap"
+              className="whitespace-nowrap font-semibold tracking-[0.05em] text-[#d4edf6] transition-colors group-hover:text-[#f2fdff]"
               style={{
                 fontSize: zh ? "12px" : "11px",
-                letterSpacing: "0.04em",
                 opacity: expanded ? 1 : 0,
                 maxWidth: expanded ? `${labelWidth}px` : "0px",
                 overflow: "hidden",
