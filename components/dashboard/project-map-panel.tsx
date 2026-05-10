@@ -731,7 +731,10 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(54,102,129,0.06)_1px,transparent_1px),linear-gradient(0deg,rgba(54,102,129,0.05)_1px,transparent_1px)] bg-[size:88px_88px]" />
 
       <DashboardHeaderShell compact={useCompactHeader}>
-        <NavBrand compact={useCompactHeader} />
+        <div className="flex min-w-0 flex-1 items-center gap-4">
+          <NavBrand compact={useCompactHeader} />
+         
+        </div>
         <DashboardTopControls compact={useCompactHeader} isLoggingOut={isLoggingOut} onLogout={handleLogout} />
       </DashboardHeaderShell>
 
@@ -1054,17 +1057,24 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </ComposableMap>
               </div>
 
-              <div className="pointer-events-none absolute inset-x-4 top-4 z-20 flex flex-col gap-3 sm:inset-x-5 sm:top-5 sm:flex-row sm:items-start sm:justify-end">
-                <div className="flex flex-wrap items-center gap-2">
-                  {mapStatusLegend.map((item) => {
-                    const styles = getLifecycleStyles(item.key)
-                    return (
-                      <div key={item.key} className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold tracking-[0.08em] backdrop-blur-[6px] ${styles.badge}`}>
-                        {item.label}
-                      </div>
-                    )
-                  })}
-                </div>
+              <div className="pointer-events-none absolute right-4 top-4 z-20 flex flex-col gap-1.5">
+                {mapStatusLegend.map((item) => {
+                  const accentColor = item.key === "commissioned" ? "#2ef1df" : item.key === "construction" ? "#ffb74b" : "#7aa6ff"
+                  return (
+                    <div
+                      key={item.key}
+                      className="flex items-center gap-2.5 px-3 py-2 backdrop-blur-[8px]"
+                      style={{
+                        background: "rgba(4,12,22,0.82)",
+                        border: `1px solid ${accentColor}55`,
+                        boxShadow: `inset 0 0 0 1px ${accentColor}18`,
+                      }}
+                    >
+                      <div className="h-2.5 w-2.5 shrink-0" style={{ backgroundColor: accentColor }} />
+                      <span className="text-[12px] font-bold tracking-[0.06em] text-[#e8f6ff]">{item.label}</span>
+                    </div>
+                  )
+                })}
               </div>
 
               {activeProject ? (

@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Check, ChevronDown, Globe, LogOut, Map } from "lucide-react"
+import { Check, ChevronDown, Map } from "lucide-react"
 import { DashboardHeaderShell } from "@/components/dashboard/dashboard-header-shell"
 import { DashboardTopControls } from "@/components/dashboard/dashboard-top-controls"
 import { NavBrand } from "@/components/dashboard/nav-brand"
@@ -40,8 +40,6 @@ export type Project = ProjectOption & {
   realtimeSnapshot: RealtimeSnapshotView
   deviceRealtimeSnapshots: DeviceRealtimeSnapshotView[]
 }
-
-
 
 const defaultProjectOption: ProjectOption = {
   id: "",
@@ -291,7 +289,7 @@ export function ProjectProvider({ children, initialProjectId }: { children: Reac
 export function DashboardHeader({ compact = false }: { compact?: boolean }) {
   const router = useRouter()
   const { projectOptions, selectedProject, setSelectedProject, isProjectOptionsLoading, projectOptionsError, resetProjectState } = useProject()
-  const { language, setLanguage } = useLanguage()
+  const { language } = useLanguage()
   const { isCompactWidth, isShortHeight } = useDashboardViewport()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false)
@@ -306,11 +304,13 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
       : projectOptionsError
         ? zh ? "加载失败" : "Load failed"
         : zh ? "暂无项目" : "No projects"
-  const logoutLabel = zh ? "退出登录" : "Logout"
-  const backToMapLabel = zh ? "返回项目地图" : "Back to Project Map"
   const backToMapHref = hasProject
     ? `/project-map?projectId=${encodeURIComponent(selectedProject.projectId)}`
     : "/project-map"
+  const headerEyebrow = zh ? "项目运行中枢" : "PROJECT COMMAND"
+  const headerSubtitle = hasProject
+    ? [selectedProject.region, selectedProject.company].filter(Boolean).join(" / ") || (zh ? "实时运行总览" : "Realtime Operations Overview")
+    : zh ? "实时运行总览" : "Realtime Operations Overview"
 
   useEffect(() => {
     if (!isProjectMenuOpen) {
@@ -345,60 +345,61 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
 
   return (
     <DashboardHeaderShell compact={useCompactHeader}>
-        {/* Left: Logo + Brand */}
+      <div className="flex min-w-0 flex-1 items-center gap-4">
         <NavBrand compact={useCompactHeader} />
 
-        <div className="flex shrink-0 items-center gap-2">
-          <div ref={projectMenuRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setIsProjectMenuOpen((current) => !current)}
-              className={`relative flex min-w-[12rem] items-center justify-between gap-3 overflow-hidden border border-[#2d6a88] bg-[linear-gradient(180deg,rgba(9,25,45,0.98),rgba(6,16,30,0.99))] px-3 text-left text-[#dffbff] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset,0_10px_22px_rgba(0,0,0,0.2)] ${
-                useCompactHeader ? "h-[28px]" : "h-[34px]"
-              }`}
-              style={{ clipPath: "polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)" }}
-              aria-haspopup="menu"
-              aria-expanded={isProjectMenuOpen}
-            >
-              <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#9deeff]/75 to-transparent" />
-              <span className="pointer-events-none absolute bottom-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-[#1ce1c2]/35 to-transparent" />
-              <span className="truncate text-sm font-semibold" title={projectLabel}>
-                {projectLabel}
-              </span>
-              <ChevronDown className={`h-4 w-4 shrink-0 text-[#8de7f5] transition-transform ${isProjectMenuOpen ? "rotate-180" : ""}`} />
-            </button>
+      
+      </div>
 
-            {isProjectMenuOpen && (
-              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 min-w-[15rem] overflow-hidden rounded-[18px] border border-[#2a8293]/55 bg-[linear-gradient(180deg,rgba(8,26,40,0.98),rgba(4,14,25,0.99))] shadow-[0_20px_48px_rgba(0,0,0,0.42),0_0_0_1px_rgba(104,230,255,0.08)_inset]">
-                <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#8deeff]/70 to-transparent" />
-                {projectOptions.map((project) => {
-                  const optionLabel = zh ? project.projectName : project.projectNameEn || project.projectName
-                  const isActive = selectedProject.id === project.id
+      <div className="flex shrink-0 items-center gap-3">
+        <div ref={projectMenuRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setIsProjectMenuOpen((current) => !current)}
+            className={`relative flex min-w-[14rem] max-w-[20rem] items-center justify-between gap-3 overflow-hidden rounded-[16px] border border-[#294960] bg-[linear-gradient(180deg,rgba(10,23,38,0.96),rgba(6,14,25,0.98))] px-4 text-left text-[#e7f8ff] shadow-[0_0_0_1px_rgba(117,198,234,0.05)_inset,0_12px_26px_rgba(0,0,0,0.18)] transition-all hover:border-[#4d8dae] ${
+              useCompactHeader ? "h-[36px]" : "h-[40px]"
+            }`}
+            aria-haspopup="menu"
+            aria-expanded={isProjectMenuOpen}
+          >
+            <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#9deeff]/70 to-transparent" />
+            <span className="truncate text-sm font-semibold" title={projectLabel}>
+              {projectLabel}
+            </span>
+            <ChevronDown className={`h-4 w-4 shrink-0 text-[#8de7f5] transition-transform ${isProjectMenuOpen ? "rotate-180" : ""}`} />
+          </button>
 
-                  return (
-                    <button
-                      key={project.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedProject(project)
-                        setIsProjectMenuOpen(false)
-                      }}
-                      className={`flex w-full items-center justify-between gap-3 px-5 py-4 text-left text-sm transition-colors ${
-                        isActive
-                          ? "bg-[linear-gradient(90deg,rgba(14,77,102,0.62),rgba(11,48,69,0.48))] text-[#5ef7ef]"
-                          : "text-[#d9ecff] hover:bg-[rgba(15,52,74,0.5)]"
-                      }`}
-                    >
-                      <span className="truncate font-semibold">{optionLabel}</span>
-                      {isActive ? <Check className="h-4 w-4 shrink-0" /> : null}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+          {isProjectMenuOpen && (
+            <div className="absolute right-0 top-[calc(100%+0.6rem)] z-40 min-w-[16rem] overflow-hidden rounded-[18px] border border-[#284e65] bg-[linear-gradient(180deg,rgba(8,22,36,0.98),rgba(4,12,21,0.99))] shadow-[0_24px_48px_rgba(0,0,0,0.42),0_0_0_1px_rgba(104,230,255,0.06)_inset]">
+              <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-[#8deeff]/68 to-transparent" />
+              {projectOptions.map((project) => {
+                const optionLabel = zh ? project.projectName : project.projectNameEn || project.projectName
+                const isActive = selectedProject.id === project.id
 
-          <DashboardTopControls
+                return (
+                  <button
+                    key={project.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedProject(project)
+                      setIsProjectMenuOpen(false)
+                    }}
+                    className={`flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left text-sm transition-colors ${
+                      isActive
+                        ? "bg-[linear-gradient(90deg,rgba(18,68,94,0.72),rgba(11,34,52,0.5))] text-[#6af6ef]"
+                        : "text-[#d9ecff] hover:bg-[rgba(15,52,74,0.34)]"
+                    }`}
+                  >
+                    <span className="truncate font-semibold">{optionLabel}</span>
+                    {isActive ? <Check className="h-4 w-4 shrink-0" /> : null}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <DashboardTopControls
           compact={useCompactHeader}
           action={{
             icon: Map,
@@ -409,73 +410,6 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
           isLoggingOut={isLoggingOut}
           onLogout={() => void handleLogout()}
         />
-
-        {/* Right: Back to Map + Language + Logout */}
-        <div className="hidden flex shrink-0 items-center gap-2">
-          {/* Back to map */}
-          <button
-            type="button"
-            onClick={() => router.push(backToMapHref)}
-            className={`relative flex items-center gap-1.5 overflow-hidden border border-[#1a4a62]/70 bg-[linear-gradient(180deg,rgba(6,22,38,0.96),rgba(3,12,24,0.98))] px-3 text-[#4a9ab8] transition-all hover:border-[#26f0dc]/50 hover:text-[#26f0dc] ${
-              useCompactHeader ? "h-[28px]" : "h-[30px]"
-            }`}
-            style={{ clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)" }}
-            title={backToMapLabel}
-          >
-            <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#26f0dc]/30 to-transparent" />
-            <Map className="h-[12px] w-[12px] shrink-0" />
-            <span className="text-[11px] font-semibold tracking-[0.06em]">
-              {backToMapLabel}
-            </span>
-          </button>
-
-          {/* Language switcher */}
-          <div
-            className={`relative flex items-center overflow-hidden ${useCompactHeader ? "h-[28px]" : "h-[30px]"}`}
-            style={{
-              clipPath: "polygon(0% 0%,calc(100% - 8px) 0%,100% 100%,0% 100%)",
-              border: "1px solid rgba(53,188,245,0.4)",
-              background: "linear-gradient(180deg,rgba(9,29,48,0.98),rgba(4,17,31,0.98))",
-            }}
-          >
-            <span className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-[#6ee9ff]/70 to-transparent" />
-            <div className="flex items-center px-2">
-              <Globe className="h-[12px] w-[12px] text-[#62dfff]" />
-            </div>
-            <div className="h-3.5 w-px bg-[#38cfff]/30" />
-            {(["zh", "en"] as const).map((lang) => {
-              const isActive = language === lang
-              return (
-                <button
-                  key={lang}
-                  onClick={() => setLanguage(lang)}
-                  className={`relative px-2.5 text-[11px] font-bold tracking-[0.08em] transition-all ${
-                    isActive ? "text-[#26f0dc]" : "text-[#5a7f95] hover:text-[#9feeff]"
-                  }`}
-                  style={isActive ? { textShadow: "0 0 10px rgba(38,240,220,0.8)" } : undefined}
-                >
-                  {lang === "zh" ? "中" : "EN"}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Logout */}
-          <button
-            type="button"
-            onClick={() => void handleLogout()}
-            disabled={isLoggingOut}
-            className={`relative flex items-center gap-1.5 overflow-hidden border border-[#7a3942]/70 bg-[linear-gradient(180deg,rgba(46,14,24,0.96),rgba(24,8,14,0.98))] px-3 text-[#ffd7dd] transition-all hover:border-[#ff6d88]/70 hover:text-white disabled:opacity-50 ${
-              useCompactHeader ? "h-[28px]" : "h-[30px]"
-            }`}
-            style={{ clipPath: "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)" }}
-            aria-label={logoutLabel}
-          >
-            <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#ff9fb2]/60 to-transparent" />
-            <LogOut className="h-[12px] w-[12px] shrink-0" />
-            <span className="text-[11px] font-semibold tracking-[0.06em]">{logoutLabel}</span>
-          </button>
-        </div>
       </div>
     </DashboardHeaderShell>
   )

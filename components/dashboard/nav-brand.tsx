@@ -6,42 +6,38 @@ type NavBrandProps = {
 
 export function NavBrand({ compact = false }: NavBrandProps) {
   return (
-    <div className="flex min-w-0 items-center gap-3">
+    <div className="flex min-w-0 items-center gap-3.5">
       <div
-        className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-[12px] border border-[#23556e]/70 bg-[radial-gradient(circle_at_50%_38%,rgba(36,229,217,0.2),rgba(7,25,34,0.92)_72%)] shadow-[0_0_0_1px_rgba(71,154,195,0.12)_inset,0_0_18px_rgba(36,229,217,0.08)] ${
-          compact ? "h-[38px] w-[38px]" : "h-[44px] w-[44px]"
+        className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-[16px] border border-[#29556b] bg-[linear-gradient(135deg,rgba(18,52,72,0.96),rgba(7,19,31,0.98))] shadow-[0_0_0_1px_rgba(127,215,255,0.08)_inset,0_14px_28px_rgba(0,0,0,0.24)] ${
+          compact ? "h-[42px] w-[42px]" : "h-[50px] w-[50px]"
         }`}
       >
-        <span className="pointer-events-none absolute left-[4px] top-[4px] h-[6px] w-[6px] border-l border-t border-[#7cecff]/70" />
-        <span className="pointer-events-none absolute bottom-[4px] right-[4px] h-[6px] w-[6px] border-b border-r border-[#52f0da]/55" />
-        <span className="pointer-events-none absolute inset-x-[18%] top-0 h-px bg-gradient-to-r from-transparent via-[#8ff7ff]/80 to-transparent" />
-        <span className="pointer-events-none absolute inset-y-[20%] right-0 w-px bg-gradient-to-b from-transparent via-[#37e6ff]/45 to-transparent" />
-        <span className="pointer-events-none absolute inset-y-[18%] left-[-35%] w-[70%] rotate-[18deg] bg-[linear-gradient(90deg,transparent,rgba(132,244,255,0.16),transparent)] blur-[4px]" />
-        <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(92,231,255,0.26),transparent_68%)] blur-md" />
+        <span className="pointer-events-none absolute inset-x-[18%] top-0 h-px bg-gradient-to-r from-transparent via-[#98f1ff]/80 to-transparent" />
+        <span className="pointer-events-none absolute inset-y-[16%] left-0 w-full bg-[linear-gradient(118deg,transparent,rgba(110,231,255,0.14),transparent)]" />
+        <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(86,231,255,0.22),transparent_64%)]" />
         <EnerCloudMark
-          className={`${compact ? "h-[18px] w-[18px]" : "h-[22px] w-[22px]"} text-[#f7fafc]`}
-          glowClassName="text-[#24e5d9]/28"
+          className={`${compact ? "h-[20px] w-[20px]" : "h-[24px] w-[24px]"} text-[#f8fdff]`}
+          glowClassName="text-[#24e5d9]/22"
         />
       </div>
-      <div className="relative">
-        <span className="pointer-events-none absolute -left-3 top-1/2 h-px w-2.5 -translate-y-1/2 bg-[linear-gradient(90deg,transparent,rgba(126,243,255,0.72))]" />
-        <span className="pointer-events-none absolute -right-3 top-1/2 h-px w-2.5 -translate-y-1/2 bg-[linear-gradient(90deg,rgba(126,243,255,0.72),transparent)]" />
+      <div className="min-w-0">
+        
         <span
-          className="shrink-0 font-black leading-tight"
+          className="mt-0.5 block shrink-0 truncate font-black uppercase leading-tight"
           style={{
-            fontSize: compact ? "1.1rem" : "1.3rem",
-            letterSpacing: compact ? "0.08em" : "0.1em",
+            fontSize: compact ? "1.12rem" : "1.46rem",
+            letterSpacing: compact ? "0.09em" : "0.12em",
             fontFamily: '"Arial Black","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif',
-            backgroundImage: "linear-gradient(180deg,#f8feff 0%,#d8f3ff 38%,#8cf3ff 62%,#7effd7 100%)",
+            backgroundImage: "linear-gradient(180deg,#f9feff 0%,#d8f2ff 40%,#8eebff 72%,#8df6da 100%)",
             WebkitBackgroundClip: "text",
             backgroundClip: "text",
             WebkitTextFillColor: "transparent",
-            filter: "drop-shadow(0 0 16px rgba(60,223,255,0.42))",
+            filter: "drop-shadow(0 0 18px rgba(60,223,255,0.24))",
           }}
         >
           EnerCloud
         </span>
-        <span className="pointer-events-none absolute -bottom-[4px] left-[6%] right-[6%] h-px bg-[linear-gradient(90deg,transparent,rgba(103,231,255,0.46),transparent)]" />
+        <span className="mt-1 block h-px w-full bg-[linear-gradient(90deg,rgba(124,234,255,0.6),rgba(124,234,255,0.12),transparent)]" />
       </div>
     </div>
   )
