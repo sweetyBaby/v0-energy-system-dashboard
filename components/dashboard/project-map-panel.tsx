@@ -669,7 +669,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     hoverExitTimerRef.current = setTimeout(() => {
       setHoveredClusterId(null)
       setHoveredId(null)
-    }, 160)
+    }, 30)
   }, [])
 
   const handleProjectHover = useCallback((projectId: string | null) => {
@@ -690,7 +690,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     hoverExitTimerRef.current = setTimeout(() => {
       setHoveredClusterId(null)
       setHoveredId(null)
-    }, 120)
+    }, 30)
   }, [])
 
   const handleProjectNavigate = useCallback(

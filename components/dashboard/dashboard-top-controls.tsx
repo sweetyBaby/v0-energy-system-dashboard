@@ -35,10 +35,12 @@ export function DashboardTopControls({
   const logoutLabel = zh ? "退出" : "Logout"
 
   return (
-      <div className="flex shrink-0 items-center gap-2">
+    <div className="flex shrink-0 items-center gap-2">
       {action ? (
         <button type="button" onClick={action.onClick} className={`${buttonClass} ${controlHeight}`}>
           <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/70 to-transparent" />
+          <span className="pointer-events-none absolute bottom-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-[#26f0dc]/35 to-transparent" />
+          <span className="pointer-events-none absolute left-[10px] top-1/2 h-[3px] w-[3px] -translate-y-1/2 rounded-full bg-[#84f4ff]/70 shadow-[0_0_8px_rgba(132,244,255,0.45)]" />
           <action.icon className="h-4 w-4" />
           <span>{zh ? action.labelZh : action.labelEn}</span>
         </button>
@@ -48,6 +50,7 @@ export function DashboardTopControls({
         className={`relative grid min-w-[84px] grid-cols-2 items-stretch overflow-hidden rounded-full border border-[#33556f] bg-[linear-gradient(180deg,rgba(8,18,34,0.94),rgba(7,15,29,0.96))] shadow-[0_0_0_1px_rgba(117,198,234,0.06)_inset,0_8px_18px_rgba(0,0,0,0.18)] ${controlHeight}`}
       >
         <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/70 to-transparent" />
+        <span className="pointer-events-none absolute inset-x-3 bottom-0 h-px bg-gradient-to-r from-transparent via-[#26f0dc]/26 to-transparent" />
         <span className="pointer-events-none absolute inset-y-[6px] left-1/2 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-[#73b8d5]/35 to-transparent" />
         {LANGUAGE_OPTIONS.map((option) => (
           <button
@@ -76,6 +79,8 @@ export function DashboardTopControls({
         aria-label={logoutLabel}
       >
         <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#ffbfcb]/55 to-transparent" />
+        <span className="pointer-events-none absolute bottom-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-[#ff7d9f]/28 to-transparent" />
+        <span className="pointer-events-none absolute left-[10px] top-1/2 h-[3px] w-[3px] -translate-y-1/2 rounded-full bg-[#ff9fb2]/70 shadow-[0_0_8px_rgba(255,159,178,0.38)]" />
         <LogOut className="h-4 w-4" />
         <span>{logoutLabel}</span>
       </button>
