@@ -14,8 +14,8 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react"
-import { EnerCloudMark } from "@/components/brand/enercloud-mark"
 import { DashboardTopControls } from "@/components/dashboard/dashboard-top-controls"
+import { NavBrand } from "@/components/dashboard/nav-brand"
 import { useLanguage } from "@/components/language-provider"
 import { logoutWithCloud } from "@/lib/api/auth"
 import { clearStoredAuthToken } from "@/lib/auth-storage"
@@ -604,23 +604,10 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(54,102,129,0.06)_1px,transparent_1px),linear-gradient(0deg,rgba(54,102,129,0.05)_1px,transparent_1px)] bg-[size:88px_88px]" />
 
       <div className="relative z-10 flex h-full min-h-0 flex-col p-4">
-        <header className="relative shrink-0 overflow-hidden rounded-[22px] border border-[#1c4357] bg-[linear-gradient(180deg,rgba(6,16,28,0.98),rgba(4,10,18,0.98))] px-5 py-3.5 shadow-[0_18px_36px_rgba(0,0,0,0.24)]">
+        <header className="relative flex h-[62px] shrink-0 items-center justify-between overflow-hidden rounded-[22px] border border-[#1c4357] bg-[linear-gradient(180deg,rgba(6,16,28,0.98),rgba(4,10,18,0.98))] px-5 shadow-[0_18px_36px_rgba(0,0,0,0.24)]">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#66ece1] to-transparent" />
-          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-w-0 items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[16px] border border-[#1d596a] bg-[radial-gradient(circle_at_50%_40%,rgba(43,239,217,0.22),rgba(6,22,32,0.94)_72%)] shadow-[0_10px_24px_rgba(0,0,0,0.18)]">
-                <EnerCloudMark className="h-5 w-5 text-[#f7fafc]" glowClassName="text-[#28f1dc]/28" />
-              </div>
-              <div
-                className="bg-clip-text text-[28px] font-black leading-none tracking-[0.01em] text-transparent"
-                style={{ backgroundImage: "linear-gradient(180deg,#ffffff 0%,#e2f7ff 38%,#8cecff 100%)" }}
-              >
-                EnerCloud
-              </div>
-            </div>
-
-            <DashboardTopControls isLoggingOut={isLoggingOut} onLogout={handleLogout} />
-          </div>
+          <NavBrand />
+          <DashboardTopControls isLoggingOut={isLoggingOut} onLogout={handleLogout} />
         </header>
 
         <section className="relative mt-4 min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#1b4c60] bg-[linear-gradient(180deg,rgba(4,15,27,0.99),rgba(2,9,18,1))] shadow-[0_26px_56px_rgba(0,0,0,0.28)]">
@@ -1066,12 +1053,12 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       const progressWidth = rankingValue <= 0 ? "0%" : `${Math.max(8, (rankingValue / maxRankedEnergyValue) * 100)}%`
                       const rankClass =
                         index === 0
-                          ? "bg-[#d5a332] text-[#fff3cf]"
+                          ? "bg-[#ffcf4f] text-[#181818]"
                           : index === 1
-                            ? "bg-[#8795a7] text-[#eff6ff]"
+                            ? "bg-[#d7dde4] text-[#181818]"
                             : index === 2
-                              ? "bg-[#b77436] text-[#fff1de]"
-                              : "bg-[#275f98] text-[#d7ecff]"
+                              ? "bg-[#ce8a4b] text-white"
+                              : "bg-[#1d3d51] text-[#9bc8df]"
                       const barClass =
                         energyRankingMode === "charge"
                           ? "bg-[linear-gradient(90deg,#2de8d9,#3cb7ff)]"
@@ -1083,7 +1070,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           className="rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.82),rgba(7,18,28,0.94))] px-3 py-2.5"
                         >
                           <div className="grid grid-cols-[1.8rem_minmax(0,1fr)_4.5rem] items-center gap-3">
-                            <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black ${rankClass}`}>
+                            <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] text-[11px] font-black ${rankClass}`}>
                               {index + 1}
                             </div>
                             <div className="min-w-0 text-[13px] font-semibold leading-[1.25] text-[#e4f4ff]">

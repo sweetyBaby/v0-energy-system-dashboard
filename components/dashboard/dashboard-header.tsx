@@ -3,8 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Check, ChevronDown, Globe, LogOut, Map } from "lucide-react"
-import { EnerCloudMark } from "@/components/brand/enercloud-mark"
 import { DashboardTopControls } from "@/components/dashboard/dashboard-top-controls"
+import { NavBrand } from "@/components/dashboard/nav-brand"
 import {
   fetchProjectOptionsByDevice,
   fetchProjectDetail,
@@ -374,39 +374,7 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
 
       <div className="relative flex h-full items-center justify-between gap-4 px-4">
         {/* Left: Logo + Brand */}
-        <div className="flex min-w-0 items-center gap-3">
-          <div
-            className={`relative flex shrink-0 items-center justify-center rounded-[10px] bg-[radial-gradient(circle_at_50%_38%,rgba(36,229,217,0.18),rgba(7,25,34,0.9)_72%)] ${
-              useCompactHeader ? "h-[38px] w-[38px]" : "h-[44px] w-[44px]"
-            }`}
-          >
-            <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(92,231,255,0.26),transparent_68%)] blur-md" />
-            <EnerCloudMark
-              className={useCompactHeader ? "h-[18px] w-[18px] text-[#f7fafc]" : "h-[22px] w-[22px] text-[#f7fafc]"}
-              glowClassName="text-[#24e5d9]/28"
-            />
-          </div>
-
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-baseline gap-3">
-              <h1
-                className="shrink-0 font-black leading-tight"
-                style={{
-                  fontSize: useCompactHeader ? "1.1rem" : "1.3rem",
-                  letterSpacing: "0.05em",
-                  fontFamily: '"Arial Black","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif',
-                  backgroundImage: "linear-gradient(180deg,#f8feff 0%,#d6f9ff 45%,#7effd7 100%)",
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  filter: "drop-shadow(0 0 14px rgba(60,223,255,0.4))",
-                }}
-              >
-                EnerCloud
-              </h1>
-            </div>
-          </div>
-        </div>
+        <NavBrand compact={useCompactHeader} />
 
         <div className="flex shrink-0 items-center gap-2">
           <div ref={projectMenuRef} className="relative">
