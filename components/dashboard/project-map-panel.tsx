@@ -68,6 +68,8 @@ type EfficiencyItem = {
   runtimeLabelEn: string
 }
 
+type EnergyRankingMode = "charge" | "discharge"
+
 type SectionHeadingProps = {
   icon: ReactNode
   title: string
@@ -315,6 +317,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [metricsLoading, setMetricsLoading] = useState(false)
   const [efficiencyItems, setEfficiencyItems] = useState<EfficiencyItem[]>([])
+  const [energyRankingMode, setEnergyRankingMode] = useState<EnergyRankingMode>("charge")
   const hoverExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -486,6 +489,24 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     )
     return max > 0 ? max : 1
   }, [efficiencyItems])
+
+  const rankedEnergyItems = useMemo(() => {
+    const getValue = (item: EfficiencyItem) =>
+      energyRankingMode === "charge" ? item.totalChargeMWh ?? 0 : item.totalDischargeMWh ?? 0
+
+    return [...efficiencyItems]
+      .sort((left, right) => getValue(right) - getValue(left))
+      .slice(0, 5)
+  }, [efficiencyItems, energyRankingMode])
+
+  const maxRankedEnergyValue = useMemo(() => {
+    const max = rankedEnergyItems.reduce((value, item) => {
+      const itemValue = energyRankingMode === "charge" ? item.totalChargeMWh ?? 0 : item.totalDischargeMWh ?? 0
+      return Math.max(value, itemValue)
+    }, 0)
+
+    return max > 0 ? max : 1
+  }, [energyRankingMode, rankedEnergyItems])
 
   const mapStatusLegend = useMemo(
     () => [
@@ -1006,57 +1027,78 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
               </div>
 
               <div className={`${PANEL_CLASS} px-3.5 py-3.5`}>
-                <SectionHeading icon={<ArrowUp className="h-4 w-4" />} title={zh ? "充放电对比" : "Charge / Discharge"} trailing="MWh" />
-                <div className="mt-3 flex items-center justify-end gap-4 text-[11px] text-[#8aa7b8]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-2 w-3 rounded-full bg-[#24edd7]" />
-                    <span>{zh ? "充电" : "Charge"}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-2 w-3 rounded-full bg-[#5c9dff]" />
-                    <span>{zh ? "放电" : "Discharge"}</span>
-                  </div>
+                <SectionHeading icon={<ArrowUp className="h-4 w-4" />} title={zh ? "充放电排名" : "Charge / Discharge Ranking"} trailing="MWh" />
+
+                <div className="mt-3 inline-grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden rounded-[6px] border border-[#2d5778] bg-[linear-gradient(180deg,rgba(11,29,47,0.92),rgba(7,20,34,0.96))] shadow-[inset_0_1px_0_rgba(151,218,255,0.06)]">
+                  <button
+                    type="button"
+                    onClick={() => setEnergyRankingMode("charge")}
+                    className={`min-w-[58px] px-3 py-1.5 text-[11px] font-semibold tracking-[0.06em] transition-all ${
+                      energyRankingMode === "charge"
+                        ? "bg-[linear-gradient(180deg,rgba(29,95,154,0.84),rgba(13,49,96,0.96))] text-[#5ff1e6] shadow-[inset_0_1px_0_rgba(164,230,255,0.18),inset_0_-1px_0_rgba(6,18,34,0.56),inset_0_0_0_1px_rgba(118,219,255,0.16),0_0_12px_rgba(53,165,255,0.14)]"
+                        : "bg-transparent text-[#86a1b6] hover:text-[#dff8ff]"
+                    }`}
+                  >
+                    {zh ? "充电" : "Charge"}
+                  </button>
+                  <div className="w-px bg-[linear-gradient(180deg,rgba(124,183,215,0.08),rgba(74,125,158,0.44),rgba(124,183,215,0.08))]" />
+                  <button
+                    type="button"
+                    onClick={() => setEnergyRankingMode("discharge")}
+                    className={`min-w-[58px] px-3 py-1.5 text-[11px] font-semibold tracking-[0.06em] transition-all ${
+                      energyRankingMode === "discharge"
+                        ? "bg-[linear-gradient(180deg,rgba(29,95,154,0.84),rgba(13,49,96,0.96))] text-[#8ec0ff] shadow-[inset_0_1px_0_rgba(164,230,255,0.18),inset_0_-1px_0_rgba(6,18,34,0.56),inset_0_0_0_1px_rgba(118,219,255,0.16),0_0_12px_rgba(53,165,255,0.14)]"
+                        : "bg-transparent text-[#86a1b6] hover:text-[#dff8ff]"
+                    }`}
+                  >
+                    {zh ? "放电" : "Discharge"}
+                  </button>
                 </div>
 
                 <div className="mt-3 grid gap-2.5">
                   {metricsLoading ? (
                     <div className="rounded-[14px] border border-[#245f72]/45 bg-[rgba(8,25,36,0.72)] px-3 py-4 text-[13px] text-[#92b5c2]">
-                      {zh ? "正在加载充放电对比..." : "Loading charge/discharge comparison..."}
+                      {zh ? "正在加载充放电排名..." : "Loading energy ranking..."}
                     </div>
                   ) : (
-                    efficiencyItems.slice(0, 3).map((item) => (
-                      <div
-                        key={item.project.id}
-                        className="rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.78),rgba(7,18,28,0.92))] p-2.5"
-                      >
-                        <div className="mb-2.5 flex items-center gap-2">
-                          <span className={`h-4 w-1 rounded-full ${getLifecycleStyles(item.lifecycle).dot}`} />
-                          <span className="truncate text-[13px] font-semibold text-[#ddeef7]">{getProjectName(item.project, zh)}</span>
-                        </div>
-                        <div className="space-y-2 text-[12px]">
-                          <div className="grid grid-cols-[1.5rem_minmax(0,1fr)_4rem] items-center gap-3">
-                            <span className="text-[#7d96a9]">{zh ? "充" : "C"}</span>
-                            <div className="h-1.5 overflow-hidden rounded-full bg-[#102636]">
-                              <div
-                                className="h-full rounded-full bg-[linear-gradient(90deg,#24edd7,#9efff0)]"
-                                style={{ width: `${Math.max(5, ((item.totalChargeMWh ?? 0) / maxEnergyValue) * 100)}%` }}
-                              />
+                    rankedEnergyItems.map((item, index) => {
+                      const rankingValue = energyRankingMode === "charge" ? item.totalChargeMWh ?? 0 : item.totalDischargeMWh ?? 0
+                      const progressWidth = rankingValue <= 0 ? "0%" : `${Math.max(8, (rankingValue / maxRankedEnergyValue) * 100)}%`
+                      const rankClass =
+                        index === 0
+                          ? "bg-[#d5a332] text-[#fff3cf]"
+                          : index === 1
+                            ? "bg-[#8795a7] text-[#eff6ff]"
+                            : index === 2
+                              ? "bg-[#b77436] text-[#fff1de]"
+                              : "bg-[#275f98] text-[#d7ecff]"
+                      const barClass =
+                        energyRankingMode === "charge"
+                          ? "bg-[linear-gradient(90deg,#2de8d9,#3cb7ff)]"
+                          : "bg-[linear-gradient(90deg,#53bfff,#467bff)]"
+
+                      return (
+                        <div
+                          key={item.project.id}
+                          className="rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.82),rgba(7,18,28,0.94))] px-3 py-2.5"
+                        >
+                          <div className="grid grid-cols-[1.8rem_minmax(0,1fr)_4.5rem] items-center gap-3">
+                            <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black ${rankClass}`}>
+                              {index + 1}
                             </div>
-                            <span className="text-right font-semibold text-[#ddeef7]">{(item.totalChargeMWh ?? 0).toFixed(1)}</span>
-                          </div>
-                          <div className="grid grid-cols-[1.5rem_minmax(0,1fr)_4rem] items-center gap-3">
-                            <span className="text-[#7d96a9]">{zh ? "放" : "D"}</span>
-                            <div className="h-1.5 overflow-hidden rounded-full bg-[#102636]">
-                              <div
-                                className="h-full rounded-full bg-[linear-gradient(90deg,#5c9dff,#b3d5ff)]"
-                                style={{ width: `${Math.max(5, ((item.totalDischargeMWh ?? 0) / maxEnergyValue) * 100)}%` }}
-                              />
+                            <div className="min-w-0 text-[13px] font-semibold leading-[1.25] text-[#e4f4ff]">
+                              {getProjectName(item.project, zh)}
                             </div>
-                            <span className="text-right font-semibold text-[#ddeef7]">{(item.totalDischargeMWh ?? 0).toFixed(1)}</span>
+                            <div className="text-right text-[12px] font-semibold text-[#d8e8f7]">{rankingValue.toFixed(1)}</div>
+                          </div>
+                          <div className="mt-2.5 pl-[2.55rem]">
+                            <div className="h-1.5 overflow-hidden rounded-full bg-[#10263b]">
+                              <div className={`h-full rounded-full ${barClass}`} style={{ width: progressWidth }} />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      )
+                    })
                   )}
                 </div>
               </div>
