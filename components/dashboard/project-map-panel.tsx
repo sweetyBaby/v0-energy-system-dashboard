@@ -43,21 +43,6 @@ type FocusFrame = {
   zoom: number
 }
 
-type StatCardItem = {
-  key: string
-  label: string
-  value: string
-  accent?: "green" | "neutral"
-}
-
-type LifecycleItem = {
-  key: LifecycleKey
-  icon: LucideIcon
-  label: string
-  value: string
-  detail: string
-}
-
 type EfficiencyItem = {
   project: ProjectOption
   lifecycle: LifecycleKey
@@ -84,6 +69,21 @@ type SectionHeadingProps = {
   icon: ReactNode
   title: string
   trailing?: string
+}
+
+type StatCardItem = {
+  key: string
+  label: string
+  value: string
+  accent?: "green" | "neutral"
+}
+
+type LifecycleItem = {
+  key: string
+  icon: LucideIcon
+  label: string
+  value: string
+  detail: string
 }
 
 type ProjectMapPanelProps = {
@@ -385,6 +385,23 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [energyRankingMode, setEnergyRankingMode] = useState<EnergyRankingMode>("charge")
   const [hoveredClusterId, setHoveredClusterId] = useState<string | null>(null)
   const hoverExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
+  const [mapDimensions, setMapDimensions] = useState({ width: 800, height: 450 })
+
+  useEffect(() => {
+    const container = mapContainerRef.current
+    if (!container) return
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect
+        if (width > 0 && height > 0) {
+          setMapDimensions({ width: Math.round(width), height: Math.round(height) })
+        }
+      }
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
 
   const clearHoverExitTimer = useCallback(() => {
     if (hoverExitTimerRef.current) {
@@ -523,9 +540,6 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     [projects]
   )
 
-  const onlineCount = useMemo(() => efficiencyItems.filter((item) => item.isOnline).length, [efficiencyItems])
-  const offlineCount = Math.max(projects.length - onlineCount, 0)
-
   const totalChargeMWh = useMemo(
     () => efficiencyItems.reduce((sum, item) => sum + (item.totalChargeMWh ?? 0), 0),
     [efficiencyItems]
@@ -620,6 +634,9 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     ],
     [zh]
   )
+
+  const onlineCount = useMemo(() => efficiencyItems.filter((item) => item.isOnline).length, [efficiencyItems])
+  const offlineCount = useMemo(() => efficiencyItems.filter((item) => !item.isOnline).length, [efficiencyItems])
 
   const statusCards = useMemo<StatCardItem[]>(
     () => [
@@ -852,8 +869,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
             <div className="order-1 relative min-h-[30rem] overflow-hidden rounded-[22px] border border-[#235b71]/55 bg-[linear-gradient(180deg,rgba(5,17,30,0.94),rgba(3,11,20,0.98))] xl:order-2 xl:min-h-0">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(28,81,111,0.28),transparent_62%)]" />
-              <div className="absolute inset-0">
-                <ComposableMap projection="geoEqualEarth" projectionConfig={{ scale: 176 }} style={{ width: "100%", height: "100%" }}>
+              <div ref={mapContainerRef} className="absolute inset-0">
+                <ComposableMap projection="geoEqualEarth" projectionConfig={{ scale: Math.round(mapDimensions.width * 0.22) }} width={mapDimensions.width} height={mapDimensions.height} style={{ width: "100%", height: "100%" }}>
                   <ZoomableGroup center={focusFrame.center} zoom={focusFrame.zoom} minZoom={1} maxZoom={8}>
                     <Geographies geography={GEO_URL}>
                       {({ geographies }: { geographies: GeographyFeature[] }) =>
