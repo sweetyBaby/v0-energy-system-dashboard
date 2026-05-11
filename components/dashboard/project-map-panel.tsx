@@ -334,31 +334,7 @@ const COUNTRY_BBOX: Record<string, [number, number, number, number]> = {
   "Brazil":       [-74, -34, -34,  6],
 }
 
-const getFallbackFocusFrame = (): FocusFrame => ({
-  center: [108, 35],
-  zoom: 2.5,
-})
-
-const computeFocusFrame = (projects: ProjectOption[]): FocusFrame => {
-  if (!projects.length) return getFallbackFocusFrame()
-
-  const lngs = projects.map((p) => p.longitude!)
-  const lats  = projects.map((p) => p.latitude!)
-  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
-  const minLat  = Math.min(...lats),  maxLat  = Math.max(...lats)
-  const centerLng = (minLng + maxLng) / 2
-  const centerLat  = (minLat  + maxLat)  / 2
-  const span = Math.max(maxLng - minLng, maxLat - minLat)
-
-  let zoom: number
-  if (span < 1)  zoom = 6
-  else if (span < 5)  zoom = 4
-  else if (span < 15) zoom = 3
-  else if (span < 35) zoom = 2
-  else zoom = 1.5
-
-  return { center: [centerLng, centerLat], zoom }
-}
+const DEFAULT_FOCUS_FRAME: FocusFrame = { center: [10, 10], zoom: 1 }
 
 const toNumberOrNull = (value: unknown) => {
   if (typeof value !== "number" || Number.isNaN(value)) return null
@@ -675,7 +651,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     }
   }, [activeCluster, mapDimensions, markerPixelPos])
 
-  const focusFrame = useMemo(() => computeFocusFrame(mappableProjects), [mappableProjects])
+  const focusFrame = DEFAULT_FOCUS_FRAME
   const [mapZoomK, setMapZoomK] = useState(focusFrame.zoom)
   // Counter-scale exactly 1/k so markers stay constant screen size regardless of zoom level
   const markerScale = 1 / Math.max(mapZoomK, 1)
@@ -1556,18 +1532,18 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 <div className="relative mb-2 pb-2.5">
                   <div className="flex items-center gap-2.5">
                     <div
-                      className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px]"
+                      className={`relative flex shrink-0 items-center justify-center ${useCompactOverviewRail ? "h-6 w-6 rounded-[8px]" : "h-7 w-7 rounded-[9px]"}`}
                       style={{
                         background: "linear-gradient(145deg,rgba(120,82,0,0.75),rgba(64,42,0,0.95))",
                         border: "1px solid rgba(251,191,36,0.36)",
                         boxShadow: "0 0 14px rgba(251,191,36,0.22), inset 0 1px 0 rgba(255,255,255,0.08)",
                       }}
                     >
-                      <div className="pointer-events-none absolute inset-0 rounded-[8px]" style={{ background: "radial-gradient(circle at 35% 28%, rgba(251,191,36,0.22), transparent 62%)" }} />
-                      <Star className="relative h-3.5 w-3.5 text-[#fbbf24]" />
+                      <div className={`pointer-events-none absolute inset-0 ${useCompactOverviewRail ? "rounded-[7px]" : "rounded-[8px]"}`} style={{ background: "radial-gradient(circle at 35% 28%, rgba(251,191,36,0.22), transparent 62%)" }} />
+                      <Star className={`relative text-[#fbbf24] ${useCompactOverviewRail ? "h-3 w-3" : "h-3.5 w-3.5"}`} />
                     </div>
                     <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                      <span className="text-[14px] font-black tracking-[0.07em] text-[#e9fbff]">
+                      <span className={`font-black tracking-[0.07em] text-[#e9fbff] ${useCompactOverviewRail ? "text-[12px]" : "text-[14px]"}`}>
                         {zh ? "能效排行" : "Efficiency Ranking"}
                       </span>
                       <span className="shrink-0 rounded-full border border-[#7a5a26]/55 bg-[rgba(60,38,4,0.55)] px-2 py-0.5 text-[9px] font-bold tracking-[0.12em] text-[#d4a84e]">EE</span>
@@ -1578,7 +1554,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
                 <div className="space-y-1.5">
                   {metricsLoading ? (
-                    <div className="rounded-[14px] border border-[#245f72]/45 bg-[rgba(8,25,36,0.72)] px-3 py-4 text-[13px] text-[#92b5c2]">
+                    <div className={`rounded-[14px] border border-[#245f72]/45 bg-[rgba(8,25,36,0.72)] px-3 py-4 text-[#92b5c2] ${useCompactOverviewRail ? "text-[11px]" : "text-[13px]"}`}>
                       {zh ? "正在加载能效排行..." : "Loading efficiency ranking..."}
                     </div>
                   ) : (
@@ -1595,23 +1571,23 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         <div key={item.project.id} className="relative overflow-hidden rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.80),rgba(7,18,28,0.94))] px-2 py-2">
                           <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(251,191,36,0.22),transparent)]" />
                           <div className="flex items-start gap-2">
-                            <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] text-[10px] font-black ${rankBg}`}>
+                            <div className={`mt-0.5 flex shrink-0 items-center justify-center font-black ${useCompactOverviewRail ? "h-5 w-5 rounded-[6px] text-[9px]" : "h-6 w-6 rounded-[8px] text-[10px]"} ${rankBg}`}>
                               {index + 1}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start justify-between gap-1">
-                                <div className="min-w-0 break-words text-[11px] font-semibold leading-[1.3] text-[#eefcff]">
+                                <div className={`min-w-0 break-words font-semibold leading-[1.3] text-[#eefcff] ${useCompactOverviewRail ? "text-[10px]" : "text-[11px]"}`}>
                                   {getProjectName(item.project, zh)}
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => handleProjectNavigate(item.project)}
-                                  className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[rgba(45,212,191,0.12)] text-[#2dd4bf] shadow-[0_0_7px_rgba(45,212,191,0.20)] transition-all hover:bg-[rgba(45,212,191,0.24)] hover:shadow-[0_0_12px_rgba(45,212,191,0.40)] hover:text-[#7efff4]"
+                                  className={`mt-px flex shrink-0 items-center justify-center rounded-full bg-[rgba(45,212,191,0.12)] text-[#2dd4bf] shadow-[0_0_7px_rgba(45,212,191,0.20)] transition-all hover:bg-[rgba(45,212,191,0.24)] hover:shadow-[0_0_12px_rgba(45,212,191,0.40)] hover:text-[#7efff4] ${useCompactOverviewRail ? "h-4 w-4" : "h-5 w-5"}`}
                                 >
-                                  <ArrowRight className="h-3 w-3" />
+                                  <ArrowRight className={useCompactOverviewRail ? "h-2.5 w-2.5" : "h-3 w-3"} />
                                 </button>
                               </div>
-                              <div className="mt-1 text-right text-[16px] font-black leading-none text-[#fbbf24] [text-shadow:0_0_10px_rgba(251,191,36,0.28)]">
+                              <div className={`mt-1 text-right font-black leading-none text-[#fbbf24] [text-shadow:0_0_10px_rgba(251,191,36,0.28)] ${useCompactOverviewRail ? "text-[13px]" : "text-[16px]"}`}>
                                 {formatEfficiency(efficiencyValue)}
                               </div>
                               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#0d1f30]">
@@ -1634,18 +1610,18 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 <div className="relative mb-2 pb-2.5">
                   <div className="flex items-center gap-2.5">
                     <div
-                      className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px]"
+                      className={`relative flex shrink-0 items-center justify-center ${useCompactOverviewRail ? "h-6 w-6 rounded-[8px]" : "h-7 w-7 rounded-[9px]"}`}
                       style={{
                         background: "linear-gradient(145deg,rgba(13,100,90,0.75),rgba(6,52,48,0.95))",
                         border: "1px solid rgba(45,212,191,0.36)",
                         boxShadow: "0 0 14px rgba(45,212,191,0.22), inset 0 1px 0 rgba(255,255,255,0.08)",
                       }}
                     >
-                      <div className="pointer-events-none absolute inset-0 rounded-[8px]" style={{ background: "radial-gradient(circle at 35% 28%, rgba(45,212,191,0.22), transparent 62%)" }} />
-                      <Zap className="relative h-3.5 w-3.5 text-[#2dd4bf]" />
+                      <div className={`pointer-events-none absolute inset-0 ${useCompactOverviewRail ? "rounded-[7px]" : "rounded-[8px]"}`} style={{ background: "radial-gradient(circle at 35% 28%, rgba(45,212,191,0.22), transparent 62%)" }} />
+                      <Zap className={`relative text-[#2dd4bf] ${useCompactOverviewRail ? "h-3 w-3" : "h-3.5 w-3.5"}`} />
                     </div>
                     <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                      <span className="text-[14px] font-black tracking-[0.07em] text-[#e9fbff]">
+                      <span className={`font-black tracking-[0.07em] text-[#e9fbff] ${useCompactOverviewRail ? "text-[12px]" : "text-[14px]"}`}>
                         {zh ? "充放电排名" : "Energy Ranking"}
                       </span>
                       <div className="inline-grid shrink-0 grid-cols-[1fr_auto_1fr] overflow-hidden rounded-[7px] border border-[#2d5778] bg-[rgba(8,22,38,0.95)] shadow-[inset_0_1px_0_rgba(151,218,255,0.05)]">
@@ -1680,7 +1656,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
                 <div className="space-y-1.5">
                   {metricsLoading ? (
-                    <div className="rounded-[14px] border border-[#245f72]/45 bg-[rgba(8,25,36,0.72)] px-3 py-4 text-[13px] text-[#92b5c2]">
+                    <div className={`rounded-[14px] border border-[#245f72]/45 bg-[rgba(8,25,36,0.72)] px-3 py-4 text-[#92b5c2] ${useCompactOverviewRail ? "text-[11px]" : "text-[13px]"}`}>
                       {zh ? "正在加载充放电排名..." : "Loading energy ranking..."}
                     </div>
                   ) : (
@@ -1701,23 +1677,23 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         <div key={item.project.id} className="relative overflow-hidden rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.80),rgba(7,18,28,0.94))] px-2 py-2">
                           <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(45,212,191,0.18),transparent)]" />
                           <div className="flex items-start gap-2">
-                            <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] text-[10px] font-black ${rankBg}`}>
+                            <div className={`mt-0.5 flex shrink-0 items-center justify-center font-black ${useCompactOverviewRail ? "h-5 w-5 rounded-[6px] text-[9px]" : "h-6 w-6 rounded-[8px] text-[10px]"} ${rankBg}`}>
                               {index + 1}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start justify-between gap-1">
-                                <div className="min-w-0 break-words text-[11px] font-semibold leading-[1.3] text-[#e4f4ff]">
+                                <div className={`min-w-0 break-words font-semibold leading-[1.3] text-[#e4f4ff] ${useCompactOverviewRail ? "text-[10px]" : "text-[11px]"}`}>
                                   {getProjectName(item.project, zh)}
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => handleProjectNavigate(item.project)}
-                                  className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[rgba(45,212,191,0.12)] text-[#2dd4bf] shadow-[0_0_7px_rgba(45,212,191,0.20)] transition-all hover:bg-[rgba(45,212,191,0.24)] hover:shadow-[0_0_12px_rgba(45,212,191,0.40)] hover:text-[#7efff4]"
+                                  className={`mt-px flex shrink-0 items-center justify-center rounded-full bg-[rgba(45,212,191,0.12)] text-[#2dd4bf] shadow-[0_0_7px_rgba(45,212,191,0.20)] transition-all hover:bg-[rgba(45,212,191,0.24)] hover:shadow-[0_0_12px_rgba(45,212,191,0.40)] hover:text-[#7efff4] ${useCompactOverviewRail ? "h-4 w-4" : "h-5 w-5"}`}
                                 >
-                                  <ArrowRight className="h-3 w-3" />
+                                  <ArrowRight className={useCompactOverviewRail ? "h-2.5 w-2.5" : "h-3 w-3"} />
                                 </button>
                               </div>
-                              <div className={`mt-1 text-right text-[16px] font-black leading-none ${valueColor}`}>
+                              <div className={`mt-1 text-right font-black leading-none ${valueColor} ${useCompactOverviewRail ? "text-[13px]" : "text-[16px]"}`}>
                                 {rankingValue.toFixed(1)}
                                 <span className="ml-0.5 text-[9px] font-bold opacity-70">MWh</span>
                               </div>
