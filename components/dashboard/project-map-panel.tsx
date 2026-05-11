@@ -435,6 +435,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const { isCompactWidth, isShortHeight } = useDashboardViewport()
   const zh = language === "zh"
   const useCompactHeader = isCompactWidth || isShortHeight
+  const useCompactOverviewRail = isCompactWidth || isShortHeight
 
   const [projects, setProjects] = useState<ProjectOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -926,12 +927,12 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
           <div className="relative grid min-h-full gap-2 p-2 xl:h-full xl:grid-cols-[13.75rem_minmax(0,1fr)_14.25rem] 2xl:grid-cols-[14.25rem_minmax(0,1fr)_14.75rem]">
             <aside className="order-2 flex min-h-0 flex-col gap-2 xl:order-1 xl:overflow-y-auto xl:overscroll-contain custom-scrollbar xl:pr-0.5">
-              <div className={`${PANEL_CLASS} relative overflow-hidden px-3 py-2.5`}>
+              <div className={`${PANEL_CLASS} relative overflow-hidden ${useCompactOverviewRail ? "px-2.5 py-2" : "px-3 py-2.5"}`}>
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(43,195,255,0.12),transparent_26%),radial-gradient(circle_at_86%_88%,rgba(35,129,255,0.10),transparent_30%)]" />
-                <div className="relative mb-2.5 pb-2.5">
+                <div className={`relative ${useCompactOverviewRail ? "mb-2 pb-2" : "mb-2.5 pb-2.5"}`}>
                   <div className="flex items-center gap-2.5">
                     <div
-                      className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px]"
+                      className={`relative flex shrink-0 items-center justify-center ${useCompactOverviewRail ? "h-6 w-6 rounded-[8px]" : "h-7 w-7 rounded-[9px]"}`}
                       style={{
                         background: "linear-gradient(145deg,rgba(14,116,144,0.75),rgba(7,56,76,0.95))",
                         border: "1px solid rgba(34,211,238,0.36)",
@@ -939,28 +940,32 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       }}
                     >
                       <div className="pointer-events-none absolute inset-0 rounded-[8px]" style={{ background: "radial-gradient(circle at 35% 28%, rgba(34,211,238,0.22), transparent 62%)" }} />
-                      <Layers3 className="relative h-3.5 w-3.5 text-[#22d3ee]" />
+                      <Layers3 className={`relative text-[#22d3ee] ${useCompactOverviewRail ? "h-3 w-3" : "h-3.5 w-3.5"}`} />
                     </div>
                     <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                      <span className="text-[14px] font-black tracking-[0.07em] text-[#e9fbff]">
+                      <span className={`${useCompactOverviewRail ? "text-[13px]" : "text-[14px]"} font-black tracking-[0.06em] text-[#e9fbff]`}>
                         {zh ? "总览信息" : "Overview"}
                       </span>
-                      <div className="flex shrink-0 items-center gap-1 rounded-full border border-[#1d5574]/55 bg-[rgba(6,24,36,0.65)] px-2 py-0.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#22d3ee] shadow-[0_0_5px_rgba(34,211,238,0.9)]" />
-                        <span className="text-[9px] font-bold tracking-[0.12em] text-[#6ec8e0]">LIVE</span>
+                      <div className={`flex shrink-0 items-center gap-1 rounded-full border border-[#1d5574]/55 bg-[rgba(6,24,36,0.65)] ${useCompactOverviewRail ? "px-1.5 py-0.5" : "px-2 py-0.5"}`}>
+                        <span className={`${useCompactOverviewRail ? "h-1.25 w-1.25" : "h-1.5 w-1.5"} rounded-full bg-[#22d3ee] shadow-[0_0_5px_rgba(34,211,238,0.9)]`} />
+                        <span className={`${useCompactOverviewRail ? "text-[8px]" : "text-[9px]"} font-bold tracking-[0.12em] text-[#6ec8e0]`}>LIVE</span>
                       </div>
                     </div>
                   </div>
                   <div className="mt-2 h-px bg-[linear-gradient(90deg,rgba(34,211,238,0.5),rgba(34,211,238,0.12),transparent)]" />
                 </div>
 
-                <div className="relative space-y-1.5">
+                <div className={`relative ${useCompactOverviewRail ? "space-y-1.25" : "space-y-1.5"}`}>
                   {overviewRailItems.map((item) => {
                     const accent = RAIL_ACCENTS[item.key] ?? RAIL_ACCENTS["site-count"]
                     return (
                     <div
                       key={item.key}
-                      className="group relative grid grid-cols-[3rem_minmax(0,1fr)] items-center gap-2.5 rounded-[16px] border border-[#1d5675]/60 bg-[linear-gradient(180deg,rgba(8,24,40,0.94),rgba(5,15,28,0.98))] py-2 pr-2.5 pl-0 shadow-[inset_0_1px_0_rgba(120,220,255,0.05),0_6px_16px_rgba(0,0,0,0.18)] overflow-hidden"
+                      className={`group relative grid items-center border border-[#1d5675]/60 bg-[linear-gradient(180deg,rgba(8,24,40,0.94),rgba(5,15,28,0.98))] pl-0 shadow-[inset_0_1px_0_rgba(120,220,255,0.05),0_6px_16px_rgba(0,0,0,0.18)] overflow-hidden ${
+                        useCompactOverviewRail
+                          ? "grid-cols-[2.75rem_minmax(0,1fr)] gap-2 rounded-[14px] py-1.5 pr-2"
+                          : "grid-cols-[3rem_minmax(0,1fr)] gap-2.5 rounded-[16px] py-2 pr-2.5"
+                      }`}
                     >
                       {/* left accent bar */}
                       <div className="pointer-events-none absolute left-0 inset-y-[5px] w-[3px] rounded-r-full" style={{ background: accent.bar }} />
@@ -968,9 +973,9 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(133,236,255,0.25),transparent)]" />
 
                       {/* icon */}
-                      <div className="flex shrink-0 items-center justify-center pl-3">
+                      <div className={`flex shrink-0 items-center justify-center ${useCompactOverviewRail ? "pl-2.5" : "pl-3"}`}>
                         <div
-                          className="relative flex h-9 w-9 items-center justify-center rounded-[11px]"
+                          className={`relative flex items-center justify-center ${useCompactOverviewRail ? "h-8 w-8 rounded-[10px]" : "h-9 w-9 rounded-[11px]"}`}
                           style={{
                             background: accent.iconBg,
                             border: `1px solid ${accent.border}`,
@@ -978,19 +983,19 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           }}
                         >
                           <div className="pointer-events-none absolute inset-0 rounded-[10px]" style={{ background: `radial-gradient(circle at 35% 28%, ${accent.iconColor}28, transparent 62%)` }} />
-                          <item.icon className="relative h-[1.05rem] w-[1.05rem]" style={{ color: accent.iconColor }} />
+                          <item.icon className={`relative ${useCompactOverviewRail ? "h-[0.95rem] w-[0.95rem]" : "h-[1.05rem] w-[1.05rem]"}`} style={{ color: accent.iconColor }} />
                         </div>
                       </div>
 
                       <div className="min-w-0">
-                        <div className="text-[10.5px] font-semibold leading-snug tracking-[0.04em] text-[#7fb7d7]">
+                        <div className={`${useCompactOverviewRail ? "text-[10px] leading-[1.3]" : "text-[10.5px] leading-snug"} font-semibold tracking-[0.03em] text-[#7fb7d7]`}>
                           {item.label}
                         </div>
-                        <div className="mt-0.5 flex flex-wrap items-end gap-x-1 gap-y-0">
-                          <span className="break-all text-[1.55rem] font-black leading-tight tracking-[0.01em] text-[#44e8ff] [text-shadow:0_0_14px_rgba(68,232,255,0.18)]">
+                        <div className={`${useCompactOverviewRail ? "mt-0.5 gap-x-0.5" : "mt-0.5 gap-x-1"} flex flex-wrap items-end gap-y-0`}>
+                          <span className={`${useCompactOverviewRail ? "text-[1.28rem]" : "text-[1.42rem] 2xl:text-[1.5rem]"} break-words font-black leading-none tracking-[0.01em] text-[#44e8ff] [text-shadow:0_0_14px_rgba(68,232,255,0.18)]`}>
                             {item.value}
                           </span>
-                          <span className="pb-0.5 text-[10.5px] font-bold uppercase tracking-[0.04em] text-[#5ed7ff]">
+                          <span className={`${useCompactOverviewRail ? "pb-0 text-[9.5px]" : "pb-0.5 text-[10px]"} font-bold uppercase tracking-[0.03em] text-[#5ed7ff]`}>
                             {item.unit}
                           </span>
                         </div>
@@ -1173,6 +1178,15 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                             onMouseLeave={handleClusterHoverEnd}
                           >
                             <g transform={`scale(${markerScale})`}>
+                              {/* Pulse rings */}
+                              <circle cx={0} cy={0} r={13} fill="none" stroke="#00d0c2" strokeWidth={1.0} strokeOpacity={0}>
+                                <animate attributeName="r" values="13;29" dur="2.8s" repeatCount="indefinite" begin="0s" />
+                                <animate attributeName="stroke-opacity" values="0.45;0" dur="2.8s" repeatCount="indefinite" begin="0s" />
+                              </circle>
+                              <circle cx={0} cy={0} r={13} fill="none" stroke="#00d0c2" strokeWidth={1.0} strokeOpacity={0}>
+                                <animate attributeName="r" values="13;29" dur="2.8s" repeatCount="indefinite" begin="1.4s" />
+                                <animate attributeName="stroke-opacity" values="0.45;0" dur="2.8s" repeatCount="indefinite" begin="1.4s" />
+                              </circle>
                               {/* Outer glow ring */}
                               <circle r={isClusterActive ? 17 : 14}
                                 fill={isClusterActive ? "rgba(0,220,200,0.10)" : "rgba(0,200,185,0.05)"}
@@ -1215,11 +1229,9 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       const isHovered = hoveredId === project.id
                       const isActive = isHovered
                       const projectLabel = getProjectRegionLabel(project, zh)
-                      const labelWidth = Math.max(72, Math.min(144, projectLabel.length * 11 + 32))
                       const regionLabelW = Math.max(40, Math.min(92, projectLabel.length * 10 + 14))
                       const pinR = isActive ? 11 : 9
                       const pinH = isActive ? 15 : 13
-                      const pinCy = -(pinR + pinH)
 
                       return (
                         <Marker
@@ -1230,6 +1242,19 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           onMouseLeave={handleProjectHoverEnd}
                         >
                           <g transform={`scale(${markerScale})`}>
+                            {/* Pulse rings — commissioned projects only */}
+                            {lifecycle === "commissioned" && (
+                              <>
+                                <circle cx={0} cy={0} r={5} fill="none" stroke={styles.markerFill} strokeWidth={1.1} strokeOpacity={0}>
+                                  <animate attributeName="r" values="5;19" dur="2.5s" repeatCount="indefinite" begin="0s" />
+                                  <animate attributeName="stroke-opacity" values="0.55;0" dur="2.5s" repeatCount="indefinite" begin="0s" />
+                                </circle>
+                                <circle cx={0} cy={0} r={5} fill="none" stroke={styles.markerFill} strokeWidth={1.1} strokeOpacity={0}>
+                                  <animate attributeName="r" values="5;19" dur="2.5s" repeatCount="indefinite" begin="1.25s" />
+                                  <animate attributeName="stroke-opacity" values="0.55;0" dur="2.5s" repeatCount="indefinite" begin="1.25s" />
+                                </circle>
+                              </>
+                            )}
                             {/* Pin body only – no internal decoration */}
                             <path
                               d={makePinPath(pinR, pinH)}
@@ -1238,32 +1263,19 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                               strokeWidth={isActive ? 1.4 : 1.1}
                               style={{ filter: styles.shadow, transition: "all 0.2s ease" }}
                             />
-                            {/* Label chip */}
-                            {!isActive && (
-                              <g transform="translate(0 10)">
-                                <rect x={-regionLabelW / 2} y={0} width={regionLabelW} height={14} rx={7}
-                                  fill="rgba(1,8,20,0.88)" stroke={styles.ringStroke} strokeWidth={0.8} />
-                                <text y={10} textAnchor="middle"
-                                  style={{ fontSize: "10px", fontWeight: 700, fill: styles.markerFill, letterSpacing: "0.02em" }}>
-                                  {projectLabel}
-                                </text>
-                              </g>
-                            )}
-                            {/* Active popup */}
-                            {isActive && (
-                              <>
-                                <line x1={0} y1={pinCy - pinR - 3} x2={0} y2={pinCy - pinR - 14}
-                                  stroke={styles.markerFill} strokeWidth={1.0} opacity={0.8} />
-                                <g transform={`translate(${-labelWidth / 2} ${pinCy - pinR - 40})`}>
-                                  <rect width={labelWidth} height={24} rx={5}
-                                    fill="rgba(2,10,24,0.96)" stroke={styles.markerFill} strokeWidth={1.0} />
-                                  <rect x={0} y={0} width={3} height={24} rx={2} fill={styles.markerFill} opacity={0.85} />
-                                  <text x={9} y={16} style={{ fontSize: "11px", fontWeight: 700, fill: "#eef8ff" }}>
-                                    {projectLabel}
-                                  </text>
-                                </g>
-                              </>
-                            )}
+                            {/* Label chip — same style regardless of hover state */}
+                            <g transform="translate(0 10)" style={{ transition: "opacity 0.2s ease" }}>
+                              <rect
+                                x={-regionLabelW / 2} y={0} width={regionLabelW} height={14} rx={7}
+                                fill="rgba(1,8,20,0.88)"
+                                stroke={isActive ? styles.markerFill : styles.ringStroke}
+                                strokeWidth={isActive ? 1.0 : 0.8}
+                              />
+                              <text y={10} textAnchor="middle"
+                                style={{ fontSize: "10px", fontWeight: 700, fill: styles.markerFill, letterSpacing: "0.02em" }}>
+                                {projectLabel}
+                              </text>
+                            </g>
                           </g>
                         </Marker>
                       )
@@ -1573,15 +1585,15 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                   {getLifecycleShortText(item.lifecycle, zh)}
                                 </span>
                               </div>
-                              <div className="mt-1.5 flex items-center gap-2">
-                                <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#102636]">
+                              <div className="mt-1.5 text-right text-[17px] font-black leading-none text-[#3de9d8]">
+                                {formatEfficiency(efficiencyValue)}
+                              </div>
+                              <div className="mt-1.5">
+                                <div className="h-1.5 min-w-0 overflow-hidden rounded-full bg-[#102636]">
                                   <div
                                     className={`h-full rounded-full bg-[linear-gradient(90deg,var(--tw-gradient-from),var(--tw-gradient-to))] ${styles.bar}`}
                                     style={{ width: progressWidth }}
                                   />
-                                </div>
-                                <div className="shrink-0 text-[17px] font-black leading-none text-[#3de9d8]">
-                                  {formatEfficiency(efficiencyValue)}
                                 </div>
                               </div>
                             </div>
@@ -1594,10 +1606,18 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
               </div>
 
               <div className={`${PANEL_CLASS} px-2.5 py-2.5`}>
-                <SectionHeading icon={<ArrowUp className="h-4 w-4" />} title={zh ? "充放电排名" : "Charge / Discharge Ranking"} trailing="MWh" />
-
-                <div className="mt-2 flex justify-end">
-                  <div className="inline-grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden rounded-[6px] border border-[#2d5778] bg-[linear-gradient(180deg,rgba(11,29,47,0.92),rgba(7,20,34,0.96))] shadow-[inset_0_1px_0_rgba(151,218,255,0.06)]">
+                <div className="flex items-center justify-between gap-2 border-b border-[#17354b] pb-2">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#123a55] text-[#68e7f8] shadow-[0_0_10px_rgba(80,200,255,0.16)]">
+                      <ArrowUp className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-[12px] font-black tracking-[0.12em] text-[#dff6ff]">
+                        {zh ? "充放电排名" : "Charge / Discharge Ranking"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="inline-grid shrink-0 grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden rounded-[6px] border border-[#2d5778] bg-[linear-gradient(180deg,rgba(11,29,47,0.92),rgba(7,20,34,0.96))] shadow-[inset_0_1px_0_rgba(151,218,255,0.06)]">
                   <button
                     type="button"
                     onClick={() => setEnergyRankingMode("charge")}
@@ -1651,18 +1671,23 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           key={item.project.id}
                           className="rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.82),rgba(7,18,28,0.94))] px-2 py-1.5"
                         >
-                          <div className="grid grid-cols-[1.5rem_minmax(0,1fr)_3.75rem] items-center gap-2">
-                            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-[9px] text-[10px] font-black ${rankClass}`}>
+                          <div className="flex items-start gap-2">
+                            <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-[9px] text-[10px] font-black ${rankClass}`}>
                               {index + 1}
                             </div>
-                            <div className="min-w-0 text-[11px] font-semibold leading-[1.25] text-[#e4f4ff]">
-                              {getProjectName(item.project, zh)}
-                            </div>
-                            <div className="text-right text-[10px] font-semibold text-[#d8e8f7]">{rankingValue.toFixed(1)}</div>
-                          </div>
-                          <div className="mt-1.5 pl-[2rem]">
-                            <div className="h-1.5 overflow-hidden rounded-full bg-[#10263b]">
-                              <div className={`h-full rounded-full ${barClass}`} style={{ width: progressWidth }} />
+                            <div className="min-w-0 flex-1">
+                              <div className="break-words text-[11px] font-semibold leading-[1.25] text-[#e4f4ff]">
+                                {getProjectName(item.project, zh)}
+                              </div>
+                              <div className="mt-1 text-right text-[10px] font-semibold text-[#d8e8f7]">
+                                {rankingValue.toFixed(1)}
+                                <span className="ml-1 text-[9px] font-bold uppercase tracking-[0.04em] text-[#8fbddc]">MWh</span>
+                              </div>
+                              <div className="mt-1.5">
+                                <div className="h-1.5 overflow-hidden rounded-full bg-[#10263b]">
+                                  <div className={`h-full rounded-full ${barClass}`} style={{ width: progressWidth }} />
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
