@@ -901,10 +901,20 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#030c18] text-[#e8f6ff]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_10%,rgba(0,220,210,0.14),transparent_28%),radial-gradient(ellipse_at_80%_8%,rgba(56,130,255,0.11),transparent_30%),radial-gradient(ellipse_at_50%_90%,rgba(0,140,220,0.08),transparent_40%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(40,100,140,0.08)_1px,transparent_1px),linear-gradient(0deg,rgba(40,100,140,0.07)_1px,transparent_1px)] bg-[size:72px_72px]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,180,200,0.04)_1px,transparent_1px),linear-gradient(0deg,rgba(0,180,200,0.04)_1px,transparent_1px)] bg-[size:18px_18px]" />
+    <div
+      className="relative flex h-full min-h-0 flex-col overflow-hidden text-[#e8f6ff]"
+      style={{ background: "radial-gradient(ellipse 92% 54% at 50% -5%, rgba(56,130,246,0.30) 0%, transparent 56%), radial-gradient(circle at 13% 18%, rgba(0,212,170,0.15) 0%, transparent 28%), radial-gradient(circle at 87% 18%, rgba(34,211,238,0.13) 0%, transparent 30%), radial-gradient(ellipse at 50% 108%, rgba(0,100,200,0.10), transparent 50%), #040d1f" }}
+    >
+      {/* Dot texture */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:radial-gradient(circle,rgba(34,211,238,0.65)_1px,transparent_1.5px)] [background-size:28px_28px]" />
+      {/* Grid */}
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(40,100,140,0.07)_1px,transparent_1px),linear-gradient(0deg,rgba(40,100,140,0.06)_1px,transparent_1px)] bg-[size:72px_72px]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,180,200,0.03)_1px,transparent_1px),linear-gradient(0deg,rgba(0,180,200,0.03)_1px,transparent_1px)] bg-[size:18px_18px]" />
+      {/* Corner brackets */}
+      <div className="pointer-events-none absolute left-0 top-0 h-[56px] w-[56px] border-l border-t border-[#22d3ee]/20" />
+      <div className="pointer-events-none absolute right-0 top-0 h-[56px] w-[56px] border-r border-t border-[#22d3ee]/20" />
+      <div className="pointer-events-none absolute bottom-0 left-0 h-[40px] w-[40px] border-b border-l border-[#00d4aa]/10" />
+      <div className="pointer-events-none absolute bottom-0 right-0 h-[40px] w-[40px] border-b border-r border-[#00d4aa]/10" />
 
       <DashboardHeaderShell compact={useCompactHeader}>
         <div className="flex min-w-0 flex-1 items-center gap-4">
@@ -917,8 +927,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       </DashboardHeaderShell>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col p-2">
-        <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#1a5070]/70 bg-[linear-gradient(160deg,rgba(3,13,26,0.99),rgba(2,8,18,1))] shadow-[0_24px_64px_rgba(0,0,0,0.36),inset_0_1px_0_rgba(0,200,220,0.08)]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(0,200,220,0.10),transparent_22%),radial-gradient(ellipse_at_88%_80%,rgba(40,120,255,0.08),transparent_28%)]" />
+        <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#22d3ee]/18 bg-[rgba(4,12,26,0.52)] shadow-[0_20px_56px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(34,211,238,0.10)]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(34,211,238,0.07),transparent_30%),radial-gradient(ellipse_at_88%_80%,rgba(40,120,255,0.06),transparent_32%)]" />
 
           <div className="relative grid min-h-full gap-2 p-2 xl:h-full xl:grid-cols-[13.75rem_minmax(0,1fr)_14.25rem] 2xl:grid-cols-[14.25rem_minmax(0,1fr)_14.75rem]">
             <aside className="order-2 flex min-h-0 flex-col gap-2 xl:order-1 xl:overflow-y-auto xl:overscroll-contain custom-scrollbar xl:pr-0.5">
@@ -1104,10 +1114,10 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
               </div>
             </aside>
 
-            <div className="order-1 relative min-h-[30rem] overflow-hidden rounded-[22px] border border-[#1a6a8a]/55 bg-[#020e1e] xl:order-2 xl:min-h-0">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_35%,rgba(0,80,140,0.60),rgba(0,30,70,0.30)_55%,transparent_80%)]" />
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(0,220,210,0.5),transparent)]" />
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgba(0,150,220,0.3),transparent)]" />
+            <div className="order-1 relative min-h-[30rem] overflow-hidden rounded-[22px] border border-[#22d3ee]/18 bg-[rgba(3,10,24,0.45)] xl:order-2 xl:min-h-0">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_38%,rgba(0,90,160,0.38),rgba(0,30,70,0.15)_55%,transparent_78%)]" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(34,211,238,0.45),transparent)]" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgba(34,211,238,0.20),transparent)]" />
               <div ref={mapContainerRef} className="absolute inset-0">
                 <ComposableMap
                   projection="geoNaturalEarth1"
@@ -1117,7 +1127,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                   style={{ width: "100%", height: "100%", display: "block" }}
                 >
                   <ZoomableGroup center={focusFrame.center} zoom={focusFrame.zoom} minZoom={1} maxZoom={8} onMove={({ zoom }: { zoom: number }) => setMapZoomK(zoom)} onMoveEnd={({ zoom }: { zoom: number }) => setMapZoomK(zoom)}>
-                    <Sphere id="map-sphere" fill="rgba(2,18,44,0.95)" stroke="rgba(0,180,220,0.18)" strokeWidth={0.8} />
+                    <Sphere id="map-sphere" fill="rgba(4,14,34,0.0)" stroke="rgba(34,211,238,0.14)" strokeWidth={0.6} />
                     <Graticule stroke="rgba(0,160,200,0.12)" strokeWidth={0.5} step={[30, 30]} />
                     <Geographies geography={GEO_URL}>
                       {({ geographies }: { geographies: GeographyFeature[] }) =>
