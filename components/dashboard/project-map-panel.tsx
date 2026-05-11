@@ -245,11 +245,6 @@ const getLifecycleText = (lifecycle: LifecycleKey, zh: boolean) => {
   return zh ? "待建设" : "Planned"
 }
 
-const getLifecycleShortText = (lifecycle: LifecycleKey, zh: boolean) => {
-  if (lifecycle === "commissioned") return zh ? "投运" : "Live"
-  if (lifecycle === "construction") return zh ? "调试" : "Build"
-  return zh ? "规划" : "Plan"
-}
 
 const getLifecycleStyles = (lifecycle: LifecycleKey) => {
   if (lifecycle === "commissioned") {
@@ -1545,9 +1540,33 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
             </div>
 
             <aside className="order-3 flex min-h-0 flex-col gap-2 xl:overflow-y-auto xl:pr-0.5 xl:overscroll-contain custom-scrollbar">
-              <div className={`${PANEL_CLASS} px-2.5 py-2`}>
-                <SectionHeading icon={<Star className="h-4 w-4" />} title={zh ? "能效排行" : "Efficiency Ranking"} trailing={zh ? "综合效率" : "EE"} />
-                <div className="mt-2 space-y-1.5">
+
+              {/* ── 能效排行 ── */}
+              <div className={`${PANEL_CLASS} px-2.5 py-2.5`}>
+                <div className="relative mb-2 pb-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px]"
+                      style={{
+                        background: "linear-gradient(145deg,rgba(120,82,0,0.75),rgba(64,42,0,0.95))",
+                        border: "1px solid rgba(251,191,36,0.36)",
+                        boxShadow: "0 0 14px rgba(251,191,36,0.22), inset 0 1px 0 rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <div className="pointer-events-none absolute inset-0 rounded-[8px]" style={{ background: "radial-gradient(circle at 35% 28%, rgba(251,191,36,0.22), transparent 62%)" }} />
+                      <Star className="relative h-3.5 w-3.5 text-[#fbbf24]" />
+                    </div>
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                      <span className="text-[14px] font-black tracking-[0.07em] text-[#e9fbff]">
+                        {zh ? "能效排行" : "Efficiency Ranking"}
+                      </span>
+                      <span className="shrink-0 rounded-full border border-[#7a5a26]/55 bg-[rgba(60,38,4,0.55)] px-2 py-0.5 text-[9px] font-bold tracking-[0.12em] text-[#d4a84e]">EE</span>
+                    </div>
+                  </div>
+                  <div className="mt-2 h-px bg-[linear-gradient(90deg,rgba(251,191,36,0.48),rgba(251,191,36,0.10),transparent)]" />
+                </div>
+
+                <div className="space-y-1.5">
                   {metricsLoading ? (
                     <div className="rounded-[14px] border border-[#245f72]/45 bg-[rgba(8,25,36,0.72)] px-3 py-4 text-[13px] text-[#92b5c2]">
                       {zh ? "正在加载能效排行..." : "Loading efficiency ranking..."}
@@ -1556,45 +1575,40 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                     topEfficiencyItems.slice(0, 3).map((item, index) => {
                       const styles = getLifecycleStyles(item.lifecycle)
                       const efficiencyValue = item.score ?? 0
-                      const progressWidth =
-                        efficiencyValue <= 0 ? "0%" : `${Math.max(6, (efficiencyValue / maxEfficiencyScore) * 100)}%`
+                      const progressWidth = efficiencyValue <= 0 ? "0%" : `${Math.max(6, (efficiencyValue / maxEfficiencyScore) * 100)}%`
+                      const rankBg =
+                        index === 0 ? "bg-[#ffcf4f] text-[#181818]"
+                        : index === 1 ? "bg-[#d7dde4] text-[#181818]"
+                        : "bg-[#ce8a4b] text-white"
 
                       return (
-                        <div key={item.project.id} className="rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.78),rgba(7,18,28,0.92))] px-2 py-1.5">
+                        <div key={item.project.id} className="relative overflow-hidden rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.80),rgba(7,18,28,0.94))] px-2 py-2">
+                          <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(251,191,36,0.22),transparent)]" />
                           <div className="flex items-start gap-2">
-                            <div
-                              className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-[9px] text-[10px] font-black ${
-                                index === 0
-                                  ? "bg-[#ffcf4f] text-[#181818]"
-                                  : index === 1
-                                    ? "bg-[#d7dde4] text-[#181818]"
-                                    : index === 2
-                                      ? "bg-[#ce8a4b] text-white"
-                                      : "bg-[#1d3d51] text-[#9bc8df]"
-                              }`}
-                            >
+                            <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] text-[10px] font-black ${rankBg}`}>
                               {index + 1}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="break-words text-[11px] font-semibold leading-[1.25] text-[#eefcff]">
-                                {getProjectName(item.project, zh)}
+                              <div className="flex items-start justify-between gap-1">
+                                <div className="min-w-0 break-words text-[11px] font-semibold leading-[1.3] text-[#eefcff]">
+                                  {getProjectName(item.project, zh)}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleProjectNavigate(item.project)}
+                                  className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[rgba(45,212,191,0.12)] text-[#2dd4bf] shadow-[0_0_7px_rgba(45,212,191,0.20)] transition-all hover:bg-[rgba(45,212,191,0.24)] hover:shadow-[0_0_12px_rgba(45,212,191,0.40)] hover:text-[#7efff4]"
+                                >
+                                  <ArrowRight className="h-3 w-3" />
+                                </button>
                               </div>
-                              <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-[#7f98ab]">
-                                <span>{getProjectRegionLabel(item.project, zh)}</span>
-                                <span className={`rounded-full border px-2 py-0.5 text-[10px] ${styles.badge}`}>
-                                  {getLifecycleShortText(item.lifecycle, zh)}
-                                </span>
-                              </div>
-                              <div className="mt-1.5 text-right text-[17px] font-black leading-none text-[#3de9d8]">
+                              <div className="mt-1 text-right text-[16px] font-black leading-none text-[#fbbf24] [text-shadow:0_0_10px_rgba(251,191,36,0.28)]">
                                 {formatEfficiency(efficiencyValue)}
                               </div>
-                              <div className="mt-1.5">
-                                <div className="h-1.5 min-w-0 overflow-hidden rounded-full bg-[#102636]">
-                                  <div
-                                    className={`h-full rounded-full bg-[linear-gradient(90deg,var(--tw-gradient-from),var(--tw-gradient-to))] ${styles.bar}`}
-                                    style={{ width: progressWidth }}
-                                  />
-                                </div>
+                              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#0d1f30]">
+                                <div
+                                  className={`h-full rounded-full bg-[linear-gradient(90deg,var(--tw-gradient-from),var(--tw-gradient-to))] ${styles.bar}`}
+                                  style={{ width: progressWidth }}
+                                />
                               </div>
                             </div>
                           </div>
@@ -1605,46 +1619,56 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </div>
               </div>
 
+              {/* ── 充放电排名 ── */}
               <div className={`${PANEL_CLASS} px-2.5 py-2.5`}>
-                <div className="flex items-center justify-between gap-2 border-b border-[#17354b] pb-2">
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#123a55] text-[#68e7f8] shadow-[0_0_10px_rgba(80,200,255,0.16)]">
-                      <ArrowUp className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-[12px] font-black tracking-[0.12em] text-[#dff6ff]">
-                        {zh ? "充放电排名" : "Charge / Discharge Ranking"}
+                <div className="relative mb-2 pb-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px]"
+                      style={{
+                        background: "linear-gradient(145deg,rgba(13,100,90,0.75),rgba(6,52,48,0.95))",
+                        border: "1px solid rgba(45,212,191,0.36)",
+                        boxShadow: "0 0 14px rgba(45,212,191,0.22), inset 0 1px 0 rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <div className="pointer-events-none absolute inset-0 rounded-[8px]" style={{ background: "radial-gradient(circle at 35% 28%, rgba(45,212,191,0.22), transparent 62%)" }} />
+                      <Zap className="relative h-3.5 w-3.5 text-[#2dd4bf]" />
+                    </div>
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                      <span className="text-[14px] font-black tracking-[0.07em] text-[#e9fbff]">
+                        {zh ? "充放电排名" : "Energy Ranking"}
+                      </span>
+                      <div className="inline-grid shrink-0 grid-cols-[1fr_auto_1fr] overflow-hidden rounded-[7px] border border-[#2d5778] bg-[rgba(8,22,38,0.95)] shadow-[inset_0_1px_0_rgba(151,218,255,0.05)]">
+                        <button
+                          type="button"
+                          onClick={() => setEnergyRankingMode("charge")}
+                          className={`px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.05em] transition-all ${
+                            energyRankingMode === "charge"
+                              ? "bg-[linear-gradient(180deg,rgba(29,95,154,0.85),rgba(13,49,96,0.98))] text-[#4fe8da] shadow-[inset_0_1px_0_rgba(164,230,255,0.15)]"
+                              : "bg-transparent text-[#6a96b0] hover:text-[#d0f0ff]"
+                          }`}
+                        >
+                          {zh ? "充" : "↑"}
+                        </button>
+                        <div className="w-px bg-[rgba(74,125,158,0.35)]" />
+                        <button
+                          type="button"
+                          onClick={() => setEnergyRankingMode("discharge")}
+                          className={`px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.05em] transition-all ${
+                            energyRankingMode === "discharge"
+                              ? "bg-[linear-gradient(180deg,rgba(29,95,154,0.85),rgba(13,49,96,0.98))] text-[#7ab8ff] shadow-[inset_0_1px_0_rgba(164,230,255,0.15)]"
+                              : "bg-transparent text-[#6a96b0] hover:text-[#d0f0ff]"
+                          }`}
+                        >
+                          {zh ? "放" : "↓"}
+                        </button>
                       </div>
                     </div>
                   </div>
-                  <div className="inline-grid shrink-0 grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden rounded-[6px] border border-[#2d5778] bg-[linear-gradient(180deg,rgba(11,29,47,0.92),rgba(7,20,34,0.96))] shadow-[inset_0_1px_0_rgba(151,218,255,0.06)]">
-                  <button
-                    type="button"
-                    onClick={() => setEnergyRankingMode("charge")}
-                    className={`min-w-[50px] px-2 py-1 text-[10px] font-semibold tracking-[0.05em] transition-all ${
-                      energyRankingMode === "charge"
-                        ? "bg-[linear-gradient(180deg,rgba(29,95,154,0.84),rgba(13,49,96,0.96))] text-[#5ff1e6] shadow-[inset_0_1px_0_rgba(164,230,255,0.18),inset_0_-1px_0_rgba(6,18,34,0.56),inset_0_0_0_1px_rgba(118,219,255,0.16),0_0_12px_rgba(53,165,255,0.14)]"
-                        : "bg-transparent text-[#86a1b6] hover:text-[#dff8ff]"
-                    }`}
-                  >
-                    {zh ? "充电" : "Charge"}
-                  </button>
-                  <div className="w-px bg-[linear-gradient(180deg,rgba(124,183,215,0.08),rgba(74,125,158,0.44),rgba(124,183,215,0.08))]" />
-                  <button
-                    type="button"
-                    onClick={() => setEnergyRankingMode("discharge")}
-                    className={`min-w-[50px] px-2 py-1 text-[10px] font-semibold tracking-[0.05em] transition-all ${
-                      energyRankingMode === "discharge"
-                        ? "bg-[linear-gradient(180deg,rgba(29,95,154,0.84),rgba(13,49,96,0.96))] text-[#8ec0ff] shadow-[inset_0_1px_0_rgba(164,230,255,0.18),inset_0_-1px_0_rgba(6,18,34,0.56),inset_0_0_0_1px_rgba(118,219,255,0.16),0_0_12px_rgba(53,165,255,0.14)]"
-                        : "bg-transparent text-[#86a1b6] hover:text-[#dff8ff]"
-                    }`}
-                  >
-                    {zh ? "放电" : "Discharge"}
-                  </button>
-                  </div>
+                  <div className="mt-2 h-px bg-[linear-gradient(90deg,rgba(45,212,191,0.48),rgba(45,212,191,0.10),transparent)]" />
                 </div>
 
-                <div className="mt-2 grid gap-1.5">
+                <div className="space-y-1.5">
                   {metricsLoading ? (
                     <div className="rounded-[14px] border border-[#245f72]/45 bg-[rgba(8,25,36,0.72)] px-3 py-4 text-[13px] text-[#92b5c2]">
                       {zh ? "正在加载充放电排名..." : "Loading energy ranking..."}
@@ -1652,41 +1676,43 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                   ) : (
                     rankedEnergyItems.map((item, index) => {
                       const rankingValue = energyRankingMode === "charge" ? item.totalChargeMWh ?? 0 : item.totalDischargeMWh ?? 0
-                      const progressWidth = rankingValue <= 0 ? "0%" : `${Math.max(8, (rankingValue / maxRankedEnergyValue) * 100)}%`
-                      const rankClass =
-                        index === 0
-                          ? "bg-[#ffcf4f] text-[#181818]"
-                          : index === 1
-                            ? "bg-[#d7dde4] text-[#181818]"
-                            : index === 2
-                              ? "bg-[#ce8a4b] text-white"
-                              : "bg-[#1d3d51] text-[#9bc8df]"
-                      const barClass =
-                        energyRankingMode === "charge"
-                          ? "bg-[linear-gradient(90deg,#2de8d9,#3cb7ff)]"
-                          : "bg-[linear-gradient(90deg,#53bfff,#467bff)]"
+                      const progressWidth = rankingValue <= 0 ? "0%" : `${Math.max(6, (rankingValue / maxRankedEnergyValue) * 100)}%`
+                      const rankBg =
+                        index === 0 ? "bg-[#ffcf4f] text-[#181818]"
+                        : index === 1 ? "bg-[#d7dde4] text-[#181818]"
+                        : index === 2 ? "bg-[#ce8a4b] text-white"
+                        : "bg-[#1d3d51] text-[#9bc8df]"
+                      const barGradient = energyRankingMode === "charge"
+                        ? "bg-[linear-gradient(90deg,#2dd4bf,#38bdf8)]"
+                        : "bg-[linear-gradient(90deg,#60a5fa,#818cf8)]"
+                      const valueColor = energyRankingMode === "charge" ? "text-[#2dd4bf]" : "text-[#818cf8]"
 
                       return (
-                        <div
-                          key={item.project.id}
-                          className="rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.82),rgba(7,18,28,0.94))] px-2 py-1.5"
-                        >
+                        <div key={item.project.id} className="relative overflow-hidden rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.80),rgba(7,18,28,0.94))] px-2 py-2">
+                          <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(45,212,191,0.18),transparent)]" />
                           <div className="flex items-start gap-2">
-                            <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-[9px] text-[10px] font-black ${rankClass}`}>
+                            <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] text-[10px] font-black ${rankBg}`}>
                               {index + 1}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="break-words text-[11px] font-semibold leading-[1.25] text-[#e4f4ff]">
-                                {getProjectName(item.project, zh)}
-                              </div>
-                              <div className="mt-1 text-right text-[10px] font-semibold text-[#d8e8f7]">
-                                {rankingValue.toFixed(1)}
-                                <span className="ml-1 text-[9px] font-bold uppercase tracking-[0.04em] text-[#8fbddc]">MWh</span>
-                              </div>
-                              <div className="mt-1.5">
-                                <div className="h-1.5 overflow-hidden rounded-full bg-[#10263b]">
-                                  <div className={`h-full rounded-full ${barClass}`} style={{ width: progressWidth }} />
+                              <div className="flex items-start justify-between gap-1">
+                                <div className="min-w-0 break-words text-[11px] font-semibold leading-[1.3] text-[#e4f4ff]">
+                                  {getProjectName(item.project, zh)}
                                 </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleProjectNavigate(item.project)}
+                                  className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[rgba(45,212,191,0.12)] text-[#2dd4bf] shadow-[0_0_7px_rgba(45,212,191,0.20)] transition-all hover:bg-[rgba(45,212,191,0.24)] hover:shadow-[0_0_12px_rgba(45,212,191,0.40)] hover:text-[#7efff4]"
+                                >
+                                  <ArrowRight className="h-3 w-3" />
+                                </button>
+                              </div>
+                              <div className={`mt-1 text-right text-[16px] font-black leading-none ${valueColor}`}>
+                                {rankingValue.toFixed(1)}
+                                <span className="ml-0.5 text-[9px] font-bold opacity-70">MWh</span>
+                              </div>
+                              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#0d1f30]">
+                                <div className={`h-full rounded-full ${barGradient}`} style={{ width: progressWidth }} />
                               </div>
                             </div>
                           </div>
