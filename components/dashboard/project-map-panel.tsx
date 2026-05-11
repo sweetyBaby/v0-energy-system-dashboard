@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps"
+import { ComposableMap, Geographies, Geography, Graticule, Marker, Sphere, ZoomableGroup } from "react-simple-maps"
 import type { LucideIcon } from "lucide-react"
 import {
   ArrowDown,
@@ -91,7 +91,19 @@ type ProjectMapPanelProps = {
 }
 
 const PANEL_CLASS =
-  "rounded-[20px] border border-[#214b5f] bg-[linear-gradient(180deg,rgba(8,21,33,0.98),rgba(5,13,22,0.98))] shadow-[0_20px_40px_rgba(0,0,0,0.24)]"
+  "rounded-[20px] border border-[#1a4d6a] bg-[linear-gradient(160deg,rgba(5,16,30,0.98),rgba(3,10,20,0.99))] shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(100,200,255,0.06)]"
+
+// Classic location pin (Google Maps style): prominent circle head, narrow tapering tail
+// Tip at (0,0); circle center at (0, -(R + tailLen))
+const makePinPath = (R: number, tailLen: number): string => {
+  const cy = -(R + tailLen)
+  const a = (55 * Math.PI) / 180               // entry angle from circle bottom (~55°)
+  const ex = R * Math.sin(a)                   // entry x  ≈ 0.82 R
+  const ey = cy + R * Math.cos(a)              // entry y  slightly below equator
+  const t1x = R * 0.07,  t1y = -tailLen * 0.44 // near-tip control  (very narrow)
+  const t2x = ex * 0.88, t2y = ey + tailLen * 0.20 // near-circle control
+  return `M 0 0 C ${-t1x} ${t1y} ${-t2x} ${t2y} ${-ex} ${ey} A ${R} ${R} 0 1 1 ${ex} ${ey} C ${t2x} ${t2y} ${t1x} ${t1y} 0 0 Z`
+}
 
 const hasText = (value?: string | null) => typeof value === "string" && value.trim().length > 0
 
@@ -747,9 +759,10 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#07111d] text-[#e6f4fb]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_12%,rgba(41,213,216,0.16),transparent_26%),radial-gradient(circle_at_84%_14%,rgba(71,131,255,0.12),transparent_30%),linear-gradient(180deg,rgba(6,17,29,0.92),rgba(3,9,17,1))]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(54,102,129,0.06)_1px,transparent_1px),linear-gradient(0deg,rgba(54,102,129,0.05)_1px,transparent_1px)] bg-[size:88px_88px]" />
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#030c18] text-[#e8f6ff]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_10%,rgba(0,220,210,0.14),transparent_28%),radial-gradient(ellipse_at_80%_8%,rgba(56,130,255,0.11),transparent_30%),radial-gradient(ellipse_at_50%_90%,rgba(0,140,220,0.08),transparent_40%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(40,100,140,0.08)_1px,transparent_1px),linear-gradient(0deg,rgba(40,100,140,0.07)_1px,transparent_1px)] bg-[size:72px_72px]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,180,200,0.04)_1px,transparent_1px),linear-gradient(0deg,rgba(0,180,200,0.04)_1px,transparent_1px)] bg-[size:18px_18px]" />
 
       <DashboardHeaderShell compact={useCompactHeader}>
         <div className="flex min-w-0 flex-1 items-center gap-4">
@@ -762,8 +775,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       </DashboardHeaderShell>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col p-2">
-        <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#1b4c60] bg-[linear-gradient(180deg,rgba(4,15,27,0.99),rgba(2,9,18,1))] shadow-[0_26px_56px_rgba(0,0,0,0.28)]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(42,230,227,0.12),transparent_18%),radial-gradient(circle_at_85%_75%,rgba(58,140,255,0.1),transparent_24%)]" />
+        <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#1a5070]/70 bg-[linear-gradient(160deg,rgba(3,13,26,0.99),rgba(2,8,18,1))] shadow-[0_24px_64px_rgba(0,0,0,0.36),inset_0_1px_0_rgba(0,200,220,0.08)]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(0,200,220,0.10),transparent_22%),radial-gradient(ellipse_at_88%_80%,rgba(40,120,255,0.08),transparent_28%)]" />
 
           <div className="relative grid min-h-full gap-2 p-2 xl:h-full xl:grid-cols-[13.75rem_minmax(0,1fr)_14.25rem] 2xl:grid-cols-[14.25rem_minmax(0,1fr)_14.75rem]">
             <aside className="order-2 flex min-h-0 flex-col gap-2 xl:order-1 xl:overflow-y-hidden xl:pr-0.5">
@@ -870,8 +883,10 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
               </div>
             </aside>
 
-            <div className="order-1 relative min-h-[30rem] overflow-hidden rounded-[22px] border border-[#1a6a8a]/60 bg-[linear-gradient(160deg,rgba(4,22,44,0.99),rgba(2,12,28,1))] xl:order-2 xl:min-h-0">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_40%,rgba(14,64,110,0.55),transparent_68%)]" />
+            <div className="order-1 relative min-h-[30rem] overflow-hidden rounded-[22px] border border-[#1a6a8a]/55 bg-[#020e1e] xl:order-2 xl:min-h-0">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_35%,rgba(0,80,140,0.60),rgba(0,30,70,0.30)_55%,transparent_80%)]" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(0,220,210,0.5),transparent)]" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgba(0,150,220,0.3),transparent)]" />
               <div ref={mapContainerRef} className="absolute inset-0">
                 <ComposableMap
                   projection="geoNaturalEarth1"
@@ -881,6 +896,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                   style={{ width: "100%", height: "100%", display: "block" }}
                 >
                   <ZoomableGroup center={focusFrame.center} zoom={focusFrame.zoom} minZoom={1} maxZoom={8} onMove={({ zoom }: { zoom: number }) => setMapZoomK(zoom)} onMoveEnd={({ zoom }: { zoom: number }) => setMapZoomK(zoom)}>
+                    <Sphere id="map-sphere" fill="rgba(2,18,44,0.95)" stroke="rgba(0,180,220,0.18)" strokeWidth={0.8} />
+                    <Graticule stroke="rgba(0,160,200,0.12)" strokeWidth={0.5} step={[30, 30]} />
                     <Geographies geography={GEO_URL}>
                       {({ geographies }: { geographies: GeographyFeature[] }) =>
                         geographies
@@ -924,7 +941,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
                       if (cluster.projects.length > 1) {
                         const regionName = cluster.projects[0].region || (zh ? "未标注" : "Unknown")
-                        const regionLabelW = Math.max(26, Math.min(70, regionName.length * 7 + 10))
+                        const regionLabelW = Math.max(32, Math.min(76, regionName.length * 7 + 14))
 
                         return (
                           <Marker
@@ -935,57 +952,34 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                             onMouseLeave={handleClusterHoverEnd}
                           >
                             <g transform={`scale(${markerScale})`}>
-                              {/* Area halo */}
-                              <circle
-                                r={isClusterActive ? 32 : 24}
-                                fill="rgba(46,241,223,0.08)"
-                                stroke="rgba(46,241,223,0.32)"
-                                strokeWidth={1.0}
-                                strokeDasharray="5 3"
-                                style={{ transition: "all 0.3s ease" }}
-                              />
-                              {/* Outer ring */}
-                              <circle
-                                r={isClusterActive ? 18 : 14}
-                                fill="rgba(46,241,223,0.06)"
-                                stroke="rgba(46,241,223,0.65)"
-                                strokeWidth={isClusterActive ? 2.0 : 1.6}
-                                opacity={isClusterActive ? 1 : 0.85}
+                              {/* Outer glow ring */}
+                              <circle r={isClusterActive ? 17 : 14}
+                                fill={isClusterActive ? "rgba(0,220,200,0.10)" : "rgba(0,200,185,0.05)"}
+                                stroke={isClusterActive ? "rgba(0,240,220,0.70)" : "rgba(0,220,200,0.42)"}
+                                strokeWidth={isClusterActive ? 1.5 : 1.2}
                                 style={{ transition: "all 0.2s ease" }}
                               />
-                              {/* Badge */}
-                              <circle
-                                r={isClusterActive ? 12 : 10}
-                                fill={isClusterActive ? "rgba(8,52,64,0.98)" : "rgba(6,36,48,0.96)"}
-                                stroke={isClusterActive ? "#2ef1df" : "#22d4c8"}
-                                strokeWidth={isClusterActive ? 2.0 : 1.6}
-                                style={{ transition: "all 0.2s ease", filter: "drop-shadow(0 0 10px rgba(46,241,223,0.55))" }}
+                              {/* Core badge */}
+                              <circle r={isClusterActive ? 11 : 9.5}
+                                fill="rgba(1,16,26,0.97)"
+                                stroke={isClusterActive ? "#00f0e0" : "#00d0c2"}
+                                strokeWidth={isClusterActive ? 1.8 : 1.5}
+                                style={{ filter: `drop-shadow(0 0 ${isClusterActive ? 9 : 5}px rgba(0,240,210,0.85))`, transition: "all 0.2s ease" }}
                               />
-                              {/* Project count */}
-                              <text
-                                y={4}
-                                textAnchor="middle"
-                                style={{ fontSize: "12px", fontWeight: 900, fill: "#ffffff", letterSpacing: "0", transition: "all 0.2s ease" }}
-                              >
+                              {/* Count */}
+                              <text y={4.5} textAnchor="middle"
+                                style={{ fontSize: "12px", fontWeight: 900, fill: "#ffffff", letterSpacing: "-0.5px" }}>
                                 {cluster.projects.length}
                               </text>
-                              {/* Region name label chip below marker */}
-                              <g transform={`translate(0 ${isClusterActive ? 22 : 17})`} style={{ transition: "all 0.2s ease" }}>
-                                <rect
-                                  x={-regionLabelW / 2}
-                                  y={0}
-                                  width={regionLabelW}
-                                  height={15}
-                                  rx={7}
-                                  fill="rgba(4,16,28,0.92)"
-                                  stroke={isClusterActive ? "rgba(46,241,223,0.70)" : "rgba(46,241,223,0.45)"}
-                                  strokeWidth={0.9}
+                              {/* Region label */}
+                              <g transform={`translate(0 ${isClusterActive ? 27 : 21})`} style={{ transition: "all 0.2s ease" }}>
+                                <rect x={-regionLabelW / 2} y={-1} width={regionLabelW} height={14} rx={7}
+                                  fill="rgba(1,8,18,0.90)"
+                                  stroke={isClusterActive ? "rgba(0,240,210,0.50)" : "rgba(0,200,185,0.28)"}
+                                  strokeWidth={0.8}
                                 />
-                                <text
-                                  y={10.5}
-                                  textAnchor="middle"
-                                  style={{ fontSize: "9px", fontWeight: 700, fill: isClusterActive ? "#a0fff5" : "#5ad8ce", letterSpacing: "0.05em" }}
-                                >
+                                <text y={9.5} textAnchor="middle"
+                                  style={{ fontSize: "9px", fontWeight: 700, fill: isClusterActive ? "#88ffef" : "#44c8b8", letterSpacing: "0.06em" }}>
                                   {regionName}
                                 </text>
                               </g>
@@ -1000,8 +994,11 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       const isHovered = hoveredId === project.id
                       const isActive = isHovered
                       const projectLabel = getProjectRegionLabel(project, zh)
-                      const labelWidth = Math.max(70, Math.min(140, projectLabel.length * 11 + 30))
-                      const regionLabelW = Math.max(36, Math.min(90, projectLabel.length * 10 + 12))
+                      const labelWidth = Math.max(72, Math.min(144, projectLabel.length * 11 + 32))
+                      const regionLabelW = Math.max(40, Math.min(92, projectLabel.length * 10 + 14))
+                      const pinR = isActive ? 11 : 9
+                      const pinH = isActive ? 15 : 13
+                      const pinCy = -(pinR + pinH)
 
                       return (
                         <Marker
@@ -1012,80 +1009,40 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           onMouseLeave={handleProjectHoverEnd}
                         >
                           <g transform={`scale(${markerScale})`}>
-                            {/* Outer pulse ring */}
-                            <circle
-                              r={isActive ? 16 : 12}
-                              fill={isActive ? `${styles.markerFill}18` : `${styles.markerFill}10`}
-                              stroke={styles.ringStroke}
-                              strokeWidth={isActive ? 1.8 : 1.4}
-                              opacity={isActive ? 1 : 0.75}
-                              style={{ transition: "all 0.2s ease" }}
-                            />
-                            {/* Glow halo */}
-                            <circle
-                              r={isActive ? 8 : 6}
-                              fill={styles.markerFill}
-                              opacity={0.35}
-                              style={{ transition: "all 0.2s ease", filter: styles.shadow }}
-                            />
-                            {/* Main dot */}
-                            <circle
-                              r={isActive ? 5.5 : 4.5}
+                            {/* Pin body only – no internal decoration */}
+                            <path
+                              d={makePinPath(pinR, pinH)}
                               fill={styles.markerFill}
                               stroke={styles.markerStroke}
-                              strokeWidth={1.2}
-                              style={{ transition: "all 0.2s ease", filter: styles.shadow }}
+                              strokeWidth={isActive ? 1.4 : 1.1}
+                              style={{ filter: styles.shadow, transition: "all 0.2s ease" }}
                             />
-                            {/* Center highlight */}
-                            <circle
-                              r={isActive ? 2.4 : 2.0}
-                              fill="#ffffff"
-                              style={{ transition: "all 0.2s ease", filter: "drop-shadow(0 0 5px rgba(255,255,255,0.7))" }}
-                            />
-
-                            {/* Always-visible region label chip */}
-                            {!isActive ? (
-                              <g transform="translate(0 17)">
-                                <rect
-                                  x={-regionLabelW / 2}
-                                  y={0}
-                                  width={regionLabelW}
-                                  height={16}
-                                  rx={8}
-                                  fill="rgba(3,12,24,0.90)"
-                                  stroke={styles.ringStroke}
-                                  strokeWidth={0.9}
-                                />
-                                <text
-                                  y={11.5}
-                                  textAnchor="middle"
-                                  style={{ fontSize: "11px", fontWeight: 700, fill: styles.markerFill, letterSpacing: "0.03em" }}
-                                >
+                            {/* Label chip */}
+                            {!isActive && (
+                              <g transform="translate(0 10)">
+                                <rect x={-regionLabelW / 2} y={0} width={regionLabelW} height={14} rx={7}
+                                  fill="rgba(1,8,20,0.88)" stroke={styles.ringStroke} strokeWidth={0.8} />
+                                <text y={10} textAnchor="middle"
+                                  style={{ fontSize: "10px", fontWeight: 700, fill: styles.markerFill, letterSpacing: "0.02em" }}>
                                   {projectLabel}
                                 </text>
                               </g>
-                            ) : null}
-
-                            {/* Hover callout above */}
-                            {isActive ? (
+                            )}
+                            {/* Active popup */}
+                            {isActive && (
                               <>
-                                <line x1={0} y1={-7} x2={0} y2={-22} stroke={styles.markerFill} strokeWidth={1.2} opacity={0.95} />
-                                <g transform="translate(8 -38)">
-                                  <rect
-                                    width={labelWidth}
-                                    height={26}
-                                    rx={13}
-                                    fill="rgba(4,14,28,0.96)"
-                                    stroke={styles.markerFill}
-                                    strokeWidth={1.0}
-                                  />
-                                  <circle cx={13} cy={13} r={4} fill={styles.markerFill} opacity={0.9} />
-                                  <text x={23} y={17} style={{ fontSize: "12px", fontWeight: 700, fill: "#f0faff" }}>
+                                <line x1={0} y1={pinCy - pinR - 3} x2={0} y2={pinCy - pinR - 14}
+                                  stroke={styles.markerFill} strokeWidth={1.0} opacity={0.8} />
+                                <g transform={`translate(${-labelWidth / 2} ${pinCy - pinR - 40})`}>
+                                  <rect width={labelWidth} height={24} rx={5}
+                                    fill="rgba(2,10,24,0.96)" stroke={styles.markerFill} strokeWidth={1.0} />
+                                  <rect x={0} y={0} width={3} height={24} rx={2} fill={styles.markerFill} opacity={0.85} />
+                                  <text x={9} y={16} style={{ fontSize: "11px", fontWeight: 700, fill: "#eef8ff" }}>
                                     {projectLabel}
                                   </text>
                                 </g>
                               </>
-                            ) : null}
+                            )}
                           </g>
                         </Marker>
                       )
@@ -1094,22 +1051,25 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </ComposableMap>
               </div>
 
-              <div className="pointer-events-none absolute right-2.5 top-2.5 z-20 flex flex-col gap-1">
+              <div className="pointer-events-none absolute right-3 top-3 z-20 flex flex-col gap-1.5">
                 {mapStatusLegend.map((item) => {
-                  const accentColor = item.key === "commissioned" ? "#2ef1df" : item.key === "construction" ? "#ffb74b" : "#7aa6ff"
+                  const accentColor = item.key === "commissioned" ? "#00e5d2" : item.key === "construction" ? "#ffb74b" : "#7aa6ff"
                   return (
                     <div
                       key={item.key}
-                      className="flex items-center gap-2 px-2 py-1.5 backdrop-blur-[8px]"
+                      className="flex items-center gap-2 rounded-[8px] px-2.5 py-1.5 backdrop-blur-[12px]"
                       style={{
-                        background: "rgba(4,12,22,0.82)",
-                        border: `1px solid ${accentColor}55`,
-                        boxShadow: `inset 0 0 0 1px ${accentColor}18`,
+                        background: "rgba(2,10,22,0.84)",
+                        border: `1px solid ${accentColor}44`,
+                        boxShadow: `0 2px 8px rgba(0,0,0,0.3), inset 0 0 12px ${accentColor}0a`,
                       }}
                     >
-                      <div className="h-2 w-2 shrink-0" style={{ backgroundColor: accentColor }} />
-                      <span className="text-[10px] font-bold tracking-[0.04em] text-[#e8f6ff]">{item.label}</span>
-                      <span className="min-w-[1.5rem] text-right text-[11px] font-black leading-none text-white">
+                      <svg width="10" height="16" viewBox="-5 -16 10 18">
+                        <path d={makePinPath(5, 6)} fill={accentColor} />
+                        <circle cx={-1.4} cy={-12.2} r={1.4} fill="rgba(255,255,255,0.75)" />
+                      </svg>
+                      <span className="text-[10px] font-semibold tracking-[0.05em] text-[#d0eeff]">{item.label}</span>
+                      <span className="ml-auto min-w-[1.5rem] text-right text-[11px] font-black leading-none" style={{ color: accentColor }}>
                         {formatIntegerCount(lifecycleCounts[item.key])}
                       </span>
                     </div>

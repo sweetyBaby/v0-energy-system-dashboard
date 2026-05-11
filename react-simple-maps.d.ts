@@ -4,6 +4,8 @@ declare module "react-simple-maps" {
   export const ComposableMap: ComponentType<any>
   export const Geographies: ComponentType<any>
   export const Geography: ComponentType<any>
+  export const Graticule: ComponentType<any>
   export const Marker: ComponentType<any>
+  export const Sphere: ComponentType<any>
   export const ZoomableGroup: ComponentType<any>
 }
