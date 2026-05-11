@@ -119,51 +119,34 @@ export function DashboardSidebar({
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#26f0dc]/35 to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[#8fe8ff]/20 to-transparent" />
 
-      <div className="relative flex shrink-0 items-center justify-end border-b border-[#0f2a3d] px-2 py-1.5">
+      <div className="relative flex shrink-0 items-center justify-end px-2 py-1.5">
         <button
           type="button"
           onClick={() => onExpandedChange(!expanded)}
           aria-expanded={expanded}
           aria-label={expanded ? collapseLabel : expandLabel}
           title={expanded ? collapseLabel : expandLabel}
-          className="group relative flex h-8 w-8 items-center justify-center text-[#c8f7ff] transition-all duration-200 hover:scale-[1.06]"
+          className="group relative flex h-8 w-8 items-center justify-center rounded-lg text-[#c8f7ff] transition-all duration-200 hover:bg-[rgba(99,253,241,0.08)] hover:text-[#7ff8f0] active:scale-95"
         >
-          <span className="absolute inset-0 bg-[radial-gradient(circle,rgba(99,253,241,0.16),transparent_68%)] opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
           <svg
             aria-hidden="true"
             viewBox="0 0 20 20"
-            className="relative h-5 w-5 overflow-visible"
+            className="relative h-5 w-5"
             fill="none"
           >
-            <rect
-              x="1.5"
-              y="2"
-              width="17"
-              height="16"
-              rx="4"
-              stroke="rgba(124, 227, 235, 0.34)"
-              strokeWidth="1.2"
-              className="transition-all duration-200 group-hover:stroke-[rgba(124,227,235,0.52)]"
-            />
             <rect
               x={expanded ? "3.2" : "13.3"}
               y="4"
               width="3.1"
               height="12"
               rx="1.55"
-              fill="#63f4e7"
+              fill="currentColor"
+              opacity="0.9"
             />
             <path
               d={expanded ? "M13.4 6.7L10.3 10L13.4 13.3" : "M6.6 6.7L9.7 10L6.6 13.3"}
-              stroke="#dffcff"
-              strokeWidth="1.9"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d={expanded ? "M9.6 6.7L6.5 10L9.6 13.3" : "M10.4 6.7L13.5 10L10.4 13.3"}
-              stroke="rgba(223,252,255,0.68)"
-              strokeWidth="1.5"
+              stroke="currentColor"
+              strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
