@@ -1,11 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { ComposableMap, Geographies, Geography, Graticule, Marker, Sphere, ZoomableGroup } from "react-simple-maps"
 import type { LucideIcon } from "lucide-react"
 import {
+  Activity,
   ArrowDown,
+  ArrowDownCircle,
   ArrowRight,
   ArrowUp,
+  ArrowUpCircle,
+  BatteryFull,
+  Building2,
   CheckCircle2,
   Clock3,
   Hammer,
@@ -78,6 +83,14 @@ type StatCardItem = {
   accent?: "green" | "neutral"
 }
 
+type OverviewRailItem = {
+  key: string
+  icon: LucideIcon
+  label: string
+  value: string
+  unit: string
+}
+
 type LifecycleItem = {
   key: string
   icon: LucideIcon
@@ -139,6 +152,12 @@ const formatSoc = (value: number | null, zh: boolean) => {
 const formatEfficiency = (value: number | null) =>
   value == null || Number.isNaN(value) ? "--" : `${value.toFixed(2)}%`
 
+const formatOverviewMetric = (value: number, digits = 0) =>
+  value.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })
+
 const formatEnergySummary = (valueMWh: number | null, zh: boolean) => {
   if (valueMWh == null || Number.isNaN(valueMWh)) return formatPending(zh)
   return `${valueMWh.toFixed(valueMWh >= 100 ? 0 : 1)} MWh`
@@ -156,6 +175,21 @@ const parseRatedCapacityKWh = (value: string | null | undefined) => {
 
   if (match[2] === "GWH") return numericValue * 1_000_000
   if (match[2] === "MWH") return numericValue * 1000
+  return numericValue
+}
+
+const parseRatedPowerKw = (value: string | null | undefined) => {
+  if (!hasText(value)) return null
+
+  const normalized = String(value).replace(/,/g, "").toUpperCase()
+  const match = normalized.match(/(\d+(?:\.\d+)?)\s*(GW|MW|KW)/)
+  if (!match) return null
+
+  const numericValue = Number(match[1])
+  if (Number.isNaN(numericValue)) return null
+
+  if (match[2] === "GW") return numericValue * 1_000_000
+  if (match[2] === "MW") return numericValue * 1000
   return numericValue
 }
 
@@ -261,6 +295,11 @@ const getProjectDateLabel = (project: ProjectOption, zh: boolean) => {
 
 const getProjectCapacityLabel = (project: ProjectOption, zh: boolean) => {
   if (hasText(project.ratedCapacity)) return project.ratedCapacity!
+  if (hasText(project.ratedPower)) return project.ratedPower!
+  return formatPowerFromMw(project.installedCapacityMw, zh)
+}
+
+const getProjectPowerLabel = (project: ProjectOption, zh: boolean) => {
   if (hasText(project.ratedPower)) return project.ratedPower!
   return formatPowerFromMw(project.installedCapacityMw, zh)
 }
@@ -381,6 +420,15 @@ function SectionHeading({ icon, title, trailing }: SectionHeadingProps) {
   )
 }
 
+const RAIL_ACCENTS: Record<string, { iconBg: string; border: string; iconColor: string; glow: string; bar: string }> = {
+  "site-count":      { iconBg: "linear-gradient(145deg,rgba(14,116,144,0.72),rgba(7,56,76,0.92))",   border: "rgba(34,211,238,0.34)",  iconColor: "#22d3ee", glow: "rgba(34,211,238,0.30)",  bar: "linear-gradient(180deg,#22d3ee,#22d3ee66)" },
+  "online-sites":    { iconBg: "linear-gradient(145deg,rgba(6,100,72,0.72),rgba(3,52,38,0.92))",      border: "rgba(52,211,153,0.34)",  iconColor: "#34d399", glow: "rgba(52,211,153,0.28)",  bar: "linear-gradient(180deg,#34d399,#34d39966)" },
+  "rated-power":     { iconBg: "linear-gradient(145deg,rgba(120,82,0,0.72),rgba(64,42,0,0.92))",      border: "rgba(251,191,36,0.34)",  iconColor: "#fbbf24", glow: "rgba(251,191,36,0.28)",  bar: "linear-gradient(180deg,#fbbf24,#fbbf2466)" },
+  "rated-capacity":  { iconBg: "linear-gradient(145deg,rgba(29,58,138,0.72),rgba(14,28,80,0.92))",    border: "rgba(96,165,250,0.34)",  iconColor: "#60a5fa", glow: "rgba(96,165,250,0.28)",  bar: "linear-gradient(180deg,#60a5fa,#60a5fa66)" },
+  "total-charge":    { iconBg: "linear-gradient(145deg,rgba(13,100,90,0.72),rgba(6,52,48,0.92))",     border: "rgba(45,212,191,0.34)",  iconColor: "#2dd4bf", glow: "rgba(45,212,191,0.28)",  bar: "linear-gradient(180deg,#2dd4bf,#2dd4bf66)" },
+  "total-discharge": { iconBg: "linear-gradient(145deg,rgba(55,48,163,0.72),rgba(28,24,92,0.92))",    border: "rgba(129,140,248,0.34)", iconColor: "#818cf8", glow: "rgba(129,140,248,0.28)", bar: "linear-gradient(180deg,#818cf8,#818cf866)" },
+}
+
 export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const router = useRouter()
   const { language } = useLanguage()
@@ -399,6 +447,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const hoverExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const [mapDimensions, setMapDimensions] = useState({ width: 800, height: 450 })
+  const [markerPixelPos, setMarkerPixelPos] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     const container = mapContainerRef.current
@@ -427,6 +476,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     hoverExitTimerRef.current = setTimeout(() => {
       setHoveredClusterId(null)
       setHoveredId(null)
+      setMarkerPixelPos(null)
       hoverExitTimerRef.current = null
     }, HOVER_EXIT_DELAY_MS)
   }, [clearHoverExitTimer])
@@ -547,6 +597,16 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     [projects]
   )
 
+  const totalRatedPowerKw = useMemo(
+    () =>
+      projects.reduce(
+        (sum, project) =>
+          sum + (parseRatedPowerKw(project.ratedPower) ?? (project.installedCapacityMw != null ? project.installedCapacityMw * 1000 : 0)),
+        0
+      ),
+    [projects]
+  )
+
   const totalDesignedCapacityKWh = useMemo(
     () => projects.reduce((sum, project) => sum + (parseRatedCapacityKWh(project.ratedCapacity) ?? 0), 0),
     [projects]
@@ -588,6 +648,36 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     () => (activeProject ? efficiencyItems.find((item) => item.project.id === activeProject.id) ?? null : null),
     [activeProject, efficiencyItems]
   )
+
+  const detailCardLayout = useMemo(() => {
+    const isMultiProject = Boolean(activeCluster && activeCluster.projects.length > 1)
+    const cardWidth = isMultiProject ? 320 : 296
+    const cardHeight = isMultiProject ? 360 : 420
+    const sideGap = 14
+
+    if (!markerPixelPos) {
+      return {
+        style: { left: "12px", bottom: "12px", width: isMultiProject ? "20rem" : "18.5rem" },
+      }
+    }
+
+    let left = markerPixelPos.x + sideGap
+    if (left + cardWidth > mapDimensions.width - 8) {
+      left = markerPixelPos.x - cardWidth - sideGap
+    }
+    left = Math.max(8, Math.min(left, mapDimensions.width - cardWidth - 8))
+
+    let top = markerPixelPos.y - cardHeight / 2
+    top = Math.max(8, Math.min(top, mapDimensions.height - cardHeight - 8))
+
+    return {
+      style: {
+        left: `${Math.round(left)}px`,
+        top: `${Math.round(top)}px`,
+        width: isMultiProject ? "20rem" : "18.5rem",
+      },
+    }
+  }, [activeCluster, mapDimensions, markerPixelPos])
 
   const focusFrame = useMemo(() => computeFocusFrame(mappableProjects), [mappableProjects])
   const [mapZoomK, setMapZoomK] = useState(focusFrame.zoom)
@@ -653,6 +743,54 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const onlineCount = useMemo(() => efficiencyItems.filter((item) => item.isOnline).length, [efficiencyItems])
   const offlineCount = useMemo(() => efficiencyItems.filter((item) => !item.isOnline).length, [efficiencyItems])
 
+  const overviewRailItems = useMemo<OverviewRailItem[]>(
+    () => [
+      {
+        key: "site-count",
+        icon: Building2,
+        label: zh ? "站点总数" : "Platform Sites",
+        value: loading ? "--" : formatIntegerCount(projects.length),
+        unit: zh ? "个" : "sites",
+      },
+      {
+        key: "online-sites",
+        icon: Activity,
+        label: zh ? "在线站点数" : "Online Sites",
+        value: metricsLoading ? "--" : formatIntegerCount(onlineCount),
+        unit: zh ? "个" : "sites",
+      },
+      {
+        key: "rated-power",
+        icon: Zap,
+        label: zh ? "总额定功率" : "Total Rated Power",
+        value: loading ? "--" : formatOverviewMetric(totalRatedPowerKw, totalRatedPowerKw >= 100 ? 0 : 1),
+        unit: "kW",
+      },
+      {
+        key: "rated-capacity",
+        icon: BatteryFull,
+        label: zh ? "总额定容量" : "Total Rated Capacity",
+        value: loading ? "--" : formatOverviewMetric(totalDesignedCapacityKWh),
+        unit: "kWh",
+      },
+      {
+        key: "total-charge",
+        icon: ArrowUpCircle,
+        label: zh ? "累计充电量" : "Total Charge of All Sites",
+        value: metricsLoading ? "--" : formatOverviewMetric(totalChargeMWh * 1000),
+        unit: "kWh",
+      },
+      {
+        key: "total-discharge",
+        icon: ArrowDownCircle,
+        label: zh ? "累计放电量" : "Total Discharge of All Sites",
+        value: metricsLoading ? "--" : formatOverviewMetric(totalDischargeMWh * 1000),
+        unit: "kWh",
+      },
+    ],
+    [loading, metricsLoading, onlineCount, projects.length, totalChargeMWh, totalDesignedCapacityKWh, totalDischargeMWh, totalRatedPowerKw, zh]
+  )
+
   const statusCards = useMemo<StatCardItem[]>(
     () => [
       { key: "sites", label: zh ? "总站点" : "Sites", value: formatIntegerCount(projects.length), accent: "green" },
@@ -704,10 +842,14 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   )
 
   const handleClusterHover = useCallback(
-    (cluster: ProjectCluster) => {
+    (cluster: ProjectCluster, event: { clientX: number; clientY: number }) => {
       clearHoverExitTimer()
       setHoveredClusterId(cluster.id)
       setHoveredId(cluster.projects[0].id)
+      if (mapContainerRef.current) {
+        const rect = mapContainerRef.current.getBoundingClientRect()
+        setMarkerPixelPos({ x: event.clientX - rect.left, y: event.clientY - rect.top })
+      }
     },
     [clearHoverExitTimer]
   )
@@ -716,10 +858,14 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     scheduleHoverExit()
   }, [scheduleHoverExit])
 
-  const handleProjectHover = useCallback((projectId: string | null) => {
+  const handleProjectHover = useCallback((projectId: string | null, event: { clientX: number; clientY: number }) => {
     clearHoverExitTimer()
     setHoveredClusterId(null)
     setHoveredId(projectId)
+    if (mapContainerRef.current) {
+      const rect = mapContainerRef.current.getBoundingClientRect()
+      setMarkerPixelPos({ x: event.clientX - rect.left, y: event.clientY - rect.top })
+    }
   }, [clearHoverExitTimer])
 
   const handleProjectHoverEnd = useCallback(() => {
@@ -779,7 +925,82 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(0,200,220,0.10),transparent_22%),radial-gradient(ellipse_at_88%_80%,rgba(40,120,255,0.08),transparent_28%)]" />
 
           <div className="relative grid min-h-full gap-2 p-2 xl:h-full xl:grid-cols-[13.75rem_minmax(0,1fr)_14.25rem] 2xl:grid-cols-[14.25rem_minmax(0,1fr)_14.75rem]">
-            <aside className="order-2 flex min-h-0 flex-col gap-2 xl:order-1 xl:overflow-y-hidden xl:pr-0.5">
+            <aside className="order-2 flex min-h-0 flex-col gap-2 xl:order-1 xl:overflow-y-auto xl:overscroll-contain custom-scrollbar xl:pr-0.5">
+              <div className={`${PANEL_CLASS} relative overflow-hidden px-3 py-2.5`}>
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(43,195,255,0.12),transparent_26%),radial-gradient(circle_at_86%_88%,rgba(35,129,255,0.10),transparent_30%)]" />
+                <div className="relative mb-2.5 pb-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px]"
+                      style={{
+                        background: "linear-gradient(145deg,rgba(14,116,144,0.75),rgba(7,56,76,0.95))",
+                        border: "1px solid rgba(34,211,238,0.36)",
+                        boxShadow: "0 0 14px rgba(34,211,238,0.24), inset 0 1px 0 rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <div className="pointer-events-none absolute inset-0 rounded-[8px]" style={{ background: "radial-gradient(circle at 35% 28%, rgba(34,211,238,0.22), transparent 62%)" }} />
+                      <Layers3 className="relative h-3.5 w-3.5 text-[#22d3ee]" />
+                    </div>
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                      <span className="text-[14px] font-black tracking-[0.07em] text-[#e9fbff]">
+                        {zh ? "总览信息" : "Overview"}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-1 rounded-full border border-[#1d5574]/55 bg-[rgba(6,24,36,0.65)] px-2 py-0.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#22d3ee] shadow-[0_0_5px_rgba(34,211,238,0.9)]" />
+                        <span className="text-[9px] font-bold tracking-[0.12em] text-[#6ec8e0]">LIVE</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 h-px bg-[linear-gradient(90deg,rgba(34,211,238,0.5),rgba(34,211,238,0.12),transparent)]" />
+                </div>
+
+                <div className="relative space-y-1.5">
+                  {overviewRailItems.map((item) => {
+                    const accent = RAIL_ACCENTS[item.key] ?? RAIL_ACCENTS["site-count"]
+                    return (
+                    <div
+                      key={item.key}
+                      className="group relative grid grid-cols-[3rem_minmax(0,1fr)] items-center gap-2.5 rounded-[16px] border border-[#1d5675]/60 bg-[linear-gradient(180deg,rgba(8,24,40,0.94),rgba(5,15,28,0.98))] py-2 pr-2.5 pl-0 shadow-[inset_0_1px_0_rgba(120,220,255,0.05),0_6px_16px_rgba(0,0,0,0.18)] overflow-hidden"
+                    >
+                      {/* left accent bar */}
+                      <div className="pointer-events-none absolute left-0 inset-y-[5px] w-[3px] rounded-r-full" style={{ background: accent.bar }} />
+                      {/* top highlight line */}
+                      <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(133,236,255,0.25),transparent)]" />
+
+                      {/* icon */}
+                      <div className="flex shrink-0 items-center justify-center pl-3">
+                        <div
+                          className="relative flex h-9 w-9 items-center justify-center rounded-[11px]"
+                          style={{
+                            background: accent.iconBg,
+                            border: `1px solid ${accent.border}`,
+                            boxShadow: `0 0 16px ${accent.glow}, inset 0 1px 0 rgba(255,255,255,0.09)`,
+                          }}
+                        >
+                          <div className="pointer-events-none absolute inset-0 rounded-[10px]" style={{ background: `radial-gradient(circle at 35% 28%, ${accent.iconColor}28, transparent 62%)` }} />
+                          <item.icon className="relative h-[1.05rem] w-[1.05rem]" style={{ color: accent.iconColor }} />
+                        </div>
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="text-[10.5px] font-semibold leading-snug tracking-[0.04em] text-[#7fb7d7]">
+                          {item.label}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-end gap-x-1 gap-y-0">
+                          <span className="break-all text-[1.55rem] font-black leading-tight tracking-[0.01em] text-[#44e8ff] [text-shadow:0_0_14px_rgba(68,232,255,0.18)]">
+                            {item.value}
+                          </span>
+                          <span className="pb-0.5 text-[10.5px] font-bold uppercase tracking-[0.04em] text-[#5ed7ff]">
+                            {item.unit}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    )
+                  })}
+                </div>
+              </div>
+
               <div className="hidden">
                 <SectionHeading icon={<Layers3 className="h-4 w-4" />} title={zh ? "项目状态" : "Project Status"} trailing={zh ? "实时汇总" : "LIVE"} />
                 <div className="mt-1.5 grid grid-cols-3 gap-1.5">
@@ -818,7 +1039,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </div>
               </div>
 
-              <div className={`${PANEL_CLASS} px-2.5 py-2`}>
+              <div className="hidden">
                 <SectionHeading icon={<Zap className="h-4 w-4" />} title={zh ? "系统容量" : "System Capacity"} trailing={zh ? "额定值" : "RATED"} />
                 <div className="mt-1.5 grid gap-1.5">
                   <div className="rounded-[14px] border border-[#244b60] bg-[linear-gradient(180deg,rgba(10,25,38,0.88),rgba(7,18,29,0.94))] px-2.5 py-1.5">
@@ -843,7 +1064,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </div>
               </div>
 
-              <div className={`${PANEL_CLASS} px-2.5 py-2`}>
+              <div className="hidden">
                 <SectionHeading icon={<TrendingUp className="h-4 w-4" />} title={zh ? "累计电量" : "Cumulative Energy"} trailing={zh ? "全量统计" : "TOTAL"} />
                 <div className="mt-1.5 grid gap-1.5">
                   <div className="rounded-[14px] border border-[#1f5f62] bg-[linear-gradient(180deg,rgba(7,31,36,0.82),rgba(7,20,28,0.92))] px-2.5 py-2">
@@ -948,7 +1169,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                             key={cluster.id}
                             coordinates={cluster.coordinates}
                             onClick={() => handleClusterClick(cluster)}
-                            onMouseEnter={() => handleClusterHover(cluster)}
+                            onMouseEnter={(event: ReactMouseEvent<SVGGElement>) => handleClusterHover(cluster, event)}
                             onMouseLeave={handleClusterHoverEnd}
                           >
                             <g transform={`scale(${markerScale})`}>
@@ -1005,7 +1226,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           key={cluster.id}
                           coordinates={cluster.coordinates}
                           onClick={() => handleClusterClick(cluster)}
-                          onMouseEnter={() => handleProjectHover(project.id)}
+                          onMouseEnter={(event: ReactMouseEvent<SVGGElement>) => handleProjectHover(project.id, event)}
                           onMouseLeave={handleProjectHoverEnd}
                         >
                           <g transform={`scale(${markerScale})`}>
@@ -1079,36 +1300,127 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
               {activeProject ? (
                 <div
-                  className="absolute bottom-2.5 left-2.5 right-2.5 z-20 sm:right-auto sm:w-[18.5rem] lg:bottom-3 lg:left-3"
+                  className="absolute z-20"
+                  style={detailCardLayout.style}
                   onMouseEnter={handleCardMouseEnter}
                   onMouseLeave={activeCluster ? handleClusterHoverEnd : handleProjectHoverEnd}
                 >
-                  <div className="overflow-hidden rounded-[20px] border border-[#294e62] bg-[linear-gradient(180deg,rgba(7,18,29,0.94),rgba(5,12,20,0.98))] shadow-[0_20px_44px_rgba(0,0,0,0.34)] backdrop-blur-[16px]">
+                  <div className="overflow-hidden rounded-[18px] border border-[#2c657f]/90 bg-[linear-gradient(180deg,rgba(6,18,31,0.97),rgba(4,11,22,0.98))] shadow-[0_18px_36px_rgba(0,0,0,0.34),0_0_0_1px_rgba(112,225,255,0.06)_inset] backdrop-blur-[18px]">
+                    <div className="hidden">
+                    <div className="pointer-events-none h-px w-full bg-[linear-gradient(90deg,transparent,rgba(126,233,255,0.45),transparent)]" />
+                    {activeCluster && activeCluster.projects.length > 1 ? (
+                      <>
+                        <div className="border-b border-[#1f4457] px-3 py-2.5">
+                          <div className="text-[10px] font-semibold tracking-[0.12em] text-[#79b5cf]">
+                            {activeCluster.projects[0].region || (zh ? "此区域" : "This Area")}
+                          </div>
+                          <div className="mt-1 text-[13px] font-black leading-tight text-[#eefbff]">
+                            {activeCluster.projects.length}
+                            {zh ? " 个项目" : " Projects"}
+                          </div>
+                        </div>
+                        <div className="custom-scrollbar max-h-[18rem] overflow-y-auto px-2 py-2">
+                          <div className="space-y-2">
+                            {activeCluster.projects.map((project) => {
+                              const isSelected = hoveredId === project.id
+                              return (
+                                <button
+                                  key={project.id}
+                                  type="button"
+                                  onClick={() => handleSelectProjectInCluster(project.id)}
+                                  className={`w-full rounded-[15px] border px-3 py-2 text-left transition-all ${
+                                    isSelected
+                                      ? "border-[#34dddf] bg-[linear-gradient(180deg,rgba(20,72,88,0.42),rgba(9,29,43,0.72))] shadow-[0_0_0_1px_rgba(63,233,230,0.08)_inset]"
+                                      : "border-[#21485d] bg-[linear-gradient(180deg,rgba(9,23,36,0.82),rgba(6,16,28,0.92))] hover:border-[#2a6b86]"
+                                  }`}
+                                >
+                                  <div className="break-words text-[12px] font-black leading-snug text-[#f1fbff]">
+                                    {getProjectName(project, zh)}
+                                  </div>
+                                  <div className="mt-2 grid grid-cols-3 gap-1.5">
+                                    <div className="rounded-[11px] border border-[#22465b] bg-[rgba(8,19,31,0.76)] px-2 py-1.5">
+                                      <div className="text-[9px] font-medium tracking-[0.05em] text-[#7da9bf]">{zh ? "额定功率" : "Rated Power"}</div>
+                                      <div className="mt-1 break-words text-[11px] font-semibold leading-snug text-[#edf9ff]">
+                                        {getProjectPowerLabel(project, zh)}
+                                      </div>
+                                    </div>
+                                    <div className="rounded-[11px] border border-[#22465b] bg-[rgba(8,19,31,0.76)] px-2 py-1.5">
+                                      <div className="text-[9px] font-medium tracking-[0.05em] text-[#7da9bf]">{zh ? "额定容量" : "Rated Capacity"}</div>
+                                      <div className="mt-1 break-words text-[11px] font-semibold leading-snug text-[#edf9ff]">
+                                        {getProjectCapacityLabel(project, zh)}
+                                      </div>
+                                    </div>
+                                    <div className="rounded-[11px] border border-[#22465b] bg-[rgba(8,19,31,0.76)] px-2 py-1.5">
+                                      <div className="text-[9px] font-medium tracking-[0.05em] text-[#7da9bf]">{zh ? "投运日期" : "Go-Live"}</div>
+                                      <div className="mt-1 break-words text-[11px] font-semibold leading-snug text-[#edf9ff]">
+                                        {getProjectDateLabel(project, zh)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="px-3 py-3">
+                        <div className="text-[10px] font-semibold tracking-[0.12em] text-[#79b5cf]">
+                          {zh ? "项目详情" : "Project Detail"}
+                        </div>
+                        <div className="mt-1 break-words text-[14px] font-black leading-snug text-[#f1fbff]">
+                          {getProjectName(activeProject, zh)}
+                        </div>
+                        <div className="mt-3 grid gap-2">
+                          <div className="rounded-[13px] border border-[#224b61] bg-[linear-gradient(180deg,rgba(10,25,38,0.86),rgba(6,16,28,0.94))] px-3 py-2">
+                            <div className="text-[10px] font-medium tracking-[0.08em] text-[#7eaac2]">{zh ? "额定功率" : "Rated Power"}</div>
+                            <div className="mt-1 break-words text-[13px] font-semibold leading-snug text-[#edf9ff]">
+                              {getProjectPowerLabel(activeProject, zh)}
+                            </div>
+                          </div>
+                          <div className="rounded-[13px] border border-[#224b61] bg-[linear-gradient(180deg,rgba(10,25,38,0.86),rgba(6,16,28,0.94))] px-3 py-2">
+                            <div className="text-[10px] font-medium tracking-[0.08em] text-[#7eaac2]">{zh ? "额定容量" : "Rated Capacity"}</div>
+                            <div className="mt-1 break-words text-[13px] font-semibold leading-snug text-[#edf9ff]">
+                              {getProjectCapacityLabel(activeProject, zh)}
+                            </div>
+                          </div>
+                          <div className="rounded-[13px] border border-[#224b61] bg-[linear-gradient(180deg,rgba(10,25,38,0.86),rgba(6,16,28,0.94))] px-3 py-2">
+                            <div className="text-[10px] font-medium tracking-[0.08em] text-[#7eaac2]">{zh ? "投运日期" : "Go-Live"}</div>
+                            <div className="mt-1 break-words text-[13px] font-semibold leading-snug text-[#edf9ff]">
+                              {getProjectDateLabel(activeProject, zh)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    </div>
                     {/* Cluster project switcher — only shown when multiple projects share this marker */}
                     {activeCluster && activeCluster.projects.length > 1 ? (
                       <div className="border-b border-[#1d3f52] px-3 pt-2.5 pb-2">
-                        <div className="mb-2 text-[10px] font-medium tracking-[0.12em] text-[#5a8fa8]">
+                        <div className="mb-2 text-[11px] font-black tracking-[0.1em] text-[#d8f5ff] [text-shadow:0_0_10px_rgba(92,214,255,0.18)]">
                           {activeCluster.projects[0].region || (zh ? "此区域" : "This Area")}
                           &nbsp;·&nbsp;{activeCluster.projects.length}{zh ? " 个项目" : " projects"}
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {activeCluster.projects.map((p) => {
-                            const isSelected = hoveredId === p.id
-                            return (
-                              <button
-                                key={p.id}
-                                type="button"
-                                onClick={() => handleSelectProjectInCluster(p.id)}
-                                className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition-all ${
-                                  isSelected
-                                    ? "border-[#2dd8ca] bg-[rgba(33,217,204,0.14)] text-[#4ffff3]"
-                                    : "border-[#21455a] text-[#7faec2] hover:border-[#2b6f80] hover:text-[#dff9ff]"
-                                }`}
-                              >
-                                {getProjectName(p, zh)}
-                              </button>
-                            )
-                          })}
+                        <div className="-mx-1 overflow-x-auto pb-1 custom-scrollbar">
+                          <div className="flex min-w-max gap-1.5 px-1">
+                            {activeCluster.projects.map((p) => {
+                              const isSelected = hoveredId === p.id
+                              return (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => handleSelectProjectInCluster(p.id)}
+                                  className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold whitespace-nowrap transition-all ${
+                                    isSelected
+                                      ? "border-[#2dd8ca] bg-[rgba(33,217,204,0.14)] text-[#4ffff3]"
+                                      : "border-[#21455a] text-[#7faec2] hover:border-[#2b6f80] hover:text-[#dff9ff]"
+                                  }`}
+                                >
+                                  {getProjectName(p, zh)}
+                                </button>
+                              )
+                            })}
+                          </div>
                         </div>
                       </div>
                     ) : null}
@@ -1126,7 +1438,6 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       <div className="absolute inset-x-0 bottom-0 px-3 pb-3">
                         <div className="flex items-end justify-between gap-2.5">
                           <div className="min-w-0">
-                            <div className="text-[11px] font-medium tracking-[0.14em] text-[#87cfc7]">{zh ? "项目预览" : "Project Preview"}</div>
                             <div className="mt-0.5 truncate text-[15px] font-black text-[#f6fbff]">
                               {getProjectName(activeProject, zh)}
                             </div>
@@ -1238,40 +1549,42 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
                       return (
                         <div key={item.project.id} className="rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.78),rgba(7,18,28,0.92))] px-2 py-1.5">
-                          <div className="flex items-start justify-between gap-2.5">
-                            <div className="min-w-0 flex items-start gap-2">
-                              <div
-                                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-[9px] text-[10px] font-black ${
-                                  index === 0
-                                    ? "bg-[#ffcf4f] text-[#181818]"
-                                    : index === 1
-                                      ? "bg-[#d7dde4] text-[#181818]"
-                                      : index === 2
-                                        ? "bg-[#ce8a4b] text-white"
-                                        : "bg-[#1d3d51] text-[#9bc8df]"
-                                }`}
-                              >
-                                {index + 1}
+                          <div className="flex items-start gap-2">
+                            <div
+                              className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-[9px] text-[10px] font-black ${
+                                index === 0
+                                  ? "bg-[#ffcf4f] text-[#181818]"
+                                  : index === 1
+                                    ? "bg-[#d7dde4] text-[#181818]"
+                                    : index === 2
+                                      ? "bg-[#ce8a4b] text-white"
+                                      : "bg-[#1d3d51] text-[#9bc8df]"
+                              }`}
+                            >
+                              {index + 1}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="break-words text-[11px] font-semibold leading-[1.25] text-[#eefcff]">
+                                {getProjectName(item.project, zh)}
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-[11px] font-semibold leading-[1.25] break-words text-[#eefcff]">{getProjectName(item.project, zh)}</div>
-                                <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-[#7f98ab]">
-                                  <span>{getProjectRegionLabel(item.project, zh)}</span>
-                                  <span className={`rounded-full border px-2 py-0.5 text-[10px] ${styles.badge}`}>
-                                    {getLifecycleShortText(item.lifecycle, zh)}
-                                  </span>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-[#7f98ab]">
+                                <span>{getProjectRegionLabel(item.project, zh)}</span>
+                                <span className={`rounded-full border px-2 py-0.5 text-[10px] ${styles.badge}`}>
+                                  {getLifecycleShortText(item.lifecycle, zh)}
+                                </span>
+                              </div>
+                              <div className="mt-1.5 flex items-center gap-2">
+                                <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#102636]">
+                                  <div
+                                    className={`h-full rounded-full bg-[linear-gradient(90deg,var(--tw-gradient-from),var(--tw-gradient-to))] ${styles.bar}`}
+                                    style={{ width: progressWidth }}
+                                  />
+                                </div>
+                                <div className="shrink-0 text-[17px] font-black leading-none text-[#3de9d8]">
+                                  {formatEfficiency(efficiencyValue)}
                                 </div>
                               </div>
                             </div>
-                            <div className="shrink-0 text-[17px] font-black leading-none text-[#3de9d8]">
-                              {formatEfficiency(efficiencyValue)}
-                            </div>
-                          </div>
-                          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#102636]">
-                            <div
-                              className={`h-full rounded-full bg-[linear-gradient(90deg,var(--tw-gradient-from),var(--tw-gradient-to))] ${styles.bar}`}
-                              style={{ width: progressWidth }}
-                            />
                           </div>
                         </div>
                       )

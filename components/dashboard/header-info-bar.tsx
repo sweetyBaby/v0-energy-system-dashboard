@@ -106,7 +106,9 @@ export function HeaderInfoBar({ compact = false, latitude, longitude }: HeaderIn
           <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/35 to-transparent" />
           <WeatherIcon className="h-3.5 w-3.5 shrink-0 text-[#5dd8ff]" />
           <span className="text-[13px] font-semibold text-[#dff4ff]">{weather.temperature}°C</span>
-          <span className="hidden text-[10px] leading-none text-[#4e7a92] sm:inline">{weatherLabel}</span>
+          <span className="hidden text-[11px] font-medium leading-none text-[#9edcff] drop-shadow-[0_0_6px_rgba(52,169,255,0.16)] sm:inline">
+            {weatherLabel}
+          </span>
         </div>
       ) : null}
     </div>
