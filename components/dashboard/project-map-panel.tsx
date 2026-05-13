@@ -44,7 +44,6 @@ import {
 
 const GEO_URL = "/world-atlas.json"
 const EXCLUDED_COUNTRY_NAMES = new Set(["Antarctica", "Fr. S. Antarctic Lands"])
-const HOVER_EXIT_DELAY_MS = 220
 
 type MapCoordinates = [number, number]
 type LifecycleKey = "commissioned" | "construction" | "planned"
@@ -459,18 +458,8 @@ const normalizeProjectSiteInfo = (project: ProjectOption, row: RawProjectDashboa
   }
   const totalChargeWh = toNumberOrNull(row.totalChargeWh)
   const totalDischargeWh = toNumberOrNull(row.totalDischargeWh)
-  const runtimeLabelZh =
-    !isOnline ? "绂荤嚎"
-    : status === "2" ? "鍋滄満"
-    : status === "3" ? "鍦ㄥ缓"
-    : status === "0" ? "鏈煡"
-    : pickRuntimeLabel(lifecycleProject, powerKw, isOnline, true)
-  const runtimeLabelEn =
-    !isOnline ? "Offline"
-    : status === "2" ? "Stopped"
-    : status === "3" ? "Under Construction"
-    : status === "0" ? "Unknown"
-    : pickRuntimeLabel(lifecycleProject, powerKw, isOnline, false)
+  const runtimeLabelZh = isOnline ? "在线" : "离线"
+  const runtimeLabelEn = isOnline ? "Online" : "Offline"
 
   return {
     projectId: hasText(row.projectId) ? String(row.projectId).trim() : project.projectId,
@@ -600,6 +589,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [projects, setProjects] = useState<ProjectOption[]>([])
   const [loading, setLoading] = useState(true)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [overviewLoading, setOverviewLoading] = useState(true)
   const [dashboardOverview, setDashboardOverview] = useState<RawProjectDashboardOverview | null>(null)
@@ -611,7 +602,6 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [dischargeRankingItems, setDischargeRankingItems] = useState<ChargeDischargeRankingItem[]>([])
   const [energyRankingMode, setEnergyRankingMode] = useState<EnergyRankingMode>("charge")
   const [hoveredClusterId, setHoveredClusterId] = useState<string | null>(null)
-  const hoverExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const [mapDimensions, setMapDimensions] = useState({ width: 800, height: 450 })
   const [markerPixelPos, setMarkerPixelPos] = useState<{ x: number; y: number } | null>(null)
@@ -656,23 +646,6 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     observer.observe(container)
     return () => observer.disconnect()
   }, [])
-
-  const clearHoverExitTimer = useCallback(() => {
-    if (hoverExitTimerRef.current) {
-      clearTimeout(hoverExitTimerRef.current)
-      hoverExitTimerRef.current = null
-    }
-  }, [])
-
-  const scheduleHoverExit = useCallback(() => {
-    clearHoverExitTimer()
-    hoverExitTimerRef.current = setTimeout(() => {
-      setHoveredClusterId(null)
-      setHoveredId(null)
-      setMarkerPixelPos(null)
-      hoverExitTimerRef.current = null
-    }, HOVER_EXIT_DELAY_MS)
-  }, [clearHoverExitTimer])
 
   useEffect(() => {
     let cancelled = false
@@ -848,13 +821,13 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   }, [projects, energyRankingMode])
 
   useEffect(() => {
-    if (!hoveredId) return
+    if (!selectedId) return
 
-    const activeProject = projects.find((project) => project.id === hoveredId)
+    const activeProject = projects.find((project) => project.id === selectedId)
     if (!activeProject) return
 
     const cached = siteInfoByProjectId[activeProject.projectId]
-    // Refetch on every hover / tab switch. Only suppress duplicate in-flight requests.
+    // Refetch on every click. Only suppress duplicate in-flight requests.
     if (cached?.status === "loading") {
       return
     }
@@ -951,15 +924,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     return () => {
       cancelled = true
     }
-  }, [hoveredId, projects])
-
-  useEffect(() => {
-    return () => {
-      if (hoverExitTimerRef.current) {
-        clearTimeout(hoverExitTimerRef.current)
-      }
-    }
-  }, [])
+  }, [selectedId, projects])
 
   const mappableProjects = useMemo(
     () => projects.filter((project) => project.longitude != null && project.latitude != null),
@@ -969,8 +934,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const projectClusters = useMemo(() => clusterMappableProjects(mappableProjects), [mappableProjects])
 
   const activeCluster = useMemo(
-    () => projectClusters.find((c) => c.id === hoveredClusterId) ?? null,
-    [hoveredClusterId, projectClusters]
+    () => projectClusters.find((c) => c.id === selectedClusterId) ?? null,
+    [selectedClusterId, projectClusters]
   )
 
   const totalInstalledMw = useMemo(
@@ -1034,12 +999,12 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     return counts
   }, [dashboardOverview])
 
-  const hoveredProject = useMemo(
-    () => projects.find((project) => project.id === hoveredId) ?? null,
-    [hoveredId, projects]
+  const selectedProject = useMemo(
+    () => projects.find((project) => project.id === selectedId) ?? null,
+    [selectedId, projects]
   )
 
-  const activeProject = hoveredProject
+  const activeProject = selectedProject
   const activeSiteInfoState = useMemo(
     () => (activeProject ? siteInfoByProjectId[activeProject.projectId] ?? null : null),
     [activeProject, siteInfoByProjectId]
@@ -1255,75 +1220,73 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     [lifecycleCounts.construction, lifecycleCounts.planned, zh]
   )
 
-  const handleMarkerClick = useCallback(
-    (project: ProjectOption) => {
+  const handleProjectNavigate = useCallback(
+    (projectId: string) => {
       if (onProjectSelect) {
-        onProjectSelect(project)
-        return
+        const project = projects.find((p) => p.projectId === projectId) ?? null
+        if (project) { onProjectSelect(project); return }
       }
-
-      router.push(`/dashboard?projectId=${project.projectId}`)
+      router.push(`/dashboard?projectId=${projectId}`)
     },
-    [onProjectSelect, router]
+    [onProjectSelect, projects, router]
   )
 
-  const handleClusterClick = useCallback(
-    (cluster: ProjectCluster) => {
-      // Navigate to whichever project is currently shown in the detail card
-      const target = cluster.projects.find((p) => p.id === hoveredId) ?? cluster.projects[0]
-      handleMarkerClick(target)
-    },
-    [handleMarkerClick, hoveredId]
-  )
-
-  const handleClusterHover = useCallback(
-    (cluster: ProjectCluster, event: { clientX: number; clientY: number }) => {
-      clearHoverExitTimer()
-      setHoveredClusterId(cluster.id)
-      setHoveredId(cluster.projects[0].id)
+  // Click a single-project marker: show card + trigger data fetch
+  const handleSingleMarkerClick = useCallback(
+    (project: ProjectOption, event: { clientX: number; clientY: number }) => {
+      setSelectedId(project.id)
+      setSelectedClusterId(null)
       if (mapContainerRef.current) {
         const rect = mapContainerRef.current.getBoundingClientRect()
         setMarkerPixelPos({ x: event.clientX - rect.left, y: event.clientY - rect.top })
       }
     },
-    [clearHoverExitTimer]
+    []
   )
+
+  // Click a cluster marker: show cluster card with first project selected
+  const handleClusterMarkerClick = useCallback(
+    (cluster: ProjectCluster, event: { clientX: number; clientY: number }) => {
+      setSelectedClusterId(cluster.id)
+      setSelectedId(cluster.projects[0].id)
+      if (mapContainerRef.current) {
+        const rect = mapContainerRef.current.getBoundingClientRect()
+        setMarkerPixelPos({ x: event.clientX - rect.left, y: event.clientY - rect.top })
+      }
+    },
+    []
+  )
+
+  // Hover handlers — visual pin state only, no card side-effects
+  const handleClusterHover = useCallback((cluster: ProjectCluster) => {
+    setHoveredClusterId(cluster.id)
+    setHoveredId(cluster.projects[0].id)
+  }, [])
 
   const handleClusterHoverEnd = useCallback(() => {
-    scheduleHoverExit()
-  }, [scheduleHoverExit])
-
-  const handleProjectHover = useCallback((projectId: string | null, event: { clientX: number; clientY: number }) => {
-    clearHoverExitTimer()
     setHoveredClusterId(null)
+    setHoveredId(null)
+  }, [])
+
+  const handleProjectHover = useCallback((projectId: string) => {
     setHoveredId(projectId)
-    if (mapContainerRef.current) {
-      const rect = mapContainerRef.current.getBoundingClientRect()
-      setMarkerPixelPos({ x: event.clientX - rect.left, y: event.clientY - rect.top })
-    }
-  }, [clearHoverExitTimer])
+  }, [])
 
   const handleProjectHoverEnd = useCallback(() => {
-    scheduleHoverExit()
-  }, [scheduleHoverExit])
+    setHoveredId(null)
+  }, [])
 
-  const handleProjectNavigate = useCallback(
-    (projectId: string) => {
-      router.push(`/dashboard?projectId=${projectId}`)
-    },
-    [router]
-  )
-
-  // Switch the active project within a cluster card without touching cluster hover state
+  // Switch active project inside a cluster card
   const handleSelectProjectInCluster = useCallback((projectId: string) => {
-    clearHoverExitTimer()
-    setHoveredId(projectId)
-  }, [clearHoverExitTimer])
+    setSelectedId(projectId)
+  }, [])
 
-  // Keep the card visible while the mouse is over it — just cancel the exit timer
-  const handleCardMouseEnter = useCallback(() => {
-    clearHoverExitTimer()
-  }, [clearHoverExitTimer])
+  // Close the detail card
+  const handleDismissCard = useCallback(() => {
+    setSelectedId(null)
+    setSelectedClusterId(null)
+    setMarkerPixelPos(null)
+  }, [])
 
   const handleLogout = async () => {
     if (isLoggingOut) return
@@ -1600,7 +1563,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                     </Geographies>
 
                     {projectClusters.map((cluster) => {
-                      const isClusterActive = hoveredClusterId === cluster.id
+                      const isClusterActive = hoveredClusterId === cluster.id || selectedClusterId === cluster.id
 
                       if (cluster.projects.length > 1) {
                         const regionName = cluster.projects[0].region || (zh ? "未标注" : "Unknown")
@@ -1610,8 +1573,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           <Marker
                             key={cluster.id}
                             coordinates={cluster.coordinates}
-                            onClick={() => handleClusterClick(cluster)}
-                            onMouseEnter={(event: ReactMouseEvent<SVGGElement>) => handleClusterHover(cluster, event)}
+                            onClick={(event: ReactMouseEvent<SVGGElement>) => handleClusterMarkerClick(cluster, event)}
+                            onMouseEnter={() => handleClusterHover(cluster)}
                             onMouseLeave={handleClusterHoverEnd}
                           >
                             <g transform={`scale(${markerScale})`}>
@@ -1664,7 +1627,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       const lifecycle = normalizeLifecycle(project)
                       const styles = getLifecycleStyles(lifecycle)
                       const isHovered = hoveredId === project.id
-                      const isActive = isHovered
+                      const isActive = isHovered || selectedId === project.id
                       const projectLabel = getProjectRegionLabel(project, zh)
                       const regionLabelW = Math.max(40, Math.min(92, projectLabel.length * 10 + 14))
                       const pinR = isActive ? 11 : 9
@@ -1674,8 +1637,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         <Marker
                           key={cluster.id}
                           coordinates={cluster.coordinates}
-                          onClick={() => handleClusterClick(cluster)}
-                          onMouseEnter={(event: ReactMouseEvent<SVGGElement>) => handleProjectHover(project.id, event)}
+                          onClick={(event: ReactMouseEvent<SVGGElement>) => handleSingleMarkerClick(project, event)}
+                          onMouseEnter={() => handleProjectHover(project.id)}
                           onMouseLeave={handleProjectHoverEnd}
                         >
                           <g transform={`scale(${markerScale})`}>
@@ -1751,10 +1714,23 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 <div
                   className="absolute z-20"
                   style={detailCardLayout.style}
-                  onMouseEnter={handleCardMouseEnter}
-                  onMouseLeave={activeCluster ? handleClusterHoverEnd : handleProjectHoverEnd}
                 >
-                  <div className="overflow-hidden rounded-[18px] border border-[#2c657f]/90 bg-[linear-gradient(180deg,rgba(6,18,31,0.97),rgba(4,11,22,0.98))] shadow-[0_18px_36px_rgba(0,0,0,0.34),0_0_0_1px_rgba(112,225,255,0.06)_inset] backdrop-blur-[18px]">
+                  <div className="relative overflow-hidden rounded-[18px] border border-[#2c657f]/90 bg-[linear-gradient(180deg,rgba(6,18,31,0.97),rgba(4,11,22,0.98))] shadow-[0_18px_36px_rgba(0,0,0,0.34),0_0_0_1px_rgba(112,225,255,0.06)_inset] backdrop-blur-[18px]">
+                    {/* Close button */}
+                    <button
+                      type="button"
+                      onClick={handleDismissCard}
+                      className="absolute right-2 top-2 z-30 flex h-5 w-5 items-center justify-center rounded-full border border-[#2c5d72] bg-[rgba(4,12,22,0.86)] text-[#7ab8cc] transition-all hover:border-[#3d8fa8] hover:text-[#dff9ff]"
+                    >
+                      <span className="text-[13px] leading-none">×</span>
+                    </button>
+                    {/* Loading overlay */}
+                    {activeSiteInfoState?.status === "loading" && (
+                      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-[18px] bg-[rgba(3,10,22,0.82)] backdrop-blur-[4px]">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#22d3ee]/30 border-t-[#22d3ee]" />
+                        <span className="text-[11px] font-medium text-[#7ecfe8]">{zh ? "数据加载中..." : "Loading data..."}</span>
+                      </div>
+                    )}
                     <div className="hidden">
                     <div className="pointer-events-none h-px w-full bg-[linear-gradient(90deg,transparent,rgba(126,233,255,0.45),transparent)]" />
                     {activeCluster && activeCluster.projects.length > 1 ? (
@@ -1771,7 +1747,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         <div className="custom-scrollbar max-h-[18rem] overflow-y-auto px-2 py-2">
                           <div className="space-y-2">
                             {activeCluster.projects.map((project) => {
-                              const isSelected = hoveredId === project.id
+                              const isSelected = selectedId === project.id
                               return (
                                 <button
                                   key={project.id}
@@ -1853,7 +1829,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         <div className="-mx-1 overflow-x-auto pb-1 custom-scrollbar">
                           <div className="flex min-w-max gap-1.5 px-1">
                             {activeCluster.projects.map((p) => {
-                              const isSelected = hoveredId === p.id
+                              const isSelected = selectedId === p.id
                               return (
                                 <button
                                   key={p.id}
