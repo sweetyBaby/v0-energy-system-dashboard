@@ -400,6 +400,78 @@ const RAIL_ACCENTS: Record<string, { iconBg: string; border: string; iconColor: 
   "total-discharge": { iconBg: "linear-gradient(145deg,rgba(55,48,163,0.72),rgba(28,24,92,0.92))",    border: "rgba(129,140,248,0.34)", iconColor: "#818cf8", glow: "rgba(129,140,248,0.28)", bar: "linear-gradient(180deg,#818cf8,#818cf866)" },
 }
 
+function MapSceneBackdrop() {
+  return (
+    <>
+      <style>{`
+        @keyframes map-bg-breathe {
+          0%, 100% { opacity: 0.72; transform: scale(0.98); }
+          50% { opacity: 1; transform: scale(1.04); }
+        }
+        @keyframes map-bg-sweep {
+          0% { transform: translateX(-140%); opacity: 0; }
+          18% { opacity: 0.22; }
+          50% { opacity: 0.16; }
+          100% { transform: translateX(320%); opacity: 0; }
+        }
+        @keyframes map-grid-drift {
+          0% { transform: translateY(0); }
+          100% { transform: translateY(28px); }
+        }
+      `}</style>
+
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 84% 46% at 50% -8%, rgba(59,130,246,0.30) 0%, transparent 58%)," +
+            "radial-gradient(circle at 18% 16%, rgba(0,212,170,0.12) 0%, transparent 26%)," +
+            "radial-gradient(circle at 82% 18%, rgba(34,211,238,0.12) 0%, transparent 28%)," +
+            "radial-gradient(ellipse 66% 20% at 50% 100%, rgba(15,118,210,0.16) 0%, transparent 62%)," +
+            "linear-gradient(180deg, #07101f 0%, #050d18 40%, #030813 100%)",
+        }}
+      />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.045] [background-image:radial-gradient(circle,rgba(34,211,238,0.56)_1px,transparent_1.8px)] [background-size:32px_32px]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(34,211,238,0.10)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.09)_1px,transparent_1px)] [background-size:72px_72px]" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.05] [background-image:linear-gradient(rgba(34,211,238,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(0,212,170,0.08)_1px,transparent_1px)] [background-size:24px_24px]"
+        style={{ animation: "map-grid-drift 16s linear infinite" }}
+      />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#22d3ee]/28 to-transparent" />
+      <div className="pointer-events-none absolute left-0 top-0 h-[84px] w-[84px] border-l border-t border-[#22d3ee]/24" />
+      <div className="pointer-events-none absolute right-0 top-0 h-[84px] w-[84px] border-r border-t border-[#22d3ee]/24" />
+      <div className="pointer-events-none absolute bottom-0 left-0 h-[72px] w-[72px] border-b border-l border-[#00d4aa]/12" />
+      <div className="pointer-events-none absolute bottom-0 right-0 h-[72px] w-[72px] border-b border-r border-[#00d4aa]/12" />
+
+      <div className="pointer-events-none absolute left-1/2 top-0 h-[42vh] w-[340px] -translate-x-1/2 blur-3xl" style={{ background: "linear-gradient(180deg, rgba(34,211,238,0.12) 0%, rgba(59,130,246,0.04) 48%, transparent 100%)" }} />
+      <div className="pointer-events-none absolute left-[8%] top-[16%] h-[18rem] w-[18rem] rounded-full bg-[radial-gradient(circle,rgba(0,212,170,0.14),transparent_70%)] blur-3xl" />
+      <div className="pointer-events-none absolute right-[8%] top-[14%] h-[18rem] w-[18rem] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.14),transparent_72%)] blur-3xl" />
+
+      <div className="pointer-events-none absolute inset-x-0 top-[5.75rem] hidden h-[13rem] lg:block">
+        <div
+          className="absolute left-1/2 top-0 h-full w-[34rem] -translate-x-1/2 bg-[linear-gradient(180deg,rgba(0,212,170,0.16),rgba(34,211,238,0.08)_48%,transparent)] blur-xl"
+          style={{ clipPath: "polygon(28% 0%,72% 0%,88% 100%,12% 100%)", animation: "map-bg-breathe 9s ease-in-out infinite" }}
+        />
+        <div className="absolute left-1/2 top-[1.2rem] h-px w-[42rem] -translate-x-1/2 bg-gradient-to-r from-transparent via-[#52ecff]/26 to-transparent" />
+        <div className="absolute left-1/2 top-[3.6rem] h-px w-[34rem] -translate-x-1/2 bg-gradient-to-r from-transparent via-[#52ecff]/18 to-transparent" />
+      </div>
+
+      <div className="pointer-events-none absolute inset-y-[15%] left-[12%] hidden w-[10%] border-x border-[#00d4aa]/8 bg-[linear-gradient(90deg,transparent,rgba(0,212,170,0.04),transparent)] xl:block" />
+      <div className="pointer-events-none absolute inset-y-[14%] right-[12%] hidden w-[10%] border-x border-[#3b82f6]/8 bg-[linear-gradient(90deg,transparent,rgba(59,130,246,0.04),transparent)] xl:block" />
+      <div className="pointer-events-none absolute left-[10%] top-[22%] hidden h-[14rem] w-[13rem] border border-[#1f5d78]/18 bg-[linear-gradient(180deg,rgba(8,18,34,0.36),rgba(4,12,23,0.04))] xl:block" style={{ clipPath: "polygon(0% 10%,10% 0%,100% 0%,100% 100%,0% 100%)" }} />
+      <div className="pointer-events-none absolute right-[10%] top-[27%] hidden h-[15rem] w-[14rem] border border-[#24629f]/18 bg-[linear-gradient(180deg,rgba(8,18,34,0.34),rgba(4,12,23,0.04))] xl:block" style={{ clipPath: "polygon(0% 0%,90% 0%,100% 10%,100% 100%,0% 100%)" }} />
+      <div
+        className="pointer-events-none absolute left-[10%] top-[30%] hidden h-[6rem] w-[22%] bg-[linear-gradient(90deg,transparent,rgba(84,244,255,0.18),transparent)] blur-md xl:block"
+        style={{ animation: "map-bg-sweep 9s linear infinite" }}
+      />
+
+      <div className="pointer-events-none absolute bottom-[-28%] left-1/2 h-[76vh] w-[176vw] -translate-x-1/2 opacity-[0.12] [background-image:linear-gradient(rgba(34,211,238,0.11)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.08)_1px,transparent_1px)] [background-size:88px_88px] [transform:perspective(1440px)_rotateX(79deg)]" />
+      <div className="pointer-events-none absolute bottom-[-18%] left-1/2 h-[68vh] w-[148vw] -translate-x-1/2 opacity-[0.08] [background-image:linear-gradient(rgba(0,212,170,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.08)_1px,transparent_1px)] [background-size:44px_44px] [transform:perspective(1440px)_rotateX(79deg)]" />
+      <div className="pointer-events-none absolute bottom-[24%] left-1/2 h-[6rem] w-[82vw] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(34,211,238,0.08),transparent_58%)] blur-3xl" />
+    </>
+  )
+}
+
 export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const router = useRouter()
   const { language } = useLanguage()
@@ -879,18 +951,9 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   return (
     <div
       className="relative flex h-full min-h-0 flex-col overflow-hidden text-[#e8f6ff]"
-      style={{ background: "radial-gradient(ellipse 92% 54% at 50% -5%, rgba(56,130,246,0.30) 0%, transparent 56%), radial-gradient(circle at 13% 18%, rgba(0,212,170,0.15) 0%, transparent 28%), radial-gradient(circle at 87% 18%, rgba(34,211,238,0.13) 0%, transparent 30%), radial-gradient(ellipse at 50% 108%, rgba(0,100,200,0.10), transparent 50%), #040d1f" }}
+      style={{ background: "#040d1f" }}
     >
-      {/* Dot texture */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:radial-gradient(circle,rgba(34,211,238,0.65)_1px,transparent_1.5px)] [background-size:28px_28px]" />
-      {/* Grid */}
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(40,100,140,0.07)_1px,transparent_1px),linear-gradient(0deg,rgba(40,100,140,0.06)_1px,transparent_1px)] bg-[size:72px_72px]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,180,200,0.03)_1px,transparent_1px),linear-gradient(0deg,rgba(0,180,200,0.03)_1px,transparent_1px)] bg-[size:18px_18px]" />
-      {/* Corner brackets */}
-      <div className="pointer-events-none absolute left-0 top-0 h-[56px] w-[56px] border-l border-t border-[#22d3ee]/20" />
-      <div className="pointer-events-none absolute right-0 top-0 h-[56px] w-[56px] border-r border-t border-[#22d3ee]/20" />
-      <div className="pointer-events-none absolute bottom-0 left-0 h-[40px] w-[40px] border-b border-l border-[#00d4aa]/10" />
-      <div className="pointer-events-none absolute bottom-0 right-0 h-[40px] w-[40px] border-b border-r border-[#00d4aa]/10" />
+      <MapSceneBackdrop />
 
       <DashboardHeaderShell compact={useCompactHeader}>
         <div className="flex min-w-0 flex-1 items-center gap-4">
@@ -903,8 +966,10 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       </DashboardHeaderShell>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col p-2">
-        <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#22d3ee]/18 bg-[rgba(4,12,26,0.52)] shadow-[0_20px_56px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(34,211,238,0.10)]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(34,211,238,0.07),transparent_30%),radial-gradient(ellipse_at_88%_80%,rgba(40,120,255,0.06),transparent_32%)]" />
+        <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#22d3ee]/18 bg-[linear-gradient(180deg,rgba(4,12,26,0.56),rgba(3,10,22,0.70))] shadow-[0_20px_56px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(34,211,238,0.10)] backdrop-blur-[4px]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(34,211,238,0.08),transparent_30%),radial-gradient(ellipse_at_88%_80%,rgba(40,120,255,0.07),transparent_32%)]" />
+          <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(rgba(34,211,238,0.10)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.10)_1px,transparent_1px)] [background-size:28px_28px]" />
+          <div className="pointer-events-none absolute inset-y-0 left-[-16%] w-[32%] bg-[linear-gradient(90deg,transparent,rgba(34,211,238,0.14),transparent)] blur-xl" style={{ animation: "map-bg-sweep 12s linear infinite" }} />
 
           <div className="relative grid min-h-full gap-2 p-2 xl:h-full xl:grid-cols-[13.75rem_minmax(0,1fr)_14.25rem] 2xl:grid-cols-[14.25rem_minmax(0,1fr)_14.75rem]">
             <aside className="order-2 flex min-h-0 flex-col gap-2 xl:order-1 xl:overflow-y-auto xl:overscroll-contain custom-scrollbar xl:pr-0.5">
