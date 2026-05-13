@@ -355,6 +355,23 @@ export type RawProjectDashboardChargeDischargeRankingItem = {
   projectId?: string | null
 }
 
+export type RawProjectDashboardSiteInfo = {
+  ratedPower?: string | null
+  totalChargeWh?: number | null
+  cityCode?: string | number | null
+  online?: boolean | null
+  soc?: number | null
+  totalDischargeWh?: number | null
+  efficiencyEe?: number | null
+  ratedCapacity?: string | null
+  workingDate?: string | null
+  power?: number | null
+  projectName?: string | null
+  region?: string | null
+  projectId?: string | null
+  status?: string | number | null
+}
+
 export const EMPTY_OVERVIEW_METRICS: OverviewMetrics = {
   charge: {
     current: API_PLACEHOLDER,
@@ -930,6 +947,14 @@ export const fetchProjectDashboardChargeDischargeRanking = async (
     apiEndpoints.overview.chargeDischargeRanking,
     query,
     "Failed to load project dashboard charge/discharge ranking."
+  )
+}
+
+export const fetchProjectDashboardSiteInfos = async (query?: ProjectDashboardOverviewQuery) => {
+  return fetchProjectDashboardPayload<RawProjectDashboardSiteInfo[]>(
+    apiEndpoints.overview.siteInfos,
+    query,
+    "Failed to load project dashboard site infos."
   )
 }
 

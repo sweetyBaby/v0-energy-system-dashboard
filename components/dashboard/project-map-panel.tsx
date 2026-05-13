@@ -33,12 +33,13 @@ import {
   fetchProjectDashboardChargeDischargeRanking,
   fetchProjectDashboardOverview,
   fetchProjectDashboardEeRanking,
+  fetchProjectDashboardSiteInfos,
   fetchProjectOptionsByDevice,
-  fetchProjectRealtime,
   type ProjectOption,
   type RawProjectDashboardChargeDischargeRankingItem,
   type RawProjectDashboardOverview,
   type RawProjectDashboardEeRankingItem,
+  type RawProjectDashboardSiteInfo,
 } from "@/lib/api/project"
 
 const GEO_URL = "/world-atlas.json"
@@ -60,18 +61,27 @@ type FocusFrame = {
   zoom: number
 }
 
-type EfficiencyItem = {
-  project: ProjectOption
-  lifecycle: LifecycleKey
+type ProjectSiteInfoItem = {
+  projectId: string
+  projectName: string | null
+  region: string | null
+  ratedPower: string | null
+  ratedCapacity: string | null
+  workingDate: string | null
+  status: string | null
   score: number | null
   totalChargeMWh: number | null
   totalDischargeMWh: number | null
-  combinedEnergyMWh: number
   isOnline: boolean
   powerKw: number | null
   socPercent: number | null
   runtimeLabelZh: string
   runtimeLabelEn: string
+}
+
+type ProjectSiteInfoLoadState = {
+  status: "loading" | "ready" | "error"
+  data: ProjectSiteInfoItem | null
 }
 
 type EeRankingItem = {
@@ -153,7 +163,7 @@ const hasText = (value?: string | null) => typeof value === "string" && value.tr
 const getProjectName = (project: ProjectOption, zh: boolean) =>
   (zh ? project.projectName : project.projectNameEn || project.projectName).trim()
 
-const formatPending = (zh: boolean) => (zh ? "待补全" : "Pending")
+const formatPending = (_zh: boolean) => "--"
 
 const formatIntegerCount = (value: number) => `${value}`
 
@@ -212,6 +222,18 @@ const normalizeLifecycle = (project: ProjectOption): LifecycleKey => {
   const normalizedStatus = `${project.status ?? ""}`.trim().toLowerCase()
 
   if (normalizedStatus) {
+    if (normalizedStatus === "1") {
+      return "commissioned"
+    }
+
+    if (normalizedStatus === "3") {
+      return "construction"
+    }
+
+    if (normalizedStatus === "0" || normalizedStatus === "2") {
+      return "planned"
+    }
+
     if (
       normalizedStatus.includes("已投") ||
       normalizedStatus.includes("投运") ||
@@ -297,9 +319,25 @@ const getLifecycleStyles = (lifecycle: LifecycleKey) => {
   }
 }
 
+const formatDateYmd = (value?: string | null) => {
+  if (!hasText(value)) return null
+
+  const normalized = value!.trim()
+  const match = normalized.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/)
+  if (match) {
+    const [, year, month, day] = match
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+  }
+
+  return normalized
+}
+
 const getProjectDateLabel = (project: ProjectOption, zh: boolean) => {
-  if (hasText(project.workingDate)) return project.workingDate!
-  if (hasText(project.commissioningDate)) return project.commissioningDate!
+  const workingDate = formatDateYmd(project.workingDate)
+  if (workingDate) return workingDate
+
+  const commissioningDate = formatDateYmd(project.commissioningDate)
+  if (commissioningDate) return commissioningDate
   return zh ? "未登记" : "Not Set"
 }
 
@@ -327,7 +365,7 @@ const buildRankingProjectName = (project: ProjectOption | null, fallbackName: st
     return getProjectName(project, zh)
   }
 
-  return hasText(fallbackName) ? fallbackName.trim() : (zh ? "待补全" : "Pending")
+  return hasText(fallbackName) ? fallbackName.trim() : "--"
 }
 
 const clusterMappableProjects = (projects: ProjectOption[]): ProjectCluster[] => {
@@ -388,30 +426,9 @@ const toNumberOrNull = (value: unknown) => {
   return value
 }
 
-const pickEfficiencyScore = (realtime: Awaited<ReturnType<typeof fetchProjectRealtime>>) =>
-  toNumberOrNull(realtime?.all?.cumulativeEE) ??
-  toNumberOrNull(realtime?.year?.cumulativeEE) ??
-  toNumberOrNull(realtime?.month?.cumulativeEE) ??
-  toNumberOrNull(realtime?.yesterday?.cumulativeEE)
-
-const pickTotalChargeMWh = (realtime: Awaited<ReturnType<typeof fetchProjectRealtime>>) => {
-  const totalWh = toNumberOrNull(realtime?.all?.totalChargeWh)
-  if (totalWh != null) return totalWh / 1_000_000
-
-  const fallback = toNumberOrNull(realtime?.totalChargeEnergy)
-  return fallback != null ? fallback / 1000 : null
-}
-
-const pickTotalDischargeMWh = (realtime: Awaited<ReturnType<typeof fetchProjectRealtime>>) => {
-  const totalWh = toNumberOrNull(realtime?.all?.totalDischargeWh)
-  if (totalWh != null) return totalWh / 1_000_000
-
-  const fallback = toNumberOrNull(realtime?.totalDischargeEnergy)
-  return fallback != null ? fallback / 1000 : null
-}
-
 const pickRuntimeLabel = (project: ProjectOption, powerKw: number | null, isOnline: boolean, zh: boolean) => {
   const lifecycle = normalizeLifecycle(project)
+  const normalizedStatus = `${project.status ?? ""}`.trim()
 
   if (!isOnline) return zh ? "离线" : "Offline"
   if (lifecycle === "construction") return zh ? "调试中" : "Testing"
@@ -419,6 +436,59 @@ const pickRuntimeLabel = (project: ProjectOption, powerKw: number | null, isOnli
   if (powerKw != null && powerKw > 0.05) return zh ? "充电中" : "Charging"
   if (powerKw != null && powerKw < -0.05) return zh ? "放电中" : "Discharging"
   return zh ? "在线" : "Online"
+}
+
+const pickSiteInfoRow = (rows: RawProjectDashboardSiteInfo[] | null, projectId: string) => {
+  if (!rows?.length) return null
+
+  return rows.find((row) => String(row.projectId ?? "").trim() === projectId) ?? rows[0] ?? null
+}
+
+const normalizeProjectSiteInfo = (project: ProjectOption, row: RawProjectDashboardSiteInfo | null): ProjectSiteInfoItem | null => {
+  if (!row) return null
+
+  const powerKw = toNumberOrNull(row.power)
+  const socPercent = toNumberOrNull(row.soc)
+  const isOnline = typeof row.online === "boolean" ? row.online : false
+  const status = hasText(row.status == null ? null : String(row.status)) ? String(row.status).trim() : project.status
+  const workingDate = hasText(row.workingDate) ? row.workingDate!.trim() : project.workingDate
+  const lifecycleProject: ProjectOption = {
+    ...project,
+    status,
+    workingDate,
+  }
+  const totalChargeWh = toNumberOrNull(row.totalChargeWh)
+  const totalDischargeWh = toNumberOrNull(row.totalDischargeWh)
+  const runtimeLabelZh =
+    !isOnline ? "绂荤嚎"
+    : status === "2" ? "鍋滄満"
+    : status === "3" ? "鍦ㄥ缓"
+    : status === "0" ? "鏈煡"
+    : pickRuntimeLabel(lifecycleProject, powerKw, isOnline, true)
+  const runtimeLabelEn =
+    !isOnline ? "Offline"
+    : status === "2" ? "Stopped"
+    : status === "3" ? "Under Construction"
+    : status === "0" ? "Unknown"
+    : pickRuntimeLabel(lifecycleProject, powerKw, isOnline, false)
+
+  return {
+    projectId: hasText(row.projectId) ? String(row.projectId).trim() : project.projectId,
+    projectName: hasText(row.projectName) ? String(row.projectName).trim() : project.projectName,
+    region: hasText(row.region) ? String(row.region).trim() : project.region,
+    ratedPower: hasText(row.ratedPower) ? String(row.ratedPower).trim() : project.ratedPower,
+    ratedCapacity: hasText(row.ratedCapacity) ? String(row.ratedCapacity).trim() : project.ratedCapacity,
+    workingDate,
+    status,
+    score: toNumberOrNull(row.efficiencyEe),
+    totalChargeMWh: totalChargeWh != null ? totalChargeWh / 1_000_000 : null,
+    totalDischargeMWh: totalDischargeWh != null ? totalDischargeWh / 1_000_000 : null,
+    isOnline,
+    powerKw,
+    socPercent,
+    runtimeLabelZh,
+    runtimeLabelEn,
+  }
 }
 
 function SectionHeading({ icon, title, trailing }: SectionHeadingProps) {
@@ -535,7 +605,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [dashboardOverview, setDashboardOverview] = useState<RawProjectDashboardOverview | null>(null)
   const [eeRankingLoading, setEeRankingLoading] = useState(true)
   const [energyRankingLoading, setEnergyRankingLoading] = useState(true)
-  const [efficiencyItems, setEfficiencyItems] = useState<EfficiencyItem[]>([])
+  const [siteInfoByProjectId, setSiteInfoByProjectId] = useState<Record<string, ProjectSiteInfoLoadState>>({})
   const [eeRankingItems, setEeRankingItems] = useState<EeRankingItem[]>([])
   const [chargeRankingItems, setChargeRankingItems] = useState<ChargeDischargeRankingItem[]>([])
   const [dischargeRankingItems, setDischargeRankingItems] = useState<ChargeDischargeRankingItem[]>([])
@@ -778,16 +848,52 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   }, [projects, energyRankingMode])
 
   useEffect(() => {
-    if (!projects.length) {
-      setEfficiencyItems([])
+    if (!hoveredId) return
+
+    const activeProject = projects.find((project) => project.id === hoveredId)
+    if (!activeProject) return
+
+    const cached = siteInfoByProjectId[activeProject.projectId]
+    // Refetch on every hover / tab switch. Only suppress duplicate in-flight requests.
+    if (cached?.status === "loading") {
       return
     }
 
     let cancelled = false
 
-    const loadEfficiencyItems = async () => {
-      const nextItems = await Promise.all(
-        projects.map(async (project) => {
+    setSiteInfoByProjectId((current) => ({
+      ...current,
+      [activeProject.projectId]: {
+        status: "loading",
+        data: current[activeProject.projectId]?.data ?? null,
+      },
+    }))
+
+    const loadSiteInfo = async () => {
+      try {
+        const rows = await fetchProjectDashboardSiteInfos({ projectId: activeProject.projectId })
+        if (cancelled) return
+
+        setSiteInfoByProjectId((current) => ({
+          ...current,
+          [activeProject.projectId]: {
+            status: "ready",
+            data: normalizeProjectSiteInfo(activeProject, pickSiteInfoRow(rows, activeProject.projectId)),
+          },
+        }))
+      } catch (error) {
+        console.error(`Failed to load project dashboard site infos for ${activeProject.projectId}`, error)
+        if (cancelled) return
+
+        setSiteInfoByProjectId((current) => ({
+          ...current,
+          [activeProject.projectId]: {
+            status: "error",
+            data: null,
+          },
+        }))
+      }
+      /*
           try {
             const realtime = await fetchProjectRealtime(project.projectId, project.devices)
             const lifecycle = normalizeLifecycle(project)
@@ -837,14 +943,15 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       })
 
       setEfficiencyItems(nextItems)
+      */
     }
 
-    void loadEfficiencyItems()
+    void loadSiteInfo()
 
     return () => {
       cancelled = true
     }
-  }, [projects])
+  }, [hoveredId, projects])
 
   useEffect(() => {
     return () => {
@@ -876,21 +983,29 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     [projects]
   )
 
+  const cachedSiteInfoItems = useMemo(
+    () =>
+      Object.values(siteInfoByProjectId)
+        .map((entry) => entry.data)
+        .filter((item): item is ProjectSiteInfoItem => item != null),
+    [siteInfoByProjectId]
+  )
+
   const totalChargeMWh = useMemo(
-    () => efficiencyItems.reduce((sum, item) => sum + (item.totalChargeMWh ?? 0), 0),
-    [efficiencyItems]
+    () => cachedSiteInfoItems.reduce((sum, item) => sum + (item.totalChargeMWh ?? 0), 0),
+    [cachedSiteInfoItems]
   )
 
   const totalDischargeMWh = useMemo(
-    () => efficiencyItems.reduce((sum, item) => sum + (item.totalDischargeMWh ?? 0), 0),
-    [efficiencyItems]
+    () => cachedSiteInfoItems.reduce((sum, item) => sum + (item.totalDischargeMWh ?? 0), 0),
+    [cachedSiteInfoItems]
   )
 
   const averageEfficiency = useMemo(() => {
-    const validItems = efficiencyItems.filter((item) => item.score != null)
+    const validItems = cachedSiteInfoItems.filter((item) => item.score != null)
     if (!validItems.length) return null
     return validItems.reduce((sum, item) => sum + (item.score ?? 0), 0) / validItems.length
-  }, [efficiencyItems])
+  }, [cachedSiteInfoItems])
 
   const lifecycleCounts = useMemo<OverviewLifecycleCounts>(() => {
     const counts: OverviewLifecycleCounts = {
@@ -903,7 +1018,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       const total = typeof stat?.total === "number" && !Number.isNaN(stat.total) ? stat.total : 0
       const status = `${stat?.status ?? ""}`.trim()
 
-      if (status === "1" || status === "2") {
+      if (status === "1") {
         counts.commissioned += total
         continue
       }
@@ -925,10 +1040,34 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   )
 
   const activeProject = hoveredProject
-  const activeItem = useMemo(
-    () => (activeProject ? efficiencyItems.find((item) => item.project.id === activeProject.id) ?? null : null),
-    [activeProject, efficiencyItems]
+  const activeSiteInfoState = useMemo(
+    () => (activeProject ? siteInfoByProjectId[activeProject.projectId] ?? null : null),
+    [activeProject, siteInfoByProjectId]
   )
+  const activeItem = useMemo(
+    () => activeSiteInfoState?.data ?? null,
+    [activeSiteInfoState]
+  )
+  const activeLifecycleProject = useMemo(() => {
+    if (!activeProject) return null
+
+    return {
+      ...activeProject,
+      status: activeItem?.status ?? activeProject.status,
+      workingDate: activeItem?.workingDate ?? activeProject.workingDate,
+      ratedPower: activeItem?.ratedPower ?? activeProject.ratedPower,
+      ratedCapacity: activeItem?.ratedCapacity ?? activeProject.ratedCapacity,
+      region: activeItem?.region ?? activeProject.region,
+      projectName: activeItem?.projectName ?? activeProject.projectName,
+    } satisfies ProjectOption
+  }, [activeItem, activeProject])
+  const activeRealtimeLabel = useMemo(() => {
+    if (activeSiteInfoState?.status === "loading") {
+      return zh ? "加载中..." : "Loading..."
+    }
+
+    return zh ? activeItem?.runtimeLabelZh ?? "--" : activeItem?.runtimeLabelEn ?? "--"
+  }, [activeItem, activeSiteInfoState?.status, zh])
 
   const detailCardLayout = useMemo(() => {
     const isMultiProject = Boolean(activeCluster && activeCluster.projects.length > 1)
@@ -1022,8 +1161,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       return dashboardOverview.onlineSiteTotal
     }
 
-    return efficiencyItems.filter((item) => item.isOnline).length
-  }, [dashboardOverview?.onlineSiteTotal, efficiencyItems])
+    return cachedSiteInfoItems.filter((item) => item.isOnline).length
+  }, [cachedSiteInfoItems, dashboardOverview?.onlineSiteTotal])
 
   const offlineCount = useMemo(() => Math.max(siteCount - onlineCount, 0), [onlineCount, siteCount])
 
@@ -1754,10 +1893,10 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           </div>
                           <div
                             className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.07em] ${
-                              getLifecycleStyles(normalizeLifecycle(activeProject)).badge
+                              getLifecycleStyles(normalizeLifecycle(activeLifecycleProject ?? activeProject)).badge
                             }`}
                           >
-                            {getLifecycleText(normalizeLifecycle(activeProject), zh)}
+                            {getLifecycleText(normalizeLifecycle(activeLifecycleProject ?? activeProject), zh)}
                           </div>
                         </div>
                       </div>
@@ -1768,19 +1907,19 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         <div className="rounded-[13px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-2.5 py-1.5">
                           <div className="text-[11px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "区域" : "Region"}</div>
                           <div className="mt-0.5 truncate text-[12px] font-semibold text-[#f2fbff]">
-                            {getProjectRegionLabel(activeProject, zh)}
+                            {activeItem?.region || getProjectRegionLabel(activeProject, zh)}
                           </div>
                         </div>
                         <div className="rounded-[13px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-2.5 py-1.5">
                           <div className="text-[11px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "投运日期" : "Go-Live"}</div>
                           <div className="mt-0.5 truncate text-[12px] font-semibold text-[#f2fbff]">
-                            {getProjectDateLabel(activeProject, zh)}
+                            {formatDateYmd(activeItem?.workingDate) || getProjectDateLabel(activeProject, zh)}
                           </div>
                         </div>
                         <div className="rounded-[13px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-2.5 py-1.5">
                           <div className="text-[11px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "额定容量" : "Rated Capacity"}</div>
                           <div className="mt-0.5 truncate text-[12px] font-semibold text-[#f2fbff]">
-                            {getProjectCapacityLabel(activeProject, zh)}
+                            {activeItem?.ratedCapacity || getProjectCapacityLabel(activeProject, zh)}
                           </div>
                         </div>
                         <div className="rounded-[13px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-2.5 py-1.5">
@@ -1796,7 +1935,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           <div className="text-[11px] font-medium tracking-[0.08em] text-[#83e8de]">{zh ? "当前状态" : "Current State"}</div>
                           <div className="mt-0.5 flex items-center gap-1 text-[12px] font-semibold text-[#effaff]">
                             <CheckCircle2 className="h-4 w-4 text-[#3fe5d7]" />
-                            <span>{zh ? activeItem?.runtimeLabelZh ?? "待补全" : activeItem?.runtimeLabelEn ?? "Pending"}</span>
+                            <span>{activeRealtimeLabel}</span>
                           </div>
                         </div>
                         <div className="rounded-[13px] border border-[#234f76] bg-[rgba(11,24,43,0.76)] px-2.5 py-1.5">

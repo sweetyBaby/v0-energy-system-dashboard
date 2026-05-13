@@ -34,6 +34,11 @@ export const apiEndpoints = {
      */
     chargeDischargeRanking: "/ems/project/dashboard/chargeDischargeRanking",
     /**
+     * Project dashboard site-level realtime info.
+     * Query: projectId?, deviceId?
+     */
+    siteInfos: "/ems/project/dashboard/siteInfos",
+    /**
      * Overview realtime snapshot.
      * Used for SOC, PACK voltage/current, power, SOH and overview cards.
      */
