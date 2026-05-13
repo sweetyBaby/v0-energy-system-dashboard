@@ -18,6 +18,7 @@ import {
   type DeviceRealtimeSnapshotView,
   type OverviewMetrics,
   type ProjectOption,
+  type ProjectWeatherView,
   type RawProjectDetail,
   type RawProjectRealtime,
   type RealtimeSnapshotView,
@@ -37,6 +38,7 @@ export type Project = ProjectOption & {
   commissioningDate: string
   tariffInfo: string
   status: string
+  weather: ProjectWeatherView | null
   overviewMetrics: OverviewMetrics
   realtimeSnapshot: RealtimeSnapshotView
   deviceRealtimeSnapshots: DeviceRealtimeSnapshotView[]
@@ -354,6 +356,7 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
       <div className="flex shrink-0 items-center gap-3">
         <HeaderInfoBar
           compact={useCompactHeader}
+          projectWeather={selectedProject.weather}
           latitude={selectedProject.latitude}
           longitude={selectedProject.longitude}
         />

@@ -221,6 +221,28 @@ export type DeviceRealtimeSnapshotView = RealtimeSnapshotView & {
   deviceType: string | null
 }
 
+export type RawProjectWeatherLive = {
+  province?: string | null
+  city?: string | null
+  adcode?: string | null
+  weather?: string | null
+  temperature?: string | null
+  winddirection?: string | null
+  windpower?: string | null
+  humidity?: string | null
+  reporttime?: string | null
+  temperature_float?: string | null
+  humidity_float?: string | null
+}
+
+export type RawProjectWeather = {
+  lives?: RawProjectWeatherLive[] | null
+  count?: string | null
+  infocode?: string | null
+  status?: string | null
+  info?: string | null
+}
+
 /**
  * `/ems/project/{projectId}` 原始响应中的 `data` 部分。
  * 文档当前明确了基础字段，其他总览字段先按可选扩展字段处理，便于后续快速联调。
@@ -236,6 +258,19 @@ export type RawProjectDetail = Record<string, unknown> & {
   tariffInfo?: string | null
   status?: string | null
   picPath?: string | null
+  weather?: RawProjectWeather | null
+}
+
+export type ProjectWeatherView = {
+  condition: string | null
+  temperatureText: string | null
+  temperatureValue: number | null
+  city: string | null
+  province: string | null
+  windDirection: string | null
+  windPower: string | null
+  humidity: string | null
+  reportTime: string | null
 }
 
 /**
@@ -252,6 +287,7 @@ export type ProjectDetailView = {
   tariffInfo: string
   status: string
   image?: string
+  weather: ProjectWeatherView | null
   overviewMetrics: OverviewMetrics
   realtimeSnapshot: RealtimeSnapshotView
 }
@@ -663,6 +699,56 @@ export const formatApiValue = (value: unknown) => {
   return String(value).trim()
 }
 
+const toOptionalText = (value: unknown) => {
+  if (!hasValue(value)) return null
+  return String(value).trim()
+}
+
+const toOptionalNumber = (value: unknown) => {
+  if (!hasValue(value)) return null
+
+  const numericValue = Number(String(value).trim())
+  if (!Number.isFinite(numericValue)) return null
+
+  return numericValue
+}
+
+export const normalizeProjectWeather = (
+  weather: RawProjectWeather | null | undefined
+): ProjectWeatherView | null => {
+  const live = Array.isArray(weather?.lives)
+    ? weather.lives.find((item) =>
+        hasValue(item?.weather) || hasValue(item?.temperature_float) || hasValue(item?.temperature)
+      ) ?? weather.lives[0] ?? null
+    : null
+
+  if (!live) return null
+
+  const temperatureValue = toOptionalNumber(live.temperature_float ?? live.temperature)
+  const temperatureText =
+    temperatureValue != null
+      ? `${Math.round(temperatureValue)}`
+      : toOptionalText(live.temperature)
+
+  const normalizedWeather: ProjectWeatherView = {
+    condition: toOptionalText(live.weather),
+    temperatureText,
+    temperatureValue,
+    city: toOptionalText(live.city),
+    province: toOptionalText(live.province),
+    windDirection: toOptionalText(live.winddirection),
+    windPower: toOptionalText(live.windpower),
+    humidity: toOptionalText(live.humidity_float ?? live.humidity),
+    reportTime: toOptionalText(live.reporttime),
+  }
+
+  if (!normalizedWeather.condition && !normalizedWeather.temperatureText) {
+    return null
+  }
+
+  return normalizedWeather
+}
+
 const resolveProjectImage = (picPath?: string | null, fallbackImage?: string | null) => {
   if (hasValue(picPath)) {
     return String(picPath).trim()
@@ -971,6 +1057,7 @@ export const normalizeProjectDetail = (detail: RawProjectDetail | null, fallback
   tariffInfo: formatApiValue(detail?.tariffInfo),
   status: formatApiValue(detail?.status),
   image: resolveProjectImage(detail?.picPath, fallbackImage),
+  weather: normalizeProjectWeather(detail?.weather),
   overviewMetrics: EMPTY_OVERVIEW_METRICS,
   realtimeSnapshot: EMPTY_REALTIME_SNAPSHOT,
 })
