@@ -11,10 +11,10 @@ export const metadata: Metadata = {
   generator: "v0.app",
   icons: {
     icon: [
-      { url: "/favicon.ico" },
+      { url: "/favicon.ico?v=3", type: "image/png", sizes: "32x32" },
       { url: "/enervenue-logo-mark-white.png", type: "image/png" },
     ],
-    shortcut: "/favicon.ico",
+    shortcut: "/favicon.ico?v=3",
   },
 }
 
