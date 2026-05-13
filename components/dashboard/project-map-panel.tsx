@@ -331,20 +331,39 @@ const buildRankingProjectName = (project: ProjectOption | null, fallbackName: st
 }
 
 const clusterMappableProjects = (projects: ProjectOption[]): ProjectCluster[] => {
-  const buckets = new Map<string, { firstCoords: [number, number]; projects: ProjectOption[] }>()
+  const buckets = new Map<
+    string,
+    { longitudeTotal: number; latitudeTotal: number; count: number; projects: ProjectOption[] }
+  >()
+
   for (const project of projects) {
-    const lng = Math.round(project.longitude! * 100) / 100
-    const lat = Math.round(project.latitude! * 100) / 100
-    const key = `${lng}_${lat}`
-    if (!buckets.has(key)) {
-      buckets.set(key, { firstCoords: [project.longitude!, project.latitude!], projects: [] })
+    const lng = project.longitude!
+    const lat = project.latitude!
+    const roundedLng = Math.round(lng * 100) / 100
+    const roundedLat = Math.round(lat * 100) / 100
+    const key = project.cityCode?.trim() ? `city_${project.cityCode.trim()}` : `coords_${roundedLng}_${roundedLat}`
+    const currentBucket = buckets.get(key)
+
+    if (!currentBucket) {
+      buckets.set(key, {
+        longitudeTotal: lng,
+        latitudeTotal: lat,
+        count: 1,
+        projects: [project],
+      })
+      continue
     }
-    buckets.get(key)!.projects.push(project)
+
+    currentBucket.longitudeTotal += lng
+    currentBucket.latitudeTotal += lat
+    currentBucket.count += 1
+    currentBucket.projects.push(project)
   }
-  return Array.from(buckets.entries()).map(([key, { firstCoords, projects }]) => ({
+
+  return Array.from(buckets.entries()).map(([key, bucket]) => ({
     id: `cluster_${key}`,
-    coordinates: firstCoords,
-    projects,
+    coordinates: [bucket.longitudeTotal / bucket.count, bucket.latitudeTotal / bucket.count],
+    projects: bucket.projects,
   }))
 }
 

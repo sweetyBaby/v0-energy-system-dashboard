@@ -13,6 +13,7 @@ export type ProjectOption = {
   devices: ProjectDevice[]
   longitude: number | null
   latitude: number | null
+  cityCode: string | null
   region: string
   status: string | null
   ratedPower: string | null
@@ -44,6 +45,7 @@ export type RawProjectListByDeviceRow = {
   projectName?: string | null
   projectNameEn?: string | null
   region?: string | null
+  cityCode?: string | number | null
   company?: string | null
   ratedPower?: string | null
   commissioningDate?: string | null
@@ -55,6 +57,8 @@ export type RawProjectListByDeviceRow = {
   workingDate?: string | null
   totalChargeAh?: number | null
   totalDischargeAh?: number | null
+  longitude?: number | string | null
+  latitude?: number | string | null
   deviceId?: string | null
   deviceName?: string | null
   deviceType?: string | null
@@ -97,6 +101,7 @@ export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse =
       projectId: "360c0347c09c4735900b9df32f3b8ff7",
       projectName: "金坛储能中心",
       projectNameEn: "Jintan Energy Storage Center",
+      cityCode: "320413",
       region: "常州",
       company: null,
       ratedPower: null,
@@ -104,6 +109,8 @@ export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse =
       tariffInfo: null,
       status: null,
       delFlag: null,
+      longitude: 119.95,
+      latitude: 31.77,
       picPath: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
       ratedCapacity: "75kW / 150kWh",
       workingDate: "2025-11-15",
@@ -136,6 +143,7 @@ export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse =
       projectId: "9964201b369549b4b04c29bfe3863daa",
       projectName: "鄂尔多斯储能中心",
       projectNameEn: "Ordos Energy Storage Center",
+      cityCode: "150600",
       region: "鄂尔多斯",
       company: null,
       ratedPower: null,
@@ -143,6 +151,8 @@ export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse =
       tariffInfo: null,
       status: null,
       delFlag: null,
+      longitude: 109.99,
+      latitude: 39.81,
       picPath: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
       ratedCapacity: null,
       workingDate: null,
@@ -664,6 +674,23 @@ const parseInstalledCapacityMw = (value: string | null | undefined) => {
   return numericValue
 }
 
+const parseCoordinate = (
+  value: unknown,
+  { min, max }: { min: number; max: number }
+) => {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim().length > 0
+        ? Number(value)
+        : NaN
+
+  if (!Number.isFinite(numericValue)) return null
+  if (numericValue < min || numericValue > max) return null
+
+  return numericValue
+}
+
 export const normalizeProjectOptionsFromListByDevice = (
   rows: RawProjectListByDeviceRow[] | null | undefined
 ): ProjectOption[] => {
@@ -674,8 +701,8 @@ export const normalizeProjectOptionsFromListByDevice = (
     const projectId = hasValue(row.projectId) ? String(row.projectId).trim() : optionId
     const devices = normalizeProjectDevices(resolveProjectListDevices(row))
     const picPath = resolveProjectImage(row.picPath, PROJECT_LIST_IMAGES[projectId])
-
-    const coords = KNOWN_PROJECT_COORDINATES[projectId] ?? null
+    const longitude = parseCoordinate(row.longitude, { min: -180, max: 180 })
+    const latitude = parseCoordinate(row.latitude, { min: -90, max: 90 })
 
     return {
       id: optionId,
@@ -688,8 +715,9 @@ export const normalizeProjectOptionsFromListByDevice = (
           : `Project ${index + 1}`,
       picPath,
       devices,
-      longitude: coords?.longitude ?? null,
-      latitude: coords?.latitude ?? null,
+      longitude,
+      latitude,
+      cityCode: hasValue(row.cityCode) ? String(row.cityCode).trim() : null,
       region: hasValue(row.region) ? String(row.region).trim() : "",
       status: hasValue(row.status) ? String(row.status).trim() : null,
       ratedPower: hasValue(row.ratedPower) ? String(row.ratedPower).trim() : null,

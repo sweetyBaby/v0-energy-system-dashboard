@@ -51,6 +51,7 @@ const defaultProjectOption: ProjectOption = {
   devices: [],
   longitude: null,
   latitude: null,
+  cityCode: null,
   region: "",
   status: null,
   ratedPower: null,
