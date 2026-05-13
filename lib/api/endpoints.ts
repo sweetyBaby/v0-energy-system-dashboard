@@ -21,6 +21,11 @@ export const apiEndpoints = {
      */
     projectDetail: (projectId: string) => `/ems/project/${projectId}`,
     /**
+     * Project dashboard overview statistics.
+     * Used by the map overview cards and lifecycle summary.
+     */
+    dashboardOverview: "/ems/project/dashboard/overview",
+    /**
      * Overview realtime snapshot.
      * Used for SOC, PACK voltage/current, power, SOH and overview cards.
      */

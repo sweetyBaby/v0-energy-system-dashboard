@@ -296,6 +296,28 @@ export type RawProjectRealtime = {
   devices?: RawProjectRealtimeDevice[] | null
 }
 
+export type ProjectDashboardOverviewQuery = {
+  projectId?: string | null
+  deviceId?: string | null
+}
+
+export type RawProjectDashboardOverviewStatusStat = {
+  total?: number | null
+  status?: string | number | null
+}
+
+export type RawProjectDashboardOverview = {
+  totalRatedCapacity?: number | null
+  totalChargeAh?: number | null
+  siteTotal?: number | null
+  totalChargeWh?: number | null
+  statusStats?: RawProjectDashboardOverviewStatusStat[] | null
+  onlineSiteTotal?: number | null
+  totalRatedPower?: number | null
+  totalDischargeWh?: number | null
+  totalDischargeAh?: number | null
+}
+
 export const EMPTY_OVERVIEW_METRICS: OverviewMetrics = {
   charge: {
     current: API_PLACEHOLDER,
@@ -346,6 +368,25 @@ const hasValue = (value: unknown) => {
   }
 
   return true
+}
+
+const toOptionalQueryValue = (value: string | null | undefined) => {
+  if (!hasValue(value)) return null
+  return String(value).trim()
+}
+
+const appendQuerySearch = (path: string, query?: ProjectDashboardOverviewQuery) => {
+  if (!query) return path
+
+  const search = new URLSearchParams()
+  const projectId = toOptionalQueryValue(query.projectId)
+  const deviceId = toOptionalQueryValue(query.deviceId)
+
+  if (projectId) search.set("projectId", projectId)
+  if (deviceId) search.set("deviceId", deviceId)
+
+  const searchText = search.toString()
+  return searchText ? `${path}?${searchText}` : path
 }
 
 const normalizeProjectOptionId = (row: RawProjectListByDeviceRow, index: number) => {
@@ -785,6 +826,13 @@ export const fetchProjectOptionsByDevice = async () => {
 export const fetchProjectRealtime = async (projectId: string, projectDevices: ProjectDevice[] = []) => {
   const response = await apiClient.get<RawProjectRealtime>(apiEndpoints.overview.realtime(projectId))
   return hydrateProjectRealtime(response.data ?? null, projectId, projectDevices)
+}
+
+export const fetchProjectDashboardOverview = async (query?: ProjectDashboardOverviewQuery) => {
+  const response = await apiClient.get<RawProjectDashboardOverview>(
+    appendQuerySearch(apiEndpoints.overview.dashboardOverview, query)
+  )
+  return response.data ?? null
 }
 
 /**

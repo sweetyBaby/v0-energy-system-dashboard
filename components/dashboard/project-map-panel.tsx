@@ -4,6 +4,7 @@ import { ComposableMap, Geographies, Geography, Graticule, Marker, Sphere, Zooma
 import type { LucideIcon } from "lucide-react"
 import {
   Activity,
+  AlertTriangle,
   ArrowDown,
   ArrowDownCircle,
   ArrowRight,
@@ -25,9 +26,16 @@ import { HeaderInfoBar } from "@/components/dashboard/header-info-bar"
 import { NavBrand } from "@/components/dashboard/nav-brand"
 import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
+import { toast } from "@/hooks/use-toast"
 import { logoutWithCloud } from "@/lib/api/auth"
 import { clearStoredAuthToken } from "@/lib/auth-storage"
-import { fetchProjectOptionsByDevice, fetchProjectRealtime, type ProjectOption } from "@/lib/api/project"
+import {
+  fetchProjectDashboardOverview,
+  fetchProjectOptionsByDevice,
+  fetchProjectRealtime,
+  type ProjectOption,
+  type RawProjectDashboardOverview,
+} from "@/lib/api/project"
 
 const GEO_URL = "/world-atlas.json"
 const EXCLUDED_COUNTRY_NAMES = new Set(["Antarctica", "Fr. S. Antarctic Lands"])
@@ -98,6 +106,8 @@ type LifecycleItem = {
   value: string
   detail: string
 }
+
+type OverviewLifecycleCounts = Record<LifecycleKey, number>
 
 type ProjectMapPanelProps = {
   onProjectSelect?: (project: ProjectOption) => void
@@ -175,21 +185,6 @@ const parseRatedCapacityKWh = (value: string | null | undefined) => {
 
   if (match[2] === "GWH") return numericValue * 1_000_000
   if (match[2] === "MWH") return numericValue * 1000
-  return numericValue
-}
-
-const parseRatedPowerKw = (value: string | null | undefined) => {
-  if (!hasText(value)) return null
-
-  const normalized = String(value).replace(/,/g, "").toUpperCase()
-  const match = normalized.match(/(\d+(?:\.\d+)?)\s*(GW|MW|KW)/)
-  if (!match) return null
-
-  const numericValue = Number(match[1])
-  if (Number.isNaN(numericValue)) return null
-
-  if (match[2] === "GW") return numericValue * 1_000_000
-  if (match[2] === "MW") return numericValue * 1000
   return numericValue
 }
 
@@ -484,7 +479,9 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [loading, setLoading] = useState(true)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [overviewLoading, setOverviewLoading] = useState(true)
   const [metricsLoading, setMetricsLoading] = useState(false)
+  const [dashboardOverview, setDashboardOverview] = useState<RawProjectDashboardOverview | null>(null)
   const [efficiencyItems, setEfficiencyItems] = useState<EfficiencyItem[]>([])
   const [energyRankingMode, setEnergyRankingMode] = useState<EnergyRankingMode>("charge")
   const [hoveredClusterId, setHoveredClusterId] = useState<string | null>(null)
@@ -538,6 +535,50 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     }
 
     void loadProjects()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadDashboardOverview = async () => {
+      try {
+        const overview = await fetchProjectDashboardOverview()
+        if (!cancelled) {
+          setDashboardOverview(overview)
+        }
+      } catch (error) {
+        console.error("Failed to load project dashboard overview", error)
+        if (!cancelled) {
+          setDashboardOverview(null)
+          const fallbackMessage = zh ? "总览信息获取失败，请稍后重试" : "Failed to load overview. Please try again."
+          const message = error instanceof Error ? error.message || fallbackMessage : fallbackMessage
+          toast({
+            variant: "destructive",
+            title: (
+              <span className="flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ff9cac]/28 bg-[radial-gradient(circle_at_30%_30%,rgba(255,182,193,0.28),rgba(255,107,125,0.08)_58%,transparent_100%)] text-[#ffb6c0] shadow-[0_0_22px_rgba(255,107,125,0.15)]">
+                  <AlertTriangle className="h-4 w-4" />
+                </span>
+                <span>{zh ? "总览接口校验未通过" : "Overview validation failed"}</span>
+              </span>
+            ),
+            description: message,
+            className:
+              "border-[#ff6b7d]/35 shadow-[0_0_0_1px_rgba(255,153,171,0.08)_inset,0_18px_46px_rgba(24,6,12,0.52),0_0_30px_rgba(255,107,125,0.16)]",
+          })
+        }
+      } finally {
+        if (!cancelled) {
+          setOverviewLoading(false)
+        }
+      }
+    }
+
+    void loadDashboardOverview()
 
     return () => {
       cancelled = true
@@ -641,16 +682,6 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     [projects]
   )
 
-  const totalRatedPowerKw = useMemo(
-    () =>
-      projects.reduce(
-        (sum, project) =>
-          sum + (parseRatedPowerKw(project.ratedPower) ?? (project.installedCapacityMw != null ? project.installedCapacityMw * 1000 : 0)),
-        0
-      ),
-    [projects]
-  )
-
   const totalDesignedCapacityKWh = useMemo(
     () => projects.reduce((sum, project) => sum + (parseRatedCapacityKWh(project.ratedCapacity) ?? 0), 0),
     [projects]
@@ -672,15 +703,32 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     return validItems.reduce((sum, item) => sum + (item.score ?? 0), 0) / validItems.length
   }, [efficiencyItems])
 
-  const lifecycleCounts = useMemo(() => {
-    return projects.reduce<Record<LifecycleKey, number>>(
-      (counts, project) => {
-        counts[normalizeLifecycle(project)] += 1
-        return counts
-      },
-      { commissioned: 0, construction: 0, planned: 0 }
-    )
-  }, [projects])
+  const lifecycleCounts = useMemo<OverviewLifecycleCounts>(() => {
+    const counts: OverviewLifecycleCounts = {
+      commissioned: 0,
+      construction: 0,
+      planned: 0,
+    }
+
+    for (const stat of dashboardOverview?.statusStats ?? []) {
+      const total = typeof stat?.total === "number" && !Number.isNaN(stat.total) ? stat.total : 0
+      const status = `${stat?.status ?? ""}`.trim()
+
+      if (status === "1" || status === "2") {
+        counts.commissioned += total
+        continue
+      }
+
+      if (status === "3") {
+        counts.construction += total
+        continue
+      }
+
+      counts.planned += total
+    }
+
+    return counts
+  }, [dashboardOverview])
 
   const hoveredProject = useMemo(
     () => projects.find((project) => project.id === hoveredId) ?? null,
@@ -749,14 +797,6 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     return max > 0 ? max : 1
   }, [efficiencyItems])
 
-  const maxEnergyValue = useMemo(() => {
-    const max = efficiencyItems.reduce(
-      (value, item) => Math.max(value, item.totalChargeMWh ?? 0, item.totalDischargeMWh ?? 0),
-      0
-    )
-    return max > 0 ? max : 1
-  }, [efficiencyItems])
-
   const rankedEnergyItems = useMemo(() => {
     const getValue = (item: EfficiencyItem) =>
       energyRankingMode === "charge" ? item.totalChargeMWh ?? 0 : item.totalDischargeMWh ?? 0
@@ -784,8 +824,23 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     [zh]
   )
 
-  const onlineCount = useMemo(() => efficiencyItems.filter((item) => item.isOnline).length, [efficiencyItems])
-  const offlineCount = useMemo(() => efficiencyItems.filter((item) => !item.isOnline).length, [efficiencyItems])
+  const siteCount = useMemo(() => {
+    if (typeof dashboardOverview?.siteTotal === "number" && !Number.isNaN(dashboardOverview.siteTotal)) {
+      return dashboardOverview.siteTotal
+    }
+
+    return projects.length
+  }, [dashboardOverview?.siteTotal, projects.length])
+
+  const onlineCount = useMemo(() => {
+    if (typeof dashboardOverview?.onlineSiteTotal === "number" && !Number.isNaN(dashboardOverview.onlineSiteTotal)) {
+      return dashboardOverview.onlineSiteTotal
+    }
+
+    return efficiencyItems.filter((item) => item.isOnline).length
+  }, [dashboardOverview?.onlineSiteTotal, efficiencyItems])
+
+  const offlineCount = useMemo(() => Math.max(siteCount - onlineCount, 0), [onlineCount, siteCount])
 
   const overviewRailItems = useMemo<OverviewRailItem[]>(
     () => [
@@ -793,55 +848,67 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
         key: "site-count",
         icon: Building2,
         label: zh ? "站点总数" : "Platform Sites",
-        value: loading ? "--" : formatIntegerCount(projects.length),
+        value: overviewLoading ? "--" : formatIntegerCount(siteCount),
         unit: zh ? "个" : "sites",
       },
       {
         key: "online-sites",
         icon: Activity,
         label: zh ? "在线站点数" : "Online Sites",
-        value: metricsLoading ? "--" : formatIntegerCount(onlineCount),
+        value: overviewLoading ? "--" : formatIntegerCount(onlineCount),
         unit: zh ? "个" : "sites",
       },
       {
         key: "rated-power",
         icon: Zap,
         label: zh ? "总额定功率" : "Total Rated Power",
-        value: loading ? "--" : formatOverviewMetric(totalRatedPowerKw, totalRatedPowerKw >= 100 ? 0 : 1),
+        value:
+          overviewLoading || typeof dashboardOverview?.totalRatedPower !== "number" || Number.isNaN(dashboardOverview.totalRatedPower)
+            ? "--"
+            : formatOverviewMetric(dashboardOverview.totalRatedPower, dashboardOverview.totalRatedPower >= 100 ? 0 : 1),
         unit: "kW",
       },
       {
         key: "rated-capacity",
         icon: BatteryFull,
         label: zh ? "总额定容量" : "Total Rated Capacity",
-        value: loading ? "--" : formatOverviewMetric(totalDesignedCapacityKWh),
+        value:
+          overviewLoading || typeof dashboardOverview?.totalRatedCapacity !== "number" || Number.isNaN(dashboardOverview.totalRatedCapacity)
+            ? "--"
+            : formatOverviewMetric(dashboardOverview.totalRatedCapacity),
         unit: "kWh",
       },
       {
         key: "total-charge",
         icon: ArrowUpCircle,
         label: zh ? "累计充电量" : "Total Charge of All Sites",
-        value: metricsLoading ? "--" : formatOverviewMetric(totalChargeMWh * 1000),
+        value:
+          overviewLoading || typeof dashboardOverview?.totalChargeWh !== "number" || Number.isNaN(dashboardOverview.totalChargeWh)
+            ? "--"
+            : formatOverviewMetric(dashboardOverview.totalChargeWh / 1000),
         unit: "kWh",
       },
       {
         key: "total-discharge",
         icon: ArrowDownCircle,
         label: zh ? "累计放电量" : "Total Discharge of All Sites",
-        value: metricsLoading ? "--" : formatOverviewMetric(totalDischargeMWh * 1000),
+        value:
+          overviewLoading || typeof dashboardOverview?.totalDischargeWh !== "number" || Number.isNaN(dashboardOverview.totalDischargeWh)
+            ? "--"
+            : formatOverviewMetric(dashboardOverview.totalDischargeWh / 1000),
         unit: "kWh",
       },
     ],
-    [loading, metricsLoading, onlineCount, projects.length, totalChargeMWh, totalDesignedCapacityKWh, totalDischargeMWh, totalRatedPowerKw, zh]
+    [dashboardOverview, onlineCount, overviewLoading, siteCount, zh]
   )
 
   const statusCards = useMemo<StatCardItem[]>(
     () => [
-      { key: "sites", label: zh ? "总站点" : "Sites", value: formatIntegerCount(projects.length), accent: "green" },
+      { key: "sites", label: zh ? "总站点" : "Sites", value: formatIntegerCount(siteCount), accent: "green" },
       { key: "online", label: zh ? "在线" : "Online", value: formatIntegerCount(onlineCount), accent: "green" },
       { key: "offline", label: zh ? "离线" : "Offline", value: formatIntegerCount(offlineCount), accent: "neutral" },
     ],
-    [offlineCount, onlineCount, projects.length, zh]
+    [offlineCount, onlineCount, siteCount, zh]
   )
 
   const lifecycleItems = useMemo<LifecycleItem[]>(
