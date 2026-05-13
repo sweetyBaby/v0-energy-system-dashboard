@@ -26,6 +26,14 @@ export const apiEndpoints = {
      */
     dashboardOverview: "/ems/project/dashboard/overview",
     /**
+     * Project dashboard EE ranking.
+     */
+    eeRanking: "/ems/project/dashboard/eeRanking",
+    /**
+     * Project dashboard charge/discharge ranking.
+     */
+    chargeDischargeRanking: "/ems/project/dashboard/chargeDischargeRanking",
+    /**
      * Overview realtime snapshot.
      * Used for SOC, PACK voltage/current, power, SOH and overview cards.
      */

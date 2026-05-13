@@ -301,6 +301,20 @@ export type ProjectDashboardOverviewQuery = {
   deviceId?: string | null
 }
 
+export type ProjectDashboardRankingQuery = ProjectDashboardOverviewQuery & {
+  limit?: number | null
+}
+
+export type ProjectDashboardChargeDischargeRankingQuery = ProjectDashboardRankingQuery & {
+  energyType: "charge" | "discharge"
+}
+
+type ProjectDashboardApiResponse<T> = {
+  code?: number | null
+  msg?: string | null
+  data?: T | null
+}
+
 export type RawProjectDashboardOverviewStatusStat = {
   total?: number | null
   status?: string | number | null
@@ -316,6 +330,19 @@ export type RawProjectDashboardOverview = {
   totalRatedPower?: number | null
   totalDischargeWh?: number | null
   totalDischargeAh?: number | null
+}
+
+export type RawProjectDashboardEeRankingItem = {
+  projectName?: string | null
+  projectId?: string | null
+  chargeEfficiencyEe?: number | null
+}
+
+export type RawProjectDashboardChargeDischargeRankingItem = {
+  totalChargeWh?: number | null
+  totalDischargeWh?: number | null
+  projectName?: string | null
+  projectId?: string | null
 }
 
 export const EMPTY_OVERVIEW_METRICS: OverviewMetrics = {
@@ -375,18 +402,42 @@ const toOptionalQueryValue = (value: string | null | undefined) => {
   return String(value).trim()
 }
 
-const appendQuerySearch = (path: string, query?: ProjectDashboardOverviewQuery) => {
+const appendQuerySearch = (
+  path: string,
+  query?: Record<string, string | number | null | undefined>
+) => {
   if (!query) return path
 
   const search = new URLSearchParams()
-  const projectId = toOptionalQueryValue(query.projectId)
-  const deviceId = toOptionalQueryValue(query.deviceId)
 
-  if (projectId) search.set("projectId", projectId)
-  if (deviceId) search.set("deviceId", deviceId)
+  Object.entries(query).forEach(([key, value]) => {
+    if (typeof value === "number" && !Number.isNaN(value)) {
+      search.set(key, String(value))
+      return
+    }
+
+    const normalizedValue = toOptionalQueryValue(typeof value === "string" ? value : null)
+    if (normalizedValue) {
+      search.set(key, normalizedValue)
+    }
+  })
 
   const searchText = search.toString()
   return searchText ? `${path}?${searchText}` : path
+}
+
+const fetchProjectDashboardPayload = async <T>(
+  path: string,
+  query: Record<string, string | number | null | undefined> | undefined,
+  fallbackMessage: string
+) => {
+  const response = await apiClient.getRaw<ProjectDashboardApiResponse<T>>(appendQuerySearch(path, query))
+
+  if (response.code !== 200) {
+    throw new Error(response.msg?.trim() || fallbackMessage)
+  }
+
+  return response.data ?? null
 }
 
 const normalizeProjectOptionId = (row: RawProjectListByDeviceRow, index: number) => {
@@ -829,10 +880,29 @@ export const fetchProjectRealtime = async (projectId: string, projectDevices: Pr
 }
 
 export const fetchProjectDashboardOverview = async (query?: ProjectDashboardOverviewQuery) => {
-  const response = await apiClient.get<RawProjectDashboardOverview>(
-    appendQuerySearch(apiEndpoints.overview.dashboardOverview, query)
+  return fetchProjectDashboardPayload<RawProjectDashboardOverview>(
+    apiEndpoints.overview.dashboardOverview,
+    query,
+    "Failed to load project dashboard overview."
   )
-  return response.data ?? null
+}
+
+export const fetchProjectDashboardEeRanking = async (query?: ProjectDashboardRankingQuery) => {
+  return fetchProjectDashboardPayload<RawProjectDashboardEeRankingItem[]>(
+    apiEndpoints.overview.eeRanking,
+    query,
+    "Failed to load project dashboard EE ranking."
+  )
+}
+
+export const fetchProjectDashboardChargeDischargeRanking = async (
+  query: ProjectDashboardChargeDischargeRankingQuery
+) => {
+  return fetchProjectDashboardPayload<RawProjectDashboardChargeDischargeRankingItem[]>(
+    apiEndpoints.overview.chargeDischargeRanking,
+    query,
+    "Failed to load project dashboard charge/discharge ranking."
+  )
 }
 
 /**

@@ -30,11 +30,15 @@ import { toast } from "@/hooks/use-toast"
 import { logoutWithCloud } from "@/lib/api/auth"
 import { clearStoredAuthToken } from "@/lib/auth-storage"
 import {
+  fetchProjectDashboardChargeDischargeRanking,
   fetchProjectDashboardOverview,
+  fetchProjectDashboardEeRanking,
   fetchProjectOptionsByDevice,
   fetchProjectRealtime,
   type ProjectOption,
+  type RawProjectDashboardChargeDischargeRankingItem,
   type RawProjectDashboardOverview,
+  type RawProjectDashboardEeRankingItem,
 } from "@/lib/api/project"
 
 const GEO_URL = "/world-atlas.json"
@@ -68,6 +72,22 @@ type EfficiencyItem = {
   socPercent: number | null
   runtimeLabelZh: string
   runtimeLabelEn: string
+}
+
+type EeRankingItem = {
+  projectId: string
+  projectName: string
+  project: ProjectOption | null
+  lifecycle: LifecycleKey
+  score: number | null
+}
+
+type ChargeDischargeRankingItem = {
+  projectId: string
+  projectName: string
+  project: ProjectOption | null
+  chargeMWh: number
+  dischargeMWh: number
 }
 
 type EnergyRankingMode = "charge" | "discharge"
@@ -297,6 +317,19 @@ const getProjectPowerLabel = (project: ProjectOption, zh: boolean) => {
 const getProjectRegionLabel = (project: ProjectOption, zh: boolean) =>
   project.region || (zh ? "未标注区域" : "Unspecified")
 
+const toFiniteNumber = (value: unknown) => {
+  if (typeof value !== "number" || Number.isNaN(value)) return null
+  return value
+}
+
+const buildRankingProjectName = (project: ProjectOption | null, fallbackName: string, zh: boolean) => {
+  if (project) {
+    return getProjectName(project, zh)
+  }
+
+  return hasText(fallbackName) ? fallbackName.trim() : (zh ? "待补全" : "Pending")
+}
+
 const clusterMappableProjects = (projects: ProjectOption[]): ProjectCluster[] => {
   const buckets = new Map<string, { firstCoords: [number, number]; projects: ProjectOption[] }>()
   for (const project of projects) {
@@ -480,15 +513,45 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [overviewLoading, setOverviewLoading] = useState(true)
-  const [metricsLoading, setMetricsLoading] = useState(false)
   const [dashboardOverview, setDashboardOverview] = useState<RawProjectDashboardOverview | null>(null)
+  const [eeRankingLoading, setEeRankingLoading] = useState(true)
+  const [energyRankingLoading, setEnergyRankingLoading] = useState(true)
   const [efficiencyItems, setEfficiencyItems] = useState<EfficiencyItem[]>([])
+  const [eeRankingItems, setEeRankingItems] = useState<EeRankingItem[]>([])
+  const [chargeRankingItems, setChargeRankingItems] = useState<ChargeDischargeRankingItem[]>([])
+  const [dischargeRankingItems, setDischargeRankingItems] = useState<ChargeDischargeRankingItem[]>([])
   const [energyRankingMode, setEnergyRankingMode] = useState<EnergyRankingMode>("charge")
   const [hoveredClusterId, setHoveredClusterId] = useState<string | null>(null)
   const hoverExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const [mapDimensions, setMapDimensions] = useState({ width: 800, height: 450 })
   const [markerPixelPos, setMarkerPixelPos] = useState<{ x: number; y: number } | null>(null)
+
+  const showApiErrorToast = (
+    titleZh: string,
+    titleEn: string,
+    error: unknown,
+    fallbackZh: string,
+    fallbackEn: string
+  ) => {
+    const fallbackMessage = zh ? fallbackZh : fallbackEn
+    const message = error instanceof Error ? error.message || fallbackMessage : fallbackMessage
+
+    toast({
+      variant: "destructive",
+      title: (
+        <span className="flex items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ff9cac]/28 bg-[radial-gradient(circle_at_30%_30%,rgba(255,182,193,0.28),rgba(255,107,125,0.08)_58%,transparent_100%)] text-[#ffb6c0] shadow-[0_0_22px_rgba(255,107,125,0.15)]">
+            <AlertTriangle className="h-4 w-4" />
+          </span>
+          <span>{zh ? titleZh : titleEn}</span>
+        </span>
+      ),
+      description: message,
+      className:
+        "border-[#ff6b7d]/35 shadow-[0_0_0_1px_rgba(255,153,171,0.08)_inset,0_18px_46px_rgba(24,6,12,0.52),0_0_30px_rgba(255,107,125,0.16)]",
+    })
+  }
 
   useEffect(() => {
     const container = mapContainerRef.current
@@ -586,14 +649,122 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+
+    const loadEeRanking = async () => {
+      setEeRankingLoading(true)
+
+      try {
+        const ranking = await fetchProjectDashboardEeRanking()
+        if (cancelled) return
+
+        setEeRankingItems(
+          (ranking ?? []).map((item: RawProjectDashboardEeRankingItem) => {
+            const projectId = hasText(item.projectId) ? String(item.projectId).trim() : ""
+            const matchedProject = projects.find((project) => project.projectId === projectId) ?? null
+
+            return {
+              projectId,
+              projectName: hasText(item.projectName) ? String(item.projectName).trim() : projectId,
+              project: matchedProject,
+              lifecycle: matchedProject ? normalizeLifecycle(matchedProject) : "planned",
+              score: toFiniteNumber(item.chargeEfficiencyEe),
+            } satisfies EeRankingItem
+          })
+        )
+      } catch (error) {
+        console.error("Failed to load project dashboard EE ranking", error)
+        if (!cancelled) {
+          setEeRankingItems([])
+          showApiErrorToast(
+            "能效排行接口校验未通过",
+            "EE ranking validation failed",
+            error,
+            "能效排行获取失败，请稍后重试",
+            "Failed to load EE ranking. Please try again."
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setEeRankingLoading(false)
+        }
+      }
+    }
+
+    void loadEeRanking()
+
+    return () => {
+      cancelled = true
+    }
+  }, [projects])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const mapRankingItems = (items: RawProjectDashboardChargeDischargeRankingItem[] | null | undefined) =>
+      (items ?? []).map((item) => {
+        const projectId = hasText(item.projectId) ? String(item.projectId).trim() : ""
+        const matchedProject = projects.find((project) => project.projectId === projectId) ?? null
+
+        return {
+          projectId,
+          projectName: hasText(item.projectName) ? String(item.projectName).trim() : projectId,
+          project: matchedProject,
+          chargeMWh: (toFiniteNumber(item.totalChargeWh) ?? 0) / 1_000_000,
+          dischargeMWh: (toFiniteNumber(item.totalDischargeWh) ?? 0) / 1_000_000,
+        } satisfies ChargeDischargeRankingItem
+      })
+
+    const loadEnergyRanking = async () => {
+      setEnergyRankingLoading(true)
+
+      try {
+        const ranking = await fetchProjectDashboardChargeDischargeRanking({ energyType: energyRankingMode })
+
+        if (cancelled) return
+
+        if (energyRankingMode === "charge") {
+          setChargeRankingItems(mapRankingItems(ranking))
+        } else {
+          setDischargeRankingItems(mapRankingItems(ranking))
+        }
+      } catch (error) {
+        console.error("Failed to load project dashboard charge/discharge ranking", error)
+        if (!cancelled) {
+          if (energyRankingMode === "charge") {
+            setChargeRankingItems([])
+          } else {
+            setDischargeRankingItems([])
+          }
+          showApiErrorToast(
+            "充放电排行接口校验未通过",
+            "Charge/discharge ranking validation failed",
+            error,
+            "充放电排行获取失败，请稍后重试",
+            "Failed to load charge/discharge ranking. Please try again."
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setEnergyRankingLoading(false)
+        }
+      }
+    }
+
+    void loadEnergyRanking()
+
+    return () => {
+      cancelled = true
+    }
+  }, [projects, energyRankingMode])
+
+  useEffect(() => {
     if (!projects.length) {
       setEfficiencyItems([])
-      setMetricsLoading(false)
       return
     }
 
     let cancelled = false
-    setMetricsLoading(true)
 
     const loadEfficiencyItems = async () => {
       const nextItems = await Promise.all(
@@ -647,7 +818,6 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       })
 
       setEfficiencyItems(nextItems)
-      setMetricsLoading(false)
     }
 
     void loadEfficiencyItems()
@@ -790,30 +960,26 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     }
     return set
   }, [mappableProjects])
-  const topEfficiencyItems = useMemo(() => efficiencyItems.slice(0, 5), [efficiencyItems])
+  const topEfficiencyItems = useMemo(() => eeRankingItems.slice(0, 5), [eeRankingItems])
 
   const maxEfficiencyScore = useMemo(() => {
-    const max = efficiencyItems.reduce((value, item) => Math.max(value, item.score ?? 0), 0)
+    const max = eeRankingItems.reduce((value, item) => Math.max(value, item.score ?? 0), 0)
     return max > 0 ? max : 1
-  }, [efficiencyItems])
+  }, [eeRankingItems])
 
-  const rankedEnergyItems = useMemo(() => {
-    const getValue = (item: EfficiencyItem) =>
-      energyRankingMode === "charge" ? item.totalChargeMWh ?? 0 : item.totalDischargeMWh ?? 0
-
-    return [...efficiencyItems]
-      .sort((left, right) => getValue(right) - getValue(left))
-      .slice(0, 5)
-  }, [efficiencyItems, energyRankingMode])
+  const energyRankingItems = useMemo(
+    () => (energyRankingMode === "charge" ? chargeRankingItems : dischargeRankingItems),
+    [chargeRankingItems, dischargeRankingItems, energyRankingMode]
+  )
 
   const maxRankedEnergyValue = useMemo(() => {
-    const max = rankedEnergyItems.reduce((value, item) => {
-      const itemValue = energyRankingMode === "charge" ? item.totalChargeMWh ?? 0 : item.totalDischargeMWh ?? 0
+    const max = energyRankingItems.reduce((value, item) => {
+      const itemValue = energyRankingMode === "charge" ? item.chargeMWh : item.dischargeMWh
       return Math.max(value, itemValue)
     }, 0)
 
     return max > 0 ? max : 1
-  }, [energyRankingMode, rankedEnergyItems])
+  }, [energyRankingItems, energyRankingMode])
 
   const mapStatusLegend = useMemo(
     () => [
@@ -984,8 +1150,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   }, [scheduleHoverExit])
 
   const handleProjectNavigate = useCallback(
-    (project: ProjectOption) => {
-      router.push(`/dashboard?projectId=${project.projectId}`)
+    (projectId: string) => {
+      router.push(`/dashboard?projectId=${projectId}`)
     },
     [router]
   )
@@ -1639,7 +1805,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
                       <button
                         type="button"
-                        onClick={() => handleProjectNavigate(activeProject)}
+                        onClick={() => handleProjectNavigate(activeProject.projectId)}
                         className="flex h-[2.125rem] w-full items-center justify-center gap-1.5 rounded-[13px] border border-[#2b6f80] bg-[linear-gradient(135deg,rgba(33,217,204,0.2),rgba(42,132,213,0.2))] text-[11px] font-semibold text-[#dff9ff] transition-all hover:border-[#54dce0] hover:text-white"
                       >
                         {zh ? "进入项目详情" : "Open Project Dashboard"}
@@ -1685,7 +1851,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </div>
 
                 <div className="space-y-1.5">
-                  {metricsLoading ? (
+                  {eeRankingLoading ? (
                     <div className={`rounded-[14px] border border-[#245f72]/45 bg-[rgba(8,25,36,0.72)] px-3 py-4 text-[#92b5c2] ${useCompactOverviewRail ? "text-[11px]" : "text-[13px]"}`}>
                       {zh ? "正在加载能效排行..." : "Loading efficiency ranking..."}
                     </div>
@@ -1700,7 +1866,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         : "bg-[#ce8a4b] text-white"
 
                       return (
-                        <div key={item.project.id} className="relative overflow-hidden rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.80),rgba(7,18,28,0.94))] px-2 py-2">
+                        <div key={item.projectId || `${item.projectName}-${index}`} className="relative overflow-hidden rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.80),rgba(7,18,28,0.94))] px-2 py-2">
                           <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(251,191,36,0.22),transparent)]" />
                           <div className="flex items-start gap-2">
                             <div className={`mt-0.5 flex shrink-0 items-center justify-center font-black ${useCompactOverviewRail ? "h-5 w-5 rounded-[6px] text-[9px]" : "h-6 w-6 rounded-[8px] text-[10px]"} ${rankBg}`}>
@@ -1709,11 +1875,11 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start justify-between gap-1">
                                 <div className={`min-w-0 break-words font-semibold leading-[1.3] text-[#eefcff] ${useCompactOverviewRail ? "text-[10px]" : "text-[11px]"}`}>
-                                  {getProjectName(item.project, zh)}
+                                  {buildRankingProjectName(item.project, item.projectName, zh)}
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => handleProjectNavigate(item.project)}
+                                  onClick={() => handleProjectNavigate(item.projectId)}
                                   className={`mt-px flex shrink-0 items-center justify-center rounded-full bg-[rgba(45,212,191,0.12)] text-[#2dd4bf] shadow-[0_0_7px_rgba(45,212,191,0.20)] transition-all hover:bg-[rgba(45,212,191,0.24)] hover:shadow-[0_0_12px_rgba(45,212,191,0.40)] hover:text-[#7efff4] ${useCompactOverviewRail ? "h-4 w-4" : "h-5 w-5"}`}
                                 >
                                   <ArrowRight className={useCompactOverviewRail ? "h-2.5 w-2.5" : "h-3 w-3"} />
@@ -1787,13 +1953,13 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </div>
 
                 <div className="space-y-1.5">
-                  {metricsLoading ? (
+                  {energyRankingLoading ? (
                     <div className={`rounded-[14px] border border-[#245f72]/45 bg-[rgba(8,25,36,0.72)] px-3 py-4 text-[#92b5c2] ${useCompactOverviewRail ? "text-[11px]" : "text-[13px]"}`}>
                       {zh ? "正在加载充放电排名..." : "Loading energy ranking..."}
                     </div>
                   ) : (
-                    rankedEnergyItems.map((item, index) => {
-                      const rankingValue = energyRankingMode === "charge" ? item.totalChargeMWh ?? 0 : item.totalDischargeMWh ?? 0
+                    energyRankingItems.map((item, index) => {
+                      const rankingValue = energyRankingMode === "charge" ? item.chargeMWh : item.dischargeMWh
                       const progressWidth = rankingValue <= 0 ? "0%" : `${Math.max(6, (rankingValue / maxRankedEnergyValue) * 100)}%`
                       const rankBg =
                         index === 0 ? "bg-[#ffcf4f] text-[#181818]"
@@ -1806,7 +1972,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       const valueColor = energyRankingMode === "charge" ? "text-[#2dd4bf]" : "text-[#818cf8]"
 
                       return (
-                        <div key={item.project.id} className="relative overflow-hidden rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.80),rgba(7,18,28,0.94))] px-2 py-2">
+                        <div key={item.projectId || `${item.projectName}-${index}`} className="relative overflow-hidden rounded-[14px] border border-[#21475c] bg-[linear-gradient(180deg,rgba(9,22,35,0.80),rgba(7,18,28,0.94))] px-2 py-2">
                           <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(45,212,191,0.18),transparent)]" />
                           <div className="flex items-start gap-2">
                             <div className={`mt-0.5 flex shrink-0 items-center justify-center font-black ${useCompactOverviewRail ? "h-5 w-5 rounded-[6px] text-[9px]" : "h-6 w-6 rounded-[8px] text-[10px]"} ${rankBg}`}>
@@ -1815,11 +1981,11 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start justify-between gap-1">
                                 <div className={`min-w-0 break-words font-semibold leading-[1.3] text-[#e4f4ff] ${useCompactOverviewRail ? "text-[10px]" : "text-[11px]"}`}>
-                                  {getProjectName(item.project, zh)}
+                                  {buildRankingProjectName(item.project, item.projectName, zh)}
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => handleProjectNavigate(item.project)}
+                                  onClick={() => handleProjectNavigate(item.projectId)}
                                   className={`mt-px flex shrink-0 items-center justify-center rounded-full bg-[rgba(45,212,191,0.12)] text-[#2dd4bf] shadow-[0_0_7px_rgba(45,212,191,0.20)] transition-all hover:bg-[rgba(45,212,191,0.24)] hover:shadow-[0_0_12px_rgba(45,212,191,0.40)] hover:text-[#7efff4] ${useCompactOverviewRail ? "h-4 w-4" : "h-5 w-5"}`}
                                 >
                                   <ArrowRight className={useCompactOverviewRail ? "h-2.5 w-2.5" : "h-3 w-3"} />
