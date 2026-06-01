@@ -1529,7 +1529,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       <MapSceneBackdrop />
 
       <DashboardHeaderShell compact={useCompactHeader}>
-        <div className="flex min-w-0 flex-1 items-center gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <NavBrand compact={useCompactHeader} />
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -2512,6 +2512,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
           </div>
         </section>
       </div>
+
     </div>
   )
 }

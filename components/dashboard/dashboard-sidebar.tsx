@@ -1,5 +1,4 @@
 import { useMemo } from "react"
-import { useRouter } from "next/navigation"
 import {
   Activity,
   BarChart3,
@@ -7,10 +6,8 @@ import {
   FileText,
   History,
   LayoutDashboard,
-  Map,
 } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
-import { useProject } from "@/components/dashboard/dashboard-header"
 
 export type SidebarTab =
   | "realtime"
@@ -75,23 +72,16 @@ export function DashboardSidebar({
   onExpandedChange,
   alarmCount = 0,
 }: DashboardSidebarProps) {
-  const router = useRouter()
-  const { selectedProject } = useProject()
   const { language } = useLanguage()
   const zh = language === "zh"
 
   const collapsedW = 68
   const collapseLabel = zh ? "折叠菜单" : "Collapse menu"
   const expandLabel = zh ? "展开菜单" : "Expand menu"
-  const switchProjectLabel = zh ? "项目地图" : "Project Map"
-  const backToMapLabel = zh ? "项目地图" : "Project Map"
-  const backToMapHref = selectedProject.projectId
-    ? `/project-map?projectId=${encodeURIComponent(selectedProject.projectId)}`
-    : "/project-map"
   const labelWidth = useMemo(() => {
-    const sidebarLabels = [...SIDEBAR_TABS.map((tab) => (zh ? tab.zh : tab.en)), switchProjectLabel]
+    const sidebarLabels = SIDEBAR_TABS.map((tab) => (zh ? tab.zh : tab.en))
     return Math.max(...sidebarLabels.map((label) => getSidebarLabelWidth(label, zh)))
-  }, [switchProjectLabel, zh])
+  }, [zh])
   const textWidth = labelWidth + (zh ? 4 : 8)
   const expandedW = textWidth + 58
 
@@ -227,44 +217,6 @@ export function DashboardSidebar({
           )
         })}
       </nav>
-
-      <div className="relative shrink-0 border-t border-[#16344f] px-1.5 pb-3 pt-2">
-        <div className="group relative">
-          <button
-            type="button"
-            onClick={() => router.push(backToMapHref)}
-            title={!expanded ? backToMapLabel : undefined}
-            className={`relative flex w-full items-center overflow-hidden rounded-xl bg-[linear-gradient(135deg,rgba(9,23,36,0.72),rgba(7,18,29,0.52))] text-[#b7dbe8] shadow-[inset_0_1px_0_rgba(152,232,255,0.04)] transition-all hover:bg-[linear-gradient(135deg,rgba(15,35,53,0.86),rgba(9,24,39,0.82))] hover:text-[#f0fdff] ${
-              expanded ? "gap-2 rounded-lg px-2.5 py-2.5" : "justify-center rounded-lg px-0 py-3"
-            }`}
-          >
-            <span className="pointer-events-none absolute inset-0 rounded-xl bg-[radial-gradient(circle_at_100%_50%,rgba(92,233,222,0.16),transparent_40%)] opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
-            <Map
-              style={{ width: "16px", height: "16px", flexShrink: 0 }}
-              className="text-[#5ce9de] drop-shadow-[0_0_6px_rgba(92,233,222,0.42)] transition-all group-hover:scale-105 group-hover:text-[#93fff8]"
-            />
-            <span
-              className="whitespace-nowrap font-semibold tracking-[0.05em] text-[#d4edf6] transition-colors group-hover:text-[#f2fdff]"
-              style={{
-                fontSize: zh ? "12px" : "11px",
-                opacity: expanded ? 1 : 0,
-                maxWidth: expanded ? `${textWidth}px` : "0px",
-                overflow: "hidden",
-                transition: "opacity 0.2s ease, max-width 0.25s cubic-bezier(0.4,0,0.2,1)",
-              }}
-            >
-              {switchProjectLabel}
-            </span>
-          </button>
-
-          {!expanded && (
-            <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded border border-[#1a3a52] bg-[rgba(4,12,26,0.95)] px-2.5 py-1 text-xs text-[#e8f4fc] opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-              {backToMapLabel}
-              <div className="absolute -left-[5px] top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#1a3a52]" />
-            </div>
-          )}
-        </div>
-      </div>
 
       <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-[#26f0dc]/18 to-transparent" />
     </aside>

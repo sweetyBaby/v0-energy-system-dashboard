@@ -84,9 +84,6 @@ const buildProjectView = (
   deviceRealtimeSnapshots: normalizeRealtimeDeviceSnapshots(realtime, project.devices, realtimeRequestSucceeded),
 })
 
-const getProjectRegionLabel = (project: Project, zh: boolean) =>
-  (zh ? project.regionName : project.regionPinyin) || ""
-
 const ProjectContext = createContext<{
   projectOptions: ProjectOption[]
   selectedProject: Project
@@ -321,12 +318,6 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
   const backToMapHref = hasProject
     ? `/project-map?projectId=${encodeURIComponent(selectedProject.projectId)}`
     : "/project-map"
-  const headerEyebrow = zh ? "项目运行中枢" : "PROJECT COMMAND"
-  const headerSubtitle = hasProject
-    ? [getProjectRegionLabel(selectedProject, zh), selectedProject.company].filter(Boolean).join(" / ") ||
-      (zh ? "实时运行总览" : "Realtime Operations Overview")
-    : zh ? "实时运行总览" : "Realtime Operations Overview"
-
   useEffect(() => {
     if (!isProjectMenuOpen) {
       return
@@ -361,7 +352,7 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
 
   return (
     <DashboardHeaderShell compact={useCompactHeader}>
-      <div className="flex min-w-0 flex-1 items-center gap-4">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <NavBrand compact={useCompactHeader} />
       </div>
 
@@ -376,14 +367,14 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
           <button
             type="button"
             onClick={() => setIsProjectMenuOpen((current) => !current)}
-            className={`relative flex min-w-[9rem] max-w-[18rem] items-center justify-between gap-2 overflow-hidden rounded-[12px] border border-[#28475d] bg-[linear-gradient(180deg,rgba(9,21,35,0.94),rgba(6,14,25,0.98))] px-3 text-left text-[#d7e7f2] shadow-[0_0_0_1px_rgba(117,198,234,0.05)_inset,0_10px_24px_rgba(0,0,0,0.16)] transition-all hover:border-[#4f88a9] hover:text-[#f4fcff] ${
+            className={`relative flex min-w-[10rem] max-w-[18rem] items-center justify-between gap-2 overflow-hidden rounded-[14px] border border-[#22465c]/84 bg-[linear-gradient(180deg,rgba(8,19,32,0.92),rgba(5,11,21,0.98))] px-3 text-left text-[#d7e7f2] shadow-[0_0_0_1px_rgba(132,220,255,0.05)_inset,0_10px_22px_rgba(0,0,0,0.18)] transition-all hover:border-[#3e7592] hover:text-[#f4fcff] ${
               useCompactHeader ? "h-[30px]" : "h-[34px]"
             }`}
             aria-haspopup="menu"
             aria-expanded={isProjectMenuOpen}
           >
-            <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/68 to-transparent" />
-            <span className="truncate text-[11px] font-medium" title={projectLabel}>
+            <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/52 to-transparent" />
+            <span className="truncate text-[11px] font-semibold tracking-[0.04em]" title={projectLabel}>
               {projectLabel}
             </span>
             <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[#8de7f5] transition-transform ${isProjectMenuOpen ? "rotate-180" : ""}`} />
