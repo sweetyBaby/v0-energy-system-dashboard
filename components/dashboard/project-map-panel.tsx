@@ -152,7 +152,7 @@ type ProjectMapPanelProps = {
 }
 
 const PANEL_CLASS =
-  "rounded-[20px] border border-[#1a4d6a] bg-[linear-gradient(160deg,rgba(5,16,30,0.98),rgba(3,10,20,0.99))] shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(100,200,255,0.06)]"
+  "rounded-[20px] border border-[#1a4d6a] bg-[linear-gradient(160deg,rgba(8,24,42,0.96),rgba(5,16,30,0.98))] shadow-[0_12px_32px_rgba(0,0,0,0.26),inset_0_1px_0_rgba(100,200,255,0.08)]"
 
 const getMarkerFlagWidth = (label: string, zh: boolean, minWidth: number, maxWidth: number) => {
   const perChar = zh ? 11.5 : 7.2
@@ -766,11 +766,11 @@ function MapSceneBackdrop() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 84% 46% at 50% -8%, rgba(59,130,246,0.30) 0%, transparent 58%)," +
-            "radial-gradient(circle at 18% 16%, rgba(0,212,170,0.12) 0%, transparent 26%)," +
-            "radial-gradient(circle at 82% 18%, rgba(34,211,238,0.12) 0%, transparent 28%)," +
-            "radial-gradient(ellipse 66% 20% at 50% 100%, rgba(15,118,210,0.16) 0%, transparent 62%)," +
-            "linear-gradient(180deg, #07101f 0%, #050d18 40%, #030813 100%)",
+            "radial-gradient(ellipse 88% 48% at 50% -8%, rgba(96,165,250,0.36) 0%, transparent 60%)," +
+            "radial-gradient(circle at 18% 16%, rgba(45,212,191,0.14) 0%, transparent 28%)," +
+            "radial-gradient(circle at 82% 18%, rgba(56,189,248,0.14) 0%, transparent 30%)," +
+            "radial-gradient(ellipse 70% 24% at 50% 100%, rgba(37,99,235,0.18) 0%, transparent 64%)," +
+            "linear-gradient(180deg, #0a1730 0%, #081425 38%, #06101c 100%)",
         }}
       />
       <div className="pointer-events-none absolute inset-0 opacity-[0.045] [background-image:radial-gradient(circle,rgba(34,211,238,0.56)_1px,transparent_1.8px)] [background-size:32px_32px]" />
@@ -785,9 +785,9 @@ function MapSceneBackdrop() {
       <div className="pointer-events-none absolute bottom-0 left-0 h-[72px] w-[72px] border-b border-l border-[#00d4aa]/12" />
       <div className="pointer-events-none absolute bottom-0 right-0 h-[72px] w-[72px] border-b border-r border-[#00d4aa]/12" />
 
-      <div className="pointer-events-none absolute left-1/2 top-0 h-[42vh] w-[340px] -translate-x-1/2 blur-3xl" style={{ background: "linear-gradient(180deg, rgba(34,211,238,0.12) 0%, rgba(59,130,246,0.04) 48%, transparent 100%)" }} />
-      <div className="pointer-events-none absolute left-[8%] top-[16%] h-[18rem] w-[18rem] rounded-full bg-[radial-gradient(circle,rgba(0,212,170,0.14),transparent_70%)] blur-3xl" />
-      <div className="pointer-events-none absolute right-[8%] top-[14%] h-[18rem] w-[18rem] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.14),transparent_72%)] blur-3xl" />
+      <div className="pointer-events-none absolute left-1/2 top-0 h-[42vh] w-[420px] -translate-x-1/2 blur-3xl" style={{ background: "linear-gradient(180deg, rgba(34,211,238,0.16) 0%, rgba(96,165,250,0.07) 48%, transparent 100%)" }} />
+      <div className="pointer-events-none absolute left-[8%] top-[16%] h-[20rem] w-[20rem] rounded-full bg-[radial-gradient(circle,rgba(45,212,191,0.16),transparent_72%)] blur-3xl" />
+      <div className="pointer-events-none absolute right-[8%] top-[14%] h-[20rem] w-[20rem] rounded-full bg-[radial-gradient(circle,rgba(96,165,250,0.16),transparent_74%)] blur-3xl" />
 
       <div className="pointer-events-none absolute inset-x-0 top-[5.75rem] hidden h-[13rem] lg:block">
         <div
@@ -1523,8 +1523,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
   return (
     <div
-      className="relative flex h-full min-h-0 flex-col overflow-hidden text-[#e8f6ff]"
-      style={{ background: "#040d1f" }}
+        className="relative flex h-full min-h-0 flex-col overflow-hidden text-[#e8f6ff]"
+        style={{ background: "#081529" }}
     >
       <MapSceneBackdrop />
 
@@ -1539,7 +1539,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       </DashboardHeaderShell>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col p-2">
-        <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#22d3ee]/18 bg-[linear-gradient(180deg,rgba(4,12,26,0.56),rgba(3,10,22,0.70))] shadow-[0_20px_56px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(34,211,238,0.10)] backdrop-blur-[4px]">
+        <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] border border-[#22d3ee]/18 bg-[linear-gradient(180deg,rgba(8,20,38,0.48),rgba(5,14,28,0.60))] shadow-[0_20px_56px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(34,211,238,0.10)] backdrop-blur-[4px]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(34,211,238,0.08),transparent_30%),radial-gradient(ellipse_at_88%_80%,rgba(40,120,255,0.07),transparent_32%)]" />
           <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(rgba(34,211,238,0.10)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.10)_1px,transparent_1px)] [background-size:28px_28px]" />
           <div className="pointer-events-none absolute inset-y-0 left-[-16%] w-[32%] bg-[linear-gradient(90deg,transparent,rgba(34,211,238,0.14),transparent)] blur-xl" style={{ animation: "map-bg-sweep 12s linear infinite" }} />
@@ -1749,8 +1749,9 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           .filter((geo: GeographyFeature) => !EXCLUDED_COUNTRY_NAMES.has(geo.properties?.name ?? ""))
                           .map((geo: GeographyFeature) => {
                             const countryName = geo.properties?.name ?? ""
-                            const hasProject = projectCountries.has(countryName)
-                            const isProspect = PRIORITY_MARKETS.has(countryName)
+                            const effectiveName = countryName === "Taiwan" ? "China" : countryName
+                            const hasProject = projectCountries.has(effectiveName)
+                            const isProspect = PRIORITY_MARKETS.has(effectiveName)
                             return (
                               <Geography
                                 key={geo.rsmKey}
@@ -1802,7 +1803,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                               textAnchor="middle"
                               dominantBaseline="central"
                               style={{
-                                fontSize: zh ? "9px" : "8px",
+                                fontSize: zh ? "11px" : "9.5px",
                                 fontWeight: 800,
                                 fill: "#9fd8ff",
                                 letterSpacing: zh ? "0.08em" : "0.06em",
@@ -2015,7 +2016,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                     boxShadow: "0 2px 8px rgba(0,0,0,0.3), inset 0 0 12px rgba(80,180,220,0.08)",
                   }}
                 >
-                  <div className="text-[9px] font-semibold tracking-[0.1em] text-[#78aac0]">
+                  <div className="text-[10px] font-semibold tracking-[0.1em] text-[#78aac0]">
                     {zh ? "项目状态" : "Project Status"}
                   </div>
                   <div className="mt-1 flex flex-col gap-1">
@@ -2034,8 +2035,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                               strokeWidth={0.9}
                             />
                           </svg>
-                          <span className="min-w-0 flex-1 text-[10px] font-semibold tracking-[0.04em]" style={{ color: styles.text }}>{item.label}</span>
-                          <span className="text-[11px] font-black leading-none" style={{ color: styles.text }}>
+                          <span className="min-w-0 flex-1 text-[11px] font-semibold tracking-[0.04em]" style={{ color: styles.text }}>{item.label}</span>
+                          <span className="text-[12px] font-black leading-none" style={{ color: styles.text }}>
                             {formatIntegerCount(lifecycleCounts[item.key])}
                           </span>
                         </div>
@@ -2054,7 +2055,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                     boxShadow: "0 2px 8px rgba(0,0,0,0.3), inset 0 0 12px rgba(80,180,220,0.08)",
                   }}
                 >
-                  <div className="text-[9px] font-semibold tracking-[0.1em] text-[#78aac0]">
+                  <div className="text-[10px] font-semibold tracking-[0.1em] text-[#78aac0]">
                     {zh ? "市场类型" : "Market Type"}
                   </div>
                   <div className="mt-1 flex flex-col gap-1">
@@ -2068,7 +2069,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                             boxShadow: `0 0 8px ${item.stroke}33`,
                           }}
                         />
-                        <span className="text-[10px] font-semibold tracking-[0.04em] text-[#d0eeff]">{item.label}</span>
+                        <span className="text-[11px] font-semibold tracking-[0.04em] text-[#d0eeff]">{item.label}</span>
                       </div>
                     ))}
                   </div>
@@ -2419,8 +2420,12 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           onClick={() => setEnergyRankingMode("charge")}
                           className={`inline-flex h-6 min-w-[46px] items-center justify-center px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.05em] transition-all ${
                             energyRankingMode === "charge"
-                              ? "bg-[linear-gradient(180deg,rgba(29,95,154,0.85),rgba(13,49,96,0.98))] text-[#4fe8da] shadow-[inset_0_1px_0_rgba(164,230,255,0.15)]"
-                              : "bg-transparent text-[#6a96b0] hover:text-[#d0f0ff]"
+                              ? zh
+                                ? "bg-[linear-gradient(180deg,rgba(29,95,154,0.85),rgba(13,49,96,0.98))] text-[#4fe8da] shadow-[inset_0_1px_0_rgba(164,230,255,0.15)]"
+                                : "bg-[linear-gradient(180deg,rgba(29,95,154,0.85),rgba(13,49,96,0.98))] text-[#4ade80] shadow-[inset_0_1px_0_rgba(164,230,255,0.15)]"
+                              : zh
+                                ? "bg-transparent text-[#6a96b0] hover:text-[#d0f0ff]"
+                                : "bg-transparent text-[#7bbf92] hover:text-[#9df0b7]"
                           }`}
                         >
                           {zh ? "充" : <ChargeModeIcon />}
@@ -2431,8 +2436,12 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           onClick={() => setEnergyRankingMode("discharge")}
                           className={`inline-flex h-6 min-w-[46px] items-center justify-center px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.05em] transition-all ${
                             energyRankingMode === "discharge"
-                              ? "bg-[linear-gradient(180deg,rgba(29,95,154,0.85),rgba(13,49,96,0.98))] text-[#7ab8ff] shadow-[inset_0_1px_0_rgba(164,230,255,0.15)]"
-                              : "bg-transparent text-[#6a96b0] hover:text-[#d0f0ff]"
+                              ? zh
+                                ? "bg-[linear-gradient(180deg,rgba(29,95,154,0.85),rgba(13,49,96,0.98))] text-[#7ab8ff] shadow-[inset_0_1px_0_rgba(164,230,255,0.15)]"
+                                : "bg-[linear-gradient(180deg,rgba(29,95,154,0.85),rgba(13,49,96,0.98))] text-[#ffd35a] shadow-[inset_0_1px_0_rgba(164,230,255,0.15)]"
+                              : zh
+                                ? "bg-transparent text-[#6a96b0] hover:text-[#d0f0ff]"
+                                : "bg-transparent text-[#d7b763] hover:text-[#ffe083]"
                           }`}
                         >
                           {zh ? "放" : <DischargeModeIcon />}
