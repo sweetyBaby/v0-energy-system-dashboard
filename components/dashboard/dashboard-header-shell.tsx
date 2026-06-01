@@ -44,9 +44,6 @@ export function DashboardHeaderShell({ compact = false, children }: DashboardHea
 
 
 
-          {/* Bottom accent line */}
-          <div className="absolute inset-x-[30%] bottom-[10px] h-px bg-[linear-gradient(90deg,transparent,rgba(45,212,191,0.28),transparent)]" />
-
           {/* Primary horizontal sweep */}
           <div
             className="absolute inset-y-[10px] left-[-26%] w-[40%] bg-[linear-gradient(90deg,transparent,rgba(114,228,255,0.16),transparent)] blur-[14px]"
