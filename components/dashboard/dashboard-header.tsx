@@ -25,7 +25,7 @@ import {
 } from "@/lib/api/project"
 import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
-import { clearStoredAuthToken } from "@/lib/auth-storage"
+import { clearStoredAuthToken, clearStoredAuthUsername } from "@/lib/auth-storage"
 import { logoutWithCloud } from "@/lib/api/auth"
 
 const HeaderInfoBar = dynamic(
@@ -352,6 +352,7 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
     } finally {
       resetProjectState()
       clearStoredAuthToken()
+      clearStoredAuthUsername()
       router.replace("/")
       router.refresh()
       setIsLoggingOut(false)

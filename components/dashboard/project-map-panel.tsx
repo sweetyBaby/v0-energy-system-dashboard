@@ -34,7 +34,7 @@ const HeaderInfoBar = dynamic(
   () => import("@/components/dashboard/header-info-bar").then((mod) => mod.HeaderInfoBar),
   { ssr: false },
 )
-import { clearStoredAuthToken } from "@/lib/auth-storage"
+import { clearStoredAuthToken, clearStoredAuthUsername } from "@/lib/auth-storage"
 import {
   fetchProjectDashboardChargeDischargeRanking,
   fetchProjectDashboardOverview,
@@ -1514,6 +1514,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       await logoutWithCloud()
     } finally {
       clearStoredAuthToken()
+      clearStoredAuthUsername()
       router.replace("/")
       router.refresh()
       setIsLoggingOut(false)

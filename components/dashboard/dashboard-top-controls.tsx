@@ -1,6 +1,15 @@
+import * as React from "react"
 import type { LucideIcon } from "lucide-react"
-import { LogOut } from "lucide-react"
+import { Check, ChevronDown, Languages, LogOut, UserCircle2 } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { getStoredAuthUsername } from "@/lib/auth-storage"
 
 type ActionConfig = {
   icon: LucideIcon
@@ -32,7 +41,15 @@ export function DashboardTopControls({
   const controlHeight = compact ? "h-[30px]" : "h-[34px]"
   const buttonClass =
     "relative inline-flex items-center gap-1.5 overflow-hidden rounded-[12px] border border-[#28475d] bg-[linear-gradient(180deg,rgba(9,21,35,0.94),rgba(6,14,25,0.98))] px-3 text-[11px] font-medium text-[#d7e7f2] shadow-[0_0_0_1px_rgba(117,198,234,0.05)_inset,0_10px_24px_rgba(0,0,0,0.16)] transition-all hover:border-[#4f88a9] hover:text-[#f4fcff] hover:shadow-[0_0_0_1px_rgba(122,225,255,0.1)_inset,0_0_18px_rgba(65,185,255,0.1)]"
+  const [username, setUsername] = React.useState("")
   const logoutLabel = zh ? "退出" : "Logout"
+  const languageLabel = zh ? "语言切换" : "Language"
+  const menuLabel = zh ? "账户菜单" : "Account menu"
+  const usernameFallback = zh ? "当前用户" : "Account"
+
+  React.useEffect(() => {
+    setUsername(getStoredAuthUsername() ?? "")
+  }, [])
 
   return (
     <div className="flex shrink-0 items-center gap-2">
@@ -44,41 +61,59 @@ export function DashboardTopControls({
         </button>
       ) : null}
 
-      <div
-        className={`relative grid min-w-[84px] grid-cols-2 items-stretch overflow-hidden rounded-[12px] border border-[#28475d] bg-[linear-gradient(180deg,rgba(9,21,35,0.94),rgba(6,14,25,0.98))] shadow-[0_0_0_1px_rgba(117,198,234,0.05)_inset,0_10px_24px_rgba(0,0,0,0.16)] ${controlHeight}`}
-      >
-        <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/68 to-transparent" />
-        <span className="pointer-events-none absolute inset-y-[7px] left-1/2 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-[#73b8d5]/28 to-transparent" />
-        {LANGUAGE_OPTIONS.map((option) => (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
           <button
-            key={option.key}
             type="button"
-            onClick={() => setLanguage(option.key)}
-            className={`relative h-full min-w-[36px] px-2 text-[11px] font-semibold transition-all ${
-              language === option.key
-                ? "bg-[linear-gradient(180deg,rgba(100,235,255,0.96),rgba(55,180,229,0.92))] text-[#052737] shadow-[0_0_0_1px_rgba(190,245,255,0.34)_inset]"
-                : "text-[#88a5bb] hover:text-[#edf8ff]"
-            }`}
+            aria-label={menuLabel}
+            className={`${buttonClass} ${controlHeight} min-w-[128px] justify-between gap-2 pr-2.5`}
           >
-            {language === option.key ? (
-              <span className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-[#effdff]/82 to-transparent" />
-            ) : null}
-            {option.label}
+            <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/68 to-transparent" />
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#33556a] bg-[radial-gradient(circle_at_35%_30%,rgba(126,221,255,0.24),rgba(42,92,118,0.16)_58%,transparent)] text-[#9bdcff]">
+                <UserCircle2 className="h-3.5 w-3.5" />
+              </span>
+              <span className="truncate text-[11px] font-semibold tracking-[0.04em] text-[#eef9ff]">
+                {username || usernameFallback}
+              </span>
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#86aac2]" />
           </button>
-        ))}
-      </div>
-
-      <button
-        type="button"
-        onClick={onLogout}
-        disabled={isLoggingOut}
-        className={`${buttonClass} ${controlHeight} border-[#5b3640] text-[#ffe2e7] hover:border-[#a45a69] disabled:opacity-50`}
-        aria-label={logoutLabel}
-      >
-        <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#ffbfcb]/58 to-transparent" />
-        <LogOut className="h-3.5 w-3.5" />
-        <span>{logoutLabel}</span>
-      </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          sideOffset={8}
+          className="min-w-[12rem] rounded-[14px] border-[#26465d] bg-[linear-gradient(180deg,rgba(8,19,33,0.98),rgba(5,12,23,0.98))] p-1.5 text-[#d8ebf7] shadow-[0_0_0_1px_rgba(117,198,234,0.05)_inset,0_18px_40px_rgba(0,0,0,0.34)]"
+        >
+          <div className="px-2.5 pb-1 pt-1 text-[10px] font-medium tracking-[0.08em] text-[#7fa6bc]">
+            {languageLabel}
+          </div>
+          {LANGUAGE_OPTIONS.map((option) => (
+            <DropdownMenuItem
+              key={option.key}
+              onClick={() => setLanguage(option.key)}
+              className={`mx-1 rounded-[10px] px-2.5 py-2 text-[11px] ${
+                language === option.key
+                  ? "bg-[linear-gradient(180deg,rgba(100,235,255,0.18),rgba(55,180,229,0.12))] text-[#effcff]"
+                  : "text-[#a7bfd0]"
+              }`}
+            >
+              <Languages className="h-3.5 w-3.5" />
+              <span>{option.key === "zh" ? (zh ? "中文" : "Chinese") : "English"}</span>
+              {language === option.key ? <Check className="ml-auto h-3.5 w-3.5 text-[#8aefff]" /> : null}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator className="mx-1 bg-[#1f3b4d]" />
+          <DropdownMenuItem
+            onClick={onLogout}
+            disabled={isLoggingOut}
+            className="mx-1 rounded-[10px] px-2.5 py-2 text-[11px] text-[#ffdbe1] focus:bg-[rgba(127,35,55,0.18)] focus:text-[#fff1f4] data-[disabled]:opacity-50"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span>{logoutLabel}</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }

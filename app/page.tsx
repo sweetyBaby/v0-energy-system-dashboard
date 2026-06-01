@@ -8,7 +8,7 @@ import { useLanguage } from "@/components/language-provider"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/hooks/use-toast"
 import { loginWithCloud } from "@/lib/api/auth"
-import { persistAuthToken } from "@/lib/auth-storage"
+import { persistAuthToken, persistAuthUsername } from "@/lib/auth-storage"
 import { cn } from "@/lib/utils"
 
 type Locale = "zh" | "en"
@@ -727,6 +727,7 @@ export default function LoginPage() {
       }
 
       persistAuthToken(response.token, remember)
+      persistAuthUsername(normalizedAccount, remember)
 
       startTransition(() => {
         router.push("/project-map")
