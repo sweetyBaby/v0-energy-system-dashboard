@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { ComposableMap, Geographies, Geography, Graticule, Marker, Sphere, ZoomableGroup } from "react-simple-maps"
 import type { LucideIcon } from "lucide-react"
@@ -22,13 +23,17 @@ import {
 } from "lucide-react"
 import { DashboardHeaderShell } from "@/components/dashboard/dashboard-header-shell"
 import { DashboardTopControls } from "@/components/dashboard/dashboard-top-controls"
-import { HeaderInfoBar } from "@/components/dashboard/header-info-bar"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { NavBrand } from "@/components/dashboard/nav-brand"
 import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { toast } from "@/hooks/use-toast"
 import { logoutWithCloud } from "@/lib/api/auth"
+
+const HeaderInfoBar = dynamic(
+  () => import("@/components/dashboard/header-info-bar").then((mod) => mod.HeaderInfoBar),
+  { ssr: false },
+)
 import { clearStoredAuthToken } from "@/lib/auth-storage"
 import {
   fetchProjectDashboardChargeDischargeRanking,
@@ -168,11 +173,14 @@ const formatPending = (_zh: boolean) => "--"
 
 const formatIntegerCount = (value: number) => `${value}`
 
-const formatMetricNumber = (value: number, digits = 0) =>
-  value.toLocaleString(undefined, {
+const formatGroupedNumber = (value: number, digits = 0) =>
+  new Intl.NumberFormat("en-US", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
-  })
+  }).format(value)
+
+const formatMetricNumber = (value: number, digits = 0) =>
+  formatGroupedNumber(value, digits)
 
 const formatPowerFromMw = (value: number | null, zh: boolean) => {
   if (value == null || Number.isNaN(value)) return formatPending(zh)
@@ -194,10 +202,7 @@ const formatEfficiency = (value: number | null) =>
   value == null || Number.isNaN(value) ? "--" : `${value.toFixed(2)}%`
 
 const formatOverviewMetric = (value: number, digits = 0) =>
-  value.toLocaleString(undefined, {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  })
+  formatGroupedNumber(value, digits)
 
 const formatEnergySummary = (valueMWh: number | null, zh: boolean) => {
   if (valueMWh == null || Number.isNaN(valueMWh)) return formatPending(zh)

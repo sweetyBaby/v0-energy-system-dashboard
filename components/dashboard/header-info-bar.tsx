@@ -33,11 +33,14 @@ type HeaderInfoBarProps = {
 const pad = (n: number) => String(n).padStart(2, "0")
 
 function useSystemClock() {
-  const [now, setNow] = useState(() => new Date())
+  const [now, setNow] = useState<Date | null>(null)
 
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(id)
+    const updateClock = () => setNow(new Date())
+
+    updateClock()
+    const id = window.setInterval(updateClock, 1000)
+    return () => window.clearInterval(id)
   }, [])
 
   return now
@@ -99,8 +102,8 @@ export function HeaderInfoBar({
   const fallbackWeather = useWeatherData(hasLocation ? latitude : null, hasLocation ? longitude : null)
 
   const h = compact ? "h-[30px]" : "h-[34px]"
-  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
-  const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+  const timeStr = now ? `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}` : ""
+  const dateStr = now ? `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` : ""
 
   const projectWeatherSummary = resolveWeatherText(projectWeather?.condition)
   const weatherKind =
@@ -118,9 +121,9 @@ export function HeaderInfoBar({
     <div className="flex items-center gap-2">
       <div className={`${CHIP_BASE} ${h}`}>
         <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/35 to-transparent" />
-        <span className="font-mono text-[12px] font-semibold tabular-nums tracking-[0.08em] text-[#7de8ff]">{dateStr}</span>
+        <span className="inline-block min-w-[10ch] font-mono text-[12px] font-semibold tabular-nums tracking-[0.08em] text-[#7de8ff]">{dateStr}</span>
         <span className="h-3 w-px shrink-0 bg-[#223b50]" />
-        <span className="font-mono text-[12px] font-semibold tabular-nums tracking-[0.08em] text-[#7de8ff]">
+        <span className="inline-block min-w-[8ch] font-mono text-[12px] font-semibold tabular-nums tracking-[0.08em] text-[#7de8ff]">
           {timeStr}
         </span>
       </div>

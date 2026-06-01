@@ -1,11 +1,11 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { Check, ChevronDown, Map } from "lucide-react"
 import { DashboardHeaderShell } from "@/components/dashboard/dashboard-header-shell"
 import { DashboardTopControls } from "@/components/dashboard/dashboard-top-controls"
-import { HeaderInfoBar } from "@/components/dashboard/header-info-bar"
 import { NavBrand } from "@/components/dashboard/nav-brand"
 import {
   fetchProjectOptionsByDevice,
@@ -27,6 +27,11 @@ import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { clearStoredAuthToken } from "@/lib/auth-storage"
 import { logoutWithCloud } from "@/lib/api/auth"
+
+const HeaderInfoBar = dynamic(
+  () => import("@/components/dashboard/header-info-bar").then((mod) => mod.HeaderInfoBar),
+  { ssr: false },
+)
 
 export type Project = ProjectOption & {
   projectName: string
