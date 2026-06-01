@@ -5,11 +5,9 @@ import {
   BarChart3,
   Bell,
   FileText,
-  Grid3X3,
   History,
   LayoutDashboard,
   Map,
-  TrendingUp,
 } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { useProject } from "@/components/dashboard/dashboard-header"
@@ -35,10 +33,8 @@ const SIDEBAR_TABS: SidebarTabMeta[] = [
   { key: "realtime", icon: LayoutDashboard, zh: "总览", en: "Overview" },
   { key: "history", icon: Activity, zh: "运行状态", en: "Operations" },
   { key: "alarm-monitoring", icon: Bell, zh: "告警监测", en: "Alarm" },
-  { key: "bms", icon: Grid3X3, zh: "电芯矩阵", en: "Cell Matrix" },
   { key: "cell-history", icon: History, zh: "电芯历史", en: "Cell Hist." },
   { key: "analysis", icon: BarChart3, zh: "数据分析", en: "Analysis" },
-  { key: "efficiency", icon: TrendingUp, zh: "效率分析", en: "Efficiency" },
   { key: "reports", icon: FileText, zh: "报表中心", en: "Reports" },
 ]
 

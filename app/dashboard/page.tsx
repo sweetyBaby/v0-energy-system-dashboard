@@ -12,7 +12,6 @@ import { CellHeatmapOverviewPanel } from "@/components/dashboard/cell-heatmap-ov
 import { CellHistoryMultiPicker, CellHistoryReplayPanel, type CellHistoryOverviewStats } from "@/components/dashboard/cell-history-replay-panel"
 import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysis"
 import { ChargeDischargeTable } from "@/components/dashboard/charge-discharge-table"
-import { CellMatrixPanel } from "@/components/dashboard/cell-matrix-panel"
 import { ComprehensiveEfficiencyPanel } from "@/components/dashboard/comprehensive-efficiency-panel"
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
 import { DashboardHeader, ProjectProvider, useProject } from "@/components/dashboard/dashboard-header"
@@ -35,12 +34,10 @@ import { DEFAULT_PROJECT_IMAGE } from "@/lib/api/project"
 
 type DashboardTab =
   | "realtime"
-  | "bms"
   | "cell-history"
   | "analysis"
   | "history"
   | "alarm-monitoring"
-  | "efficiency"
   | "reports"
 
 type BcuMode = "realtime" | "history"
@@ -645,12 +642,6 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           </div>
         )}
 
-        {activeTab === "bms" && (
-          <div className="h-full min-h-0 overflow-hidden">
-            <CellMatrixPanel />
-          </div>
-        )}
-
         {activeTab === "cell-history" && (
           <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
             <div className="flex shrink-0 items-center gap-1.5 overflow-visible px-1 py-0.5">
@@ -819,17 +810,6 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           <div className="relative h-full min-h-0 overflow-hidden">
             {renderAlarmMonitoringPage()}
             {bcuMode === "realtime" && renderComingSoonBanner()}
-          </div>
-        )}
-
-        {activeTab === "efficiency" && (
-          <div className="grid h-full min-h-0 grid-cols-2 gap-3 overflow-auto p-3">
-            <div className="min-h-0">
-              <ComprehensiveEfficiencyPanel />
-            </div>
-            <div className="min-h-0">
-              <PowerCurveQuery />
-            </div>
           </div>
         )}
 
