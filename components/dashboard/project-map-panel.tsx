@@ -156,7 +156,7 @@ const PANEL_CLASS =
 
 const getMarkerFlagWidth = (label: string, zh: boolean, minWidth: number, maxWidth: number) => {
   const perChar = zh ? 11.5 : 7.2
-  const horizontalPadding = zh ? 18 : 20
+  const horizontalPadding = zh ? 8 : 12
   return Math.max(minWidth, Math.min(maxWidth, Math.round(label.length * perChar + horizontalPadding)))
 }
 
@@ -305,10 +305,10 @@ const getLifecycleText = (lifecycle: LifecycleKey, zh: boolean) => {
   return zh ? "待建设" : "Planned"
 }
 
-const SHARED_MARKER_FILL = "#56b8ff"
-const SHARED_MARKER_STROKE = "#dcedff"
-const SHARED_RING_STROKE = "rgba(86,184,255,0.30)"
-const SHARED_FLAG_FILL = "rgba(23,74,158,0.97)"
+const SHARED_MARKER_FILL = "rgba(255,219,92,0.94)"
+const SHARED_MARKER_STROKE = "rgba(255,243,177,0.96)"
+const SHARED_RING_STROKE = "rgba(255,219,92,0.28)"
+const SHARED_FLAG_FILL = "rgba(17,52,96,0.98)"
 
 const getClusterLifecycle = (projects: ProjectOption[]): LifecycleKey | null => {
   if (!projects.length) return null
@@ -326,7 +326,7 @@ const getLifecycleStyles = (lifecycle: LifecycleKey) => {
       markerStroke: SHARED_MARKER_STROKE,
       ringStroke: SHARED_RING_STROKE,
       flagFill: SHARED_FLAG_FILL,
-      flagStroke: "#86d0ff",
+      flagStroke: SHARED_MARKER_STROKE,
       bar: "from-[#67c2ff] to-[#4599ff]",
       dot: "bg-[#56b8ff]",
       shadow: "drop-shadow(0 0 12px rgba(86,184,255,0.30))",
@@ -341,7 +341,7 @@ const getLifecycleStyles = (lifecycle: LifecycleKey) => {
       markerStroke: SHARED_MARKER_STROKE,
       ringStroke: SHARED_RING_STROKE,
       flagFill: SHARED_FLAG_FILL,
-      flagStroke: "#ffc96e",
+      flagStroke: SHARED_MARKER_STROKE,
       bar: "from-[#ffc14d] to-[#ff9d3d]",
       dot: "bg-[#56b8ff]",
       shadow: "drop-shadow(0 0 12px rgba(86,184,255,0.30))",
@@ -355,7 +355,7 @@ const getLifecycleStyles = (lifecycle: LifecycleKey) => {
     markerStroke: SHARED_MARKER_STROKE,
     ringStroke: SHARED_RING_STROKE,
     flagFill: SHARED_FLAG_FILL,
-    flagStroke: "#9ac0ff",
+    flagStroke: SHARED_MARKER_STROKE,
     bar: "from-[#77a4ff] to-[#4e8fff]",
     dot: "bg-[#56b8ff]",
     shadow: "drop-shadow(0 0 10px rgba(86,184,255,0.30))",
@@ -533,7 +533,7 @@ const COUNTRY_LABEL_CENTERS: Partial<Record<string, MapCoordinates>> = {
   Australia: [134, -26],                  // 南澳大利亚，地理中心
   Canada: [-110, 62],                     // 西北地区/不列颠哥伦比亚以东，远离边界的内陆中心
   "United States of America": [-98, 39], // 堪萨斯州，美国大陆重心
-  "United Arab Emirates": [54.3, 24.3], // 阿布扎比内陆，阿联酋中心
+  "United Arab Emirates": [53.15, 24.2], // 明确压到阿联酋主体西中部，避免标签继续贴东侧边界
 }
 
 const COUNTRY_LABEL_OFFSET_FACTORS: ReadonlyArray<readonly [number, number]> = [
@@ -1278,16 +1278,12 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
           const [minLng, minLat, maxLng, maxLat] = bbox
           const baseCenter: MapCoordinates = COUNTRY_LABEL_CENTERS[country] ?? [(minLng + maxLng) / 2, (minLat + maxLat) / 2]
-          const occupiedCoordinates = projectClusters
-            .map((cluster) => cluster.coordinates as MapCoordinates)
-            .filter((coordinates) => isCoordinateInBbox(coordinates, bbox))
-          const center = resolveCountryLabelCenter(baseCenter, bbox, occupiedCoordinates)
           const display = COUNTRY_LABELS[country]
           const label = zh ? display?.zh ?? country : display?.en ?? country
 
           return {
             country,
-            center,
+            center: baseCenter,
             label,
             isProspect: PRIORITY_MARKETS.has(country) && !projectCountries.has(country),
           }
@@ -1807,7 +1803,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                               style={{
                                 fontSize: zh ? "9px" : "8px",
                                 fontWeight: 800,
-                                fill: item.isProspect ? "#ffe29a" : "#c8f6ff",
+                                fill: "#9fd8ff",
                                 letterSpacing: zh ? "0.08em" : "0.06em",
                                 textTransform: zh ? undefined : "uppercase",
                               }}
@@ -1901,7 +1897,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                   strokeLinecap="round"
                                 />
                                 <text x={-4} y={-10.5} textAnchor="middle"
-                                  style={{ fontSize: zh ? "10px" : "8px", fontWeight: 800, fill: "#f3f8ff", letterSpacing: zh ? "0.01em" : "0.05em" }}>
+                                  style={{ fontSize: zh ? "10px" : "8px", fontWeight: 800, fill: clusterStyles?.text ?? "#f3f8ff", letterSpacing: zh ? "0.01em" : "0.05em" }}>
                                   {regionName}
                                 </text>
                                 <g transform={`translate(${badgeCx} ${badgeCy})`}>
@@ -1997,7 +1993,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                 strokeLinecap="round"
                               />
                               <text y={-11} textAnchor="middle"
-                                style={{ fontSize: zh ? "10px" : "8px", fontWeight: 800, fill: "#f4f8ff", letterSpacing: zh ? "0.01em" : "0.05em" }}>
+                                style={{ fontSize: zh ? "10px" : "8px", fontWeight: 800, fill: styles.text, letterSpacing: zh ? "0.01em" : "0.05em" }}>
                                 {projectLabel}
                               </text>
                             </g>
