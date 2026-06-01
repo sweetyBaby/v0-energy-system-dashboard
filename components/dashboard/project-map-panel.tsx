@@ -420,9 +420,103 @@ const COUNTRY_BBOX: Record<string, [number, number, number, number]> = {
   "Japan":        [122, 24, 146, 46],
   "South Korea":  [125, 33, 130, 39],
   "Australia":    [113, -44, 154, -10],
+  "Canada":       [-141, 41, -52, 84],
   "United States of America": [-170, 18, -66, 72],
+  "United Arab Emirates": [51, 22, 57, 27],
   "Germany":      [6,  47,  15, 55],
   "Brazil":       [-74, -34, -34,  6],
+}
+
+const COUNTRY_LABELS: Record<string, { zh: string; en: string }> = {
+  China: { zh: "中国", en: "China" },
+  Mongolia: { zh: "蒙古", en: "Mongolia" },
+  Russia: { zh: "俄罗斯", en: "Russia" },
+  India: { zh: "印度", en: "India" },
+  Japan: { zh: "日本", en: "Japan" },
+  "South Korea": { zh: "韩国", en: "South Korea" },
+  Australia: { zh: "澳大利亚", en: "Australia" },
+  Canada: { zh: "加拿大", en: "Canada" },
+  "United States of America": { zh: "美国", en: "United States" },
+  "United Arab Emirates": { zh: "阿联酋", en: "United Arab Emirates" },
+  Germany: { zh: "德国", en: "Germany" },
+  Brazil: { zh: "巴西", en: "Brazil" },
+}
+
+const PRIORITY_MARKETS = new Set(["United States of America", "Australia", "Canada", "United Arab Emirates"])
+
+const COUNTRY_LABEL_CENTERS: Partial<Record<string, MapCoordinates>> = {
+  Australia: [134, -25],
+  Canada: [-106, 58],
+  "United States of America": [-98, 39],
+  "United Arab Emirates": [54.3, 24.3],
+}
+
+const COUNTRY_LABEL_OFFSET_FACTORS: ReadonlyArray<readonly [number, number]> = [
+  [0, 0],
+  [0, 0.22],
+  [0, -0.22],
+  [0.22, 0],
+  [-0.22, 0],
+  [0.18, 0.16],
+  [-0.18, 0.16],
+  [0.18, -0.16],
+  [-0.18, -0.16],
+]
+
+const clampToRange = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+
+const isCoordinateInBbox = (coordinates: MapCoordinates, bbox: readonly [number, number, number, number]) => {
+  const [lng, lat] = coordinates
+  const [minLng, minLat, maxLng, maxLat] = bbox
+  return lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat
+}
+
+const getCoordinateDistance = (left: MapCoordinates, right: MapCoordinates) => {
+  const averageLatitude = ((left[1] + right[1]) / 2) * (Math.PI / 180)
+  const dx = (left[0] - right[0]) * Math.cos(averageLatitude)
+  const dy = left[1] - right[1]
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+const resolveCountryLabelCenter = (
+  baseCenter: MapCoordinates,
+  bbox: readonly [number, number, number, number],
+  occupiedCoordinates: MapCoordinates[],
+): MapCoordinates => {
+  if (occupiedCoordinates.length === 0) {
+    return baseCenter
+  }
+
+  const [minLng, minLat, maxLng, maxLat] = bbox
+  const lngSpan = maxLng - minLng
+  const latSpan = maxLat - minLat
+  const lngPadding = Math.max(0.65, lngSpan * 0.08)
+  const latPadding = Math.max(0.55, latSpan * 0.08)
+
+  let bestCenter = baseCenter
+  let bestScore = Number.NEGATIVE_INFINITY
+
+  for (const [lngFactor, latFactor] of COUNTRY_LABEL_OFFSET_FACTORS) {
+    const candidate: MapCoordinates = [
+      clampToRange(baseCenter[0] + lngSpan * lngFactor, minLng + lngPadding, maxLng - lngPadding),
+      clampToRange(baseCenter[1] + latSpan * latFactor, minLat + latPadding, maxLat - latPadding),
+    ]
+
+    const nearestOccupiedDistance = occupiedCoordinates.reduce((minDistance, coordinates) => {
+      const distance = getCoordinateDistance(candidate, coordinates)
+      return Math.min(minDistance, distance)
+    }, Number.POSITIVE_INFINITY)
+
+    const originPenalty = getCoordinateDistance(candidate, baseCenter) * 0.35
+    const score = nearestOccupiedDistance - originPenalty
+
+    if (score > bestScore) {
+      bestScore = score
+      bestCenter = candidate
+    }
+  }
+
+  return bestCenter
 }
 
 const DEFAULT_FOCUS_FRAME: FocusFrame = { center: [10, 10], zoom: 1 }
@@ -1019,7 +1113,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const markerScale = 1 / Math.max(mapZoomK, 1)
   const mapProjectionScale = useMemo(() => Math.round(mapDimensions.width * 0.22), [mapDimensions.width])
 
-  const highlightedCountries = useMemo(() => {
+  const projectCountries = useMemo(() => {
     const set = new Set<string>()
     for (const p of mappableProjects) {
       const lng = p.longitude!
@@ -1032,6 +1126,37 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
     }
     return set
   }, [mappableProjects])
+  const highlightedCountries = useMemo(() => {
+    const set = new Set<string>(projectCountries)
+    PRIORITY_MARKETS.forEach((country) => set.add(country))
+    return set
+  }, [projectCountries])
+  const highlightedCountryLabels = useMemo(
+    () =>
+      Array.from(highlightedCountries)
+        .map((country) => {
+          const bbox = COUNTRY_BBOX[country]
+          if (!bbox) return null
+
+          const [minLng, minLat, maxLng, maxLat] = bbox
+          const baseCenter: MapCoordinates = COUNTRY_LABEL_CENTERS[country] ?? [(minLng + maxLng) / 2, (minLat + maxLat) / 2]
+          const occupiedCoordinates = projectClusters
+            .map((cluster) => cluster.coordinates as MapCoordinates)
+            .filter((coordinates) => isCoordinateInBbox(coordinates, bbox))
+          const center = resolveCountryLabelCenter(baseCenter, bbox, occupiedCoordinates)
+          const display = COUNTRY_LABELS[country]
+          const label = zh ? display?.zh ?? country : display?.en ?? country
+
+          return {
+            country,
+            center,
+            label,
+            isProspect: PRIORITY_MARKETS.has(country) && !projectCountries.has(country),
+          }
+        })
+        .filter((item): item is { country: string; center: MapCoordinates; label: string; isProspect: boolean } => item != null),
+    [highlightedCountries, projectClusters, projectCountries, zh]
+  )
   const topEfficiencyItems = useMemo(() => eeRankingItems.slice(0, 5), [eeRankingItems])
 
   const maxEfficiencyScore = useMemo(() => {
@@ -1058,6 +1183,23 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       { key: "commissioned" as const, label: zh ? "已投运" : "Commissioned" },
       { key: "construction" as const, label: zh ? "建设中" : "Construction" },
       { key: "planned" as const, label: zh ? "待建设" : "Planned" },
+    ],
+    [zh]
+  )
+  const mapMarketLegend = useMemo(
+    () => [
+      {
+        key: "landed" as const,
+        label: zh ? "已落地项目" : "Landed Project",
+        fill: "#0d6a88",
+        stroke: "#2ab8dc",
+      },
+      {
+        key: "prospect" as const,
+        label: zh ? "意向市场" : "Prospect Market",
+        fill: "#6d5314",
+        stroke: "#f7c948",
+      },
     ],
     [zh]
   )
@@ -1471,25 +1613,37 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         geographies
                           .filter((geo: GeographyFeature) => !EXCLUDED_COUNTRY_NAMES.has(geo.properties?.name ?? ""))
                           .map((geo: GeographyFeature) => {
-                            const hasProject = highlightedCountries.has(geo.properties?.name ?? "")
+                            const countryName = geo.properties?.name ?? ""
+                            const hasProject = projectCountries.has(countryName)
+                            const isProspect = PRIORITY_MARKETS.has(countryName)
                             return (
                               <Geography
                                 key={geo.rsmKey}
                                 geography={geo}
                                 style={{
                                   default: {
-                                    fill: hasProject ? "#0d6a88" : "#1a3d58",
-                                    stroke: hasProject ? "#2ab8dc" : "#2a5878",
-                                    strokeWidth: hasProject ? 1.0 : 0.55,
+                                    fill: hasProject ? "#0d6a88" : isProspect ? "#6d5314" : "#1a3d58",
+                                    stroke: hasProject ? "#2ab8dc" : isProspect ? "#f7c948" : "#2a5878",
+                                    strokeWidth: hasProject || isProspect ? 1.0 : 0.55,
                                     outline: "none",
-                                    filter: hasProject ? "drop-shadow(0 0 8px rgba(42,184,220,0.36))" : "none",
+                                    filter:
+                                      hasProject
+                                        ? "drop-shadow(0 0 8px rgba(42,184,220,0.36))"
+                                        : isProspect
+                                          ? "drop-shadow(0 0 10px rgba(247,201,72,0.32))"
+                                          : "none",
                                   },
                                   hover: {
-                                    fill: hasProject ? "#1280a8" : "#224f70",
-                                    stroke: "#55d4f0",
+                                    fill: hasProject ? "#1280a8" : isProspect ? "#8a6918" : "#224f70",
+                                    stroke: hasProject ? "#55d4f0" : isProspect ? "#ffd978" : "#55d4f0",
                                     strokeWidth: 1.0,
                                     outline: "none",
-                                    filter: hasProject ? "drop-shadow(0 0 12px rgba(42,184,220,0.52))" : "none",
+                                    filter:
+                                      hasProject
+                                        ? "drop-shadow(0 0 12px rgba(42,184,220,0.52))"
+                                        : isProspect
+                                          ? "drop-shadow(0 0 12px rgba(247,201,72,0.42))"
+                                          : "none",
                                   },
                                   pressed: {
                                     fill: "#1f6080",
@@ -1503,6 +1657,40 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           })
                       }
                     </Geographies>
+
+                    {highlightedCountryLabels.map((item) => {
+                      const labelWidth = Math.max(54, item.label.length * (zh ? 11 : 7.4)) + 12
+
+                      return (
+                        <Marker key={`country-label-${item.country}`} coordinates={item.center}>
+                          <g transform={`scale(${markerScale})`} pointerEvents="none">
+                            <rect
+                              x={-labelWidth / 2}
+                              y={-32}
+                              width={labelWidth}
+                              height={18}
+                              rx={9}
+                              fill={item.isProspect ? "rgba(34,24,6,0.88)" : "rgba(2,10,24,0.84)"}
+                              stroke={item.isProspect ? "rgba(247,201,72,0.38)" : "rgba(102,224,255,0.28)"}
+                              strokeWidth={0.8}
+                            />
+                            <text
+                              y={-19}
+                              textAnchor="middle"
+                              style={{
+                                fontSize: zh ? "9px" : "8px",
+                                fontWeight: 800,
+                                fill: item.isProspect ? "#ffe29a" : "#c8f6ff",
+                                letterSpacing: zh ? "0.08em" : "0.06em",
+                                textTransform: zh ? undefined : "uppercase",
+                              }}
+                            >
+                              {item.label}
+                            </text>
+                          </g>
+                        </Marker>
+                      )
+                    })}
 
                     {projectClusters.map((cluster) => {
                       const isClusterActive = hoveredClusterId === cluster.id
@@ -1650,6 +1838,33 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                     </div>
                   )
                 })}
+                <div
+                  className="rounded-[10px] px-2.5 py-2 backdrop-blur-[12px]"
+                  style={{
+                    background: "rgba(2,10,22,0.84)",
+                    border: "1px solid rgba(96,180,214,0.22)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.3), inset 0 0 12px rgba(80,180,220,0.08)",
+                  }}
+                >
+                  <div className="mb-1.5 text-[10px] font-semibold tracking-[0.08em] text-[#a8d7e8]">
+                    {zh ? "地图标识" : "Map Legend"}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {mapMarketLegend.map((item) => (
+                      <div key={item.key} className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-5 rounded-sm"
+                          style={{
+                            background: item.fill,
+                            border: `1px solid ${item.stroke}`,
+                            boxShadow: `0 0 8px ${item.stroke}33`,
+                          }}
+                        />
+                        <span className="text-[10px] font-semibold tracking-[0.05em] text-[#d0eeff]">{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {activeProject ? (
