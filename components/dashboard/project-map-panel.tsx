@@ -71,6 +71,8 @@ type ProjectSiteInfoItem = {
   projectId: string
   projectName: string | null
   region: string | null
+  regionName: string | null
+  regionPinyin: string | null
   ratedPower: string | null
   ratedCapacity: string | null
   workingDate: string | null
@@ -359,7 +361,47 @@ const getProjectPowerLabel = (project: ProjectOption, zh: boolean) => {
 }
 
 const getProjectRegionLabel = (project: ProjectOption, zh: boolean) =>
-  project.region || (zh ? "未标注区域" : "Unspecified")
+  (zh ? project.regionName || project.region : project.regionPinyin || project.regionName || project.region) ||
+  (zh ? "未标注区域" : "Unspecified")
+
+const getSiteRegionLabel = (site: ProjectSiteInfoItem | null | undefined, project: ProjectOption, zh: boolean) =>
+  (site
+    ? zh
+      ? site.regionName || site.region
+      : site.regionPinyin || site.regionName || site.region
+    : null) || getProjectRegionLabel(project, zh)
+
+function ChargeModeIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" className="h-[16px] w-[16px]">
+      <path
+        d="M9.1 2.2a.9.9 0 0 1 1.8 0v1.4h1.2c.4 0 .6.5.3.8l-2.4 2.7a.5.5 0 0 1-.8 0L6.8 4.4c-.3-.3-.1-.8.3-.8h2V2.2Z"
+        fill="currentColor"
+      />
+      <path
+        d="M6.2 7.8h7.6c.8 0 1.4.6 1.4 1.4v5.4c0 .8-.6 1.4-1.4 1.4H6.2c-.8 0-1.4-.6-1.4-1.4V9.2c0-.8.6-1.4 1.4-1.4Zm8.8 2.2h1.2c.6 0 1 .4 1 1s-.4 1-1 1H15v-2Z"
+        fill="currentColor"
+        opacity="0.92"
+      />
+    </svg>
+  )
+}
+
+function DischargeModeIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" className="h-[16px] w-[16px]">
+      <path
+        d="M6.2 4h7.6c.8 0 1.4.6 1.4 1.4v5.4c0 .8-.6 1.4-1.4 1.4H6.2c-.8 0-1.4-.6-1.4-1.4V5.4C4.8 4.6 5.4 4 6.2 4Zm8.8 2.2h1.2c.6 0 1 .4 1 1s-.4 1-1 1H15v-2Z"
+        fill="currentColor"
+        opacity="0.92"
+      />
+      <path
+        d="M9.1 17.8a.9.9 0 0 0 1.8 0v-1.4h1.2c.4 0 .6-.5.3-.8L10 12.9a.5.5 0 0 0-.8 0l-2.4 2.7c-.3.3-.1.8.3.8h2v1.4Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
 
 const toFiniteNumber = (value: unknown) => {
   if (typeof value !== "number" || Number.isNaN(value)) return null
@@ -566,6 +608,8 @@ const normalizeProjectSiteInfo = (project: ProjectOption, row: RawProjectDashboa
     projectId: hasText(row.projectId) ? String(row.projectId).trim() : project.projectId,
     projectName: hasText(row.projectName) ? String(row.projectName).trim() : project.projectName,
     region: hasText(row.region) ? String(row.region).trim() : project.region,
+    regionName: hasText(row.regionName) ? String(row.regionName).trim() : project.regionName,
+    regionPinyin: hasText(row.regionPinyin) ? String(row.regionPinyin).trim() : project.regionPinyin,
     ratedPower: hasText(row.ratedPower) ? String(row.ratedPower).trim() : project.ratedPower,
     ratedCapacity: hasText(row.ratedCapacity) ? String(row.ratedCapacity).trim() : project.ratedCapacity,
     workingDate,
@@ -1069,6 +1113,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
       ratedPower: activeItem?.ratedPower ?? activeProject.ratedPower,
       ratedCapacity: activeItem?.ratedCapacity ?? activeProject.ratedCapacity,
       region: activeItem?.region ?? activeProject.region,
+      regionName: activeItem?.regionName ?? activeProject.regionName,
+      regionPinyin: activeItem?.regionPinyin ?? activeProject.regionPinyin,
       projectName: activeItem?.projectName ?? activeProject.projectName,
     } satisfies ProjectOption
   }, [activeItem, activeProject])
@@ -1659,21 +1705,9 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                     </Geographies>
 
                     {highlightedCountryLabels.map((item) => {
-                      const labelWidth = Math.max(54, item.label.length * (zh ? 11 : 7.4)) + 12
-
                       return (
                         <Marker key={`country-label-${item.country}`} coordinates={item.center}>
                           <g transform={`scale(${markerScale})`} pointerEvents="none">
-                            <rect
-                              x={-labelWidth / 2}
-                              y={-32}
-                              width={labelWidth}
-                              height={18}
-                              rx={9}
-                              fill={item.isProspect ? "rgba(34,24,6,0.88)" : "rgba(2,10,24,0.84)"}
-                              stroke={item.isProspect ? "rgba(247,201,72,0.38)" : "rgba(102,224,255,0.28)"}
-                              strokeWidth={0.8}
-                            />
                             <text
                               y={-19}
                               textAnchor="middle"
@@ -1696,7 +1730,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       const isClusterActive = hoveredClusterId === cluster.id
 
                       if (cluster.projects.length > 1) {
-                        const regionName = cluster.projects[0].region || (zh ? "未标注" : "Unknown")
+                        const regionName = getProjectRegionLabel(cluster.projects[0], zh) || (zh ? "未标注" : "Unknown")
                         const regionLabelW = Math.max(32, Math.min(76, regionName.length * 7 + 14))
 
                         return (
@@ -1814,53 +1848,62 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                 </ComposableMap>
               </div>
 
-              <div className="pointer-events-none absolute right-3 top-3 z-20 flex flex-col gap-1.5">
-                {mapStatusLegend.map((item) => {
-                  const accentColor = item.key === "commissioned" ? "#00e5d2" : item.key === "construction" ? "#ffb74b" : "#7aa6ff"
-                  return (
-                    <div
-                      key={item.key}
-                      className="flex items-center gap-2 rounded-[8px] px-2.5 py-1.5 backdrop-blur-[12px]"
-                      style={{
-                        background: "rgba(2,10,22,0.84)",
-                        border: `1px solid ${accentColor}44`,
-                        boxShadow: `0 2px 8px rgba(0,0,0,0.3), inset 0 0 12px ${accentColor}0a`,
-                      }}
-                    >
-                      <svg width="10" height="16" viewBox="-5 -16 10 18">
-                        <path d={makePinPath(5, 6)} fill={accentColor} />
-                        <circle cx={-1.4} cy={-12.2} r={1.4} fill="rgba(255,255,255,0.75)" />
-                      </svg>
-                      <span className="text-[10px] font-semibold tracking-[0.05em] text-[#d0eeff]">{item.label}</span>
-                      <span className="ml-auto min-w-[1.5rem] text-right text-[11px] font-black leading-none" style={{ color: accentColor }}>
-                        {formatIntegerCount(lifecycleCounts[item.key])}
-                      </span>
-                    </div>
-                  )
-                })}
+              <div className="pointer-events-none absolute bottom-3 left-3 z-20">
                 <div
-                  className="rounded-[10px] px-2.5 py-2 backdrop-blur-[12px]"
+                  className="w-[11.5rem] rounded-[10px] px-2.5 py-2 backdrop-blur-[12px]"
                   style={{
                     background: "rgba(2,10,22,0.84)",
                     border: "1px solid rgba(96,180,214,0.22)",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.3), inset 0 0 12px rgba(80,180,220,0.08)",
                   }}
                 >
-                  <div className="mb-1.5 text-[10px] font-semibold tracking-[0.08em] text-[#a8d7e8]">
-                    {zh ? "地图标识" : "Map Legend"}
+                  <div className="text-[9px] font-semibold tracking-[0.1em] text-[#78aac0]">
+                    {zh ? "项目状态" : "Project Status"}
                   </div>
-                  <div className="flex flex-col gap-1.5">
+                  <div className="mt-1 flex flex-col gap-1">
+                    {mapStatusLegend.map((item) => {
+                      const accentColor = item.key === "commissioned" ? "#00e5d2" : item.key === "construction" ? "#ffb74b" : "#7aa6ff"
+                      return (
+                        <div key={item.key} className="flex items-center gap-2 rounded-[7px] border border-white/6 bg-white/[0.02] px-2 py-1">
+                          <svg width="9" height="14" viewBox="-5 -16 10 18" className="shrink-0">
+                            <path d={makePinPath(5, 6)} fill={accentColor} />
+                            <circle cx={-1.4} cy={-12.2} r={1.4} fill="rgba(255,255,255,0.75)" />
+                          </svg>
+                          <span className="min-w-0 flex-1 text-[10px] font-semibold tracking-[0.04em] text-[#d0eeff]">{item.label}</span>
+                          <span className="text-[11px] font-black leading-none" style={{ color: accentColor }}>
+                            {formatIntegerCount(lifecycleCounts[item.key])}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pointer-events-none absolute bottom-3 right-3 z-20">
+                <div
+                  className="w-[11.5rem] rounded-[10px] px-2.5 py-2 backdrop-blur-[12px]"
+                  style={{
+                    background: "rgba(2,10,22,0.84)",
+                    border: "1px solid rgba(96,180,214,0.22)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.3), inset 0 0 12px rgba(80,180,220,0.08)",
+                  }}
+                >
+                  <div className="text-[9px] font-semibold tracking-[0.1em] text-[#78aac0]">
+                    {zh ? "市场类型" : "Market Type"}
+                  </div>
+                  <div className="mt-1 flex flex-col gap-1">
                     {mapMarketLegend.map((item) => (
-                      <div key={item.key} className="flex items-center gap-2">
+                      <div key={item.key} className="flex items-center gap-2 rounded-[7px] border border-white/6 bg-white/[0.02] px-2 py-1">
                         <span
-                          className="h-2.5 w-5 rounded-sm"
+                          className="h-2.5 w-5 shrink-0 rounded-sm"
                           style={{
                             background: item.fill,
                             border: `1px solid ${item.stroke}`,
                             boxShadow: `0 0 8px ${item.stroke}33`,
                           }}
                         />
-                        <span className="text-[10px] font-semibold tracking-[0.05em] text-[#d0eeff]">{item.label}</span>
+                        <span className="text-[10px] font-semibold tracking-[0.04em] text-[#d0eeff]">{item.label}</span>
                       </div>
                     ))}
                   </div>
@@ -2027,7 +2070,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         <div className="rounded-[13px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-2.5 py-1.5">
                           <div className="text-[11px] font-medium tracking-[0.08em] text-[#7f98ab]">{zh ? "区域" : "Region"}</div>
                           <div className="mt-0.5 truncate text-[12px] font-semibold text-[#f2fbff]">
-                            {activeItem?.region || getProjectRegionLabel(activeProject, zh)}
+                            {getSiteRegionLabel(activeItem, activeProject, zh)}
                           </div>
                         </div>
                         <div className="rounded-[13px] border border-[#21455a] bg-[rgba(9,21,33,0.78)] px-2.5 py-1.5">
@@ -2209,25 +2252,25 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         <button
                           type="button"
                           onClick={() => setEnergyRankingMode("charge")}
-                          className={`px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.05em] transition-all ${
+                          className={`inline-flex h-6 min-w-[46px] items-center justify-center px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.05em] transition-all ${
                             energyRankingMode === "charge"
                               ? "bg-[linear-gradient(180deg,rgba(29,95,154,0.85),rgba(13,49,96,0.98))] text-[#4fe8da] shadow-[inset_0_1px_0_rgba(164,230,255,0.15)]"
                               : "bg-transparent text-[#6a96b0] hover:text-[#d0f0ff]"
                           }`}
                         >
-                          {zh ? "充" : "↑"}
+                          {zh ? "充" : <ChargeModeIcon />}
                         </button>
                         <div className="w-px bg-[rgba(74,125,158,0.35)]" />
                         <button
                           type="button"
                           onClick={() => setEnergyRankingMode("discharge")}
-                          className={`px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.05em] transition-all ${
+                          className={`inline-flex h-6 min-w-[46px] items-center justify-center px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.05em] transition-all ${
                             energyRankingMode === "discharge"
                               ? "bg-[linear-gradient(180deg,rgba(29,95,154,0.85),rgba(13,49,96,0.98))] text-[#7ab8ff] shadow-[inset_0_1px_0_rgba(164,230,255,0.15)]"
                               : "bg-transparent text-[#6a96b0] hover:text-[#d0f0ff]"
                           }`}
                         >
-                          {zh ? "放" : "↓"}
+                          {zh ? "放" : <DischargeModeIcon />}
                         </button>
                       </div>
                     </div>

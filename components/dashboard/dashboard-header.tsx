@@ -60,6 +60,8 @@ const defaultProjectOption: ProjectOption = {
   latitude: null,
   cityCode: null,
   region: "",
+  regionName: "",
+  regionPinyin: "",
   status: null,
   ratedPower: null,
   ratedCapacity: null,

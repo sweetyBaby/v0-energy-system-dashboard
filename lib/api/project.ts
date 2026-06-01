@@ -15,6 +15,8 @@ export type ProjectOption = {
   latitude: number | null
   cityCode: string | null
   region: string
+  regionName: string
+  regionPinyin: string
   status: string | null
   ratedPower: string | null
   ratedCapacity: string | null
@@ -45,6 +47,8 @@ export type RawProjectListByDeviceRow = {
   projectName?: string | null
   projectNameEn?: string | null
   region?: string | null
+  regionName?: string | null
+  regionPinyin?: string | null
   cityCode?: string | number | null
   company?: string | null
   ratedPower?: string | null
@@ -404,6 +408,8 @@ export type RawProjectDashboardSiteInfo = {
   power?: number | null
   projectName?: string | null
   region?: string | null
+  regionName?: string | null
+  regionPinyin?: string | null
   projectId?: string | null
   status?: string | number | null
 }
@@ -822,6 +828,12 @@ export const normalizeProjectOptionsFromListByDevice = (
       latitude,
       cityCode: hasValue(row.cityCode) ? String(row.cityCode).trim() : null,
       region: hasValue(row.region) ? String(row.region).trim() : "",
+      regionName: hasValue(row.regionName)
+        ? String(row.regionName).trim()
+        : hasValue(row.region)
+          ? String(row.region).trim()
+          : "",
+      regionPinyin: hasValue(row.regionPinyin) ? String(row.regionPinyin).trim() : "",
       status: hasValue(row.status) ? String(row.status).trim() : null,
       ratedPower: hasValue(row.ratedPower) ? String(row.ratedPower).trim() : null,
       ratedCapacity: hasValue(row.ratedCapacity) ? String(row.ratedCapacity).trim() : null,
