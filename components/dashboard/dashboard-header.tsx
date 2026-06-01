@@ -84,6 +84,9 @@ const buildProjectView = (
   deviceRealtimeSnapshots: normalizeRealtimeDeviceSnapshots(realtime, project.devices, realtimeRequestSucceeded),
 })
 
+const getProjectRegionLabel = (project: Project, zh: boolean) =>
+  (zh ? project.regionName : project.regionPinyin) || ""
+
 const ProjectContext = createContext<{
   projectOptions: ProjectOption[]
   selectedProject: Project
@@ -320,7 +323,8 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
     : "/project-map"
   const headerEyebrow = zh ? "项目运行中枢" : "PROJECT COMMAND"
   const headerSubtitle = hasProject
-    ? [selectedProject.region, selectedProject.company].filter(Boolean).join(" / ") || (zh ? "实时运行总览" : "Realtime Operations Overview")
+    ? [getProjectRegionLabel(selectedProject, zh), selectedProject.company].filter(Boolean).join(" / ") ||
+      (zh ? "实时运行总览" : "Realtime Operations Overview")
     : zh ? "实时运行总览" : "Realtime Operations Overview"
 
   useEffect(() => {

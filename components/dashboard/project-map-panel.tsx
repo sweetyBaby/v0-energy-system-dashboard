@@ -154,16 +154,31 @@ type ProjectMapPanelProps = {
 const PANEL_CLASS =
   "rounded-[20px] border border-[#1a4d6a] bg-[linear-gradient(160deg,rgba(5,16,30,0.98),rgba(3,10,20,0.99))] shadow-[0_12px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(100,200,255,0.06)]"
 
-// Classic location pin (Google Maps style): prominent circle head, narrow tapering tail
-// Tip at (0,0); circle center at (0, -(R + tailLen))
-const makePinPath = (R: number, tailLen: number): string => {
-  const cy = -(R + tailLen)
-  const a = (55 * Math.PI) / 180               // entry angle from circle bottom (~55°)
-  const ex = R * Math.sin(a)                   // entry x  ≈ 0.82 R
-  const ey = cy + R * Math.cos(a)              // entry y  slightly below equator
-  const t1x = R * 0.07,  t1y = -tailLen * 0.44 // near-tip control  (very narrow)
-  const t2x = ex * 0.88, t2y = ey + tailLen * 0.20 // near-circle control
-  return `M 0 0 C ${-t1x} ${t1y} ${-t2x} ${t2y} ${-ex} ${ey} A ${R} ${R} 0 1 1 ${ex} ${ey} C ${t2x} ${t2y} ${t1x} ${t1y} 0 0 Z`
+const getMarkerFlagWidth = (label: string, zh: boolean, minWidth: number, maxWidth: number) => {
+  const perChar = zh ? 11.5 : 7.2
+  const horizontalPadding = zh ? 18 : 20
+  return Math.max(minWidth, Math.min(maxWidth, Math.round(label.length * perChar + horizontalPadding)))
+}
+
+const makeMarkerFlagPath = (width: number, bodyHeight: number, pointerHeight: number) => {
+  const halfW = width / 2
+  const bodyBottomY = -pointerHeight
+  const pointerHalfW = Math.max(7, Math.min(12, width * 0.11))
+  return [
+    `M ${-halfW} ${-bodyHeight}`,
+    `H ${halfW}`,
+    `Q ${halfW + 4} ${-bodyHeight} ${halfW + 4} ${-bodyHeight + 4}`,
+    `V ${bodyBottomY - 4}`,
+    `Q ${halfW + 4} ${bodyBottomY} ${halfW} ${bodyBottomY}`,
+    `H ${pointerHalfW}`,
+    `L 0 0`,
+    `L ${-pointerHalfW} ${bodyBottomY}`,
+    `H ${-halfW}`,
+    `Q ${-halfW - 4} ${bodyBottomY} ${-halfW - 4} ${bodyBottomY - 4}`,
+    `V ${-bodyHeight + 4}`,
+    `Q ${-halfW - 4} ${-bodyHeight} ${-halfW} ${-bodyHeight}`,
+    "Z",
+  ].join(" ")
 }
 
 const hasText = (value?: string | null) => typeof value === "string" && value.trim().length > 0
@@ -290,40 +305,60 @@ const getLifecycleText = (lifecycle: LifecycleKey, zh: boolean) => {
   return zh ? "待建设" : "Planned"
 }
 
+const SHARED_MARKER_FILL = "#56b8ff"
+const SHARED_MARKER_STROKE = "#dcedff"
+const SHARED_RING_STROKE = "rgba(86,184,255,0.30)"
+const SHARED_FLAG_FILL = "rgba(23,74,158,0.97)"
+
+const getClusterLifecycle = (projects: ProjectOption[]): LifecycleKey | null => {
+  if (!projects.length) return null
+  const first = normalizeLifecycle(projects[0])
+  return projects.every((project) => normalizeLifecycle(project) === first) ? first : null
+}
+
 
 const getLifecycleStyles = (lifecycle: LifecycleKey) => {
   if (lifecycle === "commissioned") {
     return {
-      badge: "border-[#2ff3cf]/28 bg-[rgba(17,95,82,0.24)] text-[#71ffef]",
-      markerFill: "#2ef1df",
-      markerStroke: "#dcfffb",
-      ringStroke: "rgba(46,241,223,0.34)",
-      bar: "from-[#1eead8] to-[#38e8cf]",
-      dot: "bg-[#2ef1df]",
-      shadow: "drop-shadow(0 0 12px rgba(46,241,223,0.38))",
+      badge: "border-[#56b8ff]/28 bg-[rgba(18,56,94,0.26)] text-[#86d0ff]",
+      text: "#86d0ff",
+      markerFill: SHARED_MARKER_FILL,
+      markerStroke: SHARED_MARKER_STROKE,
+      ringStroke: SHARED_RING_STROKE,
+      flagFill: SHARED_FLAG_FILL,
+      flagStroke: "#86d0ff",
+      bar: "from-[#67c2ff] to-[#4599ff]",
+      dot: "bg-[#56b8ff]",
+      shadow: "drop-shadow(0 0 12px rgba(86,184,255,0.30))",
     }
   }
 
   if (lifecycle === "construction") {
     return {
       badge: "border-[#ffbf52]/28 bg-[rgba(97,71,14,0.28)] text-[#ffc96e]",
-      markerFill: "#ffb74b",
-      markerStroke: "#fff0cb",
-      ringStroke: "rgba(255,183,75,0.34)",
+      text: "#ffc96e",
+      markerFill: SHARED_MARKER_FILL,
+      markerStroke: SHARED_MARKER_STROKE,
+      ringStroke: SHARED_RING_STROKE,
+      flagFill: SHARED_FLAG_FILL,
+      flagStroke: "#ffc96e",
       bar: "from-[#ffc14d] to-[#ff9d3d]",
-      dot: "bg-[#ffb74b]",
-      shadow: "drop-shadow(0 0 12px rgba(255,183,75,0.42))",
+      dot: "bg-[#56b8ff]",
+      shadow: "drop-shadow(0 0 12px rgba(86,184,255,0.30))",
     }
   }
 
   return {
     badge: "border-[#7aa6ff]/22 bg-[rgba(34,59,99,0.24)] text-[#9ac0ff]",
-    markerFill: "#7aa6ff",
-    markerStroke: "#eef5ff",
-    ringStroke: "rgba(122,166,255,0.28)",
+    text: "#9ac0ff",
+    markerFill: SHARED_MARKER_FILL,
+    markerStroke: SHARED_MARKER_STROKE,
+    ringStroke: SHARED_RING_STROKE,
+    flagFill: SHARED_FLAG_FILL,
+    flagStroke: "#9ac0ff",
     bar: "from-[#77a4ff] to-[#4e8fff]",
-    dot: "bg-[#7aa6ff]",
-    shadow: "drop-shadow(0 0 10px rgba(122,166,255,0.34))",
+    dot: "bg-[#56b8ff]",
+    shadow: "drop-shadow(0 0 10px rgba(86,184,255,0.30))",
   }
 }
 
@@ -487,22 +522,30 @@ const COUNTRY_LABELS: Record<string, { zh: string; en: string }> = {
 const PRIORITY_MARKETS = new Set(["United States of America", "Australia", "Canada", "United Arab Emirates"])
 
 const COUNTRY_LABEL_CENTERS: Partial<Record<string, MapCoordinates>> = {
-  Australia: [134, -25],
-  Canada: [-106, 58],
-  "United States of America": [-98, 39],
-  "United Arab Emirates": [54.3, 24.3],
+  China: [108, 34],                       // 湖北/陕西附近，中国主体区域视觉中心
+  Mongolia: [103, 47],                    // 中蒙古，肯特省附近
+  Russia: [100, 64],                      // 中西伯利亚，叶尼塞河流域
+  India: [79, 22],                        // 中央邦，印度地理中心
+  Japan: [136, 36],                       // 本州岛中部，爱知县附近
+  "South Korea": [128, 36],              // 韩国中部，大田附近
+  Germany: [10, 51],                      // 德国中部，图林根州
+  Brazil: [-53, -11],                     // 马托格罗索州，巴西地理中心
+  Australia: [134, -26],                  // 南澳大利亚，地理中心
+  Canada: [-110, 62],                     // 西北地区/不列颠哥伦比亚以东，远离边界的内陆中心
+  "United States of America": [-98, 39], // 堪萨斯州，美国大陆重心
+  "United Arab Emirates": [54.3, 24.3], // 阿布扎比内陆，阿联酋中心
 }
 
 const COUNTRY_LABEL_OFFSET_FACTORS: ReadonlyArray<readonly [number, number]> = [
   [0, 0],
-  [0, 0.22],
-  [0, -0.22],
-  [0.22, 0],
-  [-0.22, 0],
-  [0.18, 0.16],
-  [-0.18, 0.16],
-  [0.18, -0.16],
-  [-0.18, -0.16],
+  [0, 0.07],
+  [0, -0.07],
+  [0.08, 0],
+  [-0.08, 0],
+  [0.07, 0.06],
+  [-0.07, 0.06],
+  [0.07, -0.06],
+  [-0.07, -0.06],
 ]
 
 const clampToRange = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
@@ -518,6 +561,54 @@ const getCoordinateDistance = (left: MapCoordinates, right: MapCoordinates) => {
   const dx = (left[0] - right[0]) * Math.cos(averageLatitude)
   const dy = left[1] - right[1]
   return Math.sqrt(dx * dx + dy * dy)
+}
+
+type ClusterFlagLayout = {
+  offsetX: number
+  offsetY: number
+}
+
+const getClusterFlagLayoutMap = (clusters: ProjectCluster[]): Map<string, ClusterFlagLayout> => {
+  const nearbyThreshold = 13
+  const layoutMap = new Map<string, ClusterFlagLayout>()
+
+  for (const cluster of clusters) {
+    const neighbors = clusters
+      .filter((candidate) => getCoordinateDistance(cluster.coordinates, candidate.coordinates) <= nearbyThreshold)
+      .sort((left, right) => {
+        if (left.coordinates[0] !== right.coordinates[0]) return left.coordinates[0] - right.coordinates[0]
+        return right.coordinates[1] - left.coordinates[1]
+      })
+
+    const index = Math.max(0, neighbors.findIndex((candidate) => candidate.id === cluster.id))
+    const layoutBySize: Record<number, ClusterFlagLayout[]> = {
+      1: [{ offsetX: 0, offsetY: 0 }],
+      2: [
+        { offsetX: -44, offsetY: -8 },
+        { offsetX: 44, offsetY: 8 },
+      ],
+      3: [
+        { offsetX: -48, offsetY: -8 },
+        { offsetX: 0, offsetY: 8 },
+        { offsetX: 48, offsetY: -2 },
+      ],
+      4: [
+        { offsetX: -54, offsetY: -10 },
+        { offsetX: -18, offsetY: 6 },
+        { offsetX: 18, offsetY: -2 },
+        { offsetX: 54, offsetY: 10 },
+      ],
+    }
+    const fallbackLayouts = neighbors.map((_, lane) => ({
+      offsetX: (lane - (neighbors.length - 1) / 2) * 34,
+      offsetY: lane % 2 === 0 ? -6 : 8,
+    }))
+    const layout = layoutBySize[neighbors.length]?.[index] ?? fallbackLayouts[index] ?? { offsetX: 0, offsetY: 0 }
+
+    layoutMap.set(cluster.id, layout)
+  }
+
+  return layoutMap
 }
 
 const resolveCountryLabelCenter = (
@@ -1022,6 +1113,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   )
 
   const projectClusters = useMemo(() => clusterMappableProjects(mappableProjects), [mappableProjects])
+  const clusterFlagLayouts = useMemo(() => getClusterFlagLayoutMap(projectClusters), [projectClusters])
 
   const activeCluster = useMemo(
     () => projectClusters.find((c) => c.id === hoveredClusterId) ?? null,
@@ -1709,8 +1801,9 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                         <Marker key={`country-label-${item.country}`} coordinates={item.center}>
                           <g transform={`scale(${markerScale})`} pointerEvents="none">
                             <text
-                              y={-19}
+                              y={0}
                               textAnchor="middle"
+                              dominantBaseline="central"
                               style={{
                                 fontSize: zh ? "9px" : "8px",
                                 fontWeight: 800,
@@ -1728,10 +1821,22 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
 
                     {projectClusters.map((cluster) => {
                       const isClusterActive = hoveredClusterId === cluster.id
+                      const flagLayout = clusterFlagLayouts.get(cluster.id) ?? { offsetX: 0, offsetY: 0 }
 
                       if (cluster.projects.length > 1) {
-                        const regionName = getProjectRegionLabel(cluster.projects[0], zh) || (zh ? "未标注" : "Unknown")
-                        const regionLabelW = Math.max(32, Math.min(76, regionName.length * 7 + 14))
+                        const clusterLifecycle = getClusterLifecycle(cluster.projects)
+                        const clusterStyles = clusterLifecycle ? getLifecycleStyles(clusterLifecycle) : null
+                        const regionName = getProjectRegionLabel(cluster.projects[0], zh)
+                        const regionLabelW = getMarkerFlagWidth(regionName, zh, 52, 92)
+                        const regionFlagH = 24
+                        const regionFlagPointerH = 7
+                        const badgeR = 7.4
+                        const badgeCx = regionLabelW / 2 + badgeR - 2
+                        const badgeCy = -regionFlagH + badgeR - 1
+                        const regionFlagTopY = (isClusterActive ? -58 : -54) + flagLayout.offsetY
+                        const regionStemTopY = regionFlagTopY - 4
+                        const regionFlagPath = makeMarkerFlagPath(regionLabelW, regionFlagH, regionFlagPointerH)
+                        const regionJointY = -20
 
                         return (
                           <Marker
@@ -1743,44 +1848,68 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           >
                             <g transform={`scale(${markerScale})`}>
                               {/* Pulse rings */}
-                              <circle cx={0} cy={0} r={13} fill="none" stroke="#00d0c2" strokeWidth={1.0} strokeOpacity={0}>
-                                <animate attributeName="r" values="13;29" dur="2.8s" repeatCount="indefinite" begin="0s" />
+                              <circle cx={0} cy={-18} r={10} fill="none" stroke={SHARED_RING_STROKE} strokeWidth={1.0} strokeOpacity={0}>
+                                <animate attributeName="r" values="10;26" dur="2.8s" repeatCount="indefinite" begin="0s" />
                                 <animate attributeName="stroke-opacity" values="0.45;0" dur="2.8s" repeatCount="indefinite" begin="0s" />
                               </circle>
-                              <circle cx={0} cy={0} r={13} fill="none" stroke="#00d0c2" strokeWidth={1.0} strokeOpacity={0}>
-                                <animate attributeName="r" values="13;29" dur="2.8s" repeatCount="indefinite" begin="1.4s" />
+                              <circle cx={0} cy={-18} r={10} fill="none" stroke={SHARED_RING_STROKE} strokeWidth={1.0} strokeOpacity={0}>
+                                <animate attributeName="r" values="10;26" dur="2.8s" repeatCount="indefinite" begin="1.4s" />
                                 <animate attributeName="stroke-opacity" values="0.45;0" dur="2.8s" repeatCount="indefinite" begin="1.4s" />
                               </circle>
-                              {/* Outer glow ring */}
-                              <circle r={isClusterActive ? 17 : 14}
-                                fill={isClusterActive ? "rgba(0,220,200,0.10)" : "rgba(0,200,185,0.05)"}
-                                stroke={isClusterActive ? "rgba(0,240,220,0.70)" : "rgba(0,220,200,0.42)"}
-                                strokeWidth={isClusterActive ? 1.5 : 1.2}
+                              <circle cx={0} cy={0} r={4.6} fill={SHARED_MARKER_FILL} stroke={SHARED_MARKER_STROKE} strokeWidth={1.1} />
+                              <line
+                                x1={0}
+                                y1={-1}
+                                x2={0}
+                                y2={regionJointY}
+                                stroke={SHARED_MARKER_FILL}
+                                strokeWidth={isClusterActive ? 5 : 4}
+                                strokeLinecap="round"
                                 style={{ transition: "all 0.2s ease" }}
                               />
-                              {/* Core badge */}
-                              <circle r={isClusterActive ? 11 : 9.5}
-                                fill="rgba(1,16,26,0.97)"
-                                stroke={isClusterActive ? "#00f0e0" : "#00d0c2"}
-                                strokeWidth={isClusterActive ? 1.8 : 1.5}
-                                style={{ filter: `drop-shadow(0 0 ${isClusterActive ? 9 : 5}px rgba(0,240,210,0.85))`, transition: "all 0.2s ease" }}
+                              <line
+                                x1={0}
+                                y1={regionJointY}
+                                x2={flagLayout.offsetX}
+                                y2={regionStemTopY}
+                                stroke={SHARED_MARKER_FILL}
+                                strokeWidth={isClusterActive ? 4.3 : 3.5}
+                                strokeLinecap="round"
+                                style={{ transition: "all 0.2s ease" }}
                               />
-                              {/* Count */}
-                              <text y={4.5} textAnchor="middle"
-                                style={{ fontSize: "12px", fontWeight: 900, fill: "#ffffff", letterSpacing: "-0.5px" }}>
-                                {cluster.projects.length}
-                              </text>
-                              {/* Region label */}
-                              <g transform={`translate(0 ${isClusterActive ? 27 : 21})`} style={{ transition: "all 0.2s ease" }}>
-                                <rect x={-regionLabelW / 2} y={-1} width={regionLabelW} height={14} rx={7}
-                                  fill="rgba(1,8,18,0.90)"
-                                  stroke={isClusterActive ? "rgba(0,240,210,0.50)" : "rgba(0,200,185,0.28)"}
-                                  strokeWidth={0.8}
+                              <circle
+                                cx={flagLayout.offsetX}
+                                cy={regionStemTopY}
+                                r={isClusterActive ? 5.3 : 4.8}
+                                fill={SHARED_MARKER_FILL}
+                                stroke={SHARED_MARKER_STROKE}
+                                strokeWidth={1.1}
+                                style={{ transition: "all 0.2s ease" }}
+                              />
+                              <g transform={`translate(${flagLayout.offsetX} ${regionFlagTopY})`} style={{ transition: "all 0.2s ease" }}>
+                                <path
+                                  d={regionFlagPath}
+                                  fill={SHARED_FLAG_FILL}
+                                  stroke={clusterStyles?.flagStroke ?? SHARED_MARKER_STROKE}
+                                  strokeWidth={isClusterActive ? 2 : 1.7}
+                                  style={{ transition: "all 0.2s ease" }}
                                 />
-                                <text y={9.5} textAnchor="middle"
-                                  style={{ fontSize: "9px", fontWeight: 700, fill: isClusterActive ? "#88ffef" : "#44c8b8", letterSpacing: "0.06em" }}>
+                                <path
+                                  d={`M ${-regionLabelW / 2 + 10} ${-regionFlagH + 5} H ${regionLabelW / 2 - 18}`}
+                                  stroke="rgba(255,255,255,0.22)"
+                                  strokeWidth={0.9}
+                                  strokeLinecap="round"
+                                />
+                                <text x={-4} y={-10.5} textAnchor="middle"
+                                  style={{ fontSize: zh ? "10px" : "8px", fontWeight: 800, fill: "#f3f8ff", letterSpacing: zh ? "0.01em" : "0.05em" }}>
                                   {regionName}
                                 </text>
+                                <g transform={`translate(${badgeCx} ${badgeCy})`}>
+                                  <circle r={badgeR} fill={SHARED_MARKER_FILL} stroke={SHARED_MARKER_STROKE} strokeWidth={1} />
+                                  <text y={3.2} textAnchor="middle" style={{ fontSize: "8px", fontWeight: 900, fill: "#173a78" }}>
+                                    {cluster.projects.length}
+                                  </text>
+                                </g>
                               </g>
                             </g>
                           </Marker>
@@ -1793,9 +1922,13 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       const isHovered = hoveredId === project.id
                       const isActive = isHovered
                       const projectLabel = getProjectRegionLabel(project, zh)
-                      const regionLabelW = Math.max(40, Math.min(92, projectLabel.length * 10 + 14))
-                      const pinR = isActive ? 11 : 9
-                      const pinH = isActive ? 15 : 13
+                      const regionLabelW = getMarkerFlagWidth(projectLabel, zh, 56, 98)
+                      const flagH = 25
+                      const flagPointerH = 7
+                      const flagTopY = (isActive ? -60 : -56) + flagLayout.offsetY
+                      const stemTopY = flagTopY - 4
+                      const flagPath = makeMarkerFlagPath(regionLabelW, flagH, flagPointerH)
+                      const jointY = -20
 
                       return (
                         <Marker
@@ -1809,34 +1942,62 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                             {/* Pulse rings — commissioned projects only */}
                             {lifecycle === "commissioned" && (
                               <>
-                                <circle cx={0} cy={0} r={5} fill="none" stroke={styles.markerFill} strokeWidth={1.1} strokeOpacity={0}>
-                                  <animate attributeName="r" values="5;19" dur="2.5s" repeatCount="indefinite" begin="0s" />
+                                <circle cx={0} cy={-18} r={8} fill="none" stroke={styles.ringStroke} strokeWidth={1.1} strokeOpacity={0}>
+                                  <animate attributeName="r" values="8;22" dur="2.5s" repeatCount="indefinite" begin="0s" />
                                   <animate attributeName="stroke-opacity" values="0.55;0" dur="2.5s" repeatCount="indefinite" begin="0s" />
                                 </circle>
-                                <circle cx={0} cy={0} r={5} fill="none" stroke={styles.markerFill} strokeWidth={1.1} strokeOpacity={0}>
-                                  <animate attributeName="r" values="5;19" dur="2.5s" repeatCount="indefinite" begin="1.25s" />
+                                <circle cx={0} cy={-18} r={8} fill="none" stroke={styles.ringStroke} strokeWidth={1.1} strokeOpacity={0}>
+                                  <animate attributeName="r" values="8;22" dur="2.5s" repeatCount="indefinite" begin="1.25s" />
                                   <animate attributeName="stroke-opacity" values="0.55;0" dur="2.5s" repeatCount="indefinite" begin="1.25s" />
                                 </circle>
                               </>
                             )}
-                            {/* Pin body only – no internal decoration */}
-                            <path
-                              d={makePinPath(pinR, pinH)}
+                            <circle cx={0} cy={0} r={5} fill={styles.markerFill} stroke={styles.markerStroke} strokeWidth={1.2} />
+                            <line
+                              x1={0}
+                              y1={-2}
+                              x2={0}
+                              y2={jointY}
+                              stroke={styles.markerFill}
+                              strokeWidth={isActive ? 5 : 4}
+                              strokeLinecap="round"
+                              style={{ transition: "all 0.2s ease" }}
+                            />
+                            <line
+                              x1={0}
+                              y1={jointY}
+                              x2={flagLayout.offsetX}
+                              y2={stemTopY}
+                              stroke={styles.markerFill}
+                              strokeWidth={isActive ? 4.2 : 3.4}
+                              strokeLinecap="round"
+                              style={{ transition: "all 0.2s ease" }}
+                            />
+                            <circle
+                              cx={flagLayout.offsetX}
+                              cy={stemTopY}
+                              r={isActive ? 5.5 : 4.9}
                               fill={styles.markerFill}
                               stroke={styles.markerStroke}
-                              strokeWidth={isActive ? 1.4 : 1.1}
-                              style={{ filter: styles.shadow, transition: "all 0.2s ease" }}
+                              strokeWidth={1.1}
+                              style={{ transition: "all 0.2s ease" }}
                             />
-                            {/* Label chip — same style regardless of hover state */}
-                            <g transform="translate(0 10)" style={{ transition: "opacity 0.2s ease" }}>
-                              <rect
-                                x={-regionLabelW / 2} y={0} width={regionLabelW} height={14} rx={7}
-                                fill="rgba(1,8,20,0.88)"
-                                stroke={isActive ? styles.markerFill : styles.ringStroke}
-                                strokeWidth={isActive ? 1.0 : 0.8}
+                            <g transform={`translate(${flagLayout.offsetX} ${flagTopY})`} style={{ transition: "all 0.2s ease" }}>
+                              <path
+                                d={flagPath}
+                                fill={styles.flagFill}
+                                stroke={styles.flagStroke}
+                                strokeWidth={isActive ? 2.2 : 1.9}
+                                style={{ transition: "all 0.2s ease" }}
                               />
-                              <text y={10} textAnchor="middle"
-                                style={{ fontSize: "10px", fontWeight: 700, fill: styles.markerFill, letterSpacing: "0.02em" }}>
+                              <path
+                                d={`M ${-regionLabelW / 2 + 10} ${-flagH + 5} H ${regionLabelW / 2 - 10}`}
+                                stroke="rgba(255,255,255,0.22)"
+                                strokeWidth={0.9}
+                                strokeLinecap="round"
+                              />
+                              <text y={-11} textAnchor="middle"
+                                style={{ fontSize: zh ? "10px" : "8px", fontWeight: 800, fill: "#f4f8ff", letterSpacing: zh ? "0.01em" : "0.05em" }}>
                                 {projectLabel}
                               </text>
                             </g>
@@ -1862,15 +2023,22 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                   </div>
                   <div className="mt-1 flex flex-col gap-1">
                     {mapStatusLegend.map((item) => {
-                      const accentColor = item.key === "commissioned" ? "#00e5d2" : item.key === "construction" ? "#ffb74b" : "#7aa6ff"
+                      const styles = getLifecycleStyles(item.key)
                       return (
                         <div key={item.key} className="flex items-center gap-2 rounded-[7px] border border-white/6 bg-white/[0.02] px-2 py-1">
-                          <svg width="9" height="14" viewBox="-5 -16 10 18" className="shrink-0">
-                            <path d={makePinPath(5, 6)} fill={accentColor} />
-                            <circle cx={-1.4} cy={-12.2} r={1.4} fill="rgba(255,255,255,0.75)" />
+                          <svg width="16" height="16" viewBox="-8 -18 16 18" className="shrink-0">
+                            <circle cx={0} cy={0} r={2.2} fill={styles.markerFill} stroke={styles.markerStroke} strokeWidth={0.8} />
+                            <line x1={0} y1={-1} x2={0} y2={-12} stroke={styles.markerFill} strokeWidth={2.2} strokeLinecap="round" />
+                            <path
+                              d={makeMarkerFlagPath(11, 8, 3)}
+                              transform="translate(0 -10)"
+                              fill={styles.flagFill}
+                              stroke={styles.flagStroke}
+                              strokeWidth={0.9}
+                            />
                           </svg>
-                          <span className="min-w-0 flex-1 text-[10px] font-semibold tracking-[0.04em] text-[#d0eeff]">{item.label}</span>
-                          <span className="text-[11px] font-black leading-none" style={{ color: accentColor }}>
+                          <span className="min-w-0 flex-1 text-[10px] font-semibold tracking-[0.04em]" style={{ color: styles.text }}>{item.label}</span>
+                          <span className="text-[11px] font-black leading-none" style={{ color: styles.text }}>
                             {formatIntegerCount(lifecycleCounts[item.key])}
                           </span>
                         </div>
@@ -1924,7 +2092,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       <>
                         <div className="border-b border-[#1f4457] px-3 py-2.5">
                           <div className="text-[10px] font-semibold tracking-[0.12em] text-[#79b5cf]">
-                            {activeCluster.projects[0].region || (zh ? "此区域" : "This Area")}
+                            {getProjectRegionLabel(activeCluster.projects[0], zh)}
                           </div>
                           <div className="mt-1 text-[13px] font-black leading-tight text-[#eefbff]">
                             {activeCluster.projects.length}
@@ -2010,7 +2178,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                     {activeCluster && activeCluster.projects.length > 1 ? (
                       <div className="border-b border-[#1d3f52] px-3 pt-2.5 pb-2">
                         <div className="mb-2 text-[11px] font-black tracking-[0.1em] text-[#d8f5ff] [text-shadow:0_0_10px_rgba(92,214,255,0.18)]">
-                          {activeCluster.projects[0].region || (zh ? "此区域" : "This Area")}
+                          {getProjectRegionLabel(activeCluster.projects[0], zh)}
                           &nbsp;·&nbsp;{activeCluster.projects.length}{zh ? " 个项目" : " projects"}
                         </div>
                         <div className="-mx-1 overflow-x-auto pb-1 custom-scrollbar">
