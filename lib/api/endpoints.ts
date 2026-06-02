@@ -21,6 +21,24 @@ export const apiEndpoints = {
      */
     projectDetail: (projectId: string) => `/ems/project/${projectId}`,
     /**
+     * Project dashboard overview statistics.
+     * Used by the map overview cards and lifecycle summary.
+     */
+    dashboardOverview: "/ems/project/dashboard/overview",
+    /**
+     * Project dashboard EE ranking.
+     */
+    eeRanking: "/ems/project/dashboard/eeRanking",
+    /**
+     * Project dashboard charge/discharge ranking.
+     */
+    chargeDischargeRanking: "/ems/project/dashboard/chargeDischargeRanking",
+    /**
+     * Project dashboard site-level realtime info.
+     * Query: projectId?, deviceId?
+     */
+    siteInfos: "/ems/project/dashboard/siteInfos",
+    /**
      * Overview realtime snapshot.
      * Used for SOC, PACK voltage/current, power, SOH and overview cards.
      */

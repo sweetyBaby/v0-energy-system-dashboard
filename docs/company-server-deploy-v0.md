@@ -5,17 +5,17 @@
 - 本地 Windows 机器负责构建 Docker 镜像
 - Linux 公司服务器只负责 `docker load` 和运行容器
 - 外网访问地址为 `http://223.107.76.50:9016/`
-- 后端外网接口地址为 `http://223.107.76.50:9016/api/`
-- 后端内网接口地址为 `http://10.10.10.17:8080/`
+- 后端外网接口地址为 `http://223.107.76.50:9016/prod-api/`
+- 后端内网接口地址为 `http://10.10.10.18:8080/`
 
 ## 一、发布目标
 
 最终访问关系如下：
 
 - 前端页面：`http://223.107.76.50:9016/`
-- 后端接口：`http://223.107.76.50:9016/api/`
-- 前端容器实际运行地址：`http://10.10.10.17:3000`
-- 前端容器内部访问后端：`http://10.10.10.17:8080`
+- 后端接口：`http://223.107.76.50:9016/prod-api/`
+- 前端容器实际运行地址：`http://10.10.10.18:3000`
+- 前端容器内部访问后端：`http://10.10.10.18:8080`
 
 ## 二、本地构建镜像
 
@@ -81,7 +81,7 @@ sudo docker rm energy-dashboard 2>/dev/null
 sudo docker run -d \
   --name energy-dashboard \
   -p 3000:3000 \
-  -e API_BASE_URL=http://10.10.10.17:8080 \
+  -e API_BASE_URL=http://10.10.10.18:8080 \
   --restart unless-stopped \
   energy-dashboard:latest
 ```
@@ -113,7 +113,7 @@ server {
     error_log /var/log/nginx/error.log;
 
     location /api/proxy/ {
-        proxy_pass http://10.10.10.17:3000;
+        proxy_pass http://10.10.10.18:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -138,7 +138,7 @@ server {
     }
 
     location / {
-        proxy_pass http://10.10.10.17:3000;
+        proxy_pass http://10.10.10.18:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -163,25 +163,26 @@ server {
 当前服务器上的 Nginx 容器为：
 
 ```text
-2bff3a122fdd
+7e002a5697c7
 ```
 
 先检查配置：
 
 ```bash
-sudo docker exec 2bff3a122fdd nginx -t
+sudo docker exec 7e002a5697c7 nginx -t
+sudo docker exec nginx nginx -t
 ```
 
 重载配置：
 
 ```bash
-sudo docker exec 2bff3a122fdd nginx -s reload
+sudo docker exec 7e002a5697c7 nginx -s reload
 ```
 
 如果 reload 失败，则直接重启 Nginx 容器：
 
 ```bash
-sudo docker restart 2bff3a122fdd
+sudo docker restart 7e002a5697c7
 ```
 
 ## 八、部署验证
@@ -196,7 +197,7 @@ wget -qO- http://127.0.0.1:3000 | head
 
 ```bash
 wget -qO- http://127.0.0.1:9016 | head
-wget -qO- http://127.0.0.1:9016/api/ | head
+wget -qO- http://127.0.0.1:9016/prod-api/ | head
 ```
 
 最终从浏览器访问：
@@ -235,12 +236,12 @@ sudo docker rm energy-dashboard 2>/dev/null
 sudo docker run -d \
   --name energy-dashboard \
   -p 3000:3000 \
-  -e API_BASE_URL=http://10.10.10.17:8080 \
+  -e API_BASE_URL=http://10.10.10.18:8080 \
   --restart unless-stopped \
   energy-dashboard:latest
 
-sudo docker exec 2bff3a122fdd nginx -t
-sudo docker exec 2bff3a122fdd nginx -s reload
+sudo docker exec 7e002a5697c7 nginx -t
+sudo docker exec 7e002a5697c7 nginx -s reload
 ```
 
 ## 十、常用排查命令
@@ -262,7 +263,7 @@ sudo docker inspect energy-dashboard | grep API_BASE_URL
 
 ```bash
 sudo docker ps
-sudo docker exec 2bff3a122fdd nginx -t
+sudo docker exec 7e002a5697c7 nginx -t
 ```
 
 查看本机端口监听：
@@ -282,6 +283,7 @@ wget -qO- http://127.0.0.1:9016 | head
 ## 十一、关键原则
 
 - 浏览器访问的是外网地址 `http://223.107.76.50:9016/`
-- 前端容器里的 `API_BASE_URL` 必须指向后端真实内网地址 `http://10.10.10.17:8080`
-- 外网 Nginx 的 `/api/` 会代理到后端，但前端容器直连内网后端时不要再额外拼 `/api`
+- 前端容器里的 `API_BASE_URL` 必须指向后端真实内网地址 `http://10.10.10.18:8080`
+- 本地开发如果不能直连内网后端，可改用外网代理地址 `http://223.107.76.50:9016/prod-api`
+- 外网 Nginx 的后端代理入口是 `/prod-api/`，不要把前端地址 `/api` 或 `/api/proxy` 写进 `API_BASE_URL`
 - 服务器不需要 Git，只需要 Docker 和现有 Nginx 容器

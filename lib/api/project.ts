@@ -11,6 +11,18 @@ export type ProjectOption = {
   projectNameEn: string
   picPath: string
   devices: ProjectDevice[]
+  longitude: number | null
+  latitude: number | null
+  cityCode: string | null
+  region: string
+  regionName: string
+  regionPinyin: string
+  status: string | null
+  ratedPower: string | null
+  ratedCapacity: string | null
+  commissioningDate: string | null
+  workingDate: string | null
+  installedCapacityMw: number | null
 }
 
 export type ProjectDevice = {
@@ -35,6 +47,9 @@ export type RawProjectListByDeviceRow = {
   projectName?: string | null
   projectNameEn?: string | null
   region?: string | null
+  regionName?: string | null
+  regionPinyin?: string | null
+  cityCode?: string | number | null
   company?: string | null
   ratedPower?: string | null
   commissioningDate?: string | null
@@ -46,6 +61,8 @@ export type RawProjectListByDeviceRow = {
   workingDate?: string | null
   totalChargeAh?: number | null
   totalDischargeAh?: number | null
+  longitude?: number | string | null
+  latitude?: number | string | null
   deviceId?: string | null
   deviceName?: string | null
   deviceType?: string | null
@@ -60,11 +77,20 @@ export type ProjectListByDeviceResponse = {
   msg: string
 }
 
+const KNOWN_PROJECT_COORDINATES: Record<string, { longitude: number; latitude: number }> = {
+  "360c0347c09c4735900b9df32f3b8ff7": { longitude: 119.95, latitude: 31.77 },
+  "9964201b369549b4b04c29bfe3863daa": { longitude: 109.99, latitude: 39.81 },
+  // 2S5P测试项目 — 常州市武进区（与金坛同城，共享聚合坐标）
+  "594c35b6891f492b80fb25a933afe9e1": { longitude: 119.95, latitude: 31.77 },
+}
+
 const PROJECT_LIST_IMAGES: Record<string, string> = {
   "360c0347c09c4735900b9df32f3b8ff7":
     "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
   "9964201b369549b4b04c29bfe3863daa":
     "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
+  "594c35b6891f492b80fb25a933afe9e1":
+    "https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=1600&h=900&fit=crop",
 }
 
 export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse = {
@@ -79,6 +105,7 @@ export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse =
       projectId: "360c0347c09c4735900b9df32f3b8ff7",
       projectName: "金坛储能中心",
       projectNameEn: "Jintan Energy Storage Center",
+      cityCode: "320413",
       region: "常州",
       company: null,
       ratedPower: null,
@@ -86,6 +113,8 @@ export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse =
       tariffInfo: null,
       status: null,
       delFlag: null,
+      longitude: 119.95,
+      latitude: 31.77,
       picPath: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=1600&h=900&fit=crop",
       ratedCapacity: "75kW / 150kWh",
       workingDate: "2025-11-15",
@@ -118,6 +147,7 @@ export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse =
       projectId: "9964201b369549b4b04c29bfe3863daa",
       projectName: "鄂尔多斯储能中心",
       projectNameEn: "Ordos Energy Storage Center",
+      cityCode: "150600",
       region: "鄂尔多斯",
       company: null,
       ratedPower: null,
@@ -125,6 +155,8 @@ export const MOCK_PROJECT_LIST_BY_DEVICE_RESPONSE: ProjectListByDeviceResponse =
       tariffInfo: null,
       status: null,
       delFlag: null,
+      longitude: 109.99,
+      latitude: 39.81,
       picPath: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1600&h=900&fit=crop",
       ratedCapacity: null,
       workingDate: null,
@@ -193,6 +225,28 @@ export type DeviceRealtimeSnapshotView = RealtimeSnapshotView & {
   deviceType: string | null
 }
 
+export type RawProjectWeatherLive = {
+  province?: string | null
+  city?: string | null
+  adcode?: string | null
+  weather?: string | null
+  temperature?: string | null
+  winddirection?: string | null
+  windpower?: string | null
+  humidity?: string | null
+  reporttime?: string | null
+  temperature_float?: string | null
+  humidity_float?: string | null
+}
+
+export type RawProjectWeather = {
+  lives?: RawProjectWeatherLive[] | null
+  count?: string | null
+  infocode?: string | null
+  status?: string | null
+  info?: string | null
+}
+
 /**
  * `/ems/project/{projectId}` 原始响应中的 `data` 部分。
  * 文档当前明确了基础字段，其他总览字段先按可选扩展字段处理，便于后续快速联调。
@@ -208,6 +262,19 @@ export type RawProjectDetail = Record<string, unknown> & {
   tariffInfo?: string | null
   status?: string | null
   picPath?: string | null
+  weather?: RawProjectWeather | null
+}
+
+export type ProjectWeatherView = {
+  condition: string | null
+  temperatureText: string | null
+  temperatureValue: number | null
+  city: string | null
+  province: string | null
+  windDirection: string | null
+  windPower: string | null
+  humidity: string | null
+  reportTime: string | null
 }
 
 /**
@@ -224,6 +291,7 @@ export type ProjectDetailView = {
   tariffInfo: string
   status: string
   image?: string
+  weather: ProjectWeatherView | null
   overviewMetrics: OverviewMetrics
   realtimeSnapshot: RealtimeSnapshotView
 }
@@ -278,6 +346,74 @@ export type RawProjectRealtime = {
   devices?: RawProjectRealtimeDevice[] | null
 }
 
+export type ProjectDashboardOverviewQuery = {
+  projectId?: string | null
+  deviceId?: string | null
+}
+
+export type ProjectDashboardRankingQuery = ProjectDashboardOverviewQuery & {
+  limit?: number | null
+}
+
+export type ProjectDashboardChargeDischargeRankingQuery = ProjectDashboardRankingQuery & {
+  energyType: "charge" | "discharge"
+}
+
+type ProjectDashboardApiResponse<T> = {
+  code?: number | null
+  msg?: string | null
+  data?: T | null
+}
+
+export type RawProjectDashboardOverviewStatusStat = {
+  total?: number | null
+  status?: string | number | null
+}
+
+export type RawProjectDashboardOverview = {
+  totalRatedCapacity?: number | null
+  totalChargeAh?: number | null
+  siteTotal?: number | null
+  totalChargeWh?: number | null
+  statusStats?: RawProjectDashboardOverviewStatusStat[] | null
+  onlineSiteTotal?: number | null
+  totalRatedPower?: number | null
+  totalDischargeWh?: number | null
+  totalDischargeAh?: number | null
+}
+
+export type RawProjectDashboardEeRankingItem = {
+  projectName?: string | null
+  projectId?: string | null
+  chargeEfficiencyEe?: number | null
+}
+
+export type RawProjectDashboardChargeDischargeRankingItem = {
+  totalChargeWh?: number | null
+  totalDischargeWh?: number | null
+  projectName?: string | null
+  projectId?: string | null
+}
+
+export type RawProjectDashboardSiteInfo = {
+  ratedPower?: string | null
+  totalChargeWh?: number | null
+  cityCode?: string | number | null
+  online?: boolean | null
+  soc?: number | null
+  totalDischargeWh?: number | null
+  efficiencyEe?: number | null
+  ratedCapacity?: string | null
+  workingDate?: string | null
+  power?: number | null
+  projectName?: string | null
+  region?: string | null
+  regionName?: string | null
+  regionPinyin?: string | null
+  projectId?: string | null
+  status?: string | number | null
+}
+
 export const EMPTY_OVERVIEW_METRICS: OverviewMetrics = {
   charge: {
     current: API_PLACEHOLDER,
@@ -328,6 +464,49 @@ const hasValue = (value: unknown) => {
   }
 
   return true
+}
+
+const toOptionalQueryValue = (value: string | null | undefined) => {
+  if (!hasValue(value)) return null
+  return String(value).trim()
+}
+
+const appendQuerySearch = (
+  path: string,
+  query?: Record<string, string | number | null | undefined>
+) => {
+  if (!query) return path
+
+  const search = new URLSearchParams()
+
+  Object.entries(query).forEach(([key, value]) => {
+    if (typeof value === "number" && !Number.isNaN(value)) {
+      search.set(key, String(value))
+      return
+    }
+
+    const normalizedValue = toOptionalQueryValue(typeof value === "string" ? value : null)
+    if (normalizedValue) {
+      search.set(key, normalizedValue)
+    }
+  })
+
+  const searchText = search.toString()
+  return searchText ? `${path}?${searchText}` : path
+}
+
+const fetchProjectDashboardPayload = async <T>(
+  path: string,
+  query: Record<string, string | number | null | undefined> | undefined,
+  fallbackMessage: string
+) => {
+  const response = await apiClient.getRaw<ProjectDashboardApiResponse<T>>(appendQuerySearch(path, query))
+
+  if (response.code !== 200) {
+    throw new Error(response.msg?.trim() || fallbackMessage)
+  }
+
+  return response.data ?? null
 }
 
 const normalizeProjectOptionId = (row: RawProjectListByDeviceRow, index: number) => {
@@ -526,6 +705,56 @@ export const formatApiValue = (value: unknown) => {
   return String(value).trim()
 }
 
+const toOptionalText = (value: unknown) => {
+  if (!hasValue(value)) return null
+  return String(value).trim()
+}
+
+const toOptionalNumber = (value: unknown) => {
+  if (!hasValue(value)) return null
+
+  const numericValue = Number(String(value).trim())
+  if (!Number.isFinite(numericValue)) return null
+
+  return numericValue
+}
+
+export const normalizeProjectWeather = (
+  weather: RawProjectWeather | null | undefined
+): ProjectWeatherView | null => {
+  const live = Array.isArray(weather?.lives)
+    ? weather.lives.find((item) =>
+        hasValue(item?.weather) || hasValue(item?.temperature_float) || hasValue(item?.temperature)
+      ) ?? weather.lives[0] ?? null
+    : null
+
+  if (!live) return null
+
+  const temperatureValue = toOptionalNumber(live.temperature_float ?? live.temperature)
+  const temperatureText =
+    temperatureValue != null
+      ? `${Math.round(temperatureValue)}`
+      : toOptionalText(live.temperature)
+
+  const normalizedWeather: ProjectWeatherView = {
+    condition: toOptionalText(live.weather),
+    temperatureText,
+    temperatureValue,
+    city: toOptionalText(live.city),
+    province: toOptionalText(live.province),
+    windDirection: toOptionalText(live.winddirection),
+    windPower: toOptionalText(live.windpower),
+    humidity: toOptionalText(live.humidity_float ?? live.humidity),
+    reportTime: toOptionalText(live.reporttime),
+  }
+
+  if (!normalizedWeather.condition && !normalizedWeather.temperatureText) {
+    return null
+  }
+
+  return normalizedWeather
+}
+
 const resolveProjectImage = (picPath?: string | null, fallbackImage?: string | null) => {
   if (hasValue(picPath)) {
     return String(picPath).trim()
@@ -538,6 +767,39 @@ const resolveProjectImage = (picPath?: string | null, fallbackImage?: string | n
   return DEFAULT_PROJECT_IMAGE
 }
 
+const parseInstalledCapacityMw = (value: string | null | undefined) => {
+  if (!hasValue(value)) return null
+
+  const normalized = String(value).trim().replace(/,/g, "")
+  const match = normalized.match(/(\d+(?:\.\d+)?)\s*(GW|MW|KW)/i)
+  if (!match) return null
+
+  const numericValue = Number(match[1])
+  if (Number.isNaN(numericValue)) return null
+
+  const unit = match[2].toUpperCase()
+  if (unit === "GW") return numericValue * 1000
+  if (unit === "KW") return numericValue / 1000
+  return numericValue
+}
+
+const parseCoordinate = (
+  value: unknown,
+  { min, max }: { min: number; max: number }
+) => {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim().length > 0
+        ? Number(value)
+        : NaN
+
+  if (!Number.isFinite(numericValue)) return null
+  if (numericValue < min || numericValue > max) return null
+
+  return numericValue
+}
+
 export const normalizeProjectOptionsFromListByDevice = (
   rows: RawProjectListByDeviceRow[] | null | undefined
 ): ProjectOption[] => {
@@ -547,7 +809,9 @@ export const normalizeProjectOptionsFromListByDevice = (
     const optionId = normalizeProjectOptionId(row, index)
     const projectId = hasValue(row.projectId) ? String(row.projectId).trim() : optionId
     const devices = normalizeProjectDevices(resolveProjectListDevices(row))
-    const picPath = resolveProjectImage(row.picPath)
+    const picPath = resolveProjectImage(row.picPath, PROJECT_LIST_IMAGES[projectId])
+    const longitude = parseCoordinate(row.longitude, { min: -180, max: 180 })
+    const latitude = parseCoordinate(row.latitude, { min: -90, max: 90 })
 
     return {
       id: optionId,
@@ -560,6 +824,25 @@ export const normalizeProjectOptionsFromListByDevice = (
           : `Project ${index + 1}`,
       picPath,
       devices,
+      longitude,
+      latitude,
+      cityCode: hasValue(row.cityCode) ? String(row.cityCode).trim() : null,
+      region: hasValue(row.region) ? String(row.region).trim() : "",
+      regionName: hasValue(row.regionName)
+        ? String(row.regionName).trim()
+        : hasValue(row.region)
+          ? String(row.region).trim()
+          : "",
+      regionPinyin: hasValue(row.regionPinyin) ? String(row.regionPinyin).trim() : "",
+      status: hasValue(row.status) ? String(row.status).trim() : null,
+      ratedPower: hasValue(row.ratedPower) ? String(row.ratedPower).trim() : null,
+      ratedCapacity: hasValue(row.ratedCapacity) ? String(row.ratedCapacity).trim() : null,
+      commissioningDate: hasValue(row.commissioningDate) ? String(row.commissioningDate).trim() : null,
+      workingDate: hasValue(row.workingDate) ? String(row.workingDate).trim() : null,
+      installedCapacityMw:
+        parseInstalledCapacityMw(row.ratedPower) ??
+        parseInstalledCapacityMw(row.ratedCapacity) ??
+        null,
     }
   })
 }
@@ -739,6 +1022,40 @@ export const fetchProjectRealtime = async (projectId: string, projectDevices: Pr
   return hydrateProjectRealtime(response.data ?? null, projectId, projectDevices)
 }
 
+export const fetchProjectDashboardOverview = async (query?: ProjectDashboardOverviewQuery) => {
+  return fetchProjectDashboardPayload<RawProjectDashboardOverview>(
+    apiEndpoints.overview.dashboardOverview,
+    query,
+    "Failed to load project dashboard overview."
+  )
+}
+
+export const fetchProjectDashboardEeRanking = async (query?: ProjectDashboardRankingQuery) => {
+  return fetchProjectDashboardPayload<RawProjectDashboardEeRankingItem[]>(
+    apiEndpoints.overview.eeRanking,
+    query,
+    "Failed to load project dashboard EE ranking."
+  )
+}
+
+export const fetchProjectDashboardChargeDischargeRanking = async (
+  query: ProjectDashboardChargeDischargeRankingQuery
+) => {
+  return fetchProjectDashboardPayload<RawProjectDashboardChargeDischargeRankingItem[]>(
+    apiEndpoints.overview.chargeDischargeRanking,
+    query,
+    "Failed to load project dashboard charge/discharge ranking."
+  )
+}
+
+export const fetchProjectDashboardSiteInfos = async (query?: ProjectDashboardOverviewQuery) => {
+  return fetchProjectDashboardPayload<RawProjectDashboardSiteInfo[]>(
+    apiEndpoints.overview.siteInfos,
+    query,
+    "Failed to load project dashboard site infos."
+  )
+}
+
 /**
  * 将原始接口响应标准化为页面可直接渲染的数据。
  */
@@ -752,6 +1069,7 @@ export const normalizeProjectDetail = (detail: RawProjectDetail | null, fallback
   tariffInfo: formatApiValue(detail?.tariffInfo),
   status: formatApiValue(detail?.status),
   image: resolveProjectImage(detail?.picPath, fallbackImage),
+  weather: normalizeProjectWeather(detail?.weather),
   overviewMetrics: EMPTY_OVERVIEW_METRICS,
   realtimeSnapshot: EMPTY_REALTIME_SNAPSHOT,
 })

@@ -8,7 +8,7 @@ import { useLanguage } from "@/components/language-provider"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/hooks/use-toast"
 import { loginWithCloud } from "@/lib/api/auth"
-import { persistAuthToken } from "@/lib/auth-storage"
+import { persistAuthToken, persistAuthUsername } from "@/lib/auth-storage"
 import { cn } from "@/lib/utils"
 
 type Locale = "zh" | "en"
@@ -727,9 +727,10 @@ export default function LoginPage() {
       }
 
       persistAuthToken(response.token, remember)
+      persistAuthUsername(normalizedAccount, remember)
 
       startTransition(() => {
-        router.push("/dashboard")
+        router.push("/project-map")
       })
     } catch (error) {
       const fallbackMessage = locale === "zh" ? "登录失败，请稍后重试" : "Login failed. Please try again."
@@ -933,38 +934,40 @@ export default function LoginPage() {
               </div>
 
               <form className="mt-10 space-y-5" onSubmit={handleSubmit} noValidate>
-                <div className="relative">
-                  <div className="pointer-events-none absolute left-[18px] top-1/2 h-[28px] w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-[#00D4AA] to-[#22D3EE]" />
-                  <User className="pointer-events-none absolute left-7 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#87c7ed]" />
-                  <input
-                    ref={accountInputRef}
-                    value={account}
-                    onChange={(event) => {
-                      setAccount(event.target.value)
-                      if (fieldErrors.account) {
-                        validateField("account", event.target.value)
-                      }
-                    }}
-                    onBlur={(event) => {
-                      const normalizedValue = normalizeCredentialValue(event.target.value)
-                      if (normalizedValue !== account) {
-                        setAccount(normalizedValue)
-                      }
-                      validateField("account", normalizedValue)
-                    }}
-                    placeholder={copy.accountPlaceholder}
-                    autoComplete="username"
-                    spellCheck={false}
-                    aria-invalid={Boolean(fieldErrors.account)}
-                    aria-describedby={fieldErrors.account ? "account-error" : undefined}
-                    className={cn(
-                      "h-[60px] w-full rounded-[17px] border bg-[linear-gradient(180deg,rgba(9,21,42,0.9),rgba(8,17,35,0.94))] pr-6 text-[15px] text-[#ECF7FF] outline-none transition-all placeholder:text-[#7E94B4]",
-                      fieldErrors.account
-                        ? "border-[#ff7b7b] shadow-[0_0_0_1px_rgba(255,123,123,0.08)_inset,0_0_18px_rgba(255,123,123,0.08)]"
-                        : "border-[#214b78] focus:border-[#00D4AA] focus:shadow-[0_0_0_1px_rgba(0,212,170,0.08)_inset,0_0_18px_rgba(34,211,238,0.08)]"
-                    )}
-                    style={{ paddingLeft: 62 }}
-                  />
+                <div>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute left-[18px] top-1/2 h-[28px] w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-[#00D4AA] to-[#22D3EE]" />
+                    <User className="pointer-events-none absolute left-7 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#87c7ed]" />
+                    <input
+                      ref={accountInputRef}
+                      value={account}
+                      onChange={(event) => {
+                        setAccount(event.target.value)
+                        if (fieldErrors.account) {
+                          validateField("account", event.target.value)
+                        }
+                      }}
+                      onBlur={(event) => {
+                        const normalizedValue = normalizeCredentialValue(event.target.value)
+                        if (normalizedValue !== account) {
+                          setAccount(normalizedValue)
+                        }
+                        validateField("account", normalizedValue)
+                      }}
+                      placeholder={copy.accountPlaceholder}
+                      autoComplete="username"
+                      spellCheck={false}
+                      aria-invalid={Boolean(fieldErrors.account)}
+                      aria-describedby={fieldErrors.account ? "account-error" : undefined}
+                      className={cn(
+                        "h-[60px] w-full rounded-[17px] border bg-[linear-gradient(180deg,rgba(9,21,42,0.9),rgba(8,17,35,0.94))] pr-6 text-[15px] text-[#ECF7FF] outline-none transition-all placeholder:text-[#7E94B4]",
+                        fieldErrors.account
+                          ? "border-[#ff7b7b] shadow-[0_0_0_1px_rgba(255,123,123,0.08)_inset,0_0_18px_rgba(255,123,123,0.08)]"
+                          : "border-[#214b78] focus:border-[#00D4AA] focus:shadow-[0_0_0_1px_rgba(0,212,170,0.08)_inset,0_0_18px_rgba(34,211,238,0.08)]"
+                      )}
+                      style={{ paddingLeft: 62 }}
+                    />
+                  </div>
                   {fieldErrors.account ? (
                     <p id="account-error" className="mt-2 pl-1 text-[13px] text-[#ffb8c2]">
                       {fieldErrors.account}
@@ -972,46 +975,48 @@ export default function LoginPage() {
                   ) : null}
                 </div>
 
-                <div className="relative">
-                  <div className="pointer-events-none absolute left-[18px] top-1/2 h-[28px] w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-[#00D4AA] to-[#22D3EE]" />
-                  <LockKeyhole className="pointer-events-none absolute left-7 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#87c7ed]" />
-                  <input
-                    ref={passwordInputRef}
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(event) => {
-                      setPassword(event.target.value)
-                      if (fieldErrors.password) {
-                        validateField("password", event.target.value)
-                      }
-                    }}
-                    onBlur={(event) => {
-                      const normalizedValue = normalizeCredentialValue(event.target.value)
-                      if (normalizedValue !== password) {
-                        setPassword(normalizedValue)
-                      }
-                      validateField("password", normalizedValue)
-                    }}
-                    placeholder={copy.passwordPlaceholder}
-                    autoComplete="current-password"
-                    aria-invalid={Boolean(fieldErrors.password)}
-                    aria-describedby={fieldErrors.password ? "password-error" : undefined}
-                    className={cn(
-                      "h-[60px] w-full rounded-[17px] border bg-[linear-gradient(180deg,rgba(9,21,42,0.9),rgba(8,17,35,0.94))] pr-14 text-[15px] text-[#ECF7FF] outline-none transition-all placeholder:text-[#7E94B4]",
-                      fieldErrors.password
-                        ? "border-[#ff7b7b] shadow-[0_0_0_1px_rgba(255,123,123,0.08)_inset,0_0_18px_rgba(255,123,123,0.08)]"
-                        : "border-[#214b78] focus:border-[#00D4AA] focus:shadow-[0_0_0_1px_rgba(0,212,170,0.08)_inset,0_0_18px_rgba(34,211,238,0.08)]"
-                    )}
-                    style={{ paddingLeft: 62 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((current) => !current)}
-                    className="absolute right-5 top-1/2 -translate-y-1/2 text-[#7990C2] transition-colors hover:text-[#9ef4ec]"
-                    aria-label={locale === "zh" ? "切换密码显示" : "Toggle password visibility"}
-                  >
-                    {showPassword ? <Eye className="h-[20px] w-[20px]" /> : <EyeOff className="h-[20px] w-[20px]" />}
-                  </button>
+                <div>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute left-[18px] top-1/2 h-[28px] w-[3px] -translate-y-1/2 rounded-full bg-gradient-to-b from-[#00D4AA] to-[#22D3EE]" />
+                    <LockKeyhole className="pointer-events-none absolute left-7 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[#87c7ed]" />
+                    <input
+                      ref={passwordInputRef}
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(event) => {
+                        setPassword(event.target.value)
+                        if (fieldErrors.password) {
+                          validateField("password", event.target.value)
+                        }
+                      }}
+                      onBlur={(event) => {
+                        const normalizedValue = normalizeCredentialValue(event.target.value)
+                        if (normalizedValue !== password) {
+                          setPassword(normalizedValue)
+                        }
+                        validateField("password", normalizedValue)
+                      }}
+                      placeholder={copy.passwordPlaceholder}
+                      autoComplete="current-password"
+                      aria-invalid={Boolean(fieldErrors.password)}
+                      aria-describedby={fieldErrors.password ? "password-error" : undefined}
+                      className={cn(
+                        "h-[60px] w-full rounded-[17px] border bg-[linear-gradient(180deg,rgba(9,21,42,0.9),rgba(8,17,35,0.94))] pr-14 text-[15px] text-[#ECF7FF] outline-none transition-all placeholder:text-[#7E94B4]",
+                        fieldErrors.password
+                          ? "border-[#ff7b7b] shadow-[0_0_0_1px_rgba(255,123,123,0.08)_inset,0_0_18px_rgba(255,123,123,0.08)]"
+                          : "border-[#214b78] focus:border-[#00D4AA] focus:shadow-[0_0_0_1px_rgba(0,212,170,0.08)_inset,0_0_18px_rgba(34,211,238,0.08)]"
+                      )}
+                      style={{ paddingLeft: 62 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((current) => !current)}
+                      className="absolute right-5 top-1/2 -translate-y-1/2 text-[#7990C2] transition-colors hover:text-[#9ef4ec]"
+                      aria-label={locale === "zh" ? "切换密码显示" : "Toggle password visibility"}
+                    >
+                      {showPassword ? <Eye className="h-[20px] w-[20px]" /> : <EyeOff className="h-[20px] w-[20px]" />}
+                    </button>
+                  </div>
                   {fieldErrors.password ? (
                     <p id="password-error" className="mt-2 pl-1 text-[13px] text-[#ffb8c2]">
                       {fieldErrors.password}

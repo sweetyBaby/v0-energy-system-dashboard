@@ -47,6 +47,33 @@ function getPayloadMessage(payload: unknown) {
   return message?.trim() || null
 }
 
+function getResponsePreview(text: string) {
+  const normalized = text.replace(/\s+/g, " ").trim()
+  if (!normalized) return null
+
+  return normalized.length > 180 ? `${normalized.slice(0, 180)}...` : normalized
+}
+
+async function parseResponsePayload(res: Response) {
+  if (res.status === 204) {
+    return { payload: null, rawText: "" }
+  }
+
+  const rawText = await res.text()
+  if (!rawText.trim()) {
+    return { payload: null, rawText }
+  }
+
+  try {
+    return {
+      payload: JSON.parse(rawText) as unknown,
+      rawText,
+    }
+  } catch {
+    return { payload: null, rawText }
+  }
+}
+
 function triggerAuthExpired(message = AUTH_EXPIRED_MESSAGE) {
   if (typeof window === "undefined" || authExpiredDispatched) return
 
@@ -84,10 +111,7 @@ async function requestRaw<T>(
     ...requestOptions,
   })
 
-  const payload =
-    res.status === 204
-      ? null
-      : await res.json().catch(() => null)
+  const { payload, rawText } = await parseResponsePayload(res)
   const payloadCode = getPayloadCode(payload)
 
   if (includeAuth && (res.status === 401 || payloadCode === 401)) {
@@ -103,6 +127,15 @@ async function requestRaw<T>(
 
   if (!res.ok) {
     throw new Error(getPayloadMessage(payload) || `HTTP ${res.status}: ${res.statusText}`)
+  }
+
+  if (payload == null) {
+    const responsePreview = getResponsePreview(rawText)
+    throw new Error(
+      responsePreview
+        ? `Upstream returned non-JSON response: ${responsePreview}`
+        : "Upstream returned empty response"
+    )
   }
 
   return payload as T

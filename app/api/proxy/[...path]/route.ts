@@ -2,6 +2,24 @@ import { NextRequest } from "next/server"
 
 export const dynamic = "force-dynamic"
 
+const BLOCKED_UPSTREAM_HEADERS = new Set([
+  "host",
+  "connection",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "proxy-connection",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
+  "content-length",
+  "accept-encoding",
+  "expect",
+  "origin",
+  "referer",
+])
+
 function getBackendBaseUrl() {
   const baseUrl =
     process.env.API_BASE_URL ||
@@ -18,16 +36,33 @@ function buildUpstreamUrl(request: NextRequest, path: string[]) {
   return url
 }
 
+function buildUpstreamHeaders(request: NextRequest) {
+  const headers = new Headers()
+
+  for (const [key, value] of request.headers.entries()) {
+    const normalizedKey = key.toLowerCase()
+
+    if (BLOCKED_UPSTREAM_HEADERS.has(normalizedKey)) {
+      continue
+    }
+
+    if (normalizedKey.startsWith("sec-")) {
+      continue
+    }
+
+    headers.set(key, value)
+  }
+
+  return headers
+}
+
 async function proxyRequest(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> }
 ) {
   const { path } = await context.params
   const upstreamUrl = buildUpstreamUrl(request, path)
-  const headers = new Headers(request.headers)
-
-  headers.delete("host")
-  headers.delete("content-length")
+  const headers = buildUpstreamHeaders(request)
 
   const method = request.method.toUpperCase()
   const body =
@@ -46,6 +81,8 @@ async function proxyRequest(
 
     const responseHeaders = new Headers(response.headers)
     responseHeaders.delete("content-length")
+    responseHeaders.delete("content-encoding")
+    responseHeaders.delete("transfer-encoding")
 
     return new Response(response.body, {
       status: response.status,
@@ -53,11 +90,28 @@ async function proxyRequest(
       headers: responseHeaders,
     })
   } catch (error) {
+    console.error("Proxy request failed", {
+      method,
+      upstreamUrl: upstreamUrl.toString(),
+      requestHeaders: Object.fromEntries(headers.entries()),
+      error,
+      cause: error instanceof Error && "cause" in error ? error.cause : undefined,
+    })
+
     return Response.json(
       {
         code: 500,
         message:
-          error instanceof Error ? error.message : "Proxy request failed",
+          error instanceof Error
+            ? [
+                error.message,
+                error instanceof Error && "cause" in error && error.cause instanceof Error
+                  ? error.cause.message
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(": ")
+            : "Proxy request failed",
         data: null,
       },
       { status: 500 }

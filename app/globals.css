@@ -110,21 +110,23 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #1a2654;
-  border-radius: 3px;
+  background: rgba(7, 24, 36, 0.42);
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.04);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #3b82f6;
-  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(90, 151, 172, 0.72), rgba(71, 124, 158, 0.76));
+  border-radius: 999px;
+  border: 1px solid rgba(220, 252, 255, 0.08);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #00d4aa;
+  background: linear-gradient(180deg, rgba(112, 178, 201, 0.82), rgba(87, 145, 184, 0.86));
 }
 
 /* Firefox scrollbar support */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #3b82f6 #1a2654;
+  scrollbar-color: rgba(94, 154, 176, 0.78) rgba(7, 24, 36, 0.42);
 }
