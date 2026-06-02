@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Analytics } from "@vercel/analytics/next"
+import { LaCollect } from "@/components/analytics/la-collect"
 import { AuthExpiredHandler } from "@/components/auth/auth-expired-handler"
 import { LanguageProvider } from "@/components/language-provider"
 import { Toaster } from "@/components/ui/toaster"
@@ -32,6 +33,7 @@ export default function RootLayout({
           <Toaster />
         </LanguageProvider>
         <Analytics />
+        <LaCollect />
       </body>
     </html>
   )
