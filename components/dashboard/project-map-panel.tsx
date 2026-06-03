@@ -1249,6 +1249,8 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [mapZoomK, setMapZoomK] = useState(focusFrame.zoom)
   // Counter-scale exactly 1/k so markers stay constant screen size regardless of zoom level
   const markerScale = 1 / Math.max(mapZoomK, 1)
+  // Keep labels readable while zooming instead of letting them feel smaller against the enlarged map.
+  const markerLabelScale = 1 + Math.min(Math.max(mapZoomK - focusFrame.zoom, 0) * 0.12, 0.35)
   const mapProjectionScale = useMemo(() => Math.round(mapDimensions.width * 0.22), [mapDimensions.width])
 
   const projectCountries = useMemo(() => {
@@ -1798,20 +1800,22 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       return (
                         <Marker key={`country-label-${item.country}`} coordinates={item.center}>
                           <g transform={`scale(${markerScale})`} pointerEvents="none">
-                            <text
-                              y={0}
-                              textAnchor="middle"
-                              dominantBaseline="central"
-                              style={{
-                                fontSize: zh ? "11px" : "9.5px",
-                                fontWeight: 800,
-                                fill: "#9fd8ff",
-                                letterSpacing: zh ? "0.08em" : "0.06em",
-                                textTransform: zh ? undefined : "uppercase",
-                              }}
-                            >
-                              {item.label}
-                            </text>
+                            <g transform={`scale(${markerLabelScale})`}>
+                              <text
+                                y={0}
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                style={{
+                                  fontSize: zh ? "11px" : "9.5px",
+                                  fontWeight: 800,
+                                  fill: "#9fd8ff",
+                                  letterSpacing: zh ? "0.08em" : "0.06em",
+                                  textTransform: zh ? undefined : "uppercase",
+                                }}
+                              >
+                                {item.label}
+                              </text>
+                            </g>
                           </g>
                         </Marker>
                       )
@@ -1861,7 +1865,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                 x2={0}
                                 y2={regionJointY}
                                 stroke={SHARED_MARKER_FILL}
-                                strokeWidth={isClusterActive ? 5 : 4}
+                                strokeWidth={isClusterActive ? 4.2 : 3.4}
                                 strokeLinecap="round"
                                 style={{ transition: "all 0.2s ease" }}
                               />
@@ -1871,7 +1875,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                 x2={flagLayout.offsetX}
                                 y2={regionStemTopY}
                                 stroke={SHARED_MARKER_FILL}
-                                strokeWidth={isClusterActive ? 4.3 : 3.5}
+                                strokeWidth={isClusterActive ? 3.7 : 3}
                                 strokeLinecap="round"
                                 style={{ transition: "all 0.2s ease" }}
                               />
@@ -1884,7 +1888,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                 strokeWidth={1.1}
                                 style={{ transition: "all 0.2s ease" }}
                               />
-                              <g transform={`translate(${flagLayout.offsetX} ${regionFlagTopY})`} style={{ transition: "all 0.2s ease" }}>
+                              <g transform={`translate(${flagLayout.offsetX} ${regionFlagTopY}) scale(${markerLabelScale})`} style={{ transition: "all 0.2s ease" }}>
                                 <path
                                   d={regionFlagPath}
                                   fill={SHARED_FLAG_FILL}
@@ -1899,12 +1903,12 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                   strokeLinecap="round"
                                 />
                                 <text x={-4} y={-10.5} textAnchor="middle"
-                                  style={{ fontSize: zh ? "10px" : "8px", fontWeight: 800, fill: clusterStyles?.text ?? "#f3f8ff", letterSpacing: zh ? "0.01em" : "0.05em" }}>
+                                  style={{ fontSize: zh ? "11.5px" : "9.5px", fontWeight: 900, fill: clusterStyles?.text ?? "#f3f8ff", letterSpacing: zh ? "0.01em" : "0.05em" }}>
                                   {regionName}
                                 </text>
                                 <g transform={`translate(${badgeCx} ${badgeCy})`}>
                                   <circle r={badgeR} fill={SHARED_MARKER_FILL} stroke={SHARED_MARKER_STROKE} strokeWidth={1} />
-                                  <text y={3.2} textAnchor="middle" style={{ fontSize: "8px", fontWeight: 900, fill: "#173a78" }}>
+                                  <text y={3.4} textAnchor="middle" style={{ fontSize: "10px", fontWeight: 900, fill: "#173a78" }}>
                                     {cluster.projects.length}
                                   </text>
                                 </g>
@@ -1957,7 +1961,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                               x2={0}
                               y2={jointY}
                               stroke={styles.markerFill}
-                              strokeWidth={isActive ? 5 : 4}
+                              strokeWidth={isActive ? 4.2 : 3.4}
                               strokeLinecap="round"
                               style={{ transition: "all 0.2s ease" }}
                             />
@@ -1967,7 +1971,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                               x2={flagLayout.offsetX}
                               y2={stemTopY}
                               stroke={styles.markerFill}
-                              strokeWidth={isActive ? 4.2 : 3.4}
+                              strokeWidth={isActive ? 3.6 : 2.9}
                               strokeLinecap="round"
                               style={{ transition: "all 0.2s ease" }}
                             />
@@ -1980,7 +1984,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                               strokeWidth={1.1}
                               style={{ transition: "all 0.2s ease" }}
                             />
-                            <g transform={`translate(${flagLayout.offsetX} ${flagTopY})`} style={{ transition: "all 0.2s ease" }}>
+                            <g transform={`translate(${flagLayout.offsetX} ${flagTopY}) scale(${markerLabelScale})`} style={{ transition: "all 0.2s ease" }}>
                               <path
                                 d={flagPath}
                                 fill={styles.flagFill}
@@ -1995,7 +1999,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                 strokeLinecap="round"
                               />
                               <text y={-11} textAnchor="middle"
-                                style={{ fontSize: zh ? "10px" : "8px", fontWeight: 800, fill: styles.text, letterSpacing: zh ? "0.01em" : "0.05em" }}>
+                                style={{ fontSize: zh ? "11.5px" : "9.5px", fontWeight: 900, fill: styles.text, letterSpacing: zh ? "0.01em" : "0.05em" }}>
                                 {projectLabel}
                               </text>
                             </g>

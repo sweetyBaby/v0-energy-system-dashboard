@@ -800,6 +800,17 @@ const parseCoordinate = (
   return numericValue
 }
 
+const normalizeRegionCityCode = (value: string | number | null | undefined) => {
+  if (!hasValue(value)) return null
+
+  const normalized = String(value).trim()
+  if (!normalized) return null
+  if (!/^\d{6}$/.test(normalized)) return normalized
+  if (normalized.endsWith("00")) return normalized
+
+  return `${normalized.slice(0, 4)}00`
+}
+
 export const normalizeProjectOptionsFromListByDevice = (
   rows: RawProjectListByDeviceRow[] | null | undefined
 ): ProjectOption[] => {
@@ -826,7 +837,7 @@ export const normalizeProjectOptionsFromListByDevice = (
       devices,
       longitude,
       latitude,
-      cityCode: hasValue(row.cityCode) ? String(row.cityCode).trim() : null,
+      cityCode: normalizeRegionCityCode(row.cityCode),
       region: hasValue(row.region) ? String(row.region).trim() : "",
       regionName: hasValue(row.regionName)
         ? String(row.regionName).trim()

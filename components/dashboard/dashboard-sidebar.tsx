@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { useRouter } from "next/navigation"
 import {
   Activity,
   BarChart3,
@@ -6,7 +7,9 @@ import {
   FileText,
   History,
   LayoutDashboard,
+  Map,
 } from "lucide-react"
+import { useProject } from "@/components/dashboard/dashboard-header"
 import { useLanguage } from "@/components/language-provider"
 
 export type SidebarTab =
@@ -72,12 +75,18 @@ export function DashboardSidebar({
   onExpandedChange,
   alarmCount = 0,
 }: DashboardSidebarProps) {
+  const router = useRouter()
+  const { selectedProject } = useProject()
   const { language } = useLanguage()
   const zh = language === "zh"
 
   const collapsedW = 68
   const collapseLabel = zh ? "折叠菜单" : "Collapse menu"
   const expandLabel = zh ? "展开菜单" : "Expand menu"
+  const backToMapLabel = zh ? "项目地图" : "Project Map"
+  const backToMapHref = selectedProject.projectId
+    ? `/project-map?projectId=${encodeURIComponent(selectedProject.projectId)}`
+    : "/project-map"
   const labelWidth = useMemo(() => {
     const sidebarLabels = SIDEBAR_TABS.map((tab) => (zh ? tab.zh : tab.en))
     return Math.max(...sidebarLabels.map((label) => getSidebarLabelWidth(label, zh)))
@@ -217,6 +226,32 @@ export function DashboardSidebar({
           )
         })}
       </nav>
+
+      <div className="relative border-t border-[#16344f] px-1.5 pb-2 pt-2">
+        <div className="group relative">
+          <button
+            type="button"
+            onClick={() => router.push(backToMapHref)}
+            title={!expanded ? backToMapLabel : undefined}
+            className={`relative inline-flex w-full items-center overflow-hidden border border-[#22465c]/84 bg-[linear-gradient(180deg,rgba(8,19,32,0.92),rgba(5,11,21,0.98))] text-[11px] font-semibold text-[#d7eaf5] shadow-[0_0_0_1px_rgba(132,220,255,0.05)_inset,0_10px_22px_rgba(0,0,0,0.18)] transition-all hover:border-[#3e7592] hover:text-[#f4fcff] hover:shadow-[0_0_0_1px_rgba(132,220,255,0.1)_inset,0_0_16px_rgba(59,196,255,0.08)] ${
+              expanded
+                ? "h-[34px] justify-start gap-2 rounded-[14px] px-3"
+                : "h-[34px] justify-center rounded-[14px] px-0"
+            }`}
+          >
+            <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/52 to-transparent" />
+            <Map className="h-3.5 w-3.5 shrink-0 text-[#88e7ff]" />
+            {expanded ? <span className="tracking-[0.08em]">{backToMapLabel}</span> : null}
+          </button>
+
+          {!expanded && (
+            <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded border border-[#1a3a52] bg-[rgba(4,12,26,0.95)] px-2.5 py-1 text-xs text-[#e8f4fc] opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+              {backToMapLabel}
+              <div className="absolute -left-[5px] top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#1a3a52]" />
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-[#26f0dc]/18 to-transparent" />
     </aside>
