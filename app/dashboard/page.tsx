@@ -530,11 +530,20 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const renderComingSoonBanner = () => {
     return (
       <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center px-3">
-        <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#f59e0b]/35 bg-[linear-gradient(180deg,rgba(36,24,10,0.7),rgba(18,14,8,0.6))] px-3 py-1.5 text-[#ffd089] shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset,0_10px_24px_rgba(0,0,0,0.2)] backdrop-blur-[4px]">
-          <Wrench className="h-3.5 w-3.5 shrink-0" />
-          <span className="font-semibold tracking-[0.04em]" style={{ fontSize: pageControlLabelSize }}>
-            {zh ? "功能开发中，敬请期待" : "Full version coming soon"}
+        <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#f59e0b]/35 bg-[linear-gradient(180deg,rgba(36,24,10,0.7),rgba(18,14,8,0.6))] px-4 py-2 text-[#ffd089] shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset,0_10px_24px_rgba(0,0,0,0.2)] backdrop-blur-[4px]">
+          <Wrench className="h-[18px] w-[18px] shrink-0" />
+          <span className="font-semibold tracking-[0.04em]" style={{ fontSize: pageControlLabelSize + 2.5 }}>
+            {zh ? "报表功能开发中，临时访问地址：" : "Reporting is in development. Temporary access URL:"}
           </span>
+          <a
+            href="http://223.107.76.50:8083/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pointer-events-auto break-all font-semibold text-[#ffe3a8] underline decoration-[#f59e0b]/60 underline-offset-4 transition hover:text-[#fff1cf]"
+            style={{ fontSize: pageControlLabelSize + 2.5 }}
+          >
+            http://223.107.76.50:8083/
+          </a>
         </div>
       </div>
     )
