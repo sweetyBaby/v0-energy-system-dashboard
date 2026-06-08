@@ -208,6 +208,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const [alarmDeviceId, setAlarmDeviceId] = useState(firstPageBcuId)
   const [cellHistoryDeviceId, setCellHistoryDeviceId] = useState(firstPageBcuId)
   const [analysisDeviceId, setAnalysisDeviceId] = useState(firstPageBcuId)
+  const [reportsDeviceId, setReportsDeviceId] = useState(firstPageBcuId)
   const analysisCurrentDay = useMemo(() => toDayStart(new Date()), [])
   const analysisMaxDate = useMemo(() => addDays(analysisCurrentDay, -1), [analysisCurrentDay])
   const defaultAnalysisCustomRange = useMemo<DateRange>(
@@ -252,6 +253,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     setAlarmDeviceId((currentValue) => resolveDeviceId(currentValue))
     setCellHistoryDeviceId((currentValue) => resolveDeviceId(currentValue))
     setAnalysisDeviceId((currentValue) => resolveDeviceId(currentValue))
+    setReportsDeviceId((currentValue) => resolveDeviceId(currentValue))
   }, [firstPageBcuId, pageBcuOptions])
 
   useEffect(() => {
@@ -824,8 +826,10 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
 
         {activeTab === "reports" && (
           <div className="relative h-full min-h-0 overflow-hidden">
-            <ReportCenterPanel />
-            {renderComingSoonBanner()}
+            <ReportCenterPanel
+              deviceId={reportsDeviceId || undefined}
+              bcuSelector={renderPageBcuSelector(reportsDeviceId, setReportsDeviceId)}
+            />
           </div>
         )}
       </div>
