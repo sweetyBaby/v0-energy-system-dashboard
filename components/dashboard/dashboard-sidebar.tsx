@@ -233,14 +233,13 @@ export function DashboardSidebar({
             type="button"
             onClick={() => router.push(backToMapHref)}
             title={!expanded ? backToMapLabel : undefined}
-            className={`relative inline-flex w-full items-center overflow-hidden border border-[#22465c]/84 bg-[linear-gradient(180deg,rgba(8,19,32,0.92),rgba(5,11,21,0.98))] text-[11px] font-semibold text-[#d7eaf5] shadow-[0_0_0_1px_rgba(132,220,255,0.05)_inset,0_10px_22px_rgba(0,0,0,0.18)] transition-all hover:border-[#3e7592] hover:text-[#f4fcff] hover:shadow-[0_0_0_1px_rgba(132,220,255,0.1)_inset,0_0_16px_rgba(59,196,255,0.08)] ${
+            className={`relative inline-flex w-full items-center overflow-hidden text-[11px] font-semibold text-[#9cc6d8] outline-none transition-all hover:bg-[rgba(14,33,52,0.72)] hover:text-[#dffbff] focus:outline-none focus-visible:outline-none ${
               expanded
-                ? "h-[34px] justify-start gap-2 rounded-[14px] px-3"
-                : "h-[34px] justify-center rounded-[14px] px-0"
+                ? "h-[34px] justify-start gap-2 rounded-lg px-3"
+                : "h-[34px] justify-center rounded-lg px-0"
             }`}
           >
-            <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/52 to-transparent" />
-            <Map className="h-3.5 w-3.5 shrink-0 text-[#88e7ff]" />
+            <Map className="h-4 w-4 shrink-0 text-[#7cc1d4] transition-colors group-hover:text-[#b7f2ff]" />
             {expanded ? <span className="tracking-[0.08em]">{backToMapLabel}</span> : null}
           </button>
 

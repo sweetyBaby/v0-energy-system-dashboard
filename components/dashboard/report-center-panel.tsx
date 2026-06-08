@@ -42,10 +42,10 @@ type ReportCenterPanelProps = {
   bcuSelector?: ReactNode
 }
 
-/** Energy color tokens, kept in sync with the comprehensive efficiency panel. */
-const CHARGE_ENERGY_COLOR = "#99f6e4"
-const DISCHARGE_ENERGY_COLOR = "#c4b5fd"
-const EFFICIENCY_COLOR = "#4ade80"
+/** Softened energy color tokens — calmer than the chart's neon accents. */
+const CHARGE_ENERGY_COLOR = "#7fceb8"
+const DISCHARGE_ENERGY_COLOR = "#aea0d6"
+const EFFICIENCY_COLOR = "#56b483"
 
 function EfficiencyRing({
   value,
@@ -66,7 +66,7 @@ function EfficiencyRing({
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0">
-      <circle cx={center} cy={center} r={radius} fill="none" stroke="#16331f" strokeWidth={stroke} />
+      <circle cx={center} cy={center} r={radius} fill="none" stroke="#223a30" strokeWidth={stroke} />
       <circle
         cx={center}
         cy={center}
@@ -77,7 +77,6 @@ function EfficiencyRing({
         strokeLinecap="round"
         strokeDasharray={`${dash} ${circumference - dash}`}
         transform={`rotate(-90 ${center} ${center})`}
-        style={{ filter: "drop-shadow(0 0 3px rgba(74,222,128,0.45))" }}
       />
       <text
         x="50%"
@@ -86,7 +85,7 @@ function EfficiencyRing({
         dominantBaseline="central"
         fontSize={fontSize}
         fontWeight={700}
-        fill="#d8ffe6"
+        fill="#cfe6d8"
       >
         {value == null ? "--" : `${Math.round(value)}%`}
       </text>
@@ -139,8 +138,7 @@ function ChargeDischargeChart({
               height: `${fillPct}%`,
               minHeight: minBarPx,
               background: color,
-              opacity: isZero ? 0.5 : 1,
-              boxShadow: isZero ? "none" : `0 0 6px ${color}66`,
+              opacity: isZero ? 0.5 : 0.92,
             }}
           />
         </div>
@@ -697,18 +695,16 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
                       >
                         <span className="flex items-center gap-1.5">
                           <span
-                            className={`font-bold leading-none ${isToday ? "text-[#22d3ee]" : hasReports ? "text-white" : "text-[#dbe6ff]"}`}
+                            className={`font-bold leading-none ${isToday ? "text-[#5cc2d2]" : hasReports ? "text-[#eef4ff]" : "text-[#c9d6ee]"}`}
                             style={{
                               fontSize: dayNumberSize,
-                              textShadow: isToday
-                                ? "0 0 12px rgba(34,211,238,0.55)"
-                                : "0 1px 6px rgba(2,8,24,0.55)",
+                              textShadow: "0 1px 4px rgba(2,8,24,0.5)",
                             }}
                           >
                             {cell.date.getDate()}
                           </span>
                           {hasReports && (
-                            <span className="h-2 w-2 rounded-full bg-[#22d3ee] shadow-[0_0_8px_rgba(34,211,238,0.95)]" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#56b8c8]" />
                           )}
                         </span>
 
@@ -717,14 +713,14 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
                             <PopoverTrigger asChild>
                               <button
                                 title={zh ? "查看日报" : "View reports"}
-                                className="group flex shrink-0 items-center gap-1.5 rounded-lg border border-[#5aa2ff]/80 bg-[linear-gradient(180deg,rgba(56,108,210,0.98),rgba(33,66,150,0.96))] px-2 py-1 font-semibold text-white shadow-[0_2px_12px_rgba(40,110,230,0.45)] transition-all hover:border-[#7dbcff] hover:brightness-110 hover:shadow-[0_3px_16px_rgba(60,140,255,0.6)] data-[state=open]:border-[#7dbcff] data-[state=open]:shadow-[0_0_0_2px_rgba(125,188,255,0.5)]"
+                                className="group flex shrink-0 items-center gap-1.5 rounded-lg border border-[#456da8]/65 bg-[linear-gradient(180deg,rgba(41,70,134,0.82),rgba(27,49,102,0.82))] px-2 py-1 font-semibold text-[#d6e2f3] shadow-[0_2px_8px_rgba(10,28,72,0.34)] outline-none transition-all hover:border-[#557fbf] hover:brightness-105 focus:outline-none focus-visible:outline-none data-[state=open]:border-[#557fbf] data-[state=open]:shadow-[0_0_0_1px_rgba(95,135,195,0.4)]"
                               >
-                                <FileText className="shrink-0 text-white" style={{ width: iconSize, height: iconSize }} />
-                                <span className="whitespace-nowrap font-bold" style={{ fontSize: controlSize }}>
+                                <FileText className="shrink-0 text-[#bcd0ef]" style={{ width: iconSize, height: iconSize }} />
+                                <span className="whitespace-nowrap font-semibold" style={{ fontSize: controlSize }}>
                                   {zh ? `${totalCount} 项` : `${totalCount} items`}
                                 </span>
                                 <ChevronDown
-                                  className="text-[#d3e6ff] transition-transform duration-200 group-data-[state=open]:rotate-180"
+                                  className="text-[#a4bae0] transition-transform duration-200 group-data-[state=open]:rotate-180"
                                   style={{ width: iconSize - 1, height: iconSize - 1 }}
                                 />
                               </button>

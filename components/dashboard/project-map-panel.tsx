@@ -2415,7 +2415,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       <Zap className={`relative text-[#2dd4bf] ${useCompactOverviewRail ? "h-3 w-3" : "h-3.5 w-3.5"}`} />
                     </div>
                     <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                      <span className={`font-black tracking-[0.07em] text-[#e9fbff] ${useCompactOverviewRail ? "text-[12px]" : "text-[14px]"}`}>
+                      <span className={`font-black tracking-[0.07em] text-[#e9fbff] ${zh ? "shrink-0 whitespace-nowrap" : "min-w-0"} ${useCompactOverviewRail ? "text-[12px]" : "text-[14px]"}`}>
                         {zh ? "充放电排名" : "Energy Ranking"}
                       </span>
                       <div className="inline-grid shrink-0 grid-cols-[1fr_auto_1fr] overflow-hidden rounded-[7px] border border-[#2d5778] bg-[rgba(8,22,38,0.95)] shadow-[inset_0_1px_0_rgba(151,218,255,0.05)]">
