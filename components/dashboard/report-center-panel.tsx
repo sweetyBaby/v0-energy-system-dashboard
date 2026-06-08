@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import type { DateRange } from "react-day-picker"
 import {
   CalendarDays,
@@ -26,6 +26,7 @@ import {
   type ReportFileKind,
   type ReportListResult,
 } from "@/lib/api/report"
+import { fetchMonthlyEfficiencyByDay, type DailyEfficiencyEntry } from "@/lib/api/overview"
 
 type CalendarCell = {
   date: Date
@@ -35,8 +36,127 @@ type CalendarCell = {
 type ReportCenterPanelProps = {
   /** Selected BCU deviceId; without it the report list cannot be queried. */
   deviceId?: string
+  /** Project id, required to query daily charge/discharge + efficiency. */
+  projectId?: string
   /** Optional BCU selector rendered in the panel header (owned by the page). */
   bcuSelector?: ReactNode
+}
+
+/** Energy color tokens, kept in sync with the comprehensive efficiency panel. */
+const CHARGE_ENERGY_COLOR = "#99f6e4"
+const DISCHARGE_ENERGY_COLOR = "#c4b5fd"
+const EFFICIENCY_COLOR = "#4ade80"
+
+function EfficiencyRing({
+  value,
+  size,
+  stroke,
+  fontSize,
+}: {
+  value: number | null
+  size: number
+  stroke: number
+  fontSize: number
+}) {
+  const radius = (size - stroke) / 2
+  const circumference = 2 * Math.PI * radius
+  const pct = value == null ? 0 : Math.min(Math.max(value, 0), 100)
+  const dash = (pct / 100) * circumference
+  const center = size / 2
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0">
+      <circle cx={center} cy={center} r={radius} fill="none" stroke="#16331f" strokeWidth={stroke} />
+      <circle
+        cx={center}
+        cy={center}
+        r={radius}
+        fill="none"
+        stroke={EFFICIENCY_COLOR}
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={`${dash} ${circumference - dash}`}
+        transform={`rotate(-90 ${center} ${center})`}
+        style={{ filter: "drop-shadow(0 0 3px rgba(74,222,128,0.45))" }}
+      />
+      <text
+        x="50%"
+        y="50%"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={fontSize}
+        fontWeight={700}
+        fill="#d8ffe6"
+      >
+        {value == null ? "--" : `${Math.round(value)}%`}
+      </text>
+    </svg>
+  )
+}
+
+function ChargeDischargeChart({
+  zh,
+  charge,
+  discharge,
+  max,
+  barHeight,
+  barWidth,
+  valueSize,
+  labelSize,
+}: {
+  zh: boolean
+  charge: number | null
+  discharge: number | null
+  max: number
+  barHeight: number
+  barWidth: number
+  valueSize: number
+  labelSize: number
+}) {
+  const renderBar = (value: number | null, color: string, label: string) => {
+    const ratio = max > 0 && value != null ? Math.min((value / max) * 100, 100) : 0
+    // Keep a visible sliver for tiny non-zero values.
+    const fillPct = value != null && value > 0 ? Math.max(ratio, 8) : 0
+    // A real reading (including exactly 0) always keeps a small baseline nub so the
+    // bar is never an empty column; only missing data (null) renders nothing.
+    const minBarPx = value != null ? 4 : 0
+    const isZero = value === 0
+
+    return (
+      <div className="flex flex-col items-center gap-1">
+        <span className="leading-none" style={{ fontSize: valueSize }}>
+          <span className="font-semibold tabular-nums text-[#eef4ff]">
+            {value == null ? "--" : value.toFixed(0)}
+          </span>
+          <span className="ml-0.5 font-normal text-[#9fb2dc]" style={{ fontSize: labelSize }}>
+            kWh
+          </span>
+        </span>
+        <div className="flex w-full items-end overflow-hidden" style={{ height: barHeight, width: barWidth }}>
+          <div
+            className="w-full rounded-t-[2px]"
+            style={{
+              height: `${fillPct}%`,
+              minHeight: minBarPx,
+              background: color,
+              opacity: isZero ? 0.5 : 1,
+              boxShadow: isZero ? "none" : `0 0 6px ${color}66`,
+            }}
+          />
+        </div>
+        <span className="whitespace-nowrap leading-none text-[#9fb2dc]" style={{ fontSize: labelSize }}>
+          {label}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-end gap-3">
+      {renderBar(charge, CHARGE_ENERGY_COLOR, zh ? "充电量" : "Charge")}
+      {renderBar(discharge, DISCHARGE_ENERGY_COLOR, zh ? "放电量" : "Discharge")}
+    </div>
+  )
 }
 
 const weekdayLabels = {
@@ -125,15 +245,22 @@ const buildCalendarCells = (viewDate: Date, language: "zh" | "en"): CalendarCell
   })
 }
 
-export function ReportCenterPanel({ deviceId, bcuSelector }: ReportCenterPanelProps) {
+export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCenterPanelProps) {
   const { language } = useLanguage()
   const zh = language === "zh"
   const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
   const titleSize = scale.clampText(0.95, 1.02, 1.28)
   const controlSize = scale.fluid(12, 15)
   const hintSize = scale.fluid(11, 13)
-  const dayNumberSize = scale.clampText(1.05, 1.18, 1.52)
+  const dayNumberSize = scale.clampText(1.22, 1.4, 1.82)
   const actionLabelSize = scale.fluid(11, 14)
+  const ringSize = scale.fluid(38, 64)
+  const ringStroke = scale.fluid(4.5, 6.5)
+  const ringFontSize = scale.fluid(11, 15)
+  const statLabelSize = scale.fluid(9.5, 12.5)
+  const statValueSize = scale.fluid(11, 14.5)
+  const barHeight = scale.fluid(28, 56)
+  const barWidth = scale.fluid(13, 20)
   const today = useMemo(() => new Date(), [])
   const [viewDate, setViewDate] = useState(() => startOfMonth(today))
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -141,6 +268,7 @@ export function ReportCenterPanel({ deviceId, bcuSelector }: ReportCenterPanelPr
   const [reportData, setReportData] = useState<ReportListResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [efficiencyByDay, setEfficiencyByDay] = useState<Record<string, DailyEfficiencyEntry>>({})
 
   const year = viewDate.getFullYear()
   const month = viewDate.getMonth() + 1
@@ -173,6 +301,65 @@ export function ReportCenterPanel({ deviceId, bcuSelector }: ReportCenterPanelPr
 
     return () => controller.abort()
   }, [deviceId, year, month, zh])
+
+  useEffect(() => {
+    if (!deviceId || !projectId) {
+      setEfficiencyByDay({})
+      return
+    }
+
+    const controller = new AbortController()
+
+    fetchMonthlyEfficiencyByDay({ projectId, deviceId, year, month }, { signal: controller.signal })
+      .then((result) => setEfficiencyByDay(result))
+      .catch((err: unknown) => {
+        if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) {
+          return
+        }
+        setEfficiencyByDay({})
+      })
+
+    return () => controller.abort()
+  }, [deviceId, projectId, year, month])
+
+  const monthMaxEnergy = useMemo(() => {
+    let max = 0
+    for (const entry of Object.values(efficiencyByDay)) {
+      if (entry.chargeEnergy != null) max = Math.max(max, entry.chargeEnergy)
+      if (entry.dischargeEnergy != null) max = Math.max(max, entry.dischargeEnergy)
+    }
+    return max
+  }, [efficiencyByDay])
+
+  // Auto-close the month picker when the pointer leaves it. A short delay bridges
+  // the gap between the trigger and the popover, and the close is suppressed while
+  // a nested year/month dropdown is open (those portal outside the popover).
+  const monthPickerCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const nestedSelectOpenRef = useRef(false)
+
+  const cancelMonthPickerClose = () => {
+    if (monthPickerCloseTimer.current) {
+      clearTimeout(monthPickerCloseTimer.current)
+      monthPickerCloseTimer.current = null
+    }
+  }
+
+  const scheduleMonthPickerClose = () => {
+    cancelMonthPickerClose()
+    monthPickerCloseTimer.current = setTimeout(() => {
+      if (!nestedSelectOpenRef.current) {
+        setPickerOpen(false)
+      }
+    }, 240)
+  }
+
+  useEffect(() => {
+    if (!pickerOpen) {
+      cancelMonthPickerClose()
+      nestedSelectOpenRef.current = false
+    }
+    return cancelMonthPickerClose
+  }, [pickerOpen])
 
   const labels = zh ? weekdayLabels.zh : weekdayLabels.en
   const monthTitle = formatMonthTitle(viewDate, language)
@@ -315,6 +502,8 @@ export function ReportCenterPanel({ deviceId, bcuSelector }: ReportCenterPanelPr
           <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
             <PopoverTrigger asChild>
               <button
+                onMouseEnter={cancelMonthPickerClose}
+                onMouseLeave={scheduleMonthPickerClose}
                 className="flex items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3.5 text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60"
                 style={{ height: triggerHeight, fontSize: controlSize }}
               >
@@ -326,6 +515,8 @@ export function ReportCenterPanel({ deviceId, bcuSelector }: ReportCenterPanelPr
 
             <PopoverContent
               align="end"
+              onMouseEnter={cancelMonthPickerClose}
+              onMouseLeave={scheduleMonthPickerClose}
               className="z-50 rounded-2xl border border-[#3a5da0] bg-[#172252] p-0 text-[#e8f4fc] shadow-[0_24px_64px_rgba(0,0,0,0.72)] ring-1 ring-[#4a6fb5]/25"
               style={{ width: panelWidth }}
             >
@@ -340,6 +531,10 @@ export function ReportCenterPanel({ deviceId, bcuSelector }: ReportCenterPanelPr
                   <Select
                     value={String(viewDate.getFullYear())}
                     onValueChange={(value) => setViewDate(new Date(Number(value), viewDate.getMonth(), 1))}
+                    onOpenChange={(open) => {
+                      nestedSelectOpenRef.current = open
+                      if (open) cancelMonthPickerClose()
+                    }}
                   >
                     <SelectTrigger
                       className="w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]"
@@ -359,6 +554,10 @@ export function ReportCenterPanel({ deviceId, bcuSelector }: ReportCenterPanelPr
                   <Select
                     value={String(viewDate.getMonth())}
                     onValueChange={(value) => setViewDate(new Date(viewDate.getFullYear(), Number(value), 1))}
+                    onOpenChange={(open) => {
+                      nestedSelectOpenRef.current = open
+                      if (open) cancelMonthPickerClose()
+                    }}
                   >
                     <SelectTrigger
                       className="w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]"
@@ -469,11 +668,15 @@ export function ReportCenterPanel({ deviceId, bcuSelector }: ReportCenterPanelPr
               const totalCount = reportCount + logCount
               const hasReports = cell.inMonth && totalCount > 0
               const showLoading = cell.inMonth && !future && Boolean(deviceId) && loading
+              const eff = cell.inMonth ? efficiencyByDay[dateKey] : undefined
+              const hasEff =
+                Boolean(eff) &&
+                (eff!.energyEfficiency != null || eff!.chargeEnergy != null || eff!.dischargeEnergy != null)
 
               return (
                 <div
                   key={cell.date.toISOString()}
-                  className={`group/cell relative flex min-h-0 flex-col border-r border-b border-[#2f4a78] p-2.5 transition-colors ${
+                  className={`group/cell relative flex min-h-0 flex-col overflow-hidden border-r border-b border-[#2f4a78] p-1.5 transition-colors ${
                     cell.inMonth
                       ? hasReports
                         ? "bg-[linear-gradient(180deg,rgba(34,76,134,0.3),rgba(17,27,62,0.85))] hover:bg-[linear-gradient(180deg,rgba(40,88,150,0.38),rgba(17,27,62,0.85))]"
@@ -486,58 +689,48 @@ export function ReportCenterPanel({ deviceId, bcuSelector }: ReportCenterPanelPr
                   )}
                   {cell.inMonth ? (
                     <>
-                      <div className="mb-2 flex items-center justify-between gap-2">
+                      {/* Day number (left) + report access chip (right) — prominent header */}
+                      <div
+                        className={`flex items-center justify-between gap-2 ${
+                          hasEff ? "mb-1.5 border-b border-white/10 pb-1.5" : "mb-1"
+                        }`}
+                      >
                         <span className="flex items-center gap-1.5">
                           <span
-                            className={`font-semibold ${isToday ? "text-[#22d3ee]" : hasReports ? "text-[#eef4ff]" : "text-[#c4d2f0]"}`}
-                            style={{ fontSize: dayNumberSize }}
+                            className={`font-bold leading-none ${isToday ? "text-[#22d3ee]" : hasReports ? "text-white" : "text-[#dbe6ff]"}`}
+                            style={{
+                              fontSize: dayNumberSize,
+                              textShadow: isToday
+                                ? "0 0 12px rgba(34,211,238,0.55)"
+                                : "0 1px 6px rgba(2,8,24,0.55)",
+                            }}
                           >
                             {cell.date.getDate()}
                           </span>
                           {hasReports && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-[#22d3ee] shadow-[0_0_6px_rgba(34,211,238,0.8)]" />
+                            <span className="h-2 w-2 rounded-full bg-[#22d3ee] shadow-[0_0_8px_rgba(34,211,238,0.95)]" />
                           )}
                         </span>
-                        {isToday && (
-                          <span
-                            className="rounded-full border border-[#1d5b54] bg-[#10252d] px-2 py-0.5 text-[#66e6cb]"
-                            style={{ fontSize: hintSize }}
-                          >
-                            {zh ? "今天" : "Today"}
-                          </span>
-                        )}
-                      </div>
 
-                      <div className="mt-auto">
                         {hasReports ? (
                           <Popover>
                             <PopoverTrigger asChild>
                               <button
-                                className="group flex w-full items-center justify-between gap-1 rounded-lg border border-[#4b95ff]/60 bg-[linear-gradient(180deg,rgba(43,82,170,0.92),rgba(26,52,116,0.92))] px-2.5 text-left shadow-[0_2px_10px_rgba(20,60,140,0.35)] transition-all hover:border-[#62a6ff] hover:brightness-110 hover:shadow-[0_4px_16px_rgba(30,90,200,0.5)] data-[state=open]:border-[#62a6ff] data-[state=open]:shadow-[0_0_0_1px_rgba(98,166,255,0.45)]"
-                                style={{ height: triggerHeight }}
+                                title={zh ? "查看日报" : "View reports"}
+                                className="group flex shrink-0 items-center gap-1.5 rounded-lg border border-[#5aa2ff]/80 bg-[linear-gradient(180deg,rgba(56,108,210,0.98),rgba(33,66,150,0.96))] px-2 py-1 font-semibold text-white shadow-[0_2px_12px_rgba(40,110,230,0.45)] transition-all hover:border-[#7dbcff] hover:brightness-110 hover:shadow-[0_3px_16px_rgba(60,140,255,0.6)] data-[state=open]:border-[#7dbcff] data-[state=open]:shadow-[0_0_0_2px_rgba(125,188,255,0.5)]"
                               >
-                                <span className="flex min-w-0 items-center gap-1.5">
-                                  <FileText className="shrink-0 text-[#bcd6ff]" style={{ width: iconSize, height: iconSize }} />
-                                  <span className="truncate font-semibold text-white" style={{ fontSize: actionLabelSize }}>
-                                    {zh ? "日报" : "Report"}
-                                  </span>
+                                <FileText className="shrink-0 text-white" style={{ width: iconSize, height: iconSize }} />
+                                <span className="whitespace-nowrap font-bold" style={{ fontSize: controlSize }}>
+                                  {zh ? `${totalCount} 项` : `${totalCount} items`}
                                 </span>
-                                <span className="flex shrink-0 items-center gap-1">
-                                  <span
-                                    className="rounded-full border border-[#7fb4ff]/55 bg-[#0f1f49] px-1.5 font-semibold text-[#cfe0ff]"
-                                    style={{ fontSize: hintSize }}
-                                  >
-                                    {totalCount}
-                                  </span>
-                                  <ChevronDown
-                                    className="text-[#9fc2ff] transition-transform duration-200 group-data-[state=open]:rotate-180"
-                                    style={{ width: iconSize, height: iconSize }}
-                                  />
-                                </span>
+                                <ChevronDown
+                                  className="text-[#d3e6ff] transition-transform duration-200 group-data-[state=open]:rotate-180"
+                                  style={{ width: iconSize - 1, height: iconSize - 1 }}
+                                />
                               </button>
                             </PopoverTrigger>
                             <PopoverContent
-                              align="start"
+                              align="end"
                               className="z-50 rounded-2xl border border-[#3a5da0] bg-[#172252] p-0 text-[#e8f4fc] shadow-[0_24px_64px_rgba(0,0,0,0.72)] ring-1 ring-[#4a6fb5]/25"
                               style={{ width: filePanelWidth }}
                             >
@@ -616,25 +809,67 @@ export function ReportCenterPanel({ deviceId, bcuSelector }: ReportCenterPanelPr
                             </PopoverContent>
                           </Popover>
                         ) : showLoading ? (
-                          <div
-                            className="animate-pulse rounded-lg border border-[#243a6b]/50 bg-[#16224e]/70"
-                            style={{ height: triggerHeight }}
-                          />
-                        ) : (
-                          <div
-                            className="flex items-center justify-center rounded-lg border border-white/[0.09] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] font-medium tracking-wide text-[#aab9dc] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-[1px]"
-                            style={{ height: triggerHeight, fontSize: actionLabelSize }}
+                          <Loader2 className="shrink-0 animate-spin text-[#8db7ff]" style={{ width: iconSize, height: iconSize }} />
+                        ) : !deviceId ? (
+                          <span className="whitespace-nowrap text-[#5f79ad]" style={{ fontSize: hintSize }}>
+                            {zh ? "选择BCU" : "Select BCU"}
+                          </span>
+                        ) : isToday ? (
+                          <span
+                            className="rounded-full border border-[#1d5b54] bg-[#10252d] px-2 py-0.5 text-[#66e6cb]"
+                            style={{ fontSize: hintSize }}
                           >
-                            {!deviceId
-                              ? zh
-                                ? "选择 BCU"
-                                : "Select BCU"
-                              : zh
-                                ? "无报表"
-                                : "No report"}
-                          </div>
+                            {zh ? "今天" : "Today"}
+                          </span>
+                        ) : (
+                          <span className="whitespace-nowrap text-[#6f86b8]" style={{ fontSize: hintSize }}>
+                            {zh ? "无报表" : "No report"}
+                          </span>
                         )}
                       </div>
+
+                      {/* Energy efficiency (left) + charge/discharge bars (right) —
+                          borderless, bottom-aligned so all labels sit on one horizontal line. */}
+                      {hasEff && (
+                        <div
+                          className="flex flex-1 items-center"
+                          title={`${zh ? "能量效率" : "Energy Efficiency"} ${
+                            eff!.energyEfficiency == null ? "--" : `${eff!.energyEfficiency}%`
+                          } · ${zh ? "充电量" : "Charge"} ${
+                            eff!.chargeEnergy == null ? "--" : `${eff!.chargeEnergy} kWh`
+                          } · ${zh ? "放电量" : "Discharge"} ${
+                            eff!.dischargeEnergy == null ? "--" : `${eff!.dischargeEnergy} kWh`
+                          }`}
+                        >
+                          {/* Inner row: bottom-aligned so all labels sit on one horizontal line */}
+                          <div className="flex w-full items-end justify-around gap-2">
+                            {/* Left: energy-efficiency gauge */}
+                            <div className="flex flex-col items-center gap-1.5">
+                              <EfficiencyRing
+                                value={eff!.energyEfficiency}
+                                size={ringSize}
+                                stroke={ringStroke}
+                                fontSize={ringFontSize}
+                              />
+                              <span className="whitespace-nowrap leading-none text-[#9fb2dc]" style={{ fontSize: statLabelSize }}>
+                                {zh ? "能量效率" : "Energy Efficiency"}
+                              </span>
+                            </div>
+
+                            {/* Right: charge / discharge bar chart with X/Y axes (unit on Y axis) */}
+                            <ChargeDischargeChart
+                              zh={zh}
+                              charge={eff!.chargeEnergy}
+                              discharge={eff!.dischargeEnergy}
+                              max={monthMaxEnergy}
+                              barHeight={barHeight}
+                              barWidth={barWidth}
+                              valueSize={statValueSize}
+                              labelSize={statLabelSize}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </>
                   ) : null}
                 </div>

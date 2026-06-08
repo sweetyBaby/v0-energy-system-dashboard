@@ -828,6 +828,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           <div className="relative h-full min-h-0 overflow-hidden">
             <ReportCenterPanel
               deviceId={reportsDeviceId || undefined}
+              projectId={selectedProject.projectId}
               bcuSelector={renderPageBcuSelector(reportsDeviceId, setReportsDeviceId)}
             />
           </div>
