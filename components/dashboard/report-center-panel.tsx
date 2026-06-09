@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
+import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -98,19 +99,21 @@ function ChargeDischargeChart({
   charge,
   discharge,
   max,
-  barHeight,
+  barAreaMinHeight,
   barWidth,
   valueSize,
   labelSize,
+  compact,
 }: {
   zh: boolean
   charge: number | null
   discharge: number | null
   max: number
-  barHeight: number
+  barAreaMinHeight: number
   barWidth: number
   valueSize: number
   labelSize: number
+  compact: boolean
 }) {
   const renderBar = (value: number | null, color: string, label: string) => {
     const ratio = max > 0 && value != null ? Math.min((value / max) * 100, 100) : 0
@@ -122,25 +125,27 @@ function ChargeDischargeChart({
     const isZero = value === 0
 
     return (
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex h-full min-w-0 flex-col items-center justify-between">
         <span className="leading-none" style={{ fontSize: valueSize }}>
           <span className="font-semibold tabular-nums text-[#eef4ff]">
             {value == null ? "--" : value.toFixed(0)}
           </span>
-          <span className="ml-0.5 font-normal text-[#9fb2dc]" style={{ fontSize: labelSize }}>
+          <span className={`font-normal text-[#9fb2dc] ${compact ? "ml-0" : "ml-0.5"}`} style={{ fontSize: labelSize }}>
             kWh
           </span>
         </span>
-        <div className="flex w-full items-end overflow-hidden" style={{ height: barHeight, width: barWidth }}>
-          <div
-            className="w-full rounded-t-[2px]"
-            style={{
-              height: `${fillPct}%`,
-              minHeight: minBarPx,
-              background: color,
-              opacity: isZero ? 0.5 : 0.92,
-            }}
-          />
+        <div className="flex min-h-0 flex-1 items-end justify-center self-stretch py-[2px]">
+          <div className="flex h-full items-end overflow-hidden" style={{ minHeight: barAreaMinHeight, width: barWidth }}>
+            <div
+              className="w-full rounded-t-[2px]"
+              style={{
+                height: `${fillPct}%`,
+                minHeight: minBarPx,
+                background: color,
+                opacity: isZero ? 0.5 : 0.92,
+              }}
+            />
+          </div>
         </div>
         <span className="whitespace-nowrap leading-none text-[#9fb2dc]" style={{ fontSize: labelSize }}>
           {label}
@@ -150,7 +155,7 @@ function ChargeDischargeChart({
   }
 
   return (
-    <div className="flex items-end gap-3">
+    <div className={`grid h-full min-h-0 flex-1 grid-cols-2 ${compact ? "gap-2" : "gap-3"}`}>
       {renderBar(charge, CHARGE_ENERGY_COLOR, zh ? "充电量" : "Charge")}
       {renderBar(discharge, DISCHARGE_ENERGY_COLOR, zh ? "放电量" : "Discharge")}
     </div>
@@ -246,19 +251,26 @@ const buildCalendarCells = (viewDate: Date, language: "zh" | "en"): CalendarCell
 export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCenterPanelProps) {
   const { language } = useLanguage()
   const zh = language === "zh"
-  const scale = useFluidScale<HTMLDivElement>(1180, 1920, DASHBOARD_CONTENT_SCALE)
-  const titleSize = scale.clampText(0.95, 1.02, 1.28)
-  const controlSize = scale.fluid(12, 15)
-  const hintSize = scale.fluid(11, 13)
-  const dayNumberSize = scale.clampText(1.22, 1.4, 1.82)
-  const actionLabelSize = scale.fluid(11, 14)
-  const ringSize = scale.fluid(38, 64)
-  const ringStroke = scale.fluid(4.5, 6.5)
-  const ringFontSize = scale.fluid(11, 15)
-  const statLabelSize = scale.fluid(9.5, 12.5)
-  const statValueSize = scale.fluid(11, 14.5)
-  const barHeight = scale.fluid(28, 56)
-  const barWidth = scale.fluid(13, 20)
+  const { isCompactViewport, isShortHeight } = useDashboardViewport()
+  const compactCalendar = isCompactViewport || isShortHeight
+  const scale = useFluidScale<HTMLDivElement>(isCompactViewport ? 760 : 1180, isCompactViewport ? 1440 : 1920, {
+    ...DASHBOARD_CONTENT_SCALE,
+    axis: compactCalendar ? "min" : "width",
+    minRootPx: isCompactViewport ? 13 : DASHBOARD_CONTENT_SCALE.minRootPx,
+    maxRootPx: isCompactViewport ? 18.5 : DASHBOARD_CONTENT_SCALE.maxRootPx,
+  })
+  const titleSize = scale.clampText(0.92, compactCalendar ? 0.96 : 1.02, 1.28)
+  const controlSize = scale.fluid(compactCalendar ? 10.5 : 12, compactCalendar ? 13.2 : 15)
+  const hintSize = scale.fluid(compactCalendar ? 9.5 : 11, compactCalendar ? 11.2 : 13)
+  const dayNumberSize = scale.clampText(compactCalendar ? 1 : 1.22, compactCalendar ? 1.14 : 1.4, compactCalendar ? 1.44 : 1.82)
+  const actionLabelSize = scale.fluid(compactCalendar ? 9.5 : 11, compactCalendar ? 12 : 14)
+  const ringSize = scale.fluid(compactCalendar ? 34 : 46, compactCalendar ? 56 : 82)
+  const ringStroke = scale.fluid(compactCalendar ? 4 : 4.5, compactCalendar ? 6 : 7)
+  const ringFontSize = scale.fluid(compactCalendar ? 10 : 11.5, compactCalendar ? 14 : 17)
+  const statLabelSize = scale.fluid(compactCalendar ? 8.2 : 9.8, compactCalendar ? 10.6 : 12.8)
+  const statValueSize = scale.fluid(compactCalendar ? 10 : 11.5, compactCalendar ? 12.8 : 15.2)
+  const barAreaMinHeight = scale.fluid(compactCalendar ? 26 : 38, compactCalendar ? 44 : 74)
+  const barWidth = scale.fluid(compactCalendar ? 10 : 14, compactCalendar ? 17 : 24)
   const today = useMemo(() => new Date(), [])
   const [viewDate, setViewDate] = useState(() => startOfMonth(today))
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -379,11 +391,11 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
   const canGoNextMonth =
     viewDate.getFullYear() < today.getFullYear() || viewDate.getMonth() < today.getMonth()
 
-  const triggerHeight = scale.fluid(36, 44)
-  const navEdge = scale.fluid(36, 42)
-  const panelWidth = scale.fluid(320, 380)
-  const iconSize = scale.fluid(14, 18)
-  const filePanelWidth = scale.fluid(312, 392)
+  const triggerHeight = scale.fluid(compactCalendar ? 32 : 36, compactCalendar ? 38 : 44)
+  const navEdge = scale.fluid(compactCalendar ? 32 : 36, compactCalendar ? 38 : 42)
+  const panelWidth = scale.fluid(compactCalendar ? 300 : 320, compactCalendar ? 340 : 380)
+  const iconSize = scale.fluid(compactCalendar ? 12 : 14, compactCalendar ? 15.5 : 18)
+  const filePanelWidth = scale.fluid(compactCalendar ? 296 : 312, compactCalendar ? 360 : 392)
 
   const fileKindLabel = (file: ReportFile) => kindLabels[language][file.kind] || file.fileName
 
@@ -483,8 +495,12 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
   })()
 
   return (
-    <div ref={scale.ref} className="flex h-full min-h-0 flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] p-4" style={scale.rootStyle}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div
+      ref={scale.ref}
+      className={`flex h-full min-h-0 flex-col rounded-lg border border-[#1a2654] bg-[#0d1233] ${compactCalendar ? "p-3" : "p-4"}`}
+      style={scale.rootStyle}
+    >
+      <div className={`flex flex-wrap items-center justify-between ${compactCalendar ? "mb-3 gap-2.5" : "mb-4 gap-3"}`}>
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="h-4 w-1 rounded-full bg-[#22d3ee]" />
@@ -646,7 +662,11 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#33507e] bg-[linear-gradient(180deg,rgba(16,24,64,0.9),rgba(10,18,48,0.94))]">
         <div className="grid grid-cols-7 border-b border-[#33507e] bg-[#101840]/92">
           {labels.map((label) => (
-            <div key={label} className="border-r border-[#2f4a78] px-2 py-2 font-semibold text-[#eef4ff] last:border-r-0" style={{ fontSize: controlSize }}>
+            <div
+              key={label}
+              className={`border-r border-[#2f4a78] font-semibold text-[#eef4ff] last:border-r-0 ${compactCalendar ? "px-1.5 py-1.5" : "px-2 py-2"}`}
+              style={{ fontSize: controlSize }}
+            >
               {label}
             </div>
           ))}
@@ -674,7 +694,7 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
               return (
                 <div
                   key={cell.date.toISOString()}
-                  className={`group/cell relative flex min-h-0 flex-col overflow-hidden border-r border-b border-[#2f4a78] p-1.5 transition-colors ${
+                  className={`group/cell relative flex min-h-0 flex-col overflow-hidden border-r border-b border-[#2f4a78] ${compactCalendar ? "p-1" : "p-1.5"} transition-colors ${
                     cell.inMonth
                       ? hasReports
                         ? "bg-[linear-gradient(180deg,rgba(34,76,134,0.3),rgba(17,27,62,0.85))] hover:bg-[linear-gradient(180deg,rgba(40,88,150,0.38),rgba(17,27,62,0.85))]"
@@ -689,11 +709,17 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
                     <>
                       {/* Day number (left) + report access chip (right) — prominent header */}
                       <div
-                        className={`flex items-center justify-between gap-2 ${
-                          hasEff ? "mb-1.5 border-b border-white/10 pb-1.5" : "mb-1"
+                        className={`flex items-center justify-between ${compactCalendar ? "gap-1" : "gap-2"} ${
+                          hasEff
+                            ? compactCalendar
+                              ? "mb-1 border-b border-white/10 pb-1"
+                              : "mb-1.5 border-b border-white/10 pb-1.5"
+                            : compactCalendar
+                              ? "mb-0.5"
+                              : "mb-1"
                         }`}
                       >
-                        <span className="flex items-center gap-1.5">
+                        <span className={`flex items-center ${compactCalendar ? "gap-1" : "gap-1.5"}`}>
                           <span
                             className={`font-bold leading-none ${isToday ? "text-[#5cc2d2]" : hasReports ? "text-[#eef4ff]" : "text-[#c9d6ee]"}`}
                             style={{
@@ -713,7 +739,7 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
                             <PopoverTrigger asChild>
                               <button
                                 title={zh ? "查看日报" : "View reports"}
-                                className="group flex shrink-0 items-center gap-1.5 rounded-lg border border-[#456da8]/65 bg-[linear-gradient(180deg,rgba(41,70,134,0.82),rgba(27,49,102,0.82))] px-2 py-1 font-semibold text-[#d6e2f3] shadow-[0_2px_8px_rgba(10,28,72,0.34)] outline-none transition-all hover:border-[#557fbf] hover:brightness-105 focus:outline-none focus-visible:outline-none data-[state=open]:border-[#557fbf] data-[state=open]:shadow-[0_0_0_1px_rgba(95,135,195,0.4)]"
+                                className={`group flex shrink-0 items-center rounded-lg border border-[#456da8]/65 bg-[linear-gradient(180deg,rgba(41,70,134,0.82),rgba(27,49,102,0.82))] font-semibold text-[#d6e2f3] shadow-[0_2px_8px_rgba(10,28,72,0.34)] outline-none transition-all hover:border-[#557fbf] hover:brightness-105 focus:outline-none focus-visible:outline-none data-[state=open]:border-[#557fbf] data-[state=open]:shadow-[0_0_0_1px_rgba(95,135,195,0.4)] ${compactCalendar ? "gap-1 px-1.5 py-0.5" : "gap-1.5 px-2 py-1"}`}
                               >
                                 <FileText className="shrink-0 text-[#bcd0ef]" style={{ width: iconSize, height: iconSize }} />
                                 <span className="whitespace-nowrap font-semibold" style={{ fontSize: controlSize }}>
@@ -828,7 +854,7 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
                           borderless, bottom-aligned so all labels sit on one horizontal line. */}
                       {hasEff && (
                         <div
-                          className="flex flex-1 items-center"
+                          className="flex min-h-0 flex-1 items-stretch"
                           title={`${zh ? "能量效率" : "Energy Efficiency"} ${
                             eff!.energyEfficiency == null ? "--" : `${eff!.energyEfficiency}%`
                           } · ${zh ? "充电量" : "Charge"} ${
@@ -838,17 +864,25 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
                           }`}
                         >
                           {/* Inner row: bottom-aligned so all labels sit on one horizontal line */}
-                          <div className="flex w-full items-end justify-around gap-2">
+                          <div
+                            className={`grid h-full w-full min-h-0 items-stretch ${
+                              compactCalendar
+                                ? "grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] gap-2"
+                                : "grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-3"
+                            }`}
+                          >
                             {/* Left: energy-efficiency gauge */}
-                            <div className="flex flex-col items-center gap-1.5">
-                              <EfficiencyRing
-                                value={eff!.energyEfficiency}
-                                size={ringSize}
-                                stroke={ringStroke}
-                                fontSize={ringFontSize}
-                              />
+                            <div className="flex h-full min-h-0 flex-col items-center justify-between">
+                              <div className="flex min-h-0 flex-1 items-center justify-center self-stretch">
+                                <EfficiencyRing
+                                  value={eff!.energyEfficiency}
+                                  size={ringSize}
+                                  stroke={ringStroke}
+                                  fontSize={ringFontSize}
+                                />
+                              </div>
                               <span className="whitespace-nowrap leading-none text-[#9fb2dc]" style={{ fontSize: statLabelSize }}>
-                                {zh ? "能量效率" : "Energy Efficiency"}
+                                {zh ? "\u80fd\u91cf\u6548\u7387" : "Energy Efficiency"}
                               </span>
                             </div>
 
@@ -858,10 +892,11 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
                               charge={eff!.chargeEnergy}
                               discharge={eff!.dischargeEnergy}
                               max={monthMaxEnergy}
-                              barHeight={barHeight}
+                              barAreaMinHeight={barAreaMinHeight}
                               barWidth={barWidth}
                               valueSize={statValueSize}
                               labelSize={statLabelSize}
+                              compact={compactCalendar}
                             />
                           </div>
                         </div>
