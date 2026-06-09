@@ -62,7 +62,7 @@ function EfficiencyRing({
   const center = size / 2
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0">
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="block max-h-full max-w-full">
       <circle cx={center} cy={center} r={radius} fill="none" stroke="#223a30" strokeWidth={stroke} />
       <circle
         cx={center}
@@ -95,7 +95,6 @@ function ChargeDischargeChart({
   charge,
   discharge,
   max,
-  barAreaMinHeight,
   barWidth,
   valueSize,
   labelSize,
@@ -105,7 +104,6 @@ function ChargeDischargeChart({
   charge: number | null
   discharge: number | null
   max: number
-  barAreaMinHeight: number
   barWidth: number
   valueSize: number
   labelSize: number
@@ -131,7 +129,10 @@ function ChargeDischargeChart({
           </span>
         </span>
         <div className="flex min-h-0 flex-1 items-end justify-center self-stretch py-[2px]">
-          <div className="flex h-full items-end overflow-hidden" style={{ minHeight: barAreaMinHeight, width: barWidth }}>
+          {/* No min-height floor: the bar area is purely flex-driven so it grows on
+              tall rows and shrinks on short ones, never pushing the label out of the
+              cell. The fill keeps a small baseline nub so bars stay visible. */}
+          <div className="flex h-full items-end overflow-hidden" style={{ width: barWidth }}>
             <div
               className="w-full rounded-t-[2px]"
               style={{
@@ -257,7 +258,6 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
   const ringFontSize = scale.fluid(compactCalendar ? 10 : 11.5, compactCalendar ? 14 : 17)
   const statLabelSize = scale.fluid(compactCalendar ? 8.2 : 9.8, compactCalendar ? 10.6 : 12.8)
   const statValueSize = scale.fluid(compactCalendar ? 10 : 11.5, compactCalendar ? 12.8 : 15.2)
-  const barAreaMinHeight = scale.fluid(compactCalendar ? 26 : 38, compactCalendar ? 44 : 74)
   const barWidth = scale.fluid(compactCalendar ? 10 : 14, compactCalendar ? 17 : 24)
   const today = useMemo(() => new Date(), [])
   const [viewDate, setViewDate] = useState(() => startOfMonth(today))
@@ -700,7 +700,6 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
                               charge={eff!.chargeEnergy}
                               discharge={eff!.dischargeEnergy}
                               max={monthMaxEnergy}
-                              barAreaMinHeight={barAreaMinHeight}
                               barWidth={barWidth}
                               valueSize={statValueSize}
                               labelSize={statLabelSize}
