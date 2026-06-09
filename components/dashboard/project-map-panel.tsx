@@ -51,6 +51,7 @@ import {
 const GEO_URL = "/world-atlas.json"
 const EXCLUDED_COUNTRY_NAMES = new Set(["Antarctica", "Fr. S. Antarctic Lands"])
 const HOVER_EXIT_DELAY_MS = 220
+const LINKED_COUNTRY_SELECTION_GROUPS = [["China", "Taiwan"]] as const
 
 type MapCoordinates = [number, number]
 type LifecycleKey = "commissioned" | "construction" | "planned"
@@ -491,6 +492,7 @@ const clusterMappableProjects = (projects: ProjectOption[]): ProjectCluster[] =>
 // [minLng, minLat, maxLng, maxLat] bounding boxes for country detection
 const COUNTRY_BBOX: Record<string, [number, number, number, number]> = {
   "China":        [73,  15, 136, 54],
+  "Taiwan":       [119, 21, 123, 26],
   "Mongolia":     [87,  41, 120, 52],
   "Russia":       [27,  41, 180, 82],
   "India":        [68,   7,  97, 37],
@@ -549,6 +551,18 @@ const COUNTRY_LABEL_OFFSET_FACTORS: ReadonlyArray<readonly [number, number]> = [
 ]
 
 const clampToRange = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+
+const expandLinkedCountrySelections = (countries: Iterable<string>) => {
+  const expanded = new Set<string>(countries)
+
+  for (const group of LINKED_COUNTRY_SELECTION_GROUPS) {
+    if (group.some((country) => expanded.has(country))) {
+      group.forEach((country) => expanded.add(country))
+    }
+  }
+
+  return expanded
+}
 
 const isCoordinateInBbox = (coordinates: MapCoordinates, bbox: readonly [number, number, number, number]) => {
   const [lng, lat] = coordinates
@@ -836,6 +850,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [dischargeRankingItems, setDischargeRankingItems] = useState<ChargeDischargeRankingItem[]>([])
   const [energyRankingMode, setEnergyRankingMode] = useState<EnergyRankingMode>("charge")
   const [hoveredClusterId, setHoveredClusterId] = useState<string | null>(null)
+  const [hoveredCountryName, setHoveredCountryName] = useState<string | null>(null)
   const hoverExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const [mapDimensions, setMapDimensions] = useState({ width: 800, height: 450 })
@@ -1249,29 +1264,37 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [mapZoomK, setMapZoomK] = useState(focusFrame.zoom)
   // Counter-scale exactly 1/k so markers stay constant screen size regardless of zoom level
   const markerScale = 1 / Math.max(mapZoomK, 1)
+  // Keep labels readable while zooming instead of letting them feel smaller against the enlarged map.
+  const markerLabelScale = 1 + Math.min(Math.max(mapZoomK - focusFrame.zoom, 0) * 0.12, 0.35)
   const mapProjectionScale = useMemo(() => Math.round(mapDimensions.width * 0.22), [mapDimensions.width])
 
   const projectCountries = useMemo(() => {
-    const set = new Set<string>()
+    const detectedCountries = new Set<string>()
     for (const p of mappableProjects) {
       const lng = p.longitude!
       const lat = p.latitude!
       for (const [country, [minLng, minLat, maxLng, maxLat]] of Object.entries(COUNTRY_BBOX)) {
         if (lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat) {
-          set.add(country)
+          detectedCountries.add(country)
         }
       }
     }
-    return set
+
+    return expandLinkedCountrySelections(detectedCountries)
   }, [mappableProjects])
   const highlightedCountries = useMemo(() => {
     const set = new Set<string>(projectCountries)
     PRIORITY_MARKETS.forEach((country) => set.add(country))
     return set
   }, [projectCountries])
+  const hoveredCountries = useMemo(
+    () => (hoveredCountryName ? expandLinkedCountrySelections([hoveredCountryName]) : new Set<string>()),
+    [hoveredCountryName]
+  )
   const highlightedCountryLabels = useMemo(
     () =>
       Array.from(highlightedCountries)
+        .filter((country) => !(country === "Taiwan" && highlightedCountries.has("China")))
         .map((country) => {
           const bbox = COUNTRY_BBOX[country]
           if (!bbox) return null
@@ -1749,21 +1772,29 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           .filter((geo: GeographyFeature) => !EXCLUDED_COUNTRY_NAMES.has(geo.properties?.name ?? ""))
                           .map((geo: GeographyFeature) => {
                             const countryName = geo.properties?.name ?? ""
-                            const effectiveName = countryName === "Taiwan" ? "China" : countryName
-                            const hasProject = projectCountries.has(effectiveName)
-                            const isProspect = PRIORITY_MARKETS.has(effectiveName)
+                            const hasProject = projectCountries.has(countryName)
+                            const isProspect = PRIORITY_MARKETS.has(countryName)
+                            const isLinkedHover = hoveredCountries.has(countryName)
                             return (
                               <Geography
                                 key={geo.rsmKey}
                                 geography={geo}
+                                onMouseEnter={() => setHoveredCountryName(countryName)}
+                                onMouseLeave={() => setHoveredCountryName((current) => (current === countryName ? null : current))}
                                 style={{
                                   default: {
-                                    fill: hasProject ? "#0d6a88" : isProspect ? "#6d5314" : "#1a3d58",
-                                    stroke: hasProject ? "#2ab8dc" : isProspect ? "#f7c948" : "#2a5878",
+                                    fill: isLinkedHover ? (hasProject ? "#1280a8" : isProspect ? "#8a6918" : "#224f70") : hasProject ? "#0d6a88" : isProspect ? "#6d5314" : "#1a3d58",
+                                    stroke: isLinkedHover ? (hasProject ? "#55d4f0" : isProspect ? "#ffd978" : "#55d4f0") : hasProject ? "#2ab8dc" : isProspect ? "#f7c948" : "#2a5878",
                                     strokeWidth: hasProject || isProspect ? 1.0 : 0.55,
                                     outline: "none",
                                     filter:
-                                      hasProject
+                                      isLinkedHover
+                                        ? hasProject
+                                          ? "drop-shadow(0 0 12px rgba(42,184,220,0.52))"
+                                          : isProspect
+                                            ? "drop-shadow(0 0 12px rgba(247,201,72,0.42))"
+                                            : "none"
+                                        : hasProject
                                         ? "drop-shadow(0 0 8px rgba(42,184,220,0.36))"
                                         : isProspect
                                           ? "drop-shadow(0 0 10px rgba(247,201,72,0.32))"
@@ -1798,20 +1829,22 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       return (
                         <Marker key={`country-label-${item.country}`} coordinates={item.center}>
                           <g transform={`scale(${markerScale})`} pointerEvents="none">
-                            <text
-                              y={0}
-                              textAnchor="middle"
-                              dominantBaseline="central"
-                              style={{
-                                fontSize: zh ? "11px" : "9.5px",
-                                fontWeight: 800,
-                                fill: "#9fd8ff",
-                                letterSpacing: zh ? "0.08em" : "0.06em",
-                                textTransform: zh ? undefined : "uppercase",
-                              }}
-                            >
-                              {item.label}
-                            </text>
+                            <g transform={`scale(${markerLabelScale})`}>
+                              <text
+                                y={0}
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                style={{
+                                  fontSize: zh ? "11px" : "9.5px",
+                                  fontWeight: 800,
+                                  fill: "#9fd8ff",
+                                  letterSpacing: zh ? "0.08em" : "0.06em",
+                                  textTransform: zh ? undefined : "uppercase",
+                                }}
+                              >
+                                {item.label}
+                              </text>
+                            </g>
                           </g>
                         </Marker>
                       )
@@ -1861,7 +1894,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                 x2={0}
                                 y2={regionJointY}
                                 stroke={SHARED_MARKER_FILL}
-                                strokeWidth={isClusterActive ? 5 : 4}
+                                strokeWidth={isClusterActive ? 4.2 : 3.4}
                                 strokeLinecap="round"
                                 style={{ transition: "all 0.2s ease" }}
                               />
@@ -1871,7 +1904,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                 x2={flagLayout.offsetX}
                                 y2={regionStemTopY}
                                 stroke={SHARED_MARKER_FILL}
-                                strokeWidth={isClusterActive ? 4.3 : 3.5}
+                                strokeWidth={isClusterActive ? 3.7 : 3}
                                 strokeLinecap="round"
                                 style={{ transition: "all 0.2s ease" }}
                               />
@@ -1884,7 +1917,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                 strokeWidth={1.1}
                                 style={{ transition: "all 0.2s ease" }}
                               />
-                              <g transform={`translate(${flagLayout.offsetX} ${regionFlagTopY})`} style={{ transition: "all 0.2s ease" }}>
+                              <g transform={`translate(${flagLayout.offsetX} ${regionFlagTopY}) scale(${markerLabelScale})`} style={{ transition: "all 0.2s ease" }}>
                                 <path
                                   d={regionFlagPath}
                                   fill={SHARED_FLAG_FILL}
@@ -1899,12 +1932,12 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                   strokeLinecap="round"
                                 />
                                 <text x={-4} y={-10.5} textAnchor="middle"
-                                  style={{ fontSize: zh ? "10px" : "8px", fontWeight: 800, fill: clusterStyles?.text ?? "#f3f8ff", letterSpacing: zh ? "0.01em" : "0.05em" }}>
+                                  style={{ fontSize: zh ? "11.5px" : "9.5px", fontWeight: 900, fill: clusterStyles?.text ?? "#f3f8ff", letterSpacing: zh ? "0.01em" : "0.05em" }}>
                                   {regionName}
                                 </text>
                                 <g transform={`translate(${badgeCx} ${badgeCy})`}>
                                   <circle r={badgeR} fill={SHARED_MARKER_FILL} stroke={SHARED_MARKER_STROKE} strokeWidth={1} />
-                                  <text y={3.2} textAnchor="middle" style={{ fontSize: "8px", fontWeight: 900, fill: "#173a78" }}>
+                                  <text y={3.4} textAnchor="middle" style={{ fontSize: "10px", fontWeight: 900, fill: "#173a78" }}>
                                     {cluster.projects.length}
                                   </text>
                                 </g>
@@ -1957,7 +1990,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                               x2={0}
                               y2={jointY}
                               stroke={styles.markerFill}
-                              strokeWidth={isActive ? 5 : 4}
+                              strokeWidth={isActive ? 4.2 : 3.4}
                               strokeLinecap="round"
                               style={{ transition: "all 0.2s ease" }}
                             />
@@ -1967,7 +2000,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                               x2={flagLayout.offsetX}
                               y2={stemTopY}
                               stroke={styles.markerFill}
-                              strokeWidth={isActive ? 4.2 : 3.4}
+                              strokeWidth={isActive ? 3.6 : 2.9}
                               strokeLinecap="round"
                               style={{ transition: "all 0.2s ease" }}
                             />
@@ -1980,7 +2013,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                               strokeWidth={1.1}
                               style={{ transition: "all 0.2s ease" }}
                             />
-                            <g transform={`translate(${flagLayout.offsetX} ${flagTopY})`} style={{ transition: "all 0.2s ease" }}>
+                            <g transform={`translate(${flagLayout.offsetX} ${flagTopY}) scale(${markerLabelScale})`} style={{ transition: "all 0.2s ease" }}>
                               <path
                                 d={flagPath}
                                 fill={styles.flagFill}
@@ -1995,7 +2028,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                                 strokeLinecap="round"
                               />
                               <text y={-11} textAnchor="middle"
-                                style={{ fontSize: zh ? "10px" : "8px", fontWeight: 800, fill: styles.text, letterSpacing: zh ? "0.01em" : "0.05em" }}>
+                                style={{ fontSize: zh ? "11.5px" : "9.5px", fontWeight: 900, fill: styles.text, letterSpacing: zh ? "0.01em" : "0.05em" }}>
                                 {projectLabel}
                               </text>
                             </g>
@@ -2411,7 +2444,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                       <Zap className={`relative text-[#2dd4bf] ${useCompactOverviewRail ? "h-3 w-3" : "h-3.5 w-3.5"}`} />
                     </div>
                     <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                      <span className={`font-black tracking-[0.07em] text-[#e9fbff] ${useCompactOverviewRail ? "text-[12px]" : "text-[14px]"}`}>
+                      <span className={`font-black tracking-[0.07em] text-[#e9fbff] ${zh ? "shrink-0 whitespace-nowrap" : "min-w-0"} ${useCompactOverviewRail ? "text-[12px]" : "text-[14px]"}`}>
                         {zh ? "充放电排名" : "Energy Ranking"}
                       </span>
                       <div className="inline-grid shrink-0 grid-cols-[1fr_auto_1fr] overflow-hidden rounded-[7px] border border-[#2d5778] bg-[rgba(8,22,38,0.95)] shadow-[inset_0_1px_0_rgba(151,218,255,0.05)]">

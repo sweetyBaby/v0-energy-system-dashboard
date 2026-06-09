@@ -420,6 +420,67 @@ export const fetchOverviewDailyList = async (payload: DailyListRequest) => {
   return apiClient.postRaw<DailyListResponse>(apiEndpoints.overview.dailyList, normalizedPayload)
 }
 
+export type DailyEfficiencyEntry = {
+  /** Charge energy in kWh. */
+  chargeEnergy: number | null
+  /** Discharge energy in kWh. */
+  dischargeEnergy: number | null
+  /** Energy efficiency (%). */
+  energyEfficiency: number | null
+}
+
+const startOfMonthDate = (year: number, month: number) => new Date(year, month - 1, 1)
+const endOfMonthDate = (year: number, month: number) => new Date(year, month, 0)
+
+/**
+ * Fetch a month of daily charge/discharge energy + energy efficiency for a BCU,
+ * keyed by `YYYYMMDD`. Mirrors the "本月" range used by the comprehensive
+ * efficiency panel: the upstream only has data up to yesterday, so the request
+ * window is clamped accordingly (and returns `{}` for fully-future months).
+ */
+export const fetchMonthlyEfficiencyByDay = async (
+  params: { projectId: string; deviceId?: string; year: number; month: number },
+  options: { signal?: AbortSignal } = {},
+): Promise<Record<string, DailyEfficiencyEntry>> => {
+  const monthStart = startOfMonthDate(params.year, params.month)
+  const monthEnd = endOfMonthDate(params.year, params.month)
+  const now = new Date()
+  const yesterday = addDays(new Date(now.getFullYear(), now.getMonth(), now.getDate()), -1)
+  const endDate = monthEnd.getTime() <= yesterday.getTime() ? monthEnd : yesterday
+
+  if (endDate.getTime() < monthStart.getTime()) {
+    return {}
+  }
+
+  const response = await apiClient.postRaw<DailyListResponse>(
+    apiEndpoints.overview.dailyList,
+    {
+      projectId: params.projectId,
+      deviceId: normalizeOptionalDeviceId(params.deviceId),
+      params: {
+        beginTime: formatIsoDate(monthStart),
+        endTime: formatIsoDate(endDate),
+      },
+    },
+    { signal: options.signal },
+  )
+
+  const result: Record<string, DailyEfficiencyEntry> = {}
+  for (const row of response.rows ?? []) {
+    const date = parseReportDate(row.reportDate)
+    if (!date) continue
+
+    const key = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`
+    result[key] = {
+      chargeEnergy: resolveEnergyMetric(row.chargeWh, row.children, (child) => child.chargeWh),
+      dischargeEnergy: resolveEnergyMetric(row.dischargeWh, row.children, (child) => child.dischargeWh),
+      energyEfficiency: normalizeNumber(row.chargeEfficiencyEe, 2),
+    }
+  }
+
+  return result
+}
+
 export const normalizeOverviewDailyRows = (
   rows: RawDailyListRow[],
   options: NormalizeOverviewOptions = {},

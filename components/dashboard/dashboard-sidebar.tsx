@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { useRouter } from "next/navigation"
 import {
   Activity,
   BarChart3,
@@ -6,7 +7,9 @@ import {
   FileText,
   History,
   LayoutDashboard,
+  Map,
 } from "lucide-react"
+import { useProject } from "@/components/dashboard/dashboard-header"
 import { useLanguage } from "@/components/language-provider"
 
 export type SidebarTab =
@@ -72,12 +75,18 @@ export function DashboardSidebar({
   onExpandedChange,
   alarmCount = 0,
 }: DashboardSidebarProps) {
+  const router = useRouter()
+  const { selectedProject } = useProject()
   const { language } = useLanguage()
   const zh = language === "zh"
 
   const collapsedW = 68
   const collapseLabel = zh ? "折叠菜单" : "Collapse menu"
   const expandLabel = zh ? "展开菜单" : "Expand menu"
+  const backToMapLabel = zh ? "项目地图" : "Project Map"
+  const backToMapHref = selectedProject.projectId
+    ? `/project-map?projectId=${encodeURIComponent(selectedProject.projectId)}`
+    : "/project-map"
   const labelWidth = useMemo(() => {
     const sidebarLabels = SIDEBAR_TABS.map((tab) => (zh ? tab.zh : tab.en))
     return Math.max(...sidebarLabels.map((label) => getSidebarLabelWidth(label, zh)))
@@ -217,6 +226,31 @@ export function DashboardSidebar({
           )
         })}
       </nav>
+
+      <div className="relative border-t border-[#16344f] px-1.5 pb-2 pt-2">
+        <div className="group relative">
+          <button
+            type="button"
+            onClick={() => router.push(backToMapHref)}
+            title={!expanded ? backToMapLabel : undefined}
+            className={`relative inline-flex w-full items-center overflow-hidden text-[11px] font-semibold text-[#9cc6d8] outline-none transition-all hover:bg-[rgba(14,33,52,0.72)] hover:text-[#dffbff] focus:outline-none focus-visible:outline-none ${
+              expanded
+                ? "h-[34px] justify-start gap-2 rounded-lg px-3"
+                : "h-[34px] justify-center rounded-lg px-0"
+            }`}
+          >
+            <Map className="h-4 w-4 shrink-0 text-[#7cc1d4] transition-colors group-hover:text-[#b7f2ff]" />
+            {expanded ? <span className="tracking-[0.08em]">{backToMapLabel}</span> : null}
+          </button>
+
+          {!expanded && (
+            <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded border border-[#1a3a52] bg-[rgba(4,12,26,0.95)] px-2.5 py-1 text-xs text-[#e8f4fc] opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+              {backToMapLabel}
+              <div className="absolute -left-[5px] top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#1a3a52]" />
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-[#26f0dc]/18 to-transparent" />
     </aside>

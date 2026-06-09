@@ -29,6 +29,7 @@ ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 ENV API_BASE_URL=http://localhost:8080
+ENV REPORT_API_BASE_URL=http://localhost:8083
 
 RUN apk add --no-cache libc6-compat
 

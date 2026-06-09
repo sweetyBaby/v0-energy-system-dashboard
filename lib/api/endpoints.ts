@@ -162,4 +162,18 @@ export const apiEndpoints = {
      */
     dailyTrendRange: "/ems/daily/trend/range",
   },
+  reports: {
+    /**
+     * Report-center daily report list.
+     *
+     * NOTE: this endpoint lives on a SEPARATE upstream (`REPORT_API_BASE_URL`,
+     * e.g. 8083) — NOT the common `API_BASE_URL` (9016/prod-api). It is reached
+     * through the dedicated `/api/report-proxy/*` route, so paths here are
+     * relative to that proxy base, not the common `/api/proxy` base.
+     *
+     * POST body: { project_id, year, month } — project_id carries the selected
+     * BCU deviceId (value unchanged); year/month are plain numbers, no zero-padding.
+     */
+    list: "/api/getReportList",
+  },
 } as const

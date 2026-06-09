@@ -132,7 +132,8 @@ const LanguageContext = createContext<LanguageContextType>({
 export const useLanguage = () => useContext(LanguageContext)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>("zh")
+  // Default to English; a previously stored choice still takes precedence.
+  const [language, setLanguage] = useState<Language>("en")
 
   useEffect(() => {
     try {
@@ -140,11 +141,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
       if (storedLanguage === "zh" || storedLanguage === "en") {
         setLanguage(storedLanguage)
-        return
-      }
-
-      if (window.navigator.language.toLowerCase().startsWith("en")) {
-        setLanguage("en")
       }
     } catch {
       // Ignore storage access failures and keep the default language.
