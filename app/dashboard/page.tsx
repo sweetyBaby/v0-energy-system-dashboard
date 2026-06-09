@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import type { DateRange } from "react-day-picker"
-import { Battery, Calendar, Wrench, Zap } from "lucide-react"
+import { Wrench } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
 import { BcuSelector } from "@/components/dashboard/bcu-selector"
@@ -18,7 +18,8 @@ import { DashboardHeader, ProjectProvider, useProject } from "@/components/dashb
 import { DashboardSidebar, type SidebarTab } from "@/components/dashboard/dashboard-sidebar"
 import { HistoryDatePicker } from "@/components/dashboard/history-date-picker"
 import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
-import { RealtimeStatusBoard } from "@/components/dashboard/realtime-status-board"
+import { ProjectOverviewInfoCard } from "@/components/dashboard/project-overview-info-card"
+import { ProjectTopologyPanel } from "@/components/dashboard/project-topology-panel"
 import { ReportCenterPanel } from "@/components/dashboard/report-center-panel"
 import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
@@ -120,7 +121,7 @@ function OverviewDataLoader() {
   return null
 }
 
-function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
+function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; onNavigateTab?: (tab: string) => void }) {
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
   const lerp = (min: number, max: number, progress: number) => min + (max - min) * progress
   const [analysisRange, setAnalysisRange] = useState<AnalysisRange>(15)
@@ -389,33 +390,6 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     />
   )
 
-  const projectStats = [
-    {
-      icon: <Zap className="h-6 w-6 text-[#25efff]" fill="currentColor" />,
-      iconBg: "bg-[#25efff]/12 border border-[#25efff]/45",
-      labelZh: "额定功率",
-      labelEn: "Rated Power",
-      value: selectedProject.ratedPower,
-      valueSize: "regular" as const,
-    },
-    {
-      icon: <Battery className="h-6 w-6 text-[#25efff]" />,
-      iconBg: "bg-[#25efff]/12 border border-[#25efff]/45",
-      labelZh: "额定容量",
-      labelEn: "Rated Capacity",
-      value: selectedProject.ratedCapacity,
-      valueSize: "dense" as const,
-    },
-    {
-      icon: <Calendar className="h-6 w-6 text-[#25efff]" />,
-      iconBg: "bg-[#25efff]/12 border border-[#25efff]/45",
-      labelZh: "投运日期",
-      labelEn: "Commission",
-      value: selectedProject.commissioningDate,
-      valueSize: "dense" as const,
-    },
-  ]
-
   const renderRunningStatusPage = () => (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       <div className="grid min-h-0 flex-1 grid-cols-12 gap-4 overflow-hidden">
@@ -595,47 +569,11 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
 
               <div className={`relative grid h-full grid-cols-12 items-stretch ${isCompactViewport ? "gap-2.5 px-2.5 pb-2.5 pt-4" : "gap-3 px-3 pb-3 pt-6"}`}>
                 <div className="col-span-3 min-h-0 h-full">
-                  <RealtimeStatusBoard />
+                  <ProjectOverviewInfoCard />
                 </div>
 
-                <div className="col-span-6 flex min-h-0 items-end justify-center">
-                  <div className={`w-full ${isCompactViewport ? "max-w-[620px] px-3 pb-0.5 pt-2" : "max-w-[660px] px-5 pb-1 pt-3"}`}>
-                    <div className="grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)_minmax(0,1.05fr)]">
-                      {projectStats.map((stat, index) => (
-                        <div key={index} className={`relative flex min-w-0 flex-col items-center justify-end px-3 py-1 ${isCompactViewport ? "min-h-[100px] gap-1.5" : "min-h-[122px] gap-2"}`}>
-                          {index < projectStats.length - 1 && (
-                            <div className="pointer-events-none absolute inset-y-3 right-0 w-px bg-gradient-to-b from-transparent via-[#b8d8f0]/35 to-transparent" />
-                          )}
-                          <div className={`flex h-11 w-11 items-center justify-center rounded-full ${stat.iconBg}`}>
-                            {stat.icon}
-                          </div>
-                          <span
-                            className="font-semibold tracking-[0.08em] text-[#d9f6ff]"
-                            style={{
-                              fontSize: "clamp(0.8rem, calc(var(--overview-root-size, 15px) * 0.82), 1.08rem)",
-                              textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 10px rgba(34,211,238,0.28)",
-                            }}
-                          >
-                            {zh ? stat.labelZh : stat.labelEn}
-                          </span>
-                          <span
-                            className={`max-w-full whitespace-nowrap text-center font-bold leading-none tabular-nums text-[#e8f8ff] ${
-                              stat.valueSize === "dense" ? "tracking-[0.015em]" : "tracking-[0.04em]"
-                            }`}
-                            style={{
-                              fontSize:
-                                stat.valueSize === "dense"
-                                  ? "clamp(0.98rem, calc(var(--overview-root-size, 15px) * 1.04), 1.42rem)"
-                                  : "clamp(1.1rem, calc(var(--overview-root-size, 15px) * 1.22), 1.75rem)",
-                              textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 14px rgba(34,211,238,0.45)",
-                            }}
-                          >
-                            {stat.value}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                <div className="col-span-6 min-h-0 h-full">
+                  <ProjectTopologyPanel onNavigateTab={onNavigateTab} />
                 </div>
 
                 <div className="col-span-3 min-h-0 h-full w-full" style={{ containerType: "inline-size" }}>
@@ -838,7 +776,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   )
 }
 
-function DashboardMain({ activeTab }: { activeTab: DashboardTab }) {
+function DashboardMain({ activeTab, onNavigateTab }: { activeTab: DashboardTab; onNavigateTab?: (tab: string) => void }) {
   const { projectOptions, isProjectOptionsLoading, projectOptionsError } = useProject()
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -881,7 +819,7 @@ function DashboardMain({ activeTab }: { activeTab: DashboardTab }) {
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <DashboardTabs activeTab={activeTab} />
+      <DashboardTabs activeTab={activeTab} onNavigateTab={onNavigateTab} />
     </main>
   )
 }
@@ -925,7 +863,7 @@ function DashboardApp() {
               expanded={isSidebarExpanded ?? false}
               onExpandedChange={(expanded) => setIsSidebarExpanded(expanded)}
             />
-            <DashboardMain activeTab={activeTab} />
+            <DashboardMain activeTab={activeTab} onNavigateTab={(tab) => setActiveTab(tab as DashboardTab)} />
           </div>
         </div>
       </div>
