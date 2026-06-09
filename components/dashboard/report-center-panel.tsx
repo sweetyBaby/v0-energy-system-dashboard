@@ -1,12 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import type { DateRange } from "react-day-picker"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   CalendarDays,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Download,
   ExternalLink,
   FileSpreadsheet,
@@ -17,9 +14,8 @@ import {
 import { useLanguage } from "@/components/language-provider"
 import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
-import { Calendar } from "@/components/ui/calendar"
+import { MonthPicker } from "@/components/ui/month-picker"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   fetchReportList,
   toReportDateKey,
@@ -167,8 +163,6 @@ const weekdayLabels = {
   en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
 } as const
 
-const weekdayNamesZh = ["一", "二", "三", "四", "五", "六", "日"]
-
 const monthNamesEn = [
   "January",
   "February",
@@ -183,8 +177,6 @@ const monthNamesEn = [
   "November",
   "December",
 ]
-
-const monthNamesZh = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
 
 const kindLabels: Record<"zh" | "en", Record<ReportFileKind, string>> = {
   zh: {
@@ -210,7 +202,6 @@ const langBadgeText: Record<"cn" | "en", { zh: string; en: string }> = {
 
 const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1)
 const endOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0)
-const addMonths = (date: Date, months: number) => new Date(date.getFullYear(), date.getMonth() + months, 1)
 
 const isSameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
@@ -222,9 +213,6 @@ const isFutureDay = (date: Date, today: Date) => {
   const t = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
   return d > t
 }
-
-const formatMonthTitle = (date: Date, language: "zh" | "en") =>
-  language === "zh" ? `${date.getFullYear()}年${date.getMonth() + 1}月` : `${monthNamesEn[date.getMonth()]} ${date.getFullYear()}`
 
 const isViewableInBrowser = (ext: string) => ext === "html" || ext === "htm" || ext === "pdf"
 
@@ -273,7 +261,6 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
   const barWidth = scale.fluid(compactCalendar ? 10 : 14, compactCalendar ? 17 : 24)
   const today = useMemo(() => new Date(), [])
   const [viewDate, setViewDate] = useState(() => startOfMonth(today))
-  const [pickerOpen, setPickerOpen] = useState(false)
 
   const [reportData, setReportData] = useState<ReportListResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -341,58 +328,11 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
     return max
   }, [efficiencyByDay])
 
-  // Auto-close the month picker when the pointer leaves it. A short delay bridges
-  // the gap between the trigger and the popover, and the close is suppressed while
-  // a nested year/month dropdown is open (those portal outside the popover).
-  const monthPickerCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const nestedSelectOpenRef = useRef(false)
-
-  const cancelMonthPickerClose = () => {
-    if (monthPickerCloseTimer.current) {
-      clearTimeout(monthPickerCloseTimer.current)
-      monthPickerCloseTimer.current = null
-    }
-  }
-
-  const scheduleMonthPickerClose = () => {
-    cancelMonthPickerClose()
-    monthPickerCloseTimer.current = setTimeout(() => {
-      if (!nestedSelectOpenRef.current) {
-        setPickerOpen(false)
-      }
-    }, 240)
-  }
-
-  useEffect(() => {
-    if (!pickerOpen) {
-      cancelMonthPickerClose()
-      nestedSelectOpenRef.current = false
-    }
-    return cancelMonthPickerClose
-  }, [pickerOpen])
-
   const labels = zh ? weekdayLabels.zh : weekdayLabels.en
-  const monthTitle = formatMonthTitle(viewDate, language)
   const calendarCells = useMemo(() => buildCalendarCells(viewDate, language), [language, viewDate])
   const weekCount = calendarCells.length / 7
-  const monthNames = zh ? monthNamesZh : monthNamesEn
-  const selectedMonthRange: DateRange = useMemo(
-    () => ({
-      from: startOfMonth(viewDate),
-      to: endOfMonth(viewDate),
-    }),
-    [viewDate]
-  )
-  const yearOptions = useMemo(
-    () => Array.from({ length: today.getFullYear() + 3 - 2024 }, (_, index) => 2024 + index),
-    [today]
-  )
-
-  const canGoNextMonth =
-    viewDate.getFullYear() < today.getFullYear() || viewDate.getMonth() < today.getMonth()
 
   const triggerHeight = scale.fluid(compactCalendar ? 32 : 36, compactCalendar ? 38 : 44)
-  const navEdge = scale.fluid(compactCalendar ? 32 : 36, compactCalendar ? 38 : 42)
   const panelWidth = scale.fluid(compactCalendar ? 300 : 320, compactCalendar ? 340 : 380)
   const iconSize = scale.fluid(compactCalendar ? 12 : 14, compactCalendar ? 15.5 : 18)
   const filePanelWidth = scale.fluid(compactCalendar ? 296 : 312, compactCalendar ? 360 : 392)
@@ -513,149 +453,17 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
 
         <div className="flex flex-wrap items-center gap-2">
           {bcuSelector}
-          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-            <PopoverTrigger asChild>
-              <button
-                onMouseEnter={cancelMonthPickerClose}
-                onMouseLeave={scheduleMonthPickerClose}
-                className="flex items-center gap-2 rounded-xl border border-[#26456e] bg-[#101840] px-3.5 text-[#e8f4fc] transition-all hover:border-[#22d3ee]/60"
-                style={{ height: triggerHeight, fontSize: controlSize }}
-              >
-                <CalendarDays className="text-[#8db7ff]" style={{ width: iconSize, height: iconSize }} />
-                <span className="font-medium">{monthTitle}</span>
-                <ChevronDown className="text-[#7b8ab8]" style={{ width: iconSize, height: iconSize }} />
-              </button>
-            </PopoverTrigger>
-
-            <PopoverContent
-              align="end"
-              onMouseEnter={cancelMonthPickerClose}
-              onMouseLeave={scheduleMonthPickerClose}
-              className="z-50 rounded-2xl border border-[#3a5da0] bg-[#172252] p-0 text-[#e8f4fc] shadow-[0_24px_64px_rgba(0,0,0,0.72)] ring-1 ring-[#4a6fb5]/25"
-              style={{ width: panelWidth }}
-            >
-              <div className="border-b border-[#2c4576] px-4 py-3">
-                <div className="font-semibold text-[#e8f4fc]" style={{ fontSize: scale.fluid(14, 17) }}>
-                  {zh ? "选择月份" : "Select month"}
-                </div>
-              </div>
-
-              <div className="border-b border-[#2c4576] p-3">
-                <div className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-2">
-                  <Select
-                    value={String(viewDate.getFullYear())}
-                    onValueChange={(value) => setViewDate(new Date(Number(value), viewDate.getMonth(), 1))}
-                    onOpenChange={(open) => {
-                      nestedSelectOpenRef.current = open
-                      if (open) cancelMonthPickerClose()
-                    }}
-                  >
-                    <SelectTrigger
-                      className="w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]"
-                      style={{ height: triggerHeight, fontSize: controlSize }}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]" style={{ fontSize: controlSize }}>
-                      {yearOptions.map((year) => (
-                        <SelectItem key={year} value={String(year)} className="text-[#e8f4fc]" style={{ fontSize: controlSize }}>
-                          {zh ? `${year}年` : String(year)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select
-                    value={String(viewDate.getMonth())}
-                    onValueChange={(value) => setViewDate(new Date(viewDate.getFullYear(), Number(value), 1))}
-                    onOpenChange={(open) => {
-                      nestedSelectOpenRef.current = open
-                      if (open) cancelMonthPickerClose()
-                    }}
-                  >
-                    <SelectTrigger
-                      className="w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]"
-                      style={{ height: triggerHeight, fontSize: controlSize }}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]" style={{ fontSize: controlSize }}>
-                      {monthNames.map((month, index) => (
-                        <SelectItem
-                          key={`${month}-${index}`}
-                          value={String(index)}
-                          className="text-[#e8f4fc]"
-                          style={{ fontSize: controlSize }}
-                        >
-                          {month}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <button
-                    type="button"
-                    onClick={() => setViewDate((prev) => addMonths(prev, -1))}
-                    className="flex items-center justify-center rounded-md border border-[#26456e] bg-[#101840] text-[#c7d7f5] transition-colors hover:border-[#22d3ee]/50 hover:text-white"
-                    style={{ width: navEdge, height: navEdge }}
-                    aria-label={zh ? "上一个月" : "Previous month"}
-                  >
-                    <ChevronLeft style={{ width: iconSize, height: iconSize }} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => canGoNextMonth && setViewDate((prev) => addMonths(prev, 1))}
-                    disabled={!canGoNextMonth}
-                    className="flex items-center justify-center rounded-md border border-[#26456e] bg-[#101840] text-[#c7d7f5] transition-colors hover:border-[#22d3ee]/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
-                    style={{ width: navEdge, height: navEdge }}
-                    aria-label={zh ? "下一个月" : "Next month"}
-                  >
-                    <ChevronRight style={{ width: iconSize, height: iconSize }} />
-                  </button>
-                </div>
-              </div>
-
-              <Calendar
-                mode="range"
-                selected={selectedMonthRange}
-                month={viewDate}
-                onMonthChange={(month) => setViewDate(startOfMonth(month))}
-                onSelect={(range) => {
-                  if (!range?.from) return
-                  setViewDate(startOfMonth(range.from))
-                  setPickerOpen(false)
-                }}
-                hideNavigation
-                showOutsideDays
-                weekStartsOn={zh ? 1 : 0}
-                formatters={
-                  zh
-                    ? {
-                        formatWeekdayName: (date) => weekdayNamesZh[(date.getDay() + 6) % 7],
-                      }
-                    : undefined
-                }
-                className="bg-transparent p-3"
-                classNames={{
-                  month_caption: "hidden",
-                  weekday: "flex-1 rounded-md text-[#7b8ab8]",
-                  day: "relative aspect-square w-full p-0 text-center",
-                  selected: "rounded-md bg-[#00d4aa] text-[#041123] font-semibold",
-                  today: "rounded-md bg-[#1c315f] text-[#e8f4fc]",
-                  outside: "text-[#7b8ab8]/70",
-                  disabled: "text-[#8d97aa] opacity-55",
-                  range_middle: "bg-[#15406d] text-[#dff8ff]",
-                  range_start: "rounded-l-md bg-[#00d4aa] text-[#041123]",
-                  range_end: "rounded-r-md bg-[#00d4aa] text-[#041123]",
-                }}
-                styles={{
-                  weekday: { fontSize: hintSize },
-                  day: { fontSize: controlSize },
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+          <MonthPicker
+            value={viewDate}
+            onChange={setViewDate}
+            maxDate={today}
+            minYear={2024}
+            align="end"
+            triggerHeight={triggerHeight}
+            fontSize={controlSize}
+            iconSize={iconSize}
+            panelWidth={panelWidth}
+          />
         </div>
       </div>
 
