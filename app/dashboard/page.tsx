@@ -830,6 +830,9 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
               deviceId={reportsDeviceId || undefined}
               projectId={selectedProject.projectId}
               bcuSelector={renderPageBcuSelector(reportsDeviceId, setReportsDeviceId)}
+              titleFontSize={pageControlLabelSize + 6}
+              controlFontSize={pageControlButtonSize}
+              controlHeight={pageControlInputHeight}
             />
           </div>
         )}

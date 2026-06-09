@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   CalendarDays,
   ChevronDown,
@@ -37,12 +37,24 @@ type ReportCenterPanelProps = {
   projectId?: string
   /** Optional BCU selector rendered in the panel header (owned by the page). */
   bcuSelector?: ReactNode
+  /**
+   * Header ("首行") sizing supplied by the page so the title + month picker match
+   * the control sizing used on every other dashboard tab. When omitted the panel
+   * falls back to its own width-based scale (standalone use). These intentionally
+   * do NOT scale with the calendar's width range, so the header text stays a
+   * consistent, readable size across small and large screens.
+   */
+  titleFontSize?: number
+  controlFontSize?: number
+  controlHeight?: number
 }
 
 /** Softened energy color tokens — calmer than the chart's neon accents. */
 const CHARGE_ENERGY_COLOR = "#7fceb8"
 const DISCHARGE_ENERGY_COLOR = "#aea0d6"
 const EFFICIENCY_COLOR = "#56b483"
+
+const clampValue = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 
 function EfficiencyRing({
   value,
@@ -96,6 +108,7 @@ function ChargeDischargeChart({
   discharge,
   max,
   barWidth,
+  barAreaMaxHeight,
   valueSize,
   labelSize,
   compact,
@@ -105,6 +118,7 @@ function ChargeDischargeChart({
   discharge: number | null
   max: number
   barWidth: number
+  barAreaMaxHeight: number
   valueSize: number
   labelSize: number
   compact: boolean
@@ -131,8 +145,12 @@ function ChargeDischargeChart({
         <div className="flex min-h-0 flex-1 items-end justify-center self-stretch py-[2px]">
           {/* No min-height floor: the bar area is purely flex-driven so it grows on
               tall rows and shrinks on short ones, never pushing the label out of the
-              cell. The fill keeps a small baseline nub so bars stay visible. */}
-          <div className="flex h-full items-end overflow-hidden" style={{ width: barWidth }}>
+              cell. maxHeight only caps growth (keeps bars proportional to the gauge);
+              the fill keeps a small baseline nub so bars stay visible. */}
+          <div
+            className="flex h-full items-end overflow-hidden"
+            style={{ width: barWidth, maxHeight: barAreaMaxHeight }}
+          >
             <div
               className="w-full rounded-t-[2px]"
               style={{
@@ -237,10 +255,17 @@ const buildCalendarCells = (viewDate: Date, language: "zh" | "en"): CalendarCell
   })
 }
 
-export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCenterPanelProps) {
+export function ReportCenterPanel({
+  deviceId,
+  projectId,
+  bcuSelector,
+  titleFontSize,
+  controlFontSize,
+  controlHeight,
+}: ReportCenterPanelProps) {
   const { language } = useLanguage()
   const zh = language === "zh"
-  const { isCompactViewport, isShortHeight } = useDashboardViewport()
+  const { isCompactViewport, isShortHeight, height: viewportHeight } = useDashboardViewport()
   const compactCalendar = isCompactViewport || isShortHeight
   const scale = useFluidScale<HTMLDivElement>(isCompactViewport ? 760 : 1180, isCompactViewport ? 1440 : 1920, {
     ...DASHBOARD_CONTENT_SCALE,
@@ -249,16 +274,6 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
     maxRootPx: isCompactViewport ? 18.5 : DASHBOARD_CONTENT_SCALE.maxRootPx,
   })
   const titleSize = scale.clampText(0.92, compactCalendar ? 0.96 : 1.02, 1.28)
-  const controlSize = scale.fluid(compactCalendar ? 10.5 : 12, compactCalendar ? 13.2 : 15)
-  const hintSize = scale.fluid(compactCalendar ? 9.5 : 11, compactCalendar ? 11.2 : 13)
-  const dayNumberSize = scale.clampText(compactCalendar ? 1 : 1.22, compactCalendar ? 1.14 : 1.4, compactCalendar ? 1.44 : 1.82)
-  const actionLabelSize = scale.fluid(compactCalendar ? 9.5 : 11, compactCalendar ? 12 : 14)
-  const ringSize = scale.fluid(compactCalendar ? 34 : 46, compactCalendar ? 56 : 82)
-  const ringStroke = scale.fluid(compactCalendar ? 4 : 4.5, compactCalendar ? 6 : 7)
-  const ringFontSize = scale.fluid(compactCalendar ? 10 : 11.5, compactCalendar ? 14 : 17)
-  const statLabelSize = scale.fluid(compactCalendar ? 8.2 : 9.8, compactCalendar ? 10.6 : 12.8)
-  const statValueSize = scale.fluid(compactCalendar ? 10 : 11.5, compactCalendar ? 12.8 : 15.2)
-  const barWidth = scale.fluid(compactCalendar ? 10 : 14, compactCalendar ? 17 : 24)
   const today = useMemo(() => new Date(), [])
   const [viewDate, setViewDate] = useState(() => startOfMonth(today))
 
@@ -266,6 +281,10 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [efficiencyByDay, setEfficiencyByDay] = useState<Record<string, DailyEfficiencyEntry>>({})
+  // Measured height of the calendar grid → real per-row height, used to size the
+  // card text so it is readable/consistent on roomy rows yet still fits short ones.
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [gridHeight, setGridHeight] = useState(0)
 
   const year = viewDate.getFullYear()
   const month = viewDate.getMonth() + 1
@@ -319,6 +338,24 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
     return () => controller.abort()
   }, [deviceId, projectId, year, month])
 
+  useEffect(() => {
+    const element = gridRef.current
+    if (!element) return
+
+    const sync = (next: number) =>
+      setGridHeight((current) => (Math.abs(current - next) < 0.5 ? current : next))
+
+    sync(element.clientHeight)
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      sync(entry?.contentRect.height || element.clientHeight)
+    })
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
   const monthMaxEnergy = useMemo(() => {
     let max = 0
     for (const entry of Object.values(efficiencyByDay)) {
@@ -332,10 +369,43 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
   const calendarCells = useMemo(() => buildCalendarCells(viewDate, language), [language, viewDate])
   const weekCount = calendarCells.length / 7
 
+  // --- Card text sizing -------------------------------------------------------
+  // The card text must be readable and visually CONSISTENT across screens, but it
+  // also has to fit each row. So we size it off the MEASURED per-row height (the
+  // real constraint) instead of viewport width: any row with comfortable room —
+  // small laptop or large monitor alike — gets the same readable size, while a
+  // genuinely short row (e.g. a 6-week month on a small viewport) shrinks the text
+  // just enough to avoid clipping. Falls back to a viewport estimate pre-measure.
+  const fallbackCellHeight = clampValue((viewportHeight - 220) / Math.max(weekCount, 1), 64, 170)
+  const cellHeight = gridHeight > 0 && weekCount > 0 ? gridHeight / weekCount : fallbackCellHeight
+  // 1 once a row has comfortable room (≈96px+), easing down to 0.6 on short rows.
+  const textFit = clampValue((cellHeight - 54) / (96 - 54), 0.6, 1)
+  const fitPx = (target: number) => Number((target * textFit).toFixed(2))
+
+  const dayNumberSize = fitPx(22)
+  const controlSize = fitPx(14)
+  const hintSize = fitPx(12)
+  const actionLabelSize = fitPx(13.5)
+  const statLabelSize = fitPx(11.5)
+  const statValueSize = fitPx(13)
+  const ringSize = fitPx(60)
+  const ringStroke = fitPx(6)
+  const ringFontSize = fitPx(15)
+  const barWidth = fitPx(20)
+  const barAreaMaxHeight = fitPx(58)
+  const iconSize = fitPx(15)
+
   const triggerHeight = scale.fluid(compactCalendar ? 32 : 36, compactCalendar ? 38 : 44)
   const panelWidth = scale.fluid(compactCalendar ? 300 : 320, compactCalendar ? 340 : 380)
-  const iconSize = scale.fluid(compactCalendar ? 12 : 14, compactCalendar ? 15.5 : 18)
   const filePanelWidth = scale.fluid(compactCalendar ? 296 : 312, compactCalendar ? 360 : 392)
+
+  // Header ("首行") sizing — prefer the page-supplied control metrics so the title
+  // and month picker match every other dashboard tab and stay a consistent,
+  // readable size across screen widths; fall back to the panel scale standalone.
+  const headerTitleSize = titleFontSize ?? titleSize
+  const headerControlSize = controlFontSize ?? controlSize
+  const headerTriggerHeight = controlHeight ?? triggerHeight
+  const headerIconSize = controlFontSize ? Math.round(controlFontSize * 1.15) : iconSize
 
   const fileKindLabel = (file: ReportFile) => kindLabels[language][file.kind] || file.fileName
 
@@ -444,7 +514,7 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="h-4 w-1 rounded-full bg-[#22d3ee]" />
-            <h3 className="font-semibold text-[#22d3ee]" style={{ fontSize: titleSize }}>
+            <h3 className="font-semibold text-[#22d3ee]" style={{ fontSize: headerTitleSize }}>
               {zh ? "报表信息" : "Report Center"}
             </h3>
           </div>
@@ -459,9 +529,9 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
             maxDate={today}
             minYear={2024}
             align="end"
-            triggerHeight={triggerHeight}
-            fontSize={controlSize}
-            iconSize={iconSize}
+            triggerHeight={headerTriggerHeight}
+            fontSize={headerControlSize}
+            iconSize={headerIconSize}
             panelWidth={panelWidth}
           />
         </div>
@@ -480,7 +550,7 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
           ))}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden">
+        <div ref={gridRef} className="min-h-0 flex-1 overflow-hidden">
           <div className="grid h-full grid-cols-7" style={{ gridTemplateRows: `repeat(${weekCount}, minmax(0, 1fr))` }}>
             {calendarCells.map((cell) => {
               const isToday = isSameDay(cell.date, today)
@@ -701,6 +771,7 @@ export function ReportCenterPanel({ deviceId, projectId, bcuSelector }: ReportCe
                               discharge={eff!.dischargeEnergy}
                               max={monthMaxEnergy}
                               barWidth={barWidth}
+                              barAreaMaxHeight={barAreaMaxHeight}
                               valueSize={statValueSize}
                               labelSize={statLabelSize}
                               compact={compactCalendar}
