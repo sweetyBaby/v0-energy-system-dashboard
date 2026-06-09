@@ -51,6 +51,7 @@ import {
 const GEO_URL = "/world-atlas.json"
 const EXCLUDED_COUNTRY_NAMES = new Set(["Antarctica", "Fr. S. Antarctic Lands"])
 const HOVER_EXIT_DELAY_MS = 220
+const LINKED_COUNTRY_SELECTION_GROUPS = [["China", "Taiwan"]] as const
 
 type MapCoordinates = [number, number]
 type LifecycleKey = "commissioned" | "construction" | "planned"
@@ -491,6 +492,7 @@ const clusterMappableProjects = (projects: ProjectOption[]): ProjectCluster[] =>
 // [minLng, minLat, maxLng, maxLat] bounding boxes for country detection
 const COUNTRY_BBOX: Record<string, [number, number, number, number]> = {
   "China":        [73,  15, 136, 54],
+  "Taiwan":       [119, 21, 123, 26],
   "Mongolia":     [87,  41, 120, 52],
   "Russia":       [27,  41, 180, 82],
   "India":        [68,   7,  97, 37],
@@ -549,6 +551,18 @@ const COUNTRY_LABEL_OFFSET_FACTORS: ReadonlyArray<readonly [number, number]> = [
 ]
 
 const clampToRange = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+
+const expandLinkedCountrySelections = (countries: Iterable<string>) => {
+  const expanded = new Set<string>(countries)
+
+  for (const group of LINKED_COUNTRY_SELECTION_GROUPS) {
+    if (group.some((country) => expanded.has(country))) {
+      group.forEach((country) => expanded.add(country))
+    }
+  }
+
+  return expanded
+}
 
 const isCoordinateInBbox = (coordinates: MapCoordinates, bbox: readonly [number, number, number, number]) => {
   const [lng, lat] = coordinates
@@ -836,6 +850,7 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const [dischargeRankingItems, setDischargeRankingItems] = useState<ChargeDischargeRankingItem[]>([])
   const [energyRankingMode, setEnergyRankingMode] = useState<EnergyRankingMode>("charge")
   const [hoveredClusterId, setHoveredClusterId] = useState<string | null>(null)
+  const [hoveredCountryName, setHoveredCountryName] = useState<string | null>(null)
   const hoverExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const [mapDimensions, setMapDimensions] = useState({ width: 800, height: 450 })
@@ -1254,26 +1269,32 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
   const mapProjectionScale = useMemo(() => Math.round(mapDimensions.width * 0.22), [mapDimensions.width])
 
   const projectCountries = useMemo(() => {
-    const set = new Set<string>()
+    const detectedCountries = new Set<string>()
     for (const p of mappableProjects) {
       const lng = p.longitude!
       const lat = p.latitude!
       for (const [country, [minLng, minLat, maxLng, maxLat]] of Object.entries(COUNTRY_BBOX)) {
         if (lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat) {
-          set.add(country)
+          detectedCountries.add(country)
         }
       }
     }
-    return set
+
+    return expandLinkedCountrySelections(detectedCountries)
   }, [mappableProjects])
   const highlightedCountries = useMemo(() => {
     const set = new Set<string>(projectCountries)
     PRIORITY_MARKETS.forEach((country) => set.add(country))
     return set
   }, [projectCountries])
+  const hoveredCountries = useMemo(
+    () => (hoveredCountryName ? expandLinkedCountrySelections([hoveredCountryName]) : new Set<string>()),
+    [hoveredCountryName]
+  )
   const highlightedCountryLabels = useMemo(
     () =>
       Array.from(highlightedCountries)
+        .filter((country) => !(country === "Taiwan" && highlightedCountries.has("China")))
         .map((country) => {
           const bbox = COUNTRY_BBOX[country]
           if (!bbox) return null
@@ -1751,21 +1772,29 @@ export function ProjectMapPanel({ onProjectSelect }: ProjectMapPanelProps) {
                           .filter((geo: GeographyFeature) => !EXCLUDED_COUNTRY_NAMES.has(geo.properties?.name ?? ""))
                           .map((geo: GeographyFeature) => {
                             const countryName = geo.properties?.name ?? ""
-                            const effectiveName = countryName === "Taiwan" ? "China" : countryName
-                            const hasProject = projectCountries.has(effectiveName)
-                            const isProspect = PRIORITY_MARKETS.has(effectiveName)
+                            const hasProject = projectCountries.has(countryName)
+                            const isProspect = PRIORITY_MARKETS.has(countryName)
+                            const isLinkedHover = hoveredCountries.has(countryName)
                             return (
                               <Geography
                                 key={geo.rsmKey}
                                 geography={geo}
+                                onMouseEnter={() => setHoveredCountryName(countryName)}
+                                onMouseLeave={() => setHoveredCountryName((current) => (current === countryName ? null : current))}
                                 style={{
                                   default: {
-                                    fill: hasProject ? "#0d6a88" : isProspect ? "#6d5314" : "#1a3d58",
-                                    stroke: hasProject ? "#2ab8dc" : isProspect ? "#f7c948" : "#2a5878",
+                                    fill: isLinkedHover ? (hasProject ? "#1280a8" : isProspect ? "#8a6918" : "#224f70") : hasProject ? "#0d6a88" : isProspect ? "#6d5314" : "#1a3d58",
+                                    stroke: isLinkedHover ? (hasProject ? "#55d4f0" : isProspect ? "#ffd978" : "#55d4f0") : hasProject ? "#2ab8dc" : isProspect ? "#f7c948" : "#2a5878",
                                     strokeWidth: hasProject || isProspect ? 1.0 : 0.55,
                                     outline: "none",
                                     filter:
-                                      hasProject
+                                      isLinkedHover
+                                        ? hasProject
+                                          ? "drop-shadow(0 0 12px rgba(42,184,220,0.52))"
+                                          : isProspect
+                                            ? "drop-shadow(0 0 12px rgba(247,201,72,0.42))"
+                                            : "none"
+                                        : hasProject
                                         ? "drop-shadow(0 0 8px rgba(42,184,220,0.36))"
                                         : isProspect
                                           ? "drop-shadow(0 0 10px rgba(247,201,72,0.32))"
