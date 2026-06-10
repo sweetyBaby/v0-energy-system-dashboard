@@ -556,14 +556,25 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
 
     return Array.from(grouped.entries()).map(([type, rowEvents]) => {
       const laneEnds: number[] = []
+      const laneLevels: number[] = []
       const label = zh ? rowEvents[0]?.nameZh ?? type : rowEvents[0]?.nameEn ?? type
+      // 同一告警类别内按告警等级从上到下稳定排列（L1 在上 → L5 → 其他在下，与图例顺序一致），
+      // 仅在“同等级”内复用轨道，等级相同且时间重叠时再细分子轨，避免遮挡，且顺序不随机。
       const positionedEvents = rowEvents
-        .sort((left, right) => left.start - right.start || left.end - right.end)
+        .sort(
+          (left, right) =>
+            getLevelSortWeight(left.lv) - getLevelSortWeight(right.lv) ||
+            left.start - right.start ||
+            left.end - right.end
+        )
         .map((event): PositionedTimelineEvent => {
-          let lane = laneEnds.findIndex((laneEnd) => event.start >= laneEnd)
+          let lane = laneEnds.findIndex(
+            (laneEnd, index) => laneLevels[index] === event.lv && event.start >= laneEnd
+          )
           if (lane === -1) {
             lane = laneEnds.length
             laneEnds.push(event.end)
+            laneLevels.push(event.lv)
           } else {
             laneEnds[lane] = event.end
           }
