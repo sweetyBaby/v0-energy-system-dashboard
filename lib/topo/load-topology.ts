@@ -55,8 +55,11 @@ function toInternalNode(n: TopoNode): InternalNode {
       keyEn: f.key?.en ?? f.key?.zh ?? "",
       // 运行时 dv 为空字符串时引擎显示 "--"；导出的 "--" 占位归一为空
       dv: f.value === "--" || f.value == null ? "" : f.value,
-      ox: f.offset?.x ?? 0,
-      oy: f.offset?.y ?? 0,
+      // 忽略运营端导出的字段偏移：offset 是「编辑器 zoom≈1 下的屏幕像素」，引擎按 offset/zoom 应用，
+      // 在仪表盘的自适应小尺寸（fit zoom 远小于 1）下会被放大成巨大位移，把字段卡片拖到图标上造成遮挡。
+      // 只读视图统一用默认位置（图标右侧、自上而下堆叠），不遮挡元素（间距由布局保证）。
+      ox: 0,
+      oy: 0,
       hidden: !!f.hidden,
     })),
   }

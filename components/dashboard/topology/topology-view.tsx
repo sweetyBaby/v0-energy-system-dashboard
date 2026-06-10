@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { Maximize2 } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { createTopoEngine } from "@/lib/topo/engine"
 import { docToInternal, loadTopoIcons } from "@/lib/topo/load-topology"
@@ -12,8 +11,31 @@ type HitNode = { id: string; type: string; nav?: TopoNodeNav }
 
 // 文字底板/抹线用色：贴合本项目深色卡片风格（画布本身透明，露出卡片渐变背景）
 const PLATE_BG = "#0a1a33"
-const ZOOM_MIN = 0.25
-const ZOOM_MAX = 6
+
+// 引擎内的节点标签/字段卡片是「屏幕恒定尺寸」：在容器尺寸下它们恒为 ~14px，本就清晰可读。
+// 故按容器原生尺寸渲染（再乘 devicePixelRatio 让文字更锐利），文字不被整体缩小；
+// 「节点/数据字段不叠放」由布局自身的间距保证（拓扑布局已按内容足迹排布，见 topology-sample.json）。
+const MAX_BITMAP = 3200 // 位图最长边上限：高 DPR + 大容器时避免位图过大拖累动画
+
+/** 按容器原生尺寸 × DPR 设置画布内部位图分辨率（文字清晰、不缩小；封顶 MAX_BITMAP）。 */
+function sizeCanvasBitmap(canvas: HTMLCanvasElement, container: HTMLElement) {
+  const cw = Math.max(1, container.clientWidth)
+  const ch = Math.max(1, container.clientHeight)
+  const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1
+  const scale = Math.min(dpr, MAX_BITMAP / Math.max(cw, ch))
+  canvas.width = Math.max(1, Math.round(cw * scale))
+  canvas.height = Math.max(1, Math.round(ch * scale))
+}
+
+/** CSS 像素 → 画布位图像素的换算系数（位图分辨率与 CSS 显示尺寸不一致时用于命中测试）。 */
+function canvasScale(canvas: HTMLCanvasElement) {
+  const rect = canvas.getBoundingClientRect()
+  return {
+    rect,
+    fx: rect.width ? canvas.width / rect.width : 1,
+    fy: rect.height ? canvas.height / rect.height : 1,
+  }
+}
 
 export type TopologyViewProps = {
   doc: TopologyDoc | null
@@ -23,13 +45,13 @@ export type TopologyViewProps = {
   onNavigate?: (nav: TopoNodeNav, node: HitNode) => void
 }
 
-// 节点布局签名：仅在节点集合/位置变化时重新 fitView，避免实时刷新打断用户缩放/拖动
+// 节点布局签名：仅在节点集合/位置变化时重新 fitView（实时数据每 2s 刷新但位置不变，无需反复重算）
 const layoutSig = (doc: TopologyDoc) => doc.nodes.map((n) => `${n.id}:${n.position?.x},${n.position?.y}`).join("|")
 
 /**
- * 拓扑只读视图：渲染布局 JSON，背景透明贴合项目卡片风格；
- * 支持滚轮缩放、拖动平移整张图（不可编辑节点）；点击命中节点 → onNavigate。
- * 实时数据更新由上层每次传入新 doc 驱动，不会重置用户视图。
+ * 拓扑只读视图：渲染布局 JSON，背景透明贴合项目卡片风格。
+ * 不允许拖动/缩放——整图始终自适应容器（随容器尺寸 fitView），节点与数据字段互不叠放；
+ * 仅保留点击命中节点 → onNavigate。实时数据更新由上层每次传入新 doc 驱动。
  */
 export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps) {
   const { language } = useLanguage()
@@ -42,11 +64,6 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
   onNavigateRef.current = onNavigate
 
   const lastSigRef = useRef<string | null>(null)
-  const userMovedRef = useRef(false)
-  // 拖动平移状态
-  const dragRef = useRef<{ active: boolean; sx: number; sy: number; px: number; py: number; moved: boolean }>({
-    active: false, sx: 0, sy: 0, px: 0, py: 0, moved: false,
-  })
 
   const navOf = (node: HitNode | null): TopoNodeNav | undefined => {
     if (!node) return undefined
@@ -57,15 +74,8 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
     const engine = engineRef.current
     const canvas = canvasRef.current
     if (!engine || !canvas) return null
-    const rect = canvas.getBoundingClientRect()
-    return engine.hitTestNode(clientX - rect.left, clientY - rect.top) as HitNode | null
-  }
-
-  const fitToView = () => {
-    const engine = engineRef.current
-    if (!engine) return
-    userMovedRef.current = false
-    engine.fitView(2)
+    const { rect, fx, fy } = canvasScale(canvas)
+    return engine.hitTestNode((clientX - rect.left) * fx, (clientY - rect.top) * fy) as HitNode | null
   }
 
   // 引擎只创建一次
@@ -89,39 +99,19 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
     })
     engine.start()
 
+    // 容器尺寸变化 → 重新适配（不允许手动缩放/平移，故始终 fitView）
     const sync = () => {
-      canvas.width = container.clientWidth
-      canvas.height = container.clientHeight
-      if (!userMovedRef.current) engine.fitView(2) // 用户未手动操作时随容器自适应
+      sizeCanvasBitmap(canvas, container)
+      engine.fitView(2)
       engine.redraw()
     }
     sync()
     const ro = new ResizeObserver(sync)
     ro.observe(container)
 
-    // 滚轮缩放（向光标聚焦）；用原生非被动监听以便 preventDefault
-    const onWheel = (ev: WheelEvent) => {
-      ev.preventDefault()
-      const eng = engineRef.current
-      if (!eng) return
-      const rect = canvas.getBoundingClientRect()
-      const mx = ev.clientX - rect.left
-      const my = ev.clientY - rect.top
-      const v = eng.getView()
-      const factor = ev.deltaY < 0 ? 1.12 : 1 / 1.12
-      const z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, v.zoom * factor))
-      if (z === v.zoom) return
-      const wx = (mx - v.panX) / v.zoom
-      const wy = (my - v.panY) / v.zoom
-      eng.setView({ zoom: z, panX: mx - wx * z, panY: my - wy * z })
-      userMovedRef.current = true
-    }
-    canvas.addEventListener("wheel", onWheel, { passive: false })
-
     return () => {
       disposed = true
       ro.disconnect()
-      canvas.removeEventListener("wheel", onWheel)
       engine.destroy()
       engineRef.current = null
     }
@@ -151,9 +141,8 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
     const sig = layoutSig(doc)
     if (sig !== lastSigRef.current) {
       lastSigRef.current = sig
-      canvas.width = container.clientWidth
-      canvas.height = container.clientHeight
-      fitToView() // 新布局 → 适应一次
+      sizeCanvasBitmap(canvas, container)
+      engine.fitView(2) // 新布局 → 适应一次
     }
     engine.redraw()
   }, [doc])
@@ -162,53 +151,19 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
     <div ref={containerRef} className="relative h-full w-full overflow-hidden">
       <canvas
         ref={canvasRef}
-        className="block h-full w-full cursor-grab"
-        onMouseDown={(ev) => {
-          const eng = engineRef.current
-          if (!eng) return
-          const v = eng.getView()
-          dragRef.current = { active: true, sx: ev.clientX, sy: ev.clientY, px: v.panX, py: v.panY, moved: false }
-          if (canvasRef.current) canvasRef.current.style.cursor = "grabbing"
-        }}
+        className="block h-full w-full"
         onMouseMove={(ev) => {
-          const eng = engineRef.current
           const canvas = canvasRef.current
-          if (!eng || !canvas) return
-          const drag = dragRef.current
-          if (drag.active) {
-            const dx = ev.clientX - drag.sx
-            const dy = ev.clientY - drag.sy
-            if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true
-            eng.setView({ panX: drag.px + dx, panY: drag.py + dy })
-            if (drag.moved) userMovedRef.current = true
-          } else {
-            canvas.style.cursor = navOf(hitAt(ev.clientX, ev.clientY)) ? "pointer" : "grab"
-          }
-        }}
-        onMouseUp={() => {
-          dragRef.current.active = false
-          if (canvasRef.current) canvasRef.current.style.cursor = "grab"
-        }}
-        onMouseLeave={() => {
-          dragRef.current.active = false
-          if (canvasRef.current) canvasRef.current.style.cursor = "grab"
+          if (!canvas) return
+          // 悬停在可跳转节点上时给出手型光标（仅点击导航，无拖动/缩放）
+          canvas.style.cursor = navOf(hitAt(ev.clientX, ev.clientY)) ? "pointer" : "default"
         }}
         onClick={(ev) => {
-          if (dragRef.current.moved) return // 刚才是拖动，不触发跳转
           const node = hitAt(ev.clientX, ev.clientY)
           const nav = navOf(node)
           if (node && nav && onNavigateRef.current) onNavigateRef.current(nav, node)
         }}
       />
-      {/* 复位/适应按钮 */}
-      <button
-        type="button"
-        onClick={fitToView}
-        title={language === "en" ? "Fit view" : "复位适应"}
-        className="absolute bottom-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-md border border-[#22d3ee]/30 bg-[#0a2142]/70 text-[#7fe3ff] backdrop-blur-sm transition hover:border-[#22d3ee]/60 hover:text-[#bdf2ff]"
-      >
-        <Maximize2 className="h-3.5 w-3.5" />
-      </button>
     </div>
   )
 }

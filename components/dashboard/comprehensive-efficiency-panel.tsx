@@ -871,7 +871,7 @@ export function ComprehensiveEfficiencyPanel({
     ? `flex h-full min-h-0 flex-col overflow-visible rounded-[22px] border border-[#22d3ee]/25 bg-[rgba(5,12,26,0.62)] backdrop-blur-[3px] shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset] ${
         isCompactViewport ? "p-2.5" : "p-3"
       }`
-    : `flex h-full min-h-0 flex-col overflow-visible rounded-lg border border-[#1a2654] bg-[#0d1233] ${
+    : `flex h-full min-h-0 flex-col overflow-visible rounded-[22px] border border-[#22d3ee]/26 bg-[radial-gradient(circle_at_18%_16%,rgba(64,124,255,0.18),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(0,212,170,0.12),transparent_24%),linear-gradient(180deg,rgba(11,31,67,0.66),rgba(6,20,47,0.74))] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03),0_16px_32px_rgba(0,0,0,0.16)] ${
         isCompactViewport ? "p-2.5" : "p-3"
       }`
   const titleFontSize = panelScale.fluid(compact ? 14 : 16, compact ? 18 : 22)
