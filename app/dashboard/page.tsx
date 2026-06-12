@@ -21,6 +21,7 @@ import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
 import { RealtimeStatusBoard } from "@/components/dashboard/realtime-status-board"
 import { ReportCenterPanel } from "@/components/dashboard/report-center-panel"
 import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
+import { TrendAnalysisPanel } from "@/components/dashboard/trend-analysis-panel"
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
@@ -36,6 +37,7 @@ type DashboardTab =
   | "realtime"
   | "cell-history"
   | "analysis"
+  | "trend-analysis"
   | "history"
   | "alarm-monitoring"
   | "reports"
@@ -813,6 +815,10 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === "trend-analysis" && (
+          <TrendAnalysisPanel devices={selectedProject.devices} projectId={selectedProject.projectId} />
         )}
 
         {activeTab === "history" && renderRunningStatusPage()}
