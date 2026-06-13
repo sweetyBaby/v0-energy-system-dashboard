@@ -59,6 +59,37 @@ export const TREND_VARIABLE_BY_KEY: Record<TrendVariableKey, TrendVariableMeta> 
   {} as Record<TrendVariableKey, TrendVariableMeta>
 )
 
+/** Number of cells (电芯) under each rack/BCU. Matches the cell-history view. */
+export const CELL_COUNT = 50
+
+export type CellVarKey = "voltage" | "temp1" | "temp2" | "temp3"
+
+export type CellVariableMeta = {
+  key: CellVarKey
+  nameZh: string
+  nameEn: string
+  unit: string
+  min: number
+  max: number
+  digits: number
+}
+
+/** Per-cell measurement points: 1 voltage + 3 temperatures. */
+export const CELL_VARIABLES: CellVariableMeta[] = [
+  { key: "voltage", nameZh: "电压", nameEn: "Voltage", unit: "V", min: 3.18, max: 3.42, digits: 3 },
+  { key: "temp1", nameZh: "温度1", nameEn: "Temp 1", unit: "℃", min: 20, max: 40, digits: 1 },
+  { key: "temp2", nameZh: "温度2", nameEn: "Temp 2", unit: "℃", min: 20, max: 40, digits: 1 },
+  { key: "temp3", nameZh: "温度3", nameEn: "Temp 3", unit: "℃", min: 20, max: 40, digits: 1 },
+]
+
+export const CELL_VARIABLE_BY_KEY: Record<CellVarKey, CellVariableMeta> = CELL_VARIABLES.reduce(
+  (acc, item) => {
+    acc[item.key] = item
+    return acc
+  },
+  {} as Record<CellVarKey, CellVariableMeta>
+)
+
 /**
  * Sampling interval, in seconds, used to space the returned points.
  * `0` is the "原始 / Raw" mode (no down-sampling — return the densest series).
@@ -83,32 +114,97 @@ export const TREND_DEFAULT_RANGE_MS = 12 * 60 * 60 * 1000
 /** Base cadence (seconds) used to synthesize "原始/Raw" mock points. */
 const RAW_BASE_INTERVAL_SECONDS = 60
 
-/** Encode a tree-leaf selection as `${deviceId}::${variableKey}`. */
-export const buildTrendNodeId = (deviceId: string, variableKey: TrendVariableKey) => `${deviceId}::${variableKey}`
+/**
+ * A selectable tree leaf. Either a device/rack-level measurement point, or a
+ * per-cell measurement point (cell index is 1-based).
+ */
+export type TrendNode =
+  | { kind: "device"; deviceId: string; variableKey: TrendVariableKey }
+  | { kind: "cell"; deviceId: string; cell: number; cellVar: CellVarKey }
 
-export const parseTrendNodeId = (
-  nodeId: string
-): { deviceId: string; variableKey: TrendVariableKey } | null => {
-  const separator = nodeId.indexOf("::")
-  if (separator < 0) return null
-  const deviceId = nodeId.slice(0, separator)
-  const variableKey = nodeId.slice(separator + 2) as TrendVariableKey
-  if (!deviceId || !TREND_VARIABLE_BY_KEY[variableKey]) return null
-  return { deviceId, variableKey }
+const DEV_MARKER = "::dev::"
+const CELL_MARKER = "::cell::"
+
+/** Encode a device/rack-level leaf as `${deviceId}::dev::${variableKey}`. */
+export const buildDeviceNodeId = (deviceId: string, variableKey: TrendVariableKey) =>
+  `${deviceId}${DEV_MARKER}${variableKey}`
+
+/** Encode a cell-level leaf as `${deviceId}::cell::${cell}::${cellVar}`. */
+export const buildCellNodeId = (deviceId: string, cell: number, cellVar: CellVarKey) =>
+  `${deviceId}${CELL_MARKER}${cell}::${cellVar}`
+
+export const parseTrendNodeId = (nodeId: string): TrendNode | null => {
+  if (nodeId.includes(DEV_MARKER)) {
+    const index = nodeId.indexOf(DEV_MARKER)
+    const deviceId = nodeId.slice(0, index)
+    const variableKey = nodeId.slice(index + DEV_MARKER.length) as TrendVariableKey
+    if (!deviceId || !TREND_VARIABLE_BY_KEY[variableKey]) return null
+    return { kind: "device", deviceId, variableKey }
+  }
+  if (nodeId.includes(CELL_MARKER)) {
+    const index = nodeId.indexOf(CELL_MARKER)
+    const deviceId = nodeId.slice(0, index)
+    const rest = nodeId.slice(index + CELL_MARKER.length)
+    const separator = rest.indexOf("::")
+    if (separator < 0) return null
+    const cell = Number(rest.slice(0, separator))
+    const cellVar = rest.slice(separator + 2) as CellVarKey
+    if (!deviceId || !Number.isInteger(cell) || !CELL_VARIABLE_BY_KEY[cellVar]) return null
+    return { kind: "cell", deviceId, cell, cellVar }
+  }
+  return null
+}
+
+export type TrendNodeMeta = {
+  /** Stable key used to seed the mock generator. */
+  seedKey: string
+  nameZh: string
+  nameEn: string
+  unit: string
+  min: number
+  max: number
+  digits: number
+}
+
+/** Resolve a node to its display + value metadata (full leaf label incl. cell). */
+export const resolveNodeMeta = (node: TrendNode): TrendNodeMeta => {
+  if (node.kind === "device") {
+    const meta = TREND_VARIABLE_BY_KEY[node.variableKey]
+    return {
+      seedKey: `${node.deviceId}:dev:${node.variableKey}`,
+      nameZh: meta.nameZh,
+      nameEn: meta.nameEn,
+      unit: meta.unit,
+      min: meta.min,
+      max: meta.max,
+      digits: meta.digits,
+    }
+  }
+  const meta = CELL_VARIABLE_BY_KEY[node.cellVar]
+  return {
+    seedKey: `${node.deviceId}:cell:${node.cell}:${node.cellVar}`,
+    nameZh: `电芯${node.cell} ${meta.nameZh}`,
+    nameEn: `Cell ${node.cell} ${meta.nameEn}`,
+    unit: meta.unit,
+    min: meta.min,
+    max: meta.max,
+    digits: meta.digits,
+  }
 }
 
 export type TrendSelection = {
+  /** Stable id == build*NodeId(...). */
+  nodeId: string
   deviceId: string
   deviceName: string
-  variableKey: TrendVariableKey
+  node: TrendNode
 }
 
 export type TrendSeries = {
-  /** Stable id == buildTrendNodeId(deviceId, variableKey). */
+  /** Stable id == selection.nodeId. */
   id: string
   deviceId: string
   deviceName: string
-  variableKey: TrendVariableKey
   nameZh: string
   nameEn: string
   unit: string
@@ -179,13 +275,12 @@ const hashSeed = (input: string) => {
  * sinusoid (load cycle) plus a bounded random walk plus a little noise.
  */
 const buildMockValues = (
-  selection: TrendSelection,
-  meta: TrendVariableMeta,
+  meta: TrendNodeMeta,
   timestamps: number[]
 ): (number | null)[] => {
   const span = meta.max - meta.min
   const mid = meta.min + span / 2
-  const phase = hashSeed(`${selection.deviceId}:${meta.key}`) * Math.PI * 2
+  const phase = hashSeed(meta.seedKey) * Math.PI * 2
   const amplitude = span * 0.32
   const dayMs = 24 * 60 * 60 * 1000
 
@@ -233,19 +328,25 @@ export const fetchTrendSeries = async ({
   const timestamps = buildTimestamps(startTime, endTime, intervalSeconds)
 
   const series: TrendSeries[] = selections.map((selection) => {
-    const meta = TREND_VARIABLE_BY_KEY[selection.variableKey]
+    const meta = resolveNodeMeta(selection.node)
     return {
-      id: buildTrendNodeId(selection.deviceId, selection.variableKey),
+      id: selection.nodeId,
       deviceId: selection.deviceId,
       deviceName: selection.deviceName,
-      variableKey: selection.variableKey,
       nameZh: meta.nameZh,
       nameEn: meta.nameEn,
       unit: meta.unit,
       digits: meta.digits,
-      values: buildMockValues(selection, meta, timestamps),
+      values: buildMockValues(meta, timestamps),
     }
   })
 
   return { timestamps, series }
+}
+
+/** Start-of-today epoch ms — the left edge of the device-status (intraday) chart. */
+export const startOfToday = (now = Date.now()) => {
+  const date = new Date(now)
+  date.setHours(0, 0, 0, 0)
+  return date.getTime()
 }

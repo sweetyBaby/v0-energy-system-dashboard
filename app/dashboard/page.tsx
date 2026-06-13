@@ -16,12 +16,13 @@ import { ComprehensiveEfficiencyPanel } from "@/components/dashboard/comprehensi
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
 import { DashboardHeader, ProjectProvider, useProject } from "@/components/dashboard/dashboard-header"
 import { DashboardSidebar, type SidebarTab } from "@/components/dashboard/dashboard-sidebar"
+import { DeviceListMenu } from "@/components/dashboard/device-selection-tree"
 import { HistoryDatePicker } from "@/components/dashboard/history-date-picker"
 import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
 import { RealtimeStatusBoard } from "@/components/dashboard/realtime-status-board"
 import { ReportCenterPanel } from "@/components/dashboard/report-center-panel"
 import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
-import { TrendAnalysisPanel } from "@/components/dashboard/trend-analysis-panel"
+import { TrendWorkspace } from "@/components/dashboard/trend-workspace"
 import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
@@ -39,6 +40,7 @@ type DashboardTab =
   | "analysis"
   | "trend-analysis"
   | "history"
+  | "device-status"
   | "alarm-monitoring"
   | "reports"
 
@@ -419,19 +421,20 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   ]
 
   const renderRunningStatusPage = () => (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+    <div className={`flex h-full min-h-0 overflow-hidden ${isCompactViewport ? "gap-2" : "gap-3"}`}>
+      <DeviceListMenu
+        devices={pageBcuOptions.map((option) => ({ deviceId: option.value, deviceName: option.label }))}
+        value={runningStatusDeviceId}
+        onChange={setRunningStatusDeviceId}
+        zh={zh}
+        title={zh ? "设备列表" : "Devices"}
+        labelSize={pageControlButtonSize}
+        titleSize={pageControlLabelSize + 2}
+        width={isCompactViewport ? 168 : 204}
+      />
       <div className="grid min-h-0 flex-1 grid-cols-12 gap-4 overflow-hidden">
         <div className="col-span-12 min-h-0 lg:col-span-6">
-          <BCUStatusQuery
-            mode="realtime"
-            deviceId={runningStatusDeviceId || undefined}
-            enableFullscreen
-            headerExtra={
-              pageBcuOptions.length > 1
-                ? renderPageBcuSelector(runningStatusDeviceId, setRunningStatusDeviceId)
-                : undefined
-            }
-          />
+          <BCUStatusQuery mode="realtime" deviceId={runningStatusDeviceId || undefined} enableFullscreen />
         </div>
         <div className="col-span-12 min-h-0 lg:col-span-6">
           <CellHeatmapOverviewPanel deviceId={runningStatusDeviceId || undefined} />
@@ -818,10 +821,14 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         )}
 
         {activeTab === "trend-analysis" && (
-          <TrendAnalysisPanel devices={selectedProject.devices} projectId={selectedProject.projectId} />
+          <TrendWorkspace mode="trend" devices={selectedProject.devices} projectId={selectedProject.projectId} />
         )}
 
         {activeTab === "history" && renderRunningStatusPage()}
+
+        {activeTab === "device-status" && (
+          <TrendWorkspace mode="status" devices={selectedProject.devices} projectId={selectedProject.projectId} />
+        )}
 
         {activeTab === "alarm-monitoring" && (
           <div className="relative h-full min-h-0 overflow-hidden">

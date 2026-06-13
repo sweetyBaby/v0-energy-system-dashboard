@@ -6,9 +6,11 @@ import {
   Bell,
   ChevronDown,
   FileText,
+  Gauge,
   History,
   LayoutDashboard,
   LineChart,
+  ListChecks,
   Map,
   TrendingUp,
 } from "lucide-react"
@@ -23,6 +25,7 @@ export type SidebarTab =
   | "cell-history"
   | "analysis"
   | "trend-analysis"
+  | "device-status"
   | "efficiency"
   | "reports"
 
@@ -47,7 +50,16 @@ const isGroup = (item: SidebarItem): item is SidebarGroup => "children" in item
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
   { key: "realtime", icon: LayoutDashboard, zh: "总览", en: "Overview" },
-  { key: "history", icon: Activity, zh: "运行状态", en: "Operations" },
+  {
+    groupKey: "operations",
+    icon: Activity,
+    zh: "运行状态",
+    en: "Operations",
+    children: [
+      { key: "history", icon: Gauge, zh: "状态概览", en: "Status Overview" },
+      { key: "device-status", icon: ListChecks, zh: "设备状态", en: "Device Status" },
+    ],
+  },
   { key: "alarm-monitoring", icon: Bell, zh: "告警监测", en: "Alarm" },
   { key: "cell-history", icon: History, zh: "电芯历史", en: "Cell Hist." },
   {
