@@ -15,7 +15,6 @@ import { ComprehensiveEfficiencyPanel } from "@/components/dashboard/comprehensi
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
 import { DashboardHeader, ProjectProvider, useProject } from "@/components/dashboard/dashboard-header"
 import { DashboardSidebar, type SidebarTab } from "@/components/dashboard/dashboard-sidebar"
-import { DeviceListMenu } from "@/components/dashboard/device-selection-tree"
 import { HistoryDatePicker } from "@/components/dashboard/history-date-picker"
 import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
 import { ProjectOverviewInfoCard } from "@/components/dashboard/project-overview-info-card"
@@ -30,6 +29,8 @@ import {
   getAnalysisRangeDates,
   type DailyTrendRangeResult,
 } from "@/lib/api/daily-trend-range"
+import { ANALYSIS_MODULE_BY_KEY, parseAnalysisModuleTab } from "@/lib/dashboard/analysis-modules"
+import { buildMonitorDevices } from "@/lib/device-selection"
 
 type DashboardTab =
   | "realtime"
@@ -254,6 +255,14 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
   )
   const displayAllBcuLabel = zh ? "全部BCU" : "All BCUs"
 
+  const analysisModuleData = {
+    range: analysisRangeDays,
+    summary: analysisTrendData?.summary ?? null,
+    trendData: analysisTrendData?.dailyTrend ?? [],
+    loading: isAnalysisLoading,
+    error: analysisError,
+  }
+
   useEffect(() => {
     const validDeviceIds = new Set(pageBcuOptions.map((option) => option.value))
     const resolveDeviceId = (currentValue: string) =>
@@ -400,8 +409,8 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
           <CellHeatmapOverviewPanel deviceId={runningStatusDeviceId || undefined} />
         </div>
       </div>
-    )
-  }
+    </div>
+  )
 
   const pageToggleGroupClass =
     "flex shrink-0 items-center gap-1 overflow-hidden rounded-[12px] border border-[#27496f] bg-[linear-gradient(180deg,rgba(17,27,60,0.96),rgba(10,18,45,0.98))] p-[2px] shadow-[0_0_0_1px_rgba(115,198,255,0.05)_inset,0_10px_22px_rgba(0,0,0,0.22)]"
