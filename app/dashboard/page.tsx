@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import type { DateRange } from "react-day-picker"
-import { Battery, Calendar, Wrench, Zap } from "lucide-react"
+import { Wrench } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
 import { BcuSelector } from "@/components/dashboard/bcu-selector"
@@ -18,7 +18,8 @@ import { DashboardSidebar, type SidebarTab } from "@/components/dashboard/dashbo
 import { DeviceListMenu } from "@/components/dashboard/device-selection-tree"
 import { HistoryDatePicker } from "@/components/dashboard/history-date-picker"
 import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
-import { RealtimeStatusBoard } from "@/components/dashboard/realtime-status-board"
+import { ProjectOverviewInfoCard } from "@/components/dashboard/project-overview-info-card"
+import { ProjectTopologyPanel } from "@/components/dashboard/project-topology-panel"
 import { ReportCenterPanel } from "@/components/dashboard/report-center-panel"
 import { TrendWorkspace } from "@/components/dashboard/trend-workspace"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
@@ -29,12 +30,6 @@ import {
   getAnalysisRangeDates,
   type DailyTrendRangeResult,
 } from "@/lib/api/daily-trend-range"
-import { DEFAULT_PROJECT_IMAGE } from "@/lib/api/project"
-import { buildMonitorDevices } from "@/lib/device-selection"
-import {
-  ANALYSIS_MODULE_BY_KEY,
-  parseAnalysisModuleTab,
-} from "@/lib/dashboard/analysis-modules"
 
 type DashboardTab =
   | "realtime"
@@ -125,7 +120,7 @@ function OverviewDataLoader() {
   return null
 }
 
-function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
+function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; onNavigateTab?: (tab: string) => void }) {
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
   const lerp = (min: number, max: number, progress: number) => min + (max - min) * progress
   const [analysisRange, setAnalysisRange] = useState<AnalysisRange>(15)
@@ -258,11 +253,6 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     [analysisCustomRange, analysisRange]
   )
   const displayAllBcuLabel = zh ? "全部BCU" : "All BCUs"
-  const projectBackgroundImage = useMemo(() => {
-    const candidate = selectedProject.image?.trim()
-    return candidate && candidate !== DEFAULT_PROJECT_IMAGE ? candidate : null
-  }, [selectedProject.image])
-  const [resolvedProjectBackgroundImage, setResolvedProjectBackgroundImage] = useState<string | null>(null)
 
   useEffect(() => {
     const validDeviceIds = new Set(pageBcuOptions.map((option) => option.value))
@@ -279,33 +269,6 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     setAnalysisDeviceId((currentValue) => resolveDeviceId(currentValue))
     setReportsDeviceId((currentValue) => resolveDeviceId(currentValue))
   }, [firstPageBcuId, monitorDeviceOptions, pageBcuOptions])
-
-  useEffect(() => {
-    if (!projectBackgroundImage) {
-      setResolvedProjectBackgroundImage(null)
-      return
-    }
-
-    let cancelled = false
-    setResolvedProjectBackgroundImage(null)
-
-    const image = new window.Image()
-    image.src = projectBackgroundImage
-    image.onload = () => {
-      if (!cancelled) {
-        setResolvedProjectBackgroundImage(projectBackgroundImage)
-      }
-    }
-    image.onerror = () => {
-      if (!cancelled) {
-        setResolvedProjectBackgroundImage(null)
-      }
-    }
-
-    return () => {
-      cancelled = true
-    }
-  }, [projectBackgroundImage])
 
   const formatAnalysisRangeLabel = (range: DateRange | undefined) => {
     if (!range?.from) {
@@ -418,70 +381,23 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     />
   )
 
-  const projectStats = [
-    {
-      icon: <Zap className="h-6 w-6 text-[#25efff]" fill="currentColor" />,
-      iconBg: "bg-[#25efff]/12 border border-[#25efff]/45",
-      labelZh: "额定功率",
-      labelEn: "Rated Power",
-      value: selectedProject.ratedPower,
-      valueSize: "regular" as const,
-    },
-    {
-      icon: <Battery className="h-6 w-6 text-[#25efff]" />,
-      iconBg: "bg-[#25efff]/12 border border-[#25efff]/45",
-      labelZh: "额定容量",
-      labelEn: "Rated Capacity",
-      value: selectedProject.ratedCapacity,
-      valueSize: "dense" as const,
-    },
-    {
-      icon: <Calendar className="h-6 w-6 text-[#25efff]" />,
-      iconBg: "bg-[#25efff]/12 border border-[#25efff]/45",
-      labelZh: "投运日期",
-      labelEn: "Commission",
-      value: selectedProject.commissioningDate,
-      valueSize: "dense" as const,
-    },
-  ]
-
-  const analysisModuleData = {
-    range: analysisRangeDays,
-    summary: analysisTrendData?.summary ?? null,
-    trendData: analysisTrendData?.dailyTrend ?? [],
-    loading: isAnalysisLoading,
-    error: analysisError,
-  }
-
-  // 运行监测 = curated realtime operations overview, across the Rack/PCS/EMS
-  // hierarchy. The cell heatmap only applies to racks (cells live under racks),
-  // so for PCS/EMS the status panel takes the full width. Custom device+element
-  // monitoring lives solely in the dedicated 设备状态 workspace.
-  const renderRunningStatusPage = () => {
-    const selectedKind =
-      monitorDevices.find((device) => device.deviceId === runningStatusDeviceId)?.deviceKind ?? "rack"
-    const showCellHeatmap = selectedKind === "rack"
-    return (
-      <div className={`flex h-full min-h-0 overflow-hidden ${isCompactViewport ? "gap-2" : "gap-3"}`}>
-        <DeviceListMenu
-          devices={monitorDevices}
-          value={runningStatusDeviceId}
-          onChange={setRunningStatusDeviceId}
-          zh={zh}
-          title={zh ? "设备列表" : "Devices"}
-          labelSize={pageControlButtonSize}
-          titleSize={pageControlLabelSize + 2}
-          width={isCompactViewport ? 168 : 204}
-        />
-        <div className="grid min-h-0 flex-1 grid-cols-12 gap-4 overflow-hidden">
-          <div className={`col-span-12 min-h-0 ${showCellHeatmap ? "lg:col-span-6" : ""}`}>
-            <BCUStatusQuery mode="realtime" deviceId={runningStatusDeviceId || undefined} enableFullscreen />
-          </div>
-          {showCellHeatmap && (
-            <div className="col-span-12 min-h-0 lg:col-span-6">
-              <CellHeatmapOverviewPanel deviceId={runningStatusDeviceId || undefined} />
-            </div>
-          )}
+  const renderRunningStatusPage = () => (
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-12 gap-4 overflow-hidden">
+        <div className="col-span-12 min-h-0 lg:col-span-6">
+          <BCUStatusQuery
+            mode="realtime"
+            deviceId={runningStatusDeviceId || undefined}
+            enableFullscreen
+            headerExtra={
+              pageBcuOptions.length > 1
+                ? renderPageBcuSelector(runningStatusDeviceId, setRunningStatusDeviceId)
+                : undefined
+            }
+          />
+        </div>
+        <div className="col-span-12 min-h-0 lg:col-span-6">
+          <CellHeatmapOverviewPanel deviceId={runningStatusDeviceId || undefined} />
         </div>
       </div>
     )
@@ -622,75 +538,16 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
             style={overviewScale.rootStyle}
           >
             <OverviewDataLoader />
-            <div className="relative col-span-12 min-h-0 overflow-hidden rounded-b-xl border border-[#22d3ee]/30 border-t-0">
-              <img
-                src={DEFAULT_PROJECT_IMAGE}
-                alt=""
-                aria-hidden
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[1] brightness-[1.35] saturate-[1.12]"
-              />
-              {resolvedProjectBackgroundImage ? (
-                <img
-                  key={resolvedProjectBackgroundImage}
-                  src={resolvedProjectBackgroundImage}
-                  alt=""
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[1] brightness-[1.35] saturate-[1.12]"
-                  onError={() => setResolvedProjectBackgroundImage(null)}
-                />
-              ) : null}
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(8,20,40,0.02)_0%,rgba(8,20,40,0.00)_32%,rgba(5,12,28,0.12)_72%,rgba(3,8,20,0.24)_100%)]" />
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00d4aa]/50 to-transparent" />
+            <div className="col-span-3 min-h-0 h-full">
+              <ProjectOverviewInfoCard />
+            </div>
 
-              <div className={`relative grid h-full grid-cols-12 items-stretch ${isCompactViewport ? "gap-2.5 px-2.5 pb-2.5 pt-4" : "gap-3 px-3 pb-3 pt-6"}`}>
-                <div className="col-span-3 min-h-0 h-full">
-                  <RealtimeStatusBoard />
-                </div>
+            <div className="col-span-6 min-h-0 h-full">
+              <ProjectTopologyPanel onNavigateTab={onNavigateTab} />
+            </div>
 
-                <div className="col-span-6 flex min-h-0 items-end justify-center">
-                  <div className={`w-full ${isCompactViewport ? "max-w-[620px] px-3 pb-0.5 pt-2" : "max-w-[660px] px-5 pb-1 pt-3"}`}>
-                    <div className="grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)_minmax(0,1.05fr)]">
-                      {projectStats.map((stat, index) => (
-                        <div key={index} className={`relative flex min-w-0 flex-col items-center justify-end px-3 py-1 ${isCompactViewport ? "min-h-[100px] gap-1.5" : "min-h-[122px] gap-2"}`}>
-                          {index < projectStats.length - 1 && (
-                            <div className="pointer-events-none absolute inset-y-3 right-0 w-px bg-gradient-to-b from-transparent via-[#b8d8f0]/35 to-transparent" />
-                          )}
-                          <div className={`flex h-11 w-11 items-center justify-center rounded-full ${stat.iconBg}`}>
-                            {stat.icon}
-                          </div>
-                          <span
-                            className="font-semibold tracking-[0.08em] text-[#d9f6ff]"
-                            style={{
-                              fontSize: "clamp(0.8rem, calc(var(--overview-root-size, 15px) * 0.82), 1.08rem)",
-                              textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 10px rgba(34,211,238,0.28)",
-                            }}
-                          >
-                            {zh ? stat.labelZh : stat.labelEn}
-                          </span>
-                          <span
-                            className={`max-w-full whitespace-nowrap text-center font-bold leading-none tabular-nums text-[#e8f8ff] ${
-                              stat.valueSize === "dense" ? "tracking-[0.015em]" : "tracking-[0.04em]"
-                            }`}
-                            style={{
-                              fontSize:
-                                stat.valueSize === "dense"
-                                  ? "clamp(0.98rem, calc(var(--overview-root-size, 15px) * 1.04), 1.42rem)"
-                                  : "clamp(1.1rem, calc(var(--overview-root-size, 15px) * 1.22), 1.75rem)",
-                              textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 14px rgba(34,211,238,0.45)",
-                            }}
-                          >
-                            {stat.value}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-span-3 min-h-0 h-full w-full" style={{ containerType: "inline-size" }}>
-                  <ChargeDischargeTable />
-                </div>
-              </div>
+            <div className="col-span-3 min-h-0 h-full w-full" style={{ containerType: "inline-size" }}>
+              <ChargeDischargeTable />
             </div>
 
             <div className="col-span-12 min-h-0 lg:col-span-6">
@@ -879,7 +736,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   )
 }
 
-function DashboardMain({ activeTab }: { activeTab: DashboardTab }) {
+function DashboardMain({ activeTab, onNavigateTab }: { activeTab: DashboardTab; onNavigateTab?: (tab: string) => void }) {
   const { projectOptions, isProjectOptionsLoading, projectOptionsError } = useProject()
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -922,7 +779,7 @@ function DashboardMain({ activeTab }: { activeTab: DashboardTab }) {
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <DashboardTabs activeTab={activeTab} />
+      <DashboardTabs activeTab={activeTab} onNavigateTab={onNavigateTab} />
     </main>
   )
 }
@@ -966,7 +823,7 @@ function DashboardApp() {
               expanded={isSidebarExpanded ?? false}
               onExpandedChange={(expanded) => setIsSidebarExpanded(expanded)}
             />
-            <DashboardMain activeTab={activeTab} />
+            <DashboardMain activeTab={activeTab} onNavigateTab={(tab) => setActiveTab(tab as DashboardTab)} />
           </div>
         </div>
       </div>

@@ -9,7 +9,7 @@ export function DashboardHeaderShell({ compact = false, children }: DashboardHea
   return (
     <>
       <header
-        className={`relative z-30 shrink-0 border-b border-[#1a4060]/70 bg-[linear-gradient(180deg,rgba(4,11,22,0.98),rgba(6,16,30,0.95)_55%,rgba(3,9,18,0.99))] shadow-[0_16px_48px_rgba(0,0,0,0.38)] backdrop-blur-xl ${
+        className={`relative z-30 shrink-0 bg-[linear-gradient(180deg,rgba(4,11,22,0.98),rgba(6,16,30,0.95)_55%,rgba(3,9,18,0.99))] shadow-[0_16px_48px_rgba(0,0,0,0.38)] backdrop-blur-xl ${
           compact ? "h-[52px]" : "h-[62px]"
         }`}
       >
@@ -55,8 +55,6 @@ export function DashboardHeaderShell({ compact = false, children }: DashboardHea
             style={{ animation: "hdr-sheen 10s ease-in-out infinite 5s" }}
           />
 
-          {/* Bottom border glow */}
-          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#2dd4bf]/55 to-transparent" />
         </div>
 
         <div className="relative flex h-full items-center justify-between gap-3 px-3.5 md:px-5">{children}</div>
