@@ -1,5 +1,6 @@
 ﻿"use client"
 
+import { CellTrendDialog } from "@/components/dashboard/cell-trend-dialog"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
@@ -179,10 +180,12 @@ function HeatmapGrid({
   cellMap,
   getColor,
   getValue,
+  onCellClick,
 }: {
   cellMap: Record<number, HeatmapCellMetrics>
   getColor: (cell: HeatmapCellMetrics) => string
   getValue: (cell: HeatmapCellMetrics) => string
+  onCellClick?: (cellId: number) => void
 }) {
   const idFontSize = "clamp(7.4px, min(0.66vw, 1.12vh), 12px)"
   const valueFontSize = "clamp(10.2px, min(1.06vw, 1.72vh), 16px)"
@@ -203,10 +206,29 @@ function HeatmapGrid({
           const backgroundColor = getColor(cell)
           const color = foregroundColor(backgroundColor)
 
+          const clickable = onCellClick != null
           return (
             <div
               key={cellId}
-              className="flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center rounded-[10px] px-[2px] py-[1px]"
+              role={clickable ? "button" : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onClick={clickable ? () => onCellClick(cellId) : undefined}
+              onKeyDown={
+                clickable
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault()
+                        onCellClick(cellId)
+                      }
+                    }
+                  : undefined
+              }
+              title={clickable ? `#${cellId}` : undefined}
+              className={`flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center rounded-[10px] px-[2px] py-[1px] ${
+                clickable
+                  ? "cursor-pointer outline-none transition-[box-shadow,transform] hover:shadow-[0_0_0_2px_rgba(255,255,255,0.55),0_0_10px_rgba(125,211,252,0.5)] hover:brightness-110 focus-visible:shadow-[0_0_0_2px_rgba(125,211,252,0.85)]"
+                  : ""
+              }`}
               style={{ backgroundColor }}
             >
               <div
@@ -301,6 +323,14 @@ export function CellHeatmapOverviewPanel({ deviceId }: { deviceId?: string }) {
     () => resolveProjectDeviceId(selectedProject.devices, deviceId),
     [deviceId, selectedProject.devices],
   )
+  const selectedDeviceName = useMemo(
+    () =>
+      selectedProject.devices.find((device) => device.deviceId === effectiveDeviceId)?.deviceName ??
+      (zh ? "设备" : "Device"),
+    [effectiveDeviceId, selectedProject.devices, zh],
+  )
+  // Cell whose realtime trend dialog is open (clicked from any heatmap grid).
+  const [selectedCell, setSelectedCell] = useState<number | null>(null)
 
   const [cells, setCells] = useState<HeatmapCellMetrics[]>(() => createEmptyHeatmapCells())
   const [isLoading, setIsLoading] = useState(true)
@@ -471,6 +501,7 @@ export function CellHeatmapOverviewPanel({ deviceId }: { deviceId?: string }) {
               cellMap={cellMap}
               getColor={(cell) => voltColor(cell.voltage, voltageStats)}
               getValue={(cell) => formatCellValue(cell.voltage, 2)}
+              onCellClick={effectiveDeviceId ? setSelectedCell : undefined}
             />
             <HeatmapLegend
               mode="voltage"
@@ -492,6 +523,7 @@ export function CellHeatmapOverviewPanel({ deviceId }: { deviceId?: string }) {
                   cellMap={cellMap}
                   getColor={(cell) => tempColor(cell[sensorKey])}
                   getValue={(cell) => formatCellValue(cell[sensorKey], 1, "\u00B0")}
+                  onCellClick={effectiveDeviceId ? setSelectedCell : undefined}
                 />
                 <HeatmapLegend
                   mode="temperature"
@@ -504,6 +536,16 @@ export function CellHeatmapOverviewPanel({ deviceId }: { deviceId?: string }) {
           )
         })}
       </div>
+
+      {selectedCell != null && effectiveDeviceId && (
+        <CellTrendDialog
+          projectId={selectedProject.projectId}
+          deviceId={effectiveDeviceId}
+          deviceName={selectedDeviceName}
+          cell={selectedCell}
+          onClose={() => setSelectedCell(null)}
+        />
+      )}
     </div>
   )
 }

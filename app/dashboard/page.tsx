@@ -10,7 +10,6 @@ import { BcuSelector } from "@/components/dashboard/bcu-selector"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { CellHeatmapOverviewPanel } from "@/components/dashboard/cell-heatmap-overview-panel"
 import { CellHistoryMultiPicker, CellHistoryReplayPanel, type CellHistoryOverviewStats } from "@/components/dashboard/cell-history-replay-panel"
-import { CellVoltageAnalysis } from "@/components/dashboard/cell-voltage-analysis"
 import { ChargeDischargeTable } from "@/components/dashboard/charge-discharge-table"
 import { ComprehensiveEfficiencyPanel } from "@/components/dashboard/comprehensive-efficiency-panel"
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
@@ -21,9 +20,7 @@ import { HistoryDatePicker } from "@/components/dashboard/history-date-picker"
 import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
 import { RealtimeStatusBoard } from "@/components/dashboard/realtime-status-board"
 import { ReportCenterPanel } from "@/components/dashboard/report-center-panel"
-import { TemperatureDifferenceAnalysis } from "@/components/dashboard/temperature-difference-analysis"
 import { TrendWorkspace } from "@/components/dashboard/trend-workspace"
-import { VoltageDifferenceAnalysis } from "@/components/dashboard/voltage-difference-analysis"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { DASHBOARD_CONTENT_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 import {
@@ -33,11 +30,16 @@ import {
   type DailyTrendRangeResult,
 } from "@/lib/api/daily-trend-range"
 import { DEFAULT_PROJECT_IMAGE } from "@/lib/api/project"
+import { buildMonitorDevices } from "@/lib/device-selection"
+import {
+  ANALYSIS_MODULE_BY_KEY,
+  parseAnalysisModuleTab,
+} from "@/lib/dashboard/analysis-modules"
 
 type DashboardTab =
   | "realtime"
   | "cell-history"
-  | "analysis"
+  | `analysis:${string}`
   | "trend-analysis"
   | "history"
   | "device-status"
@@ -78,7 +80,6 @@ const ANALYSIS_RANGES: { key: AnalysisRange; zh: string; en: string }[] = [
   { key: 30, zh: "近30天", en: "Last 30d" },
   { key: "custom", zh: "自定义", en: "Custom" },
 ]
-
 
 function OverviewDataLoader() {
   const {
@@ -129,6 +130,9 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   const lerp = (min: number, max: number, progress: number) => min + (max - min) * progress
   const [analysisRange, setAnalysisRange] = useState<AnalysisRange>(15)
   const [bcuMode, setBcuMode] = useState<BcuMode>("history")
+  // Which analysis module the sidebar selected (tab id `analysis:<key>`), if any.
+  const activeAnalysisModuleKey = parseAnalysisModuleTab(activeTab)
+  const activeAnalysisModule = activeAnalysisModuleKey ? ANALYSIS_MODULE_BY_KEY[activeAnalysisModuleKey] ?? null : null
   const yesterday = formatDateInputValue(addDays(new Date(), -1))
   const [historyDate, setHistoryDate] = useState(yesterday)
   const [cellHistoryDate, setCellHistoryDate] = useState(yesterday)
@@ -208,6 +212,18 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     [selectedProject.devices]
   )
   const firstPageBcuId = pageBcuOptions[0]?.value ?? ""
+  // 运行监测 + 告警监测 span the full device hierarchy (Rack/PCS/EMS), not just BCUs.
+  // 电芯历史 stays Rack-only (cells belong to racks) and keeps pageBcuOptions.
+  const monitorDevices = useMemo(
+    () => buildMonitorDevices(selectedProject.projectId, selectedProject.devices),
+    [selectedProject.devices, selectedProject.projectId]
+  )
+  const monitorDeviceOptions = useMemo(
+    () => monitorDevices.map((device) => ({ value: device.deviceId, label: device.deviceName })),
+    [monitorDevices]
+  )
+  // 电芯历史 is BCU/Rack-level and keeps the standard BCU dropdown (the real
+  // device list) — `pageBcuOptions` already is exactly that list.
   const [runningStatusDeviceId, setRunningStatusDeviceId] = useState(firstPageBcuId)
   const [alarmDeviceId, setAlarmDeviceId] = useState(firstPageBcuId)
   const [cellHistoryDeviceId, setCellHistoryDeviceId] = useState(firstPageBcuId)
@@ -252,13 +268,17 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     const validDeviceIds = new Set(pageBcuOptions.map((option) => option.value))
     const resolveDeviceId = (currentValue: string) =>
       currentValue && validDeviceIds.has(currentValue) ? currentValue : firstPageBcuId
+    // 运行监测 + 告警监测 allow PCS/EMS too, so validate against the wider set.
+    const monitorValidIds = new Set(monitorDeviceOptions.map((option) => option.value))
+    const resolveMonitorDeviceId = (currentValue: string) =>
+      currentValue && monitorValidIds.has(currentValue) ? currentValue : firstPageBcuId
 
-    setRunningStatusDeviceId((currentValue) => resolveDeviceId(currentValue))
-    setAlarmDeviceId((currentValue) => resolveDeviceId(currentValue))
+    setRunningStatusDeviceId((currentValue) => resolveMonitorDeviceId(currentValue))
+    setAlarmDeviceId((currentValue) => resolveMonitorDeviceId(currentValue))
     setCellHistoryDeviceId((currentValue) => resolveDeviceId(currentValue))
     setAnalysisDeviceId((currentValue) => resolveDeviceId(currentValue))
     setReportsDeviceId((currentValue) => resolveDeviceId(currentValue))
-  }, [firstPageBcuId, pageBcuOptions])
+  }, [firstPageBcuId, monitorDeviceOptions, pageBcuOptions])
 
   useEffect(() => {
     if (!projectBackgroundImage) {
@@ -315,7 +335,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
   }
 
   useEffect(() => {
-    if (activeTab !== "analysis") {
+    if (!activeAnalysisModule) {
       return
     }
 
@@ -374,17 +394,22 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
       cancelled = true
       abortController.abort()
     }
-  }, [activeTab, analysisDateRange, analysisDeviceId, selectedProject.projectId, zh])
+  }, [activeAnalysisModule, analysisDateRange, analysisDeviceId, selectedProject.projectId, zh])
 
-  const renderPageBcuSelector = (value: string, onChange: (value: string) => void) => (
+  const renderPageBcuSelector = (
+    value: string,
+    onChange: (value: string) => void,
+    options: { value: string; label: string }[] = pageBcuOptions,
+    label = "BCU"
+  ) => (
     <BcuSelector
       value={value}
       onChange={onChange}
-      options={pageBcuOptions}
+      options={options}
       allLabel={displayAllBcuLabel}
       includeAllOption={false}
       hideWhenSingleOption
-      label="BCU"
+      label={label}
       compact
       fontSize={pageControlButtonSize}
       height={pageControlInputHeight}
@@ -420,28 +445,47 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
     },
   ]
 
-  const renderRunningStatusPage = () => (
-    <div className={`flex h-full min-h-0 overflow-hidden ${isCompactViewport ? "gap-2" : "gap-3"}`}>
-      <DeviceListMenu
-        devices={pageBcuOptions.map((option) => ({ deviceId: option.value, deviceName: option.label }))}
-        value={runningStatusDeviceId}
-        onChange={setRunningStatusDeviceId}
-        zh={zh}
-        title={zh ? "设备列表" : "Devices"}
-        labelSize={pageControlButtonSize}
-        titleSize={pageControlLabelSize + 2}
-        width={isCompactViewport ? 168 : 204}
-      />
-      <div className="grid min-h-0 flex-1 grid-cols-12 gap-4 overflow-hidden">
-        <div className="col-span-12 min-h-0 lg:col-span-6">
-          <BCUStatusQuery mode="realtime" deviceId={runningStatusDeviceId || undefined} enableFullscreen />
-        </div>
-        <div className="col-span-12 min-h-0 lg:col-span-6">
-          <CellHeatmapOverviewPanel deviceId={runningStatusDeviceId || undefined} />
+  const analysisModuleData = {
+    range: analysisRangeDays,
+    summary: analysisTrendData?.summary ?? null,
+    trendData: analysisTrendData?.dailyTrend ?? [],
+    loading: isAnalysisLoading,
+    error: analysisError,
+  }
+
+  // 运行监测 = curated realtime operations overview, across the Rack/PCS/EMS
+  // hierarchy. The cell heatmap only applies to racks (cells live under racks),
+  // so for PCS/EMS the status panel takes the full width. Custom device+element
+  // monitoring lives solely in the dedicated 设备状态 workspace.
+  const renderRunningStatusPage = () => {
+    const selectedKind =
+      monitorDevices.find((device) => device.deviceId === runningStatusDeviceId)?.deviceKind ?? "rack"
+    const showCellHeatmap = selectedKind === "rack"
+    return (
+      <div className={`flex h-full min-h-0 overflow-hidden ${isCompactViewport ? "gap-2" : "gap-3"}`}>
+        <DeviceListMenu
+          devices={monitorDevices}
+          value={runningStatusDeviceId}
+          onChange={setRunningStatusDeviceId}
+          zh={zh}
+          title={zh ? "设备列表" : "Devices"}
+          labelSize={pageControlButtonSize}
+          titleSize={pageControlLabelSize + 2}
+          width={isCompactViewport ? 168 : 204}
+        />
+        <div className="grid min-h-0 flex-1 grid-cols-12 gap-4 overflow-hidden">
+          <div className={`col-span-12 min-h-0 ${showCellHeatmap ? "lg:col-span-6" : ""}`}>
+            <BCUStatusQuery mode="realtime" deviceId={runningStatusDeviceId || undefined} enableFullscreen />
+          </div>
+          {showCellHeatmap && (
+            <div className="col-span-12 min-h-0 lg:col-span-6">
+              <CellHeatmapOverviewPanel deviceId={runningStatusDeviceId || undefined} />
+            </div>
+          )}
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const pageToggleGroupClass =
     "flex shrink-0 items-center gap-1 overflow-hidden rounded-[12px] border border-[#27496f] bg-[linear-gradient(180deg,rgba(17,27,60,0.96),rgba(10,18,45,0.98))] p-[2px] shadow-[0_0_0_1px_rgba(115,198,255,0.05)_inset,0_10px_22px_rgba(0,0,0,0.22)]"
@@ -510,7 +554,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
               minWidth={pageControlDateMinWidth}
             />
           )}
-          {renderPageBcuSelector(alarmDeviceId, setAlarmDeviceId)}
+          {renderPageBcuSelector(alarmDeviceId, setAlarmDeviceId, monitorDeviceOptions, zh ? "设备" : "Device")}
         </div>
       </div>
       <div className="no-scrollbar grid min-h-0 flex-1 min-w-0 grid-cols-12 grid-rows-1 gap-4 overflow-hidden overscroll-none">
@@ -738,7 +782,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           </div>
         )}
 
-        {activeTab === "analysis" && (
+        {activeAnalysisModule && (
           <div className={`flex h-full min-h-0 flex-col overflow-hidden ${isCompactViewport ? "gap-2" : "gap-3"}`}>
             <div className={`flex shrink-0 flex-wrap items-center overflow-visible ${isCompactViewport ? "gap-2" : "gap-3"}`}>
               <div className={pageToggleGroupClass} style={{ height: pageControlGroupHeight }}>
@@ -788,34 +832,8 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
               )}
               {renderPageBcuSelector(analysisDeviceId, setAnalysisDeviceId)}
             </div>
-            <div className={`grid min-h-0 flex-1 grid-cols-12 ${isCompactViewport ? "gap-3" : "gap-4"}`}>
-              <div className={isCompactViewport ? "col-span-4 min-h-0" : "col-span-12 min-h-0 xl:col-span-6 2xl:col-span-4"}>
-                <VoltageDifferenceAnalysis
-                  range={analysisRangeDays}
-                  summary={analysisTrendData?.summary ?? null}
-                  trendData={analysisTrendData?.dailyTrend ?? []}
-                  loading={isAnalysisLoading}
-                  error={analysisError}
-                />
-              </div>
-              <div className={isCompactViewport ? "col-span-4 min-h-0" : "col-span-12 min-h-0 xl:col-span-6 2xl:col-span-4"}>
-                <TemperatureDifferenceAnalysis
-                  range={analysisRangeDays}
-                  summary={analysisTrendData?.summary ?? null}
-                  trendData={analysisTrendData?.dailyTrend ?? []}
-                  loading={isAnalysisLoading}
-                  error={analysisError}
-                />
-              </div>
-              <div className={isCompactViewport ? "col-span-4 min-h-0" : "col-span-12 min-h-0 xl:col-span-6 2xl:col-span-4"}>
-                <CellVoltageAnalysis
-                  range={analysisRangeDays}
-                  summary={analysisTrendData?.summary ?? null}
-                  trendData={analysisTrendData?.dailyTrend ?? []}
-                  loading={isAnalysisLoading}
-                  error={analysisError}
-                />
-              </div>
+            <div key={activeAnalysisModule.key} className="min-h-0 flex-1 overflow-hidden">
+              {activeAnalysisModule.render(analysisModuleData)}
             </div>
           </div>
         )}
@@ -827,7 +845,14 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         {activeTab === "history" && renderRunningStatusPage()}
 
         {activeTab === "device-status" && (
-          <TrendWorkspace mode="status" devices={selectedProject.devices} projectId={selectedProject.projectId} />
+          <TrendWorkspace
+            mode="status"
+            devices={selectedProject.devices}
+            projectId={selectedProject.projectId}
+            storageKeyOverride="device-status-monitor-store-v1"
+            titleZh="设备状态"
+            titleEn="Device Status"
+          />
         )}
 
         {activeTab === "alarm-monitoring" && (

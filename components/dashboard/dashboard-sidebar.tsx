@@ -1,21 +1,22 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
-  Activity,
   BarChart3,
   Bell,
   ChevronDown,
+  ChevronLeft,
+  Database,
   FileText,
   Gauge,
   History,
   LayoutDashboard,
-  LineChart,
   ListChecks,
   Map,
   TrendingUp,
 } from "lucide-react"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { useLanguage } from "@/components/language-provider"
+import { ANALYSIS_MODULES, analysisModuleTabKey } from "@/lib/dashboard/analysis-modules"
 
 export type SidebarTab =
   | "realtime"
@@ -23,7 +24,7 @@ export type SidebarTab =
   | "alarm-monitoring"
   | "bms"
   | "cell-history"
-  | "analysis"
+  | `analysis:${string}`
   | "trend-analysis"
   | "device-status"
   | "efficiency"
@@ -48,32 +49,50 @@ type SidebarItem = SidebarLeaf | SidebarGroup
 
 const isGroup = (item: SidebarItem): item is SidebarGroup => "children" in item
 
+/**
+ * Sidebar information architecture.
+ * - Realtime monitoring views (运行监测 / 设备状态 / 告警监测) are top-level items.
+ * - 历史数据 groups the two historical-query views (电芯历史 + 自定义分析).
+ * - 数据分析 groups the registry-driven analysis modules.
+ * To add a monitoring view, add a top-level leaf; for analysis, append to
+ * `ANALYSIS_MODULES`; for a historical-query view, add to the 历史数据 children.
+ */
 const SIDEBAR_ITEMS: SidebarItem[] = [
   { key: "realtime", icon: LayoutDashboard, zh: "总览", en: "Overview" },
+  { key: "history", icon: Gauge, zh: "运行监测", en: "Operations" },
+  { key: "device-status", icon: ListChecks, zh: "设备状态", en: "Device Status" },
+  { key: "alarm-monitoring", icon: Bell, zh: "告警监测", en: "Alarm" },
   {
-    groupKey: "operations",
-    icon: Activity,
-    zh: "运行状态",
-    en: "Operations",
+    groupKey: "history-data",
+    icon: Database,
+    zh: "历史数据",
+    en: "Historical Data",
     children: [
-      { key: "history", icon: Gauge, zh: "状态概览", en: "Status Overview" },
-      { key: "device-status", icon: ListChecks, zh: "设备状态", en: "Device Status" },
+      { key: "cell-history", icon: History, zh: "电芯历史", en: "Cell History" },
+      { key: "trend-analysis", icon: TrendingUp, zh: "自定义分析", en: "Custom Analysis" },
     ],
   },
-  { key: "alarm-monitoring", icon: Bell, zh: "告警监测", en: "Alarm" },
-  { key: "cell-history", icon: History, zh: "电芯历史", en: "Cell Hist." },
   {
     groupKey: "analysis",
     icon: BarChart3,
     zh: "数据分析",
     en: "Analysis",
     children: [
-      { key: "analysis", icon: LineChart, zh: "趋势概览", en: "Trend Overview" },
-      { key: "trend-analysis", icon: TrendingUp, zh: "趋势分析", en: "Trend Analysis" },
+      // Each registered analysis module is a direct second-level item.
+      ...ANALYSIS_MODULES.map(
+        (module): SidebarLeaf => ({
+          key: analysisModuleTabKey(module.key) as SidebarTab,
+          icon: module.icon,
+          zh: module.zh,
+          en: module.en,
+        })
+      ),
     ],
   },
   { key: "reports", icon: FileText, zh: "报表中心", en: "Reports" },
 ]
+
+const OPEN_GROUPS_STORAGE_KEY = "dashboard-sidebar-open-groups"
 
 const getSidebarLabelWidth = (label: string, zh: boolean) => {
   let width = 0
@@ -125,8 +144,8 @@ export function DashboardSidebar({
     ? `/project-map?projectId=${encodeURIComponent(selectedProject.projectId)}`
     : "/project-map"
   const labelWidth = useMemo(() => {
-    // Children are indented, so reserve extra room for their labels.
-    const childIndent = 18
+    // Children are indented (guide rail + padding), so reserve extra room for their labels.
+    const childIndent = 22
     const widths = SIDEBAR_ITEMS.flatMap((item) => {
       if (isGroup(item)) {
         return [
@@ -142,6 +161,30 @@ export function DashboardSidebar({
   const expandedW = textWidth + 58
 
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
+  const [groupsHydrated, setGroupsHydrated] = useState(false)
+
+  // Restore which groups were left open across reloads.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(OPEN_GROUPS_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) setOpenGroups(new Set(parsed.filter((id): id is string => typeof id === "string")))
+      }
+    } catch {
+      /* storage may be unavailable; ignore */
+    }
+    setGroupsHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (!groupsHydrated) return
+    try {
+      window.localStorage.setItem(OPEN_GROUPS_STORAGE_KEY, JSON.stringify(Array.from(openGroups)))
+    } catch {
+      /* ignore */
+    }
+  }, [groupsHydrated, openGroups])
 
   // Auto-open the group that contains the active tab.
   useEffect(() => {
@@ -174,6 +217,7 @@ export function DashboardSidebar({
     onClick,
     showBadge = false,
     isChild = false,
+    softActive = false,
     trailing,
   }: {
     icon: React.ElementType
@@ -182,6 +226,8 @@ export function DashboardSidebar({
     onClick: () => void
     showBadge?: boolean
     isChild?: boolean
+    /** Parent of the active child: a muted "active section" highlight, not the full active leaf treatment. */
+    softActive?: boolean
     trailing?: React.ReactNode
   }) => (
     <button
@@ -190,12 +236,14 @@ export function DashboardSidebar({
       title={!expanded ? label : undefined}
       className={`relative flex w-full items-center rounded-md transition-all ${
         expanded
-          ? `gap-2 rounded-lg ${isChild ? "py-2 pl-3.5 pr-2.5" : "px-2.5 py-2.5"}`
+          ? `gap-2 rounded-lg ${isChild ? "py-2 pl-2.5 pr-2.5" : "px-2.5 py-2.5"}`
           : "justify-center rounded-lg px-0 py-3"
       } ${
         isActive
           ? "border border-[#39d7cf]/42 bg-[linear-gradient(135deg,rgba(13,104,122,0.96),rgba(7,48,67,0.92))] text-[#efffff] shadow-[0_0_0_1px_rgba(57,215,207,0.08),0_12px_24px_rgba(5,19,33,0.35),inset_0_1px_0_rgba(233,255,255,0.16)]"
-          : "border border-[#17354b]/85 bg-[linear-gradient(135deg,rgba(10,24,38,0.86),rgba(7,18,29,0.72))] text-[#9cc6d8] shadow-[inset_0_1px_0_rgba(152,232,255,0.05)] hover:border-[#2f728f]/85 hover:bg-[linear-gradient(135deg,rgba(14,33,52,0.94),rgba(9,24,39,0.9))] hover:text-[#dffbff]"
+          : softActive
+            ? "border border-[#2a5a72]/80 bg-[linear-gradient(135deg,rgba(13,40,58,0.94),rgba(8,23,37,0.9))] text-[#d6f2f8] shadow-[inset_0_1px_0_rgba(152,232,255,0.07)] hover:border-[#347d9b]/90 hover:text-[#eafdff]"
+            : "border border-[#17354b]/85 bg-[linear-gradient(135deg,rgba(10,24,38,0.86),rgba(7,18,29,0.72))] text-[#9cc6d8] shadow-[inset_0_1px_0_rgba(152,232,255,0.05)] hover:border-[#2f728f]/85 hover:bg-[linear-gradient(135deg,rgba(14,33,52,0.94),rgba(9,24,39,0.9))] hover:text-[#dffbff]"
       }`}
     >
       <span
@@ -210,6 +258,9 @@ export function DashboardSidebar({
       {isActive && (
         <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r-full bg-[#26f0dc] shadow-[0_0_8px_rgba(38,240,220,0.7)]" />
       )}
+      {softActive && !isActive && (
+        <span className="absolute inset-y-2.5 left-0 w-[2px] rounded-r-full bg-[#2f93a8]/70" />
+      )}
 
       <div className="relative shrink-0">
         <Icon
@@ -217,7 +268,9 @@ export function DashboardSidebar({
           className={`transition-colors ${
             isActive
               ? "text-[#26f0dc] drop-shadow-[0_0_4px_rgba(38,240,220,0.7)]"
-              : "text-[#78bfd1] group-hover:text-[#b7f2ff]"
+              : softActive
+                ? "text-[#7fd9e6]"
+                : "text-[#78bfd1] group-hover:text-[#b7f2ff]"
           }`}
         />
         {showBadge && (
@@ -229,11 +282,11 @@ export function DashboardSidebar({
 
       <span
         className={`whitespace-nowrap leading-tight transition-all ${
-          isActive ? "text-[#dffefe]" : "text-[#c1dbea] group-hover:text-[#ecfdff]"
+          isActive ? "text-[#dffefe]" : softActive ? "text-[#d6f2f8]" : "text-[#c1dbea] group-hover:text-[#ecfdff]"
         }`}
         style={{
           fontSize: zh ? (isChild ? "11.5px" : "12px") : "11px",
-          fontWeight: isActive ? 600 : 500,
+          fontWeight: isActive || softActive ? 600 : 500,
           letterSpacing: zh ? "0.04em" : "0.03em",
           opacity: expanded ? 1 : 0,
           maxWidth: expanded ? `${textWidth}px` : "0px",
@@ -256,15 +309,17 @@ export function DashboardSidebar({
   )
 
   return (
-    <aside
-      className="relative z-20 flex shrink-0 flex-col overflow-hidden border-r border-[#16344f] shadow-[10px_0_28px_rgba(0,8,20,0.42)] backdrop-blur-xl"
-      style={{
-        width: expanded ? expandedW : collapsedW,
-        background:
-          "linear-gradient(180deg, rgba(8,20,33,0.98) 0%, rgba(4,11,20,0.98) 100%), radial-gradient(circle at 18% 0%, rgba(38,240,220,0.16), transparent 34%), radial-gradient(circle at 100% 18%, rgba(59,130,246,0.14), transparent 30%)",
-        transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
-      }}
+    <div
+      className="relative flex shrink-0 flex-col"
+      style={{ width: expanded ? expandedW : collapsedW, transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)" }}
     >
+      <aside
+        className="relative z-20 flex h-full w-full min-h-0 flex-col overflow-hidden border-r border-[#16344f] shadow-[10px_0_28px_rgba(0,8,20,0.42)] backdrop-blur-xl"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(8,20,33,0.98) 0%, rgba(4,11,20,0.98) 100%), radial-gradient(circle at 18% 0%, rgba(38,240,220,0.16), transparent 34%), radial-gradient(circle at 100% 18%, rgba(59,130,246,0.14), transparent 30%)",
+        }}
+      >
       <div
         className="pointer-events-none absolute inset-0 opacity-70"
         style={{
@@ -275,40 +330,7 @@ export function DashboardSidebar({
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#26f0dc]/35 to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[#8fe8ff]/20 to-transparent" />
 
-      <div className="relative flex shrink-0 items-center justify-end px-2 py-1.5">
-        <button
-          type="button"
-          onClick={() => onExpandedChange(!expanded)}
-          aria-expanded={expanded}
-          aria-label={expanded ? collapseLabel : expandLabel}
-          title={expanded ? collapseLabel : expandLabel}
-          className="group relative flex h-8 w-8 items-center justify-center rounded-lg text-[#c8f7ff] transition-all duration-200 hover:bg-[rgba(99,253,241,0.08)] hover:text-[#7ff8f0] active:scale-95"
-        >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 20 20"
-            className="relative h-5 w-5"
-            fill="none"
-          >
-            <rect
-              x={expanded ? "3.2" : "13.3"}
-              y="4"
-              width="3.1"
-              height="12"
-              rx="1.55"
-              fill="currentColor"
-              opacity="0.9"
-            />
-            <path
-              d={expanded ? "M13.4 6.7L10.3 10L13.4 13.3" : "M6.6 6.7L9.7 10L6.6 13.3"}
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-      </div>
+      <div className="h-3 shrink-0" />
 
       <nav className="custom-scrollbar relative flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-1.5 py-1.5">
         {SIDEBAR_ITEMS.map((item) => {
@@ -376,13 +398,16 @@ export function DashboardSidebar({
             )
           }
 
-          // Expanded: parent toggles the sub-menu open/closed.
+          // Expanded: parent toggles the sub-menu open/closed. When a child is
+          // active the parent shows a muted "active section" highlight (softActive)
+          // rather than the full active-leaf treatment, so the active child stands out.
           return (
             <div key={item.groupKey} className="group relative flex flex-col gap-1">
               {renderNavButton({
                 icon: item.icon,
                 label: groupLabel,
-                isActive: anyChildActive,
+                isActive: false,
+                softActive: anyChildActive,
                 onClick: () => toggleGroup(item),
                 trailing: (
                   <ChevronDown
@@ -391,7 +416,7 @@ export function DashboardSidebar({
                 ),
               })}
               {open && (
-                <div className="flex flex-col gap-1">
+                <div className="ml-3 flex flex-col gap-1 border-l border-[#214a60]/70 pl-2 pt-0.5">
                   {item.children.map((child) => (
                     <div key={child.key} className="group relative">
                       {renderNavButton({
@@ -435,7 +460,23 @@ export function DashboardSidebar({
         </div>
       </div>
 
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-[#26f0dc]/18 to-transparent" />
-    </aside>
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-[#26f0dc]/18 to-transparent" />
+      </aside>
+
+      {/* Whole-sidebar collapse/expand: a circular arrow straddling the right
+          edge, vertically centered. Lives on the (non-clipped) wrapper so it can
+          sit half outside the overflow-hidden aside. */}
+      <button
+        type="button"
+        onClick={() => onExpandedChange(!expanded)}
+        aria-expanded={expanded}
+        aria-label={expanded ? collapseLabel : expandLabel}
+        title={expanded ? collapseLabel : expandLabel}
+        className="group absolute right-0 top-1/2 z-40 flex h-9 w-9 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-[#2a5a72] bg-[#0b1830] text-[#9fdcef] shadow-[0_4px_14px_rgba(0,0,0,0.5)] transition-all duration-200 hover:border-[#45f1d0]/70 hover:text-[#7ff8f0] hover:shadow-[0_0_16px_rgba(38,240,220,0.4)] active:scale-90"
+      >
+        <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(38,240,220,0.2),transparent_70%)] opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+        <ChevronLeft className={`relative h-4 w-4 transition-transform duration-300 ${expanded ? "" : "rotate-180"}`} />
+      </button>
+    </div>
   )
 }

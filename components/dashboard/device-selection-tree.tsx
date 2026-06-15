@@ -1,25 +1,36 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useState } from "react"
 import { Check, ChevronRight, Cpu, Minus, Search, Trash2, X } from "lucide-react"
 import {
   buildCellNodeId,
   buildDeviceNodeId,
   CELL_COUNT,
   CELL_VARIABLES,
+  type MonitorDeviceKind,
   parseTrendNodeId,
+  TREND_VARIABLE_GROUPS,
   TREND_VARIABLES,
 } from "@/lib/api/trend-analysis"
 
-export type TreeDevice = { deviceId: string; deviceName: string }
+export type TreeDevice = { deviceId: string; deviceName: string; deviceKind?: MonitorDeviceKind }
 
 const SCROLLBAR =
   "[scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]"
 
 const CELL_INDEXES = Array.from({ length: CELL_COUNT }, (_, index) => index + 1)
 
-const deviceVarNodeIds = (deviceId: string) =>
-  TREND_VARIABLES.map((variable) => buildDeviceNodeId(deviceId, variable.key))
+const getDeviceKind = (device: TreeDevice): MonitorDeviceKind => device.deviceKind ?? "rack"
+const deviceKindLabel = (kind: MonitorDeviceKind, zh: boolean) => {
+  if (kind === "rack") return zh ? "Rack" : "Rack"
+  if (kind === "pcs") return "PCS"
+  if (kind === "ems") return "EMS"
+  return zh ? "设备" : "Device"
+}
+const variableMatchesKind = (kind: MonitorDeviceKind) => (variable: (typeof TREND_VARIABLES)[number]) =>
+  variable.deviceKinds.includes(kind)
+const deviceVarNodeIds = (deviceId: string, kind: MonitorDeviceKind) =>
+  TREND_VARIABLES.filter(variableMatchesKind(kind)).map((variable) => buildDeviceNodeId(deviceId, variable.key))
 const cellVarNodeIds = (deviceId: string, cell: number) =>
   CELL_VARIABLES.map((variable) => buildCellNodeId(deviceId, cell, variable.key))
 
@@ -210,12 +221,17 @@ export function DeviceVariableTree({
         ) : (
           devices.map((device) => {
             const open = openDevices.has(device.deviceId)
-            const devVars = TREND_VARIABLES.filter((variable) => matches(zh ? variable.nameZh : variable.nameEn))
-            const showCellGroup = cellGroupVisible
-            if (normalizedSearch && devVars.length === 0 && !showCellGroup && !matches(device.deviceName)) {
+            const kind = getDeviceKind(device)
+            const kindLabel = deviceKindLabel(kind, zh)
+            const deviceVars = deviceVarNodeIds(device.deviceId, kind)
+            const devVars = TREND_VARIABLES.filter(variableMatchesKind(kind)).filter((variable) =>
+              matches(zh ? variable.nameZh : variable.nameEn)
+            )
+            const showCellGroup = kind === "rack" && cellGroupVisible
+            if (normalizedSearch && devVars.length === 0 && !showCellGroup && !matches(device.deviceName) && !matches(kindLabel)) {
               return null
             }
-            const deviceState = stateOf(deviceVarNodeIds(device.deviceId))
+            const deviceState = stateOf(deviceVars)
             const groupOpen = openCellGroups.has(device.deviceId)
 
             return (
@@ -231,43 +247,71 @@ export function DeviceVariableTree({
                   </button>
                   <button
                     type="button"
-                    onClick={() => toggleMany(deviceVarNodeIds(device.deviceId))}
+                    onClick={() => toggleMany(deviceVars)}
                     className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left"
                   >
                     <TriCheckbox state={deviceState} />
                     <span className="truncate font-medium text-[#cfe4ff]" style={{ fontSize: labelSize }}>
                       {device.deviceName}
                     </span>
+                    <span className="ml-auto shrink-0 rounded bg-[#1a2654] px-1.5 py-0.5 font-mono text-[#7fdfff]" style={{ fontSize: labelSize - 2 }}>
+                      {kindLabel}
+                    </span>
                   </button>
                 </div>
 
                 {open && (
                   <div className="ml-3 border-l border-[#1a2654] pl-1.5">
-                    {/* Rack-level variables */}
-                    {devVars.map((variable) => {
-                      const nodeId = buildDeviceNodeId(device.deviceId, variable.key)
-                      const checked = value.has(nodeId)
-                      const disabled = !checked && value.size >= maxSelection
-                      return (
-                        <button
-                          key={nodeId}
-                          type="button"
-                          onClick={() => toggleOne(nodeId)}
-                          disabled={disabled}
-                          className={`flex w-full items-center gap-2 rounded-md py-1.5 pl-2 pr-1.5 text-left transition-colors ${
-                            checked ? "bg-[#0f2030]" : "hover:bg-[#16213f]/70"
-                          } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
-                        >
-                          <TriCheckbox state={checked ? "all" : "none"} color={colorByNode?.get(nodeId)} />
-                          <span className="truncate" style={{ fontSize: labelSize, color: checked ? "#e6f4ff" : "#9fb6d6" }}>
-                            {zh ? variable.nameZh : variable.nameEn}
-                          </span>
-                          <span className="ml-auto shrink-0 text-[#5d7299]" style={{ fontSize: labelSize - 1.5 }}>
-                            {variable.unit}
-                          </span>
-                        </button>
-                      )
-                    })}
+                    {/* Rack/device-level variables, grouped by section */}
+                    {(() => {
+                      let lastGroup: string | null = null
+                      return devVars.map((variable) => {
+                        const nodeId = buildDeviceNodeId(device.deviceId, variable.key)
+                        const checked = value.has(nodeId)
+                        const disabled = !checked && value.size >= maxSelection
+                        const showHeader = variable.group !== lastGroup
+                        lastGroup = variable.group
+                        const groupNodeIds = devVars
+                          .filter((item) => item.group === variable.group)
+                          .map((item) => buildDeviceNodeId(device.deviceId, item.key))
+                        const groupState = stateOf(groupNodeIds)
+                        return (
+                          <Fragment key={nodeId}>
+                            {showHeader && (
+                              <button
+                                type="button"
+                                onClick={() => toggleMany(groupNodeIds)}
+                                className="mt-0.5 flex w-full items-center gap-1.5 rounded-md py-1 pl-2 pr-1.5 text-left hover:bg-[#16213f]/70"
+                              >
+                                <TriCheckbox state={groupState} />
+                                <span
+                                  className="font-semibold uppercase tracking-[0.08em] text-[#6f86ad]"
+                                  style={{ fontSize: labelSize - 2 }}
+                                >
+                                  {zh ? TREND_VARIABLE_GROUPS[variable.group].zh : TREND_VARIABLE_GROUPS[variable.group].en}
+                                </span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => toggleOne(nodeId)}
+                              disabled={disabled}
+                              className={`flex w-full items-center gap-2 rounded-md py-1.5 pl-5 pr-1.5 text-left transition-colors ${
+                                checked ? "bg-[#0f2030]" : "hover:bg-[#16213f]/70"
+                              } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
+                            >
+                              <TriCheckbox state={checked ? "all" : "none"} color={colorByNode?.get(nodeId)} />
+                              <span className="truncate" style={{ fontSize: labelSize, color: checked ? "#e6f4ff" : "#9fb6d6" }}>
+                                {zh ? variable.nameZh : variable.nameEn}
+                              </span>
+                              <span className="ml-auto shrink-0 text-[#5d7299]" style={{ fontSize: labelSize - 1.5 }}>
+                                {variable.unit}
+                              </span>
+                            </button>
+                          </Fragment>
+                        )
+                      })
+                    })()}
 
                     {/* 电芯 group */}
                     {showCellGroup && (

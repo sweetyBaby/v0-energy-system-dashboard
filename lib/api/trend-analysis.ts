@@ -12,20 +12,74 @@
 export type TrendVariableKey =
   | "clusterVoltage"
   | "clusterCurrent"
+  | "insulationResistance"
   | "soc"
   | "soh"
+  | "dayChargeEnergy"
+  | "dayDischargeEnergy"
   | "maxCellVoltage"
   | "minCellVoltage"
+  | "avgCellVoltage"
+  | "voltageDiff"
   | "maxTemp"
   | "minTemp"
-  | "voltageDiff"
+  | "avgTemp"
   | "tempDiff"
+  | "pcsDcVoltage"
+  | "pcsDcCurrent"
+  | "pcsDcPower"
+  | "pcsAcPower"
+  | "pcsAcReactivePower"
+  | "pcsAcVoltage"
+  | "pcsAcCurrent"
+  | "pcsFrequency"
+  | "pcsTemperature"
+  | "pcsEfficiency"
+  | "emsCommandPower"
+  | "emsGridPower"
+  | "emsLoadPower"
+  | "emsSocTarget"
+  | "emsSystemEfficiency"
+  | "emsAlarmCount"
+
+export type MonitorDeviceKind = "rack" | "pcs" | "ems" | "other"
+
+/**
+ * Logical sub-section a variable belongs to. The device-variable tree renders a
+ * small header per group so a device's (now fairly long) measurement list stays
+ * scannable. Add a new key here + a label in {@link TREND_VARIABLE_GROUPS}.
+ */
+export type TrendVariableGroup =
+  | "electrical"
+  | "state"
+  | "cellVoltage"
+  | "temperature"
+  | "pcsDc"
+  | "pcsAc"
+  | "pcsState"
+  | "emsPower"
+  | "emsState"
+
+export const TREND_VARIABLE_GROUPS: Record<TrendVariableGroup, { zh: string; en: string }> = {
+  electrical: { zh: "电气量", en: "Electrical" },
+  state: { zh: "电池状态", en: "Battery State" },
+  cellVoltage: { zh: "单体电压", en: "Cell Voltage" },
+  temperature: { zh: "温度", en: "Temperature" },
+  pcsDc: { zh: "直流侧", en: "DC Side" },
+  pcsAc: { zh: "交流侧", en: "AC Side" },
+  pcsState: { zh: "运行状态", en: "Status" },
+  emsPower: { zh: "功率调度", en: "Power" },
+  emsState: { zh: "系统状态", en: "System" },
+}
 
 export type TrendVariableMeta = {
   key: TrendVariableKey
   nameZh: string
   nameEn: string
   unit: string
+  deviceKinds: MonitorDeviceKind[]
+  /** Logical sub-section used to group the variable in the selection tree. */
+  group: TrendVariableGroup
   /** Plausible operating band used to seed the mock random-walk. */
   min: number
   max: number
@@ -34,21 +88,49 @@ export type TrendVariableMeta = {
 }
 
 /**
- * Catalog of measurement points available for every device (BCU/BMS) of the
- * current site. The tree on the left of the panel is the cross product of the
- * site's device list and this catalog (e.g. `BCU1.簇电压`).
+ * Catalog of measurement points available for every device (BCU/BMS/PCS/EMS) of
+ * the current site. The tree on the left of the panel is the cross product of
+ * the site's device list and this catalog (e.g. `BCU1.簇电压`). Keep the array
+ * ordered by `deviceKinds` then `group` so the tree shows tidy sections.
+ *
+ * To make monitoring "more comprehensive", add a row here (and the key to
+ * {@link TrendVariableKey}); every monitoring view picks it up automatically.
  */
 export const TREND_VARIABLES: TrendVariableMeta[] = [
-  { key: "clusterVoltage", nameZh: "簇电压", nameEn: "Cluster Voltage", unit: "V", min: 680, max: 780, digits: 1 },
-  { key: "clusterCurrent", nameZh: "簇电流", nameEn: "Cluster Current", unit: "A", min: -250, max: 250, digits: 1 },
-  { key: "soc", nameZh: "SOC", nameEn: "SOC", unit: "%", min: 12, max: 96, digits: 1 },
-  { key: "soh", nameZh: "SOH", nameEn: "SOH", unit: "%", min: 95, max: 100, digits: 2 },
-  { key: "maxCellVoltage", nameZh: "最高单体电压", nameEn: "Max Cell Voltage", unit: "V", min: 3.25, max: 3.42, digits: 3 },
-  { key: "minCellVoltage", nameZh: "最低单体电压", nameEn: "Min Cell Voltage", unit: "V", min: 3.18, max: 3.35, digits: 3 },
-  { key: "maxTemp", nameZh: "最高温度", nameEn: "Max Temp", unit: "℃", min: 24, max: 42, digits: 1 },
-  { key: "minTemp", nameZh: "最低温度", nameEn: "Min Temp", unit: "℃", min: 20, max: 36, digits: 1 },
-  { key: "voltageDiff", nameZh: "压差", nameEn: "Voltage Diff", unit: "mV", min: 6, max: 58, digits: 0 },
-  { key: "tempDiff", nameZh: "温差", nameEn: "Temp Diff", unit: "℃", min: 0.4, max: 6, digits: 1 },
+  // —— Rack / BMS ——
+  { key: "clusterVoltage", nameZh: "簇电压", nameEn: "Cluster Voltage", unit: "V", deviceKinds: ["rack"], group: "electrical", min: 680, max: 780, digits: 1 },
+  { key: "clusterCurrent", nameZh: "簇电流", nameEn: "Cluster Current", unit: "A", deviceKinds: ["rack"], group: "electrical", min: -250, max: 250, digits: 1 },
+  { key: "insulationResistance", nameZh: "绝缘电阻", nameEn: "Insulation Resistance", unit: "kΩ", deviceKinds: ["rack"], group: "electrical", min: 200, max: 2000, digits: 0 },
+  { key: "soc", nameZh: "SOC", nameEn: "SOC", unit: "%", deviceKinds: ["rack"], group: "state", min: 12, max: 96, digits: 1 },
+  { key: "soh", nameZh: "SOH", nameEn: "SOH", unit: "%", deviceKinds: ["rack"], group: "state", min: 95, max: 100, digits: 2 },
+  { key: "dayChargeEnergy", nameZh: "日充电量", nameEn: "Daily Charge", unit: "kWh", deviceKinds: ["rack"], group: "state", min: 0, max: 800, digits: 1 },
+  { key: "dayDischargeEnergy", nameZh: "日放电量", nameEn: "Daily Discharge", unit: "kWh", deviceKinds: ["rack"], group: "state", min: 0, max: 760, digits: 1 },
+  { key: "maxCellVoltage", nameZh: "最高单体电压", nameEn: "Max Cell Voltage", unit: "V", deviceKinds: ["rack"], group: "cellVoltage", min: 3.25, max: 3.42, digits: 3 },
+  { key: "minCellVoltage", nameZh: "最低单体电压", nameEn: "Min Cell Voltage", unit: "V", deviceKinds: ["rack"], group: "cellVoltage", min: 3.18, max: 3.35, digits: 3 },
+  { key: "avgCellVoltage", nameZh: "平均单体电压", nameEn: "Avg Cell Voltage", unit: "V", deviceKinds: ["rack"], group: "cellVoltage", min: 3.2, max: 3.38, digits: 3 },
+  { key: "voltageDiff", nameZh: "压差", nameEn: "Voltage Diff", unit: "mV", deviceKinds: ["rack"], group: "cellVoltage", min: 6, max: 58, digits: 0 },
+  { key: "maxTemp", nameZh: "最高温度", nameEn: "Max Temp", unit: "℃", deviceKinds: ["rack"], group: "temperature", min: 24, max: 42, digits: 1 },
+  { key: "minTemp", nameZh: "最低温度", nameEn: "Min Temp", unit: "℃", deviceKinds: ["rack"], group: "temperature", min: 20, max: 36, digits: 1 },
+  { key: "avgTemp", nameZh: "平均温度", nameEn: "Avg Temp", unit: "℃", deviceKinds: ["rack"], group: "temperature", min: 22, max: 38, digits: 1 },
+  { key: "tempDiff", nameZh: "温差", nameEn: "Temp Diff", unit: "℃", deviceKinds: ["rack"], group: "temperature", min: 0.4, max: 6, digits: 1 },
+  // —— PCS ——
+  { key: "pcsDcVoltage", nameZh: "直流侧电压", nameEn: "DC Voltage", unit: "V", deviceKinds: ["pcs"], group: "pcsDc", min: 690, max: 820, digits: 1 },
+  { key: "pcsDcCurrent", nameZh: "直流侧电流", nameEn: "DC Current", unit: "A", deviceKinds: ["pcs"], group: "pcsDc", min: -280, max: 280, digits: 1 },
+  { key: "pcsDcPower", nameZh: "直流侧功率", nameEn: "DC Power", unit: "kW", deviceKinds: ["pcs"], group: "pcsDc", min: -120, max: 120, digits: 1 },
+  { key: "pcsAcPower", nameZh: "交流有功功率", nameEn: "AC Active Power", unit: "kW", deviceKinds: ["pcs"], group: "pcsAc", min: -120, max: 120, digits: 1 },
+  { key: "pcsAcReactivePower", nameZh: "交流无功功率", nameEn: "AC Reactive Power", unit: "kvar", deviceKinds: ["pcs"], group: "pcsAc", min: -60, max: 60, digits: 1 },
+  { key: "pcsAcVoltage", nameZh: "交流电压", nameEn: "AC Voltage", unit: "V", deviceKinds: ["pcs"], group: "pcsAc", min: 390, max: 410, digits: 1 },
+  { key: "pcsAcCurrent", nameZh: "交流电流", nameEn: "AC Current", unit: "A", deviceKinds: ["pcs"], group: "pcsAc", min: 0, max: 200, digits: 1 },
+  { key: "pcsFrequency", nameZh: "交流频率", nameEn: "AC Frequency", unit: "Hz", deviceKinds: ["pcs"], group: "pcsAc", min: 49.8, max: 50.2, digits: 2 },
+  { key: "pcsTemperature", nameZh: "柜内温度", nameEn: "Cabinet Temp", unit: "℃", deviceKinds: ["pcs"], group: "pcsState", min: 24, max: 46, digits: 1 },
+  { key: "pcsEfficiency", nameZh: "转换效率", nameEn: "Conversion Efficiency", unit: "%", deviceKinds: ["pcs"], group: "pcsState", min: 95, max: 99, digits: 1 },
+  // —— EMS ——
+  { key: "emsCommandPower", nameZh: "调度指令功率", nameEn: "Command Power", unit: "kW", deviceKinds: ["ems"], group: "emsPower", min: -120, max: 120, digits: 1 },
+  { key: "emsGridPower", nameZh: "并网点功率", nameEn: "Grid Power", unit: "kW", deviceKinds: ["ems"], group: "emsPower", min: -130, max: 130, digits: 1 },
+  { key: "emsLoadPower", nameZh: "负载功率", nameEn: "Load Power", unit: "kW", deviceKinds: ["ems"], group: "emsPower", min: 0, max: 140, digits: 1 },
+  { key: "emsSocTarget", nameZh: "目标SOC", nameEn: "Target SOC", unit: "%", deviceKinds: ["ems"], group: "emsState", min: 20, max: 95, digits: 1 },
+  { key: "emsSystemEfficiency", nameZh: "系统效率", nameEn: "System Efficiency", unit: "%", deviceKinds: ["ems"], group: "emsState", min: 88, max: 96, digits: 1 },
+  { key: "emsAlarmCount", nameZh: "活动告警数", nameEn: "Active Alarms", unit: "条", deviceKinds: ["ems"], group: "emsState", min: 0, max: 8, digits: 0 },
 ]
 
 export const TREND_VARIABLE_BY_KEY: Record<TrendVariableKey, TrendVariableMeta> = TREND_VARIABLES.reduce(

@@ -27,12 +27,13 @@ import {
   YAxis,
 } from "recharts"
 import { BcuSelector } from "@/components/dashboard/bcu-selector"
-import { DeviceVariableTree } from "@/components/dashboard/device-selection-tree"
+import { DeviceVariableTree, type TreeDevice } from "@/components/dashboard/device-selection-tree"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
 import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { DASHBOARD_DENSE_PANEL_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
 import type { ProjectDevice } from "@/lib/api/project"
+import { buildMonitorDevices } from "@/lib/device-selection"
 import {
   fetchTrendSeries,
   parseTrendNodeId,
@@ -145,14 +146,24 @@ export function TrendWorkspace({
   devices,
   projectId,
   mode,
+  storageKeyOverride,
+  titleZh,
+  titleEn,
+  maxSelectionOverride,
+  includeStationDevices = true,
 }: {
   devices: ProjectDevice[]
   projectId: string
   mode: TrendWorkspaceMode
+  storageKeyOverride?: string
+  titleZh?: string
+  titleEn?: string
+  maxSelectionOverride?: number
+  includeStationDevices?: boolean
 }) {
   const isStatus = mode === "status"
-  const storageKey = isStatus ? "device-status-store-v1" : "trend-analysis-store-v3"
-  const maxSelection = isStatus ? 16 : 12
+  const storageKey = storageKeyOverride ?? (isStatus ? "device-status-store-v2" : "trend-analysis-store-v4")
+  const maxSelection = maxSelectionOverride ?? (isStatus ? 24 : 18)
 
   const { language } = useLanguage()
   const { isCompactViewport } = useDashboardViewport()
@@ -163,15 +174,9 @@ export function TrendWorkspace({
   const controlSize = scale.fluid(11.5, 14)
   const chartFontSize = scale.chart(10, 14)
 
-  const safeDevices = useMemo(
-    () =>
-      devices
-        .filter((device) => device.deviceId)
-        .map((device, index) => ({
-          deviceId: device.deviceId,
-          deviceName: device.deviceName || `BCU ${index + 1}`,
-        })),
-    [devices]
+  const safeDevices = useMemo<TreeDevice[]>(
+    () => buildMonitorDevices(projectId, devices, includeStationDevices),
+    [devices, includeStationDevices, projectId]
   )
 
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set())
@@ -489,7 +494,7 @@ export function TrendWorkspace({
 
   const ColTitleIcon = isStatus ? Gauge : TrendingUp
   const RootIcon = isStatus ? Gauge : LineChartIcon
-  const colTitle = isStatus ? (zh ? "设备状态" : "Device Status") : zh ? "趋势分析" : "Trend Analysis"
+  const colTitle = titleZh && titleEn ? (zh ? titleZh : titleEn) : isStatus ? (zh ? "设备状态" : "Device Status") : zh ? "趋势分析" : "Trend Analysis"
   const rootLabel = isStatus ? (zh ? "今日趋势" : "Today") : zh ? "趋势" : "Trend"
 
   const renderTemplateRow = (template: TrendTemplate) => {
