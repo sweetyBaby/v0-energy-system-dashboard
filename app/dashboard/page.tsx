@@ -508,7 +508,7 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
           {renderPageBcuSelector(alarmDeviceId, setAlarmDeviceId)}
         </div>
       </div>
-      <div className="no-scrollbar grid min-h-0 flex-1 min-w-0 grid-cols-12 grid-rows-1 gap-4 overflow-hidden overscroll-none">
+      <div className="relative no-scrollbar grid min-h-0 flex-1 min-w-0 grid-cols-12 grid-rows-1 gap-4 overflow-hidden overscroll-none">
         <div className="col-span-12 row-span-1 min-h-0 min-w-0 lg:col-span-6">
           <BCUStatusQuery
             mode={bcuMode}
@@ -524,28 +524,34 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
             deviceId={alarmDeviceId || undefined}
           />
         </div>
+        {bcuMode === "realtime" && renderAlarmComingSoonMask()}
       </div>
       </div>
     )
   }
 
-  const renderComingSoonBanner = () => {
+  const renderAlarmComingSoonMask = () => {
     return (
-      <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center px-3">
-        <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#f59e0b]/35 bg-[linear-gradient(180deg,rgba(36,24,10,0.7),rgba(18,14,8,0.6))] px-4 py-2 text-[#ffd089] shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset,0_10px_24px_rgba(0,0,0,0.2)] backdrop-blur-[4px]">
-          <Wrench className="h-[18px] w-[18px] shrink-0" />
-          <span className="font-semibold tracking-[0.04em]" style={{ fontSize: pageControlLabelSize + 2.5 }}>
-            {zh ? "报表功能开发中，临时访问地址：" : "Reporting is in development. Temporary access URL:"}
-          </span>
-          <a
-            href="http://223.107.76.50:8083/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pointer-events-auto break-all font-semibold text-[#ffe3a8] underline decoration-[#f59e0b]/60 underline-offset-4 transition hover:text-[#fff1cf]"
-            style={{ fontSize: pageControlLabelSize + 2.5 }}
+      <div className="absolute inset-0 z-30 flex items-center justify-center bg-[rgba(3,8,20,0.28)] backdrop-blur-[0.5px]">
+        <div className="relative flex max-w-md flex-col items-center gap-5 overflow-hidden rounded-[20px] border border-[#22d3ee]/35 bg-[linear-gradient(160deg,rgba(12,28,52,0.94),rgba(6,15,32,0.96))] px-10 py-9 text-center shadow-[0_0_0_1px_rgba(34,211,238,0.08)_inset,0_0_60px_rgba(34,211,238,0.12),0_20px_48px_rgba(0,0,0,0.5)]">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/70 to-transparent" />
+          <div className="pointer-events-none absolute -top-16 left-1/2 h-32 w-32 -translate-x-1/2 rounded-full bg-[#22d3ee]/20 blur-3xl" />
+          <div className="relative flex h-[72px] w-[72px] items-center justify-center">
+            <span className="absolute inset-0 animate-ping rounded-full border border-[#22d3ee]/40" style={{ animationDuration: "2.4s" }} />
+            <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.28),transparent_70%)]" />
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-full border border-[#22d3ee]/55 bg-[linear-gradient(180deg,rgba(34,211,238,0.22),rgba(34,211,238,0.06))] shadow-[0_0_0_1px_rgba(34,211,238,0.12)_inset,0_0_22px_rgba(34,211,238,0.32)]">
+              <Wrench className="h-8 w-8 text-[#7ff0ff]" />
+            </div>
+          </div>
+          <div
+            className="bg-[linear-gradient(180deg,#eafcff,#9fe9ff)] bg-clip-text font-bold tracking-[0.08em] text-transparent"
+            style={{ fontSize: pageControlLabelSize + 8, textShadow: "0 0 20px rgba(34,211,238,0.25)" }}
           >
-            http://223.107.76.50:8083/
-          </a>
+            {zh ? "实时告警开发中" : "Real-time alarm in development"}
+          </div>
+          <div className="flex items-center gap-1.5 text-[#8fb6cf]" style={{ fontSize: pageControlLabelSize + 1 }}>
+            <span className="tracking-[0.18em]">{zh ? "敬请期待" : "Stay tuned"}</span>
+          </div>
         </div>
       </div>
     )
@@ -820,7 +826,6 @@ function DashboardTabs({ activeTab }: { activeTab: DashboardTab }) {
         {activeTab === "alarm-monitoring" && (
           <div className="relative h-full min-h-0 overflow-hidden">
             {renderAlarmMonitoringPage()}
-            {bcuMode === "realtime" && renderComingSoonBanner()}
           </div>
         )}
 
