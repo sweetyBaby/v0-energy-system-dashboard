@@ -15,7 +15,37 @@ export type EdgeAnim = "none" | "flow" | "dash" | "pipe" | "busbar" | "glow" | "
 
 export type EdgeRoute = "smart" | "arc" | "manual" | "line" | "straight"
 
-export type EdgeDir = "forward" | "reverse" | "both"
+export type EdgeDir = "forward" | "reverse" | "both" | "none"
+
+// ───── 数据驱动规则（与运营端 topo.html / runtime.js 同一契约，见 topo/拓扑系统-接入文档.md §5）─────
+
+/**
+ * 条件树：叶子 {var,op,val|ref}；组合 {all}/{any}/{not}；null/缺省 = 恒为真。
+ * op: == != > >= < <= in between truthy falsy exists（缺省 truthy）
+ */
+export type TopoCond = {
+  all?: TopoCond[]
+  any?: TopoCond[]
+  not?: TopoCond
+  var?: string
+  op?: string
+  val?: unknown
+  /** 与另一个信号比较（优先于 val） */
+  ref?: string
+}
+
+/** 连线流向规则：顺序匹配，首个命中生效，否则用连线自身 dir 兜底 */
+export type TopoDirRule = { when?: TopoCond; dir: EdgeDir }
+
+/** 运营端「⚙ 规则与信号」面板定义的全局信号（sample 作为未下发时的默认值） */
+export type TopoSignalDef = { name: string; label?: string; sample?: number | string | boolean | null; type?: string; options?: string[] }
+
+/**
+ * 实时信号快照（扁平 {信号名:值}）：节点字段 `节点id.字段名`（中文字段名）、
+ * 节点状态 `节点id.status`、在线 `节点id.online`、全局信号直接用信号名。
+ * 同一份数据既驱动规则（显隐/流向），又显示在字段卡片上。
+ */
+export type TopoSignals = Record<string, number | string | boolean | null>
 
 export type Point = { x: number; y: number }
 
@@ -31,8 +61,8 @@ export type TopoEdgeStyle = {
 
 export type TopoNodeDataField = {
   key: Bilingual
-  /** 字段值；占位为 "--"，实时数据接入后替换 */
-  value: string | number
+  /** 字段值；占位为 "--"，实时数据接入后替换（空串 = 无值，显示为空） */
+  value: string | number | boolean
   hidden: boolean
   /** 相对节点的偏移（世界坐标） */
   offset: Point
@@ -69,7 +99,9 @@ export type TopoNode = {
   anchorStyle?: { fill?: string; opacity?: number }
   /** 本项目扩展：点击跳转 */
   nav?: TopoNodeNav
-  /** 本项目扩展：实时规则决定的可见性（缺省视为 true） */
+  /** 显示条件（运营端配置；条件不满足 → 元素及其连线隐藏） */
+  visibleWhen?: TopoCond
+  /** 实时规则求值结果（apply-signals 写入；缺省视为 true） */
   visible?: boolean
 }
 
@@ -87,8 +119,12 @@ export type TopoEdge = {
   showLabel: boolean
   orthoSnap: boolean
   waypoints: Point[]
-  /** 是否渲染该连线（动态连线 / 断路时切换） */
-  active: boolean
+  /** 显示/存在条件（运营端配置；条件不满足 → 该连线不画） */
+  showWhen?: TopoCond
+  /** 流向规则（运营端配置；顺序匹配，dir 兜底） */
+  dirRules?: TopoDirRule[]
+  /** 实时规则求值结果：是否渲染该连线（apply-signals 写入；缺省视为 true） */
+  active?: boolean
 }
 
 export type TopoCanvasMeta = {
@@ -112,47 +148,10 @@ export type TopologyDoc = {
   edgeStyles: Record<string, TopoEdgeStyle>
   nodes: TopoNode[]
   edges: TopoEdge[]
-}
-
-// ───── 实时数据契约（本项目侧，按 nodeId 关联布局；字段名复用布局 data.key.zh）─────
-
-export type TopoRealtimeNode = {
-  /** 状态（中文），覆盖布局 status.zh */
-  status?: string
-  /** 在线状态；false 可用于规则隐藏 */
-  online?: boolean
-  /** 字段值：中文字段名 → 实时值 */
-  fields?: Record<string, number | string>
-}
-
-/**
- * 连线运行态；key = `${from}>${to}`（同一对节点多条边时可加 `:${edgeType}`）。
- * 推荐后端给 `p`（线路有功，kW，正=from→to）——流向/通断据此推导、语义最准；
- * 也可直接给 `dir`/`active` 覆盖。
- */
-export type TopoRealtimeEdge = { dir?: EdgeDir; active?: boolean; p?: number }
-
-export type TopoRealtime = {
-  ts?: number
-  nodes: Record<string, TopoRealtimeNode>
-  edges?: Record<string, TopoRealtimeEdge>
-}
-
-/** 前端实时规则配置（含默认值，见 realtime-binding.ts） */
-export type TopoBindingRules = {
-  /** 流向判定阈值：|线路功率| ≤ epsilon 视为无流动（kW） */
-  flowEpsilon: number
-  /** 回退用：未给线路 p 时，按源节点这个字段(key.zh)的功率符号推导流向 */
-  powerFieldByType: Record<string, string>
-  /**
-   * 结构边（布局 active:true）无流动时的呈现：
-   *   字符串(如 "disabled") → 切到该线型（变灰静止，表示"已连接·无功率"）；
-   *   null → 直接隐藏。
-   * 按需出现的边（布局 active:false）无流动时一律隐藏。
-   */
-  idleEdgeType: string | null
-  /** 命中这些节点状态时，其相连连线置为断路（active:false） */
-  openStatuses: string[]
+  /** 全局信号定义（运营端「⚙ 规则与信号」面板，随图导出） */
+  signals?: TopoSignalDef[]
+  /** 导出时的样例信号值（未下发实时数据时作为默认） */
+  sampleSignals?: TopoSignals
 }
 
 /** 节点点击跳转解析器：本项目按 id/type 决定目标，topo.html 不感知 */

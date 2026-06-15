@@ -4,16 +4,18 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLanguage } from "@/components/language-provider"
 import { TopologyView } from "@/components/dashboard/topology/topology-view"
-import { applyRealtime } from "@/lib/topo/realtime-binding"
-import { makeMockRealtime } from "@/lib/topo/mock-realtime"
+import { applySignals } from "@/lib/topo/apply-signals"
+import { makeMockSignals } from "@/lib/topo/mock-signals"
 import { resolveTopoNav } from "@/lib/topo/project-topology-config"
-import type { TopoNodeNav, TopologyDoc } from "@/lib/topo/topo-types"
+import type { TopologyDoc, TopoNodeNav, TopoSignals } from "@/lib/topo/topo-types"
 
 const clampText = (minRem: number, multiple: number, maxRem: number) =>
   `clamp(${minRem}rem, calc(var(--overview-root-size, 15px) * ${multiple}), ${maxRem}rem)`
 
-// 阶段 1/2：先用运营端导出的示例布局 + 模拟实时数据跑通渲染与动态。
-// 后续替换：SAMPLE_TOPOLOGY_URL → 按 projectId 拉取布局接口；makeMockRealtime → 实时数据接口。
+// 阶段 1/2：先用运营端导出的示例布局 + 模拟实时信号跑通渲染与动态。
+// 数据契约与运营端一致（见 topo/拓扑系统-接入文档.md §4）：布局 = 画布 JSON（含规则），
+// 实时数据 = 扁平 {信号名:值}。后续替换：SAMPLE_TOPOLOGY_URL → 按 projectId 拉取布局接口；
+// makeMockSignals → 实时信号接口（轮询/WebSocket，增量合并到 signalsRef 即可）。
 const SAMPLE_TOPOLOGY_URL = "/topology-sample.json"
 const REALTIME_INTERVAL_MS = 2000
 
@@ -24,7 +26,8 @@ export function ProjectTopologyPanel({ onNavigateTab }: { onNavigateTab?: (tab: 
   const [baseDoc, setBaseDoc] = useState<TopologyDoc | null>(null)
   const [doc, setDoc] = useState<TopologyDoc | null>(null)
   const [error, setError] = useState(false)
-  const baseRef = useRef<TopologyDoc | null>(null)
+  // 信号累积合并（等价运营端 topo:merge 语义）：接口只发变化的信号也能正确驱动
+  const signalsRef = useRef<TopoSignals>({})
 
   // 拉取布局 JSON（一次）
   useEffect(() => {
@@ -36,9 +39,7 @@ export function ProjectTopologyPanel({ onNavigateTab }: { onNavigateTab?: (tab: 
         return r.json() as Promise<TopologyDoc>
       })
       .then((json) => {
-        if (cancelled) return
-        baseRef.current = json
-        setBaseDoc(json)
+        if (!cancelled) setBaseDoc(json)
       })
       .catch(() => {
         if (!cancelled) setError(true)
@@ -48,14 +49,13 @@ export function ProjectTopologyPanel({ onNavigateTab }: { onNavigateTab?: (tab: 
     }
   }, [])
 
-  // 实时数据轮询：合并到布局后驱动渲染（接口就绪后把 makeMockRealtime 换成请求）
+  // 实时信号轮询：合并信号 → 规则求值（显隐/流向）+ 字段回写，全部按运营端契约
   useEffect(() => {
     if (!baseDoc) return
     let t = 0
     const tick = () => {
-      const base = baseRef.current
-      if (!base) return
-      setDoc(applyRealtime(base, makeMockRealtime(t)))
+      signalsRef.current = { ...signalsRef.current, ...makeMockSignals(t) }
+      setDoc(applySignals(baseDoc, signalsRef.current))
       t += REALTIME_INTERVAL_MS / 1000
     }
     tick()

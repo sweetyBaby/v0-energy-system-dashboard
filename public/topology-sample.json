@@ -2,7 +2,7 @@
   "schemaVersion": "2.0",
   "meta": {
     "app": "储能拓扑编辑器",
-    "generatedAt": "2026-06-09T06:05:30.948Z",
+    "generatedAt": "2026-06-12T08:11:52.451Z",
     "lang": "zh",
     "libraryRef": {
       "name": "energy-topology",
@@ -10,14 +10,26 @@
     },
     "canvas": {
       "bgColor": "#0a1f40",
-      "zoom": 1,
-      "panX": 227.1,
-      "panY": 101.5,
+      "zoom": 0.95,
+      "panX": 384.7,
+      "panY": 236.4,
       "grid": {
         "show": true,
         "stepPx": 40
       },
       "showAnchors": true
+    },
+    "view": {
+      "showEdgeLabels": true,
+      "showFieldChips": true,
+      "globalWidth": 1,
+      "routeStyle": 3,
+      "busMerge": true,
+      "busMergeGap": 16,
+      "busTrunkBold": true,
+      "busStyle": "busbar",
+      "busShareTrunk": false,
+      "busAggregation": true
     }
   },
   "edgeStyles": {
@@ -67,11 +79,11 @@
         "en": "PCS"
       },
       "position": {
-        "x": 720,
-        "y": 390
+        "x": 435.9,
+        "y": 188.2
       },
-      "sizeWorld": 137,
-      "scale": 1,
+      "sizeWorld": 73,
+      "scale": 0.6617148040914752,
       "rotation": 0,
       "fontSize": 14,
       "fontColor": "#2ecc71",
@@ -92,8 +104,8 @@
           "value": "--",
           "hidden": false,
           "offset": {
-            "x": 3,
-            "y": -65
+            "x": -87.1,
+            "y": 86
           }
         },
         {
@@ -104,8 +116,8 @@
           "value": "--",
           "hidden": false,
           "offset": {
-            "x": 3,
-            "y": -37
+            "x": -87.1,
+            "y": 86
           }
         },
         {
@@ -116,8 +128,8 @@
           "value": "--",
           "hidden": false,
           "offset": {
-            "x": 3,
-            "y": -99
+            "x": -87,
+            "y": 86
           }
         }
       ]
@@ -130,11 +142,11 @@
         "en": "PV"
       },
       "position": {
-        "x": 130,
-        "y": 140
+        "x": 6.1,
+        "y": 27.6
       },
-      "sizeWorld": 101,
-      "scale": 0.6581142953649103,
+      "sizeWorld": 85,
+      "scale": 0.6815376605506261,
       "rotation": 0,
       "fontSize": 14,
       "fontColor": "#f9ca24",
@@ -155,8 +167,8 @@
           "value": "--",
           "hidden": false,
           "offset": {
-            "x": -26.3,
-            "y": 0
+            "x": -24.1,
+            "y": -27
           }
         },
         {
@@ -167,11 +179,16 @@
           "value": "--",
           "hidden": false,
           "offset": {
-            "x": -26.3,
-            "y": 0
+            "x": -24.2,
+            "y": -30
           }
         }
-      ]
+      ],
+      "visibleWhen": {
+        "var": "solar_1.P(kW)",
+        "op": ">",
+        "val": 0
+      }
     },
     {
       "id": "bms_1",
@@ -181,11 +198,11 @@
         "en": "Battery BMS"
       },
       "position": {
-        "x": 1320,
-        "y": 250
+        "x": 700.4,
+        "y": 184.4
       },
-      "sizeWorld": 137,
-      "scale": 1,
+      "sizeWorld": 56,
+      "scale": 0.5052080593393993,
       "rotation": 0,
       "fontSize": 14,
       "fontColor": "#3aa0ff",
@@ -206,8 +223,8 @@
           "value": 60,
           "hidden": false,
           "offset": {
-            "x": 0,
-            "y": 0
+            "x": -79,
+            "y": 78
           }
         },
         {
@@ -218,8 +235,8 @@
           "value": 26,
           "hidden": false,
           "offset": {
-            "x": 0,
-            "y": 0
+            "x": -79.1,
+            "y": 82
           }
         }
       ]
@@ -232,11 +249,11 @@
         "en": "Grid"
       },
       "position": {
-        "x": 130,
-        "y": 390
+        "x": 4.1,
+        "y": 147.6
       },
-      "sizeWorld": 120,
-      "scale": 0.7240566102308426,
+      "sizeWorld": 90,
+      "scale": 0.6676999597054121,
       "rotation": 0,
       "fontSize": 14,
       "fontColor": "#e8f4ff",
@@ -257,8 +274,8 @@
           "value": "--",
           "hidden": false,
           "offset": {
-            "x": -35.9,
-            "y": -22
+            "x": -17.9,
+            "y": -23
           }
         },
         {
@@ -269,8 +286,8 @@
           "value": "--",
           "hidden": false,
           "offset": {
-            "x": -35.9,
-            "y": -24
+            "x": -17.9,
+            "y": -30
           }
         }
       ]
@@ -283,11 +300,11 @@
         "en": "Load"
       },
       "position": {
-        "x": 1320,
-        "y": 530
+        "x": -1.5,
+        "y": 278.7
       },
-      "sizeWorld": 137,
-      "scale": 1,
+      "sizeWorld": 76,
+      "scale": 0.682173256831141,
       "rotation": 0,
       "fontSize": 14,
       "fontColor": "#e8f4ff",
@@ -308,8 +325,8 @@
           "value": "--",
           "hidden": false,
           "offset": {
-            "x": -51,
-            "y": -23
+            "x": -5.7,
+            "y": 22
           }
         }
       ]
@@ -322,11 +339,11 @@
         "en": "Generator"
       },
       "position": {
-        "x": 130,
-        "y": 640
+        "x": -1.7,
+        "y": 396.1
       },
-      "sizeWorld": 141,
-      "scale": 1,
+      "sizeWorld": 75,
+      "scale": 0.659723095058603,
       "rotation": 0,
       "fontSize": 14,
       "fontColor": "#e8f4ff",
@@ -347,8 +364,8 @@
           "value": "--",
           "hidden": false,
           "offset": {
-            "x": -54.7,
-            "y": 36
+            "x": -7,
+            "y": 39
           }
         }
       ]
@@ -365,7 +382,7 @@
       },
       "color": "#f9ca24",
       "dash": [],
-      "route": "line",
+      "route": "smart",
       "dir": "forward",
       "width": 1,
       "label": "",
@@ -391,7 +408,25 @@
       "showLabel": true,
       "orthoSnap": true,
       "waypoints": [],
-      "active": true
+      "active": true,
+      "dirRules": [
+        {
+          "when": {
+            "var": "pcs_1.I(A)",
+            "op": ">",
+            "val": 0
+          },
+          "dir": "forward"
+        },
+        {
+          "when": {
+            "var": "pcs_1.I(A)",
+            "op": "<",
+            "val": 0
+          },
+          "dir": "reverse"
+        }
+      ]
     },
     {
       "from": "grid_1",
@@ -403,7 +438,7 @@
       },
       "color": "#e74c3c",
       "dash": [],
-      "route": "line",
+      "route": "smart",
       "dir": "forward",
       "width": 1,
       "label": "",
@@ -422,7 +457,7 @@
       },
       "color": "#3498db",
       "dash": [],
-      "route": "line",
+      "route": "smart",
       "dir": "forward",
       "width": 1,
       "label": "",
@@ -441,14 +476,44 @@
       },
       "color": "#e74c3c",
       "dash": [],
-      "route": "line",
+      "route": "smart",
       "dir": "forward",
       "width": 1,
       "label": "",
       "showLabel": true,
       "orthoSnap": true,
       "waypoints": [],
-      "active": true
+      "active": true,
+      "showWhen": {
+        "var": "gen_1.online",
+        "op": ">=",
+        "val": true
+      }
     }
-  ]
+  ],
+  "sampleSignals": {
+    "pcs_1.P(kW)": 0,
+    "pcs_1.I(A)": 0,
+    "pcs_1.U(V)": 0,
+    "pcs_1.status": "运行",
+    "pcs_1.online": true,
+    "solar_1.P(kW)": 0,
+    "solar_1.Vpv(V)": 0,
+    "solar_1.status": "发电",
+    "solar_1.online": true,
+    "bms_1.SOC(%)": 60,
+    "bms_1.温度(℃)": 26,
+    "bms_1.status": "充电",
+    "bms_1.online": true,
+    "grid_1.P(kW)": 0,
+    "grid_1.今日用电(kWh)": 0,
+    "grid_1.status": "在线",
+    "grid_1.online": true,
+    "load_1.负载功率(kW)": 0,
+    "load_1.status": "在线",
+    "load_1.online": true,
+    "gen_1.P(kW)": 0,
+    "gen_1.status": "备用",
+    "gen_1.online": true
+  }
 }
