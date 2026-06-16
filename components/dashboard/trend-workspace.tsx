@@ -494,7 +494,7 @@ export function TrendWorkspace({
 
   const ColTitleIcon = isStatus ? Gauge : TrendingUp
   const RootIcon = isStatus ? Gauge : LineChartIcon
-  const colTitle = titleZh && titleEn ? (zh ? titleZh : titleEn) : isStatus ? (zh ? "设备状态" : "Device Status") : zh ? "趋势分析" : "Trend Analysis"
+  const colTitle = titleZh && titleEn ? (zh ? titleZh : titleEn) : isStatus ? (zh ? "设备监测" : "Device Monitoring") : zh ? "测点查询" : "Measurement Query"
   const rootLabel = isStatus ? (zh ? "今日趋势" : "Today") : zh ? "趋势" : "Trend"
 
   const renderTemplateRow = (template: TrendTemplate) => {

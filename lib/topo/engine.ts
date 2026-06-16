@@ -27,7 +27,7 @@ const DEFAULT_ET = {
 
 /**
  * @param {HTMLCanvasElement} canvas
- * @param {{bgColor?:string, lang?:'zh'|'en', showGrid?:boolean, showEdgeLabels?:boolean, showFieldChips?:boolean, busMerge?:boolean}} [opts]
+ * @param {{bgColor?:string, lang?:'zh'|'en', showGrid?:boolean, showEdgeLabels?:boolean, showFieldChips?:boolean, busMerge?:boolean, nodeScale?:number, labelScale?:number, fieldScale?:number}} [opts]
  */
 export function createTopoEngine(canvas, opts = {}) {
   const ctx = canvas.getContext("2d")
@@ -45,6 +45,9 @@ export function createTopoEngine(canvas, opts = {}) {
   let showAnchors = false
   let globalWidth = 1
   let busMerge = opts.busMerge !== false
+  let nodeScale = typeof opts.nodeScale === "number" ? opts.nodeScale : 1
+  let labelScale = typeof opts.labelScale === "number" ? opts.labelScale : 1
+  let fieldScale = typeof opts.fieldScale === "number" ? opts.fieldScale : 1
   let busMergeGap = 16, busTrunkBold = true, busStyle = "busbar", busOffsets = {}, busShareTrunk = false, busShowHandles = false, routeStyle = 3, busAggregation = false
   const selNode = null, selEdge = null
   let selSet = new Set(), selChips = new Set()
@@ -63,6 +66,8 @@ export function createTopoEngine(canvas, opts = {}) {
   // ===== BEGIN 逐字抽取：几何工具 + 通道布线引擎（topo.html 1361-2161）=====
 function nodeLabel(n){ return lang==='en' ? (n.labelEn||n.labelZh||n.id) : (n.labelZh||n.label||n.id); }
 function dataKey(f){ return lang==='en' ? (f.keyEn||f.key) : f.key; }
+function labelFontPx(n){ return (n.fontSize||14)*labelScale; }
+function fieldFontPx(n){ return (n.fontSize||14)*0.92*fieldScale; }
 
 function nsz(typeOrNode){
   const type=typeof typeOrNode==='string'?typeOrNode:typeOrNode.type;
@@ -73,7 +78,7 @@ function nsz(typeOrNode){
     cb_closed:44,switch_open:44,disconnector:44,contactor:44,fuse:44,iso_g:44,lbs_g:44,disc_v_g:44,
     trunk_ac:70,trunk_dc:70,tie_line:66,
     anchor:26}[type]||62;
-  return s*(base/600)*scale;
+  return s*(base/600)*scale*nodeScale;
 }
 function nodeAt(wx,wy){for(let i=nodes.length-1;i>=0;i--){const n=nodes[i];if(n.type==='text'){const b=n._textBox;if(b&&wx>=b.x&&wx<=b.x+b.w&&wy>=b.y&&wy<=b.y+b.h)return n;continue;}const s=nsz(n);if(n.type==='anchor'){const vcy=n.y-s*0.22, hit=Math.max(s*0.5, 11/zoom);if(Math.abs(wx-n.x)<hit&&Math.abs(wy-vcy)<hit)return n;continue;}if(Math.abs(wx-n.x)<s*.55&&Math.abs(wy-n.y)<s*.5)return n;}return null;}
 // 返回节点边界上的锚点（从中心朝目标方向，落在图标外缘）
@@ -184,7 +189,7 @@ function buildObstacleGrid(){
   return nodes.map(n=>{
     const b=nodeBox(n);
     const s=nsz(n);
-    const lfs=(n.fontSize||14);
+    const lfs=labelFontPx(n)/zoom;
     // 标签位于图标底边(n.y+0.28s)之下，覆盖到标签底部
     const labelBottom=(n.y + s*0.28) + lfs*1.4;
     return {id:n.id,l:b.left-14,r:b.right+14,t:b.top-14,b:Math.max(b.bottom+14,labelBottom)};
@@ -1137,7 +1142,7 @@ function drawNode(n){
   else{ctx.fillStyle='#1a3a5c';ctx.fillRect(n.x-s/2,n.y-s*.72,s,s);const fs=10/zoom;ctx.fillStyle='#4dd0ff';ctx.font=fs+'px Courier New';ctx.textAlign='center';ctx.fillText(n.type,n.x,n.y+fs*.5);}
   ctx.restore();
   if(!n.hideLabel){
-  const lfs=(n.fontSize||14)/zoom;
+  const lfs=labelFontPx(n)/zoom;
   ctx.font='bold '+lfs+"px -apple-system,'Microsoft YaHei',sans-serif";ctx.textAlign='center';
   const lblTxt=nodeLabel(n);
   // 标签放在图标实际绘制区域的底边之下，确保不遮挡图标任何部分（含台座光晕）
@@ -1146,7 +1151,7 @@ function drawNode(n){
   const lblY=imgBottom + lfs*0.85;  // 图标底边下方留固定小间距
   const tw=ctx.measureText(lblTxt).width;
   // 标签背景板：用背景色近不透明 + 圆角，彻底遮住下方连线
-  const padX=6/zoom, plateY=lblY-lfs*0.82, plateH=lfs*1.25, plateX=n.x-tw/2-padX, plateW=tw+padX*2, rr=4/zoom;
+  const padX=(6*labelScale)/zoom, plateY=lblY-lfs*0.82, plateH=lfs*1.25, plateX=n.x-tw/2-padX, plateW=tw+padX*2, rr=(4*labelScale)/zoom;
   ctx.fillStyle=bgPlate();
   ctx.beginPath();
   if(ctx.roundRect)ctx.roundRect(plateX,plateY,plateW,plateH,rr); else ctx.rect(plateX,plateY,plateW,plateH);
@@ -1217,9 +1222,9 @@ function drawTextNode(n){
 // 计算某字段 chip 的默认位置（节点右侧堆叠）。全部用世界坐标常量，缩放稳定
 function fieldChipPos(n,i){
   const s=nsz(n);
-  const cfs=(n.fontSize||14)*0.92/zoom;       // 字号随 1/zoom，屏幕字号恒定（与图标一致）
-  const baseX=n.x+s*0.5+14/zoom;              // 节点右侧（屏幕固定间距，不随缩放漂移）
-  const step=((n.fontSize||14)+8+10)/zoom;    // 卡片高度(字号+上下padding) + 间距（屏幕固定）
+  const cfs=fieldFontPx(n)/zoom;              // 字号随 1/zoom，屏幕字号恒定（与图标一致）
+  const baseX=n.x+s*0.5+(14*fieldScale)/zoom; // 节点右侧（屏幕固定间距，不随缩放漂移）
+  const step=(fieldFontPx(n)+18*fieldScale)/zoom; // 卡片高度(字号+上下padding) + 间距（屏幕固定）
   const baseY=n.y-s*0.40+i*step;              // 自上而下堆叠（含舒适间距）
   const f=n.data[i];
   const ox=(f.ox!=null?f.ox:0), oy=(f.oy!=null?f.oy:0);   // ox/oy 以屏幕像素存储
@@ -1240,7 +1245,7 @@ function drawFieldChips(n,s){
     const txt=fieldChipText(f);
     ctx.font=pos.cfs+"px -apple-system,'Microsoft YaHei',sans-serif";ctx.textAlign='left';
     const tw=ctx.measureText(txt).width;
-    const padX=7/zoom, padY=4/zoom, rr=5/zoom;   // 屏幕固定（随 1/zoom）
+    const padX=(7*fieldScale)/zoom, padY=(4*fieldScale)/zoom, rr=(5*fieldScale)/zoom;   // 屏幕固定（随 1/zoom）
     const bx=pos.x, by=pos.y-pos.cfs, bw=tw+padX*2, bh=pos.cfs+padY*2;
     // 引导线：当 chip 被拖离默认位置较远时，用细线连回节点视觉中心，避免不知归属
     const off=Math.hypot(f.ox||0,f.oy||0);
@@ -1305,17 +1310,56 @@ function fieldChipAt(wx,wy){
   }
 
   // ── fitView（topo.html 3356，去掉 DOM）──
+  function measureTextWidth(font, text) {
+    ctx.save(); ctx.font = font; const width = ctx.measureText(text || "").width; ctx.restore(); return width
+  }
+  function nodeVisualBounds(n) {
+    const s = nsz(n)
+    let minX = n.x - s / 2, minY = n.y - s * 0.72, maxX = n.x + s / 2, maxY = n.y + s * 0.28
+    if (n.type === "text") {
+      const fs = (n.fontSize || 18) * (n.scale || 1)
+      const lines = nodeLabel(n).split("\n")
+      const maxW = Math.max(...lines.map(line => measureTextWidth('bold '+fs+"px -apple-system,'Microsoft YaHei',sans-serif", line)), 1)
+      const padX = (n.padX != null ? n.padX : 10), padY = (n.padY != null ? n.padY : 6)
+      const h = lines.length * fs * 1.3 + padY * 2
+      return { minX: n.x - maxW / 2 - padX, minY: n.y - h / 2, maxX: n.x + maxW / 2 + padX, maxY: n.y + h / 2 }
+    }
+    if (!n.hideLabel) {
+      const lfs = labelFontPx(n) / zoom
+      const lblTxt = nodeLabel(n)
+      const tw = measureTextWidth('bold '+lfs+"px -apple-system,'Microsoft YaHei',sans-serif", lblTxt)
+      const padX = (6 * labelScale) / zoom
+      const imgBottom = n.y + s * 0.28
+      const lblY = imgBottom + lfs * 0.85
+      minX = Math.min(minX, n.x - tw / 2 - padX)
+      maxX = Math.max(maxX, n.x + tw / 2 + padX)
+      maxY = Math.max(maxY, lblY + lfs * 0.45)
+    }
+    if (!n.hideFields && showFieldChips && n.data && n.data.length) {
+      n.data.forEach((f, i) => {
+        if (f.hidden) return
+        const pos = fieldChipPos(n, i)
+        const txt = fieldChipText(f)
+        const tw = measureTextWidth(pos.cfs+"px -apple-system,'Microsoft YaHei',sans-serif", txt)
+        const padX = (7 * fieldScale) / zoom, padY = (4 * fieldScale) / zoom
+        const bx = pos.x, by = pos.y - pos.cfs, bw = tw + padX * 2, bh = pos.cfs + padY * 2
+        minX = Math.min(minX, bx)
+        minY = Math.min(minY, by)
+        maxX = Math.max(maxX, bx + bw)
+        maxY = Math.max(maxY, by + bh)
+      })
+    }
+    return { minX, minY, maxX, maxY }
+  }
   function fitViewInner(capZoom) {
     if (nodes.length === 0) return
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     nodes.forEach(n => {
-      const s = nsz(n)
-      const f = (!n.hideFields && n.data) ? n.data.filter(x => !x.hidden).length : 0
-      const rc = f ? 185 : 0
-      minX = Math.min(minX, n.x - s); minY = Math.min(minY, n.y - s)
-      maxX = Math.max(maxX, n.x + s + rc); maxY = Math.max(maxY, n.y + s * 1.5)
+      const b = nodeVisualBounds(n)
+      minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY)
+      maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY)
     })
-    const w = maxX - minX, h = maxY - minY, pad = 48
+    const w = maxX - minX, h = maxY - minY, pad = 34
     if (!(w > 0) || !(h > 0)) return
     const zx = (canvas.width - pad * 2) / w, zy = (canvas.height - pad * 2) / h
     zoom = Math.max(0.2, Math.min(capZoom || 2, Math.min(zx, zy)))
@@ -1340,6 +1384,9 @@ function fieldChipAt(wx,wy){
       if ("showEdgeLabels" in o) showEdgeLabels = !!o.showEdgeLabels
       if ("showFieldChips" in o) showFieldChips = !!o.showFieldChips
       if ("busMerge" in o) busMerge = !!o.busMerge
+      if ("nodeScale" in o && typeof o.nodeScale === "number") nodeScale = o.nodeScale
+      if ("labelScale" in o && typeof o.labelScale === "number") labelScale = o.labelScale
+      if ("fieldScale" in o && typeof o.fieldScale === "number") fieldScale = o.fieldScale
       _pathCacheSig = ""
     },
     fitView(cap) { fitViewInner(cap); fitViewInner(cap) }, // 跑两次让 nsz 随新 zoom 收敛

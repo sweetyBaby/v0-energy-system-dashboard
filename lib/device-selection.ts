@@ -41,7 +41,7 @@ export const buildMonitorDevices = (
   return [
     ...base,
     ...(hasKind("pcs") ? [] : [{ deviceId: `${projectId}::pcs-1`, deviceName: "PCS-1", deviceKind: "pcs" as const }]),
-    ...(hasKind("ems") ? [] : [{ deviceId: `${projectId}::ems`, deviceName: "EMS", deviceKind: "ems" as const }]),
+    ...(hasKind("ems") ? [] : [{ deviceId: `${projectId}::ems`, deviceName: "iMEMS", deviceKind: "ems" as const }]),
   ]
 }
 

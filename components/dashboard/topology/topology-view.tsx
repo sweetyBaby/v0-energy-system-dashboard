@@ -8,9 +8,22 @@ import type { NavResolver, TopologyDoc, TopoNodeNav } from "@/lib/topo/topo-type
 
 type TopoEngine = ReturnType<typeof createTopoEngine>
 type HitNode = { id: string; type: string; nav?: TopoNodeNav }
+type DragState = {
+  pointerId: number
+  startClientX: number
+  startClientY: number
+  startPanX: number
+  startPanY: number
+  moved: boolean
+}
 
 // 文字底板/抹线用色：贴合本项目深色卡片风格（画布本身透明，露出卡片渐变背景）
 const PLATE_BG = "#0a1a33"
+const MIN_ZOOM = 0.25
+const MAX_ZOOM = 5
+const DRAG_THRESHOLD = 4
+const FIT_ZOOM_CAP = 2.4
+const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.9 }
 
 // 引擎内的节点标签/字段卡片是「屏幕恒定尺寸」：在容器尺寸下它们恒为 ~14px，本就清晰可读。
 // 故按容器原生尺寸渲染（再乘 devicePixelRatio 让文字更锐利），文字不被整体缩小；
@@ -50,7 +63,7 @@ const layoutSig = (doc: TopologyDoc) => doc.nodes.map((n) => `${n.id}:${n.positi
 
 /**
  * 拓扑只读视图：渲染布局 JSON，背景透明贴合项目卡片风格。
- * 不允许拖动/缩放——整图始终自适应容器（随容器尺寸 fitView），节点与数据字段互不叠放；
+ * 初始/新布局自适应容器，随后支持用户滚轮缩放与拖动画布平移；
  * 仅保留点击命中节点 → onNavigate。实时数据更新由上层每次传入新 doc 驱动。
  */
 export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps) {
@@ -64,6 +77,9 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
   onNavigateRef.current = onNavigate
 
   const lastSigRef = useRef<string | null>(null)
+  const hasUserViewRef = useRef(false)
+  const dragStateRef = useRef<DragState | null>(null)
+  const suppressClickRef = useRef(false)
 
   const navOf = (node: HitNode | null): TopoNodeNav | undefined => {
     if (!node) return undefined
@@ -78,6 +94,12 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
     return engine.hitTestNode((clientX - rect.left) * fx, (clientY - rect.top) * fy) as HitNode | null
   }
 
+  const updateHoverCursor = (clientX: number, clientY: number) => {
+    const canvas = canvasRef.current
+    if (!canvas || dragStateRef.current) return
+    canvas.style.cursor = navOf(hitAt(clientX, clientY)) ? "pointer" : "grab"
+  }
+
   // 引擎只创建一次
   useEffect(() => {
     const canvas = canvasRef.current
@@ -88,6 +110,9 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
       lang: language === "en" ? "en" : "zh",
       paintBg: false, // 画布透明，露出卡片背景，风格与项目一致
       bgColor: PLATE_BG,
+      nodeScale: 1.18,
+      labelScale: 1.28,
+      fieldScale: 1.32,
     })
     engineRef.current = engine
 
@@ -99,10 +124,24 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
     })
     engine.start()
 
-    // 容器尺寸变化 → 重新适配（不允许手动缩放/平移，故始终 fitView）
+    // 容器尺寸变化：未手动调整时继续自适应；手动调整后尽量保持当前视图。
     const sync = () => {
+      const prevWidth = canvas.width || 1
+      const prevHeight = canvas.height || 1
+      const prevView = engine.getView()
       sizeCanvasBitmap(canvas, container)
-      engine.fitView(2)
+      if (hasUserViewRef.current) {
+        const scaleX = canvas.width / prevWidth
+        const scaleY = canvas.height / prevHeight
+        const scale = (scaleX + scaleY) / 2
+        engine.setView({
+          zoom: prevView.zoom * scale,
+          panX: prevView.panX * scaleX,
+          panY: prevView.panY * scaleY,
+        })
+      } else {
+        engine.fitView(FIT_ZOOM_CAP)
+      }
       engine.redraw()
     }
     sync()
@@ -134,15 +173,16 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
     const container = containerRef.current
     if (!engine || !canvas || !container || !doc) return
 
-    const { nodes, edges, edgeTypes } = docToInternal(doc)
+    const { nodes, edges, edgeTypes } = docToInternal(doc, { compact: TOPOLOGY_COMPACT_SCALE })
     engine.setEdgeTypes(edgeTypes)
     engine.setData(nodes, edges)
 
     const sig = layoutSig(doc)
     if (sig !== lastSigRef.current) {
       lastSigRef.current = sig
+      hasUserViewRef.current = false
       sizeCanvasBitmap(canvas, container)
-      engine.fitView(2) // 新布局 → 适应一次
+      engine.fitView(FIT_ZOOM_CAP) // 新布局 → 适应一次
     }
     engine.redraw()
   }, [doc])
@@ -151,14 +191,108 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
     <div ref={containerRef} className="relative h-full w-full overflow-hidden">
       <canvas
         ref={canvasRef}
-        className="block h-full w-full"
-        onMouseMove={(ev) => {
+        className="block h-full w-full touch-none"
+        onWheel={(ev) => {
+          const engine = engineRef.current
           const canvas = canvasRef.current
-          if (!canvas) return
-          // 悬停在可跳转节点上时给出手型光标（仅点击导航，无拖动/缩放）
-          canvas.style.cursor = navOf(hitAt(ev.clientX, ev.clientY)) ? "pointer" : "default"
+          if (!engine || !canvas) return
+
+          ev.preventDefault()
+          const { rect, fx, fy } = canvasScale(canvas)
+          const sx = (ev.clientX - rect.left) * fx
+          const sy = (ev.clientY - rect.top) * fy
+          const view = engine.getView()
+          const nextZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom * Math.exp(-ev.deltaY * 0.0012)))
+          if (nextZoom === view.zoom) return
+
+          const worldX = (sx - view.panX) / view.zoom
+          const worldY = (sy - view.panY) / view.zoom
+          hasUserViewRef.current = true
+          engine.setView({
+            zoom: nextZoom,
+            panX: sx - worldX * nextZoom,
+            panY: sy - worldY * nextZoom,
+          })
+          engine.redraw()
+        }}
+        onPointerDown={(ev) => {
+          if (ev.button !== 0) return
+          const engine = engineRef.current
+          const canvas = canvasRef.current
+          if (!engine || !canvas) return
+
+          const view = engine.getView()
+          dragStateRef.current = {
+            pointerId: ev.pointerId,
+            startClientX: ev.clientX,
+            startClientY: ev.clientY,
+            startPanX: view.panX,
+            startPanY: view.panY,
+            moved: false,
+          }
+          canvas.setPointerCapture(ev.pointerId)
+          canvas.style.cursor = "grabbing"
+        }}
+        onPointerMove={(ev) => {
+          const engine = engineRef.current
+          const canvas = canvasRef.current
+          if (!engine || !canvas) return
+
+          const dragState = dragStateRef.current
+          if (!dragState || dragState.pointerId !== ev.pointerId) {
+            updateHoverCursor(ev.clientX, ev.clientY)
+            return
+          }
+
+          const dx = ev.clientX - dragState.startClientX
+          const dy = ev.clientY - dragState.startClientY
+          if (!dragState.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return
+
+          const { fx, fy } = canvasScale(canvas)
+          dragState.moved = true
+          hasUserViewRef.current = true
+          engine.setView({
+            panX: dragState.startPanX + dx * fx,
+            panY: dragState.startPanY + dy * fy,
+          })
+          engine.redraw()
+        }}
+        onPointerUp={(ev) => {
+          const canvas = canvasRef.current
+          const dragState = dragStateRef.current
+          if (!canvas || !dragState || dragState.pointerId !== ev.pointerId) return
+
+          suppressClickRef.current = dragState.moved
+          dragStateRef.current = null
+          if (canvas.hasPointerCapture(ev.pointerId)) {
+            canvas.releasePointerCapture(ev.pointerId)
+          }
+          updateHoverCursor(ev.clientX, ev.clientY)
+        }}
+        onPointerCancel={(ev) => {
+          const canvas = canvasRef.current
+          const dragState = dragStateRef.current
+          if (!canvas || !dragState || dragState.pointerId !== ev.pointerId) return
+
+          dragStateRef.current = null
+          if (canvas.hasPointerCapture(ev.pointerId)) {
+            canvas.releasePointerCapture(ev.pointerId)
+          }
+          updateHoverCursor(ev.clientX, ev.clientY)
+        }}
+        onLostPointerCapture={(ev) => {
+          const dragState = dragStateRef.current
+          if (!dragState || dragState.pointerId !== ev.pointerId) return
+
+          dragStateRef.current = null
+          updateHoverCursor(ev.clientX, ev.clientY)
         }}
         onClick={(ev) => {
+          if (suppressClickRef.current) {
+            suppressClickRef.current = false
+            return
+          }
+
           const node = hitAt(ev.clientX, ev.clientY)
           const nav = navOf(node)
           if (node && nav && onNavigateRef.current) onNavigateRef.current(nav, node)

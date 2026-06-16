@@ -1,5 +1,5 @@
 /**
- * Trend-analysis data source for the "趋势分析" dashboard tab.
+ * Trend-analysis data source for the "测点查询" dashboard tab.
  *
  * NOTE: there is no backend endpoint for this view yet. {@link fetchTrendSeries}
  * currently generates realistic mocked time-series locally. When the real API

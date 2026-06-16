@@ -51,16 +51,16 @@ const isGroup = (item: SidebarItem): item is SidebarGroup => "children" in item
 
 /**
  * Sidebar information architecture.
- * - Realtime monitoring views (运行监测 / 设备状态 / 告警监测) are top-level items.
- * - 历史数据 groups the two historical-query views (电芯历史 + 自定义分析).
+ * - Realtime monitoring views (运行状态 / 设备监测 / 告警监测) are top-level items.
+ * - 历史数据 groups the two historical-query views (电芯诊断 + 测点查询).
  * - 数据分析 groups the registry-driven analysis modules.
  * To add a monitoring view, add a top-level leaf; for analysis, append to
  * `ANALYSIS_MODULES`; for a historical-query view, add to the 历史数据 children.
  */
 const SIDEBAR_ITEMS: SidebarItem[] = [
   { key: "realtime", icon: LayoutDashboard, zh: "总览", en: "Overview" },
-  { key: "history", icon: Gauge, zh: "运行监测", en: "Operations" },
-  { key: "device-status", icon: ListChecks, zh: "设备状态", en: "Device Status" },
+  { key: "history", icon: Gauge, zh: "运行状态", en: "Operations" },
+  { key: "device-status", icon: ListChecks, zh: "设备监测", en: "Device Monitoring" },
   { key: "alarm-monitoring", icon: Bell, zh: "告警监测", en: "Alarm" },
   {
     groupKey: "history-data",
@@ -68,8 +68,8 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
     zh: "历史数据",
     en: "Historical Data",
     children: [
-      { key: "cell-history", icon: History, zh: "电芯历史", en: "Cell History" },
-      { key: "trend-analysis", icon: TrendingUp, zh: "自定义分析", en: "Custom Analysis" },
+      { key: "cell-history", icon: History, zh: "电芯诊断", en: "Cell Diagnostics" },
+      { key: "trend-analysis", icon: TrendingUp, zh: "测点查询", en: "Measurement Query" },
     ],
   },
   {

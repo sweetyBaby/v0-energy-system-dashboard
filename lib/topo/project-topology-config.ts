@@ -15,7 +15,7 @@ import type { NavResolver } from "./topo-types"
  * ⚠️ 默认映射为合理猜测，按产品需求在此调整即可。未列出的类型点击无动作。
  */
 const TYPE_TO_PAGE: Record<string, string> = {
-  // 电池侧 → 电芯历史
+  // 电池侧 → 电芯诊断
   bms: "cell-history",
   cabinet: "cell-history",
   // 变流/能量管理 → 运行状态

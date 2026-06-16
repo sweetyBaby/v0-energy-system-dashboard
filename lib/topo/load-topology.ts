@@ -29,6 +29,13 @@ export type InternalTopology = {
   bgColor: string
 }
 
+export type TopologyInternalOptions = {
+  compact?: {
+    x?: number
+    y?: number
+  }
+}
+
 // 导出 route（smart/arc/manual/line）→ 内部 route 值
 const toInternalRoute = (r: string) => (r === "arc" || r === "manual" || r === "line" ? r : "smart")
 
@@ -87,6 +94,39 @@ function toInternalEdge(e: TopoEdge): InternalEdge {
   }
 }
 
+function compactLayout(nodes: InternalNode[], edges: InternalEdge[], compact: TopologyInternalOptions["compact"]) {
+  const scaleX = Math.max(0.1, Math.min(1, compact?.x ?? 1))
+  const scaleY = Math.max(0.1, Math.min(1, compact?.y ?? 1))
+  if ((scaleX === 1 && scaleY === 1) || nodes.length === 0) {
+    return { nodes, edges }
+  }
+
+  const xs = nodes.map((node) => Number(node.x) || 0)
+  const ys = nodes.map((node) => Number(node.y) || 0)
+  const centerX = (Math.min(...xs) + Math.max(...xs)) / 2
+  const centerY = (Math.min(...ys) + Math.max(...ys)) / 2
+  const transformPoint = (x: number, y: number) => ({
+    x: centerX + (x - centerX) * scaleX,
+    y: centerY + (y - centerY) * scaleY,
+  })
+
+  return {
+    nodes: nodes.map((node) => {
+      const next = transformPoint(Number(node.x) || 0, Number(node.y) || 0)
+      return { ...node, x: next.x, y: next.y }
+    }),
+    edges: edges.map((edge) => ({
+      ...edge,
+      waypoints: Array.isArray(edge.waypoints)
+        ? edge.waypoints.map((point) => {
+            const next = transformPoint(point[0], point[1])
+            return [next.x, next.y]
+          })
+        : edge.waypoints,
+    })),
+  }
+}
+
 // 导出 edgeStyles（labelZh/width/speed）→ 引擎 ET 表（label/w/spd）
 function edgeStylesToET(styles?: Record<string, TopoEdgeStyle>): Record<string, unknown> {
   const et: Record<string, unknown> = {}
@@ -101,9 +141,10 @@ function edgeStylesToET(styles?: Record<string, TopoEdgeStyle>): Record<string, 
  * 把布局 JSON 转换为引擎可直接消费的内部结构。
  * 过滤掉 visible===false 的节点与 active===false 的连线（动态显隐 / 断路）。
  */
-export function docToInternal(doc: TopologyDoc): InternalTopology {
-  const nodes = (doc.nodes ?? []).filter((n) => n.visible !== false).map(toInternalNode)
-  const edges = (doc.edges ?? []).filter((e) => e.active !== false).map(toInternalEdge)
+export function docToInternal(doc: TopologyDoc, options: TopologyInternalOptions = {}): InternalTopology {
+  const rawNodes = (doc.nodes ?? []).filter((n) => n.visible !== false).map(toInternalNode)
+  const rawEdges = (doc.edges ?? []).filter((e) => e.active !== false).map(toInternalEdge)
+  const { nodes, edges } = compactLayout(rawNodes, rawEdges, options.compact)
   return {
     nodes,
     edges,

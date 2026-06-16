@@ -8,7 +8,6 @@ import { useLanguage } from "@/components/language-provider"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
 import { BcuSelector } from "@/components/dashboard/bcu-selector"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
-import { CellHeatmapOverviewPanel } from "@/components/dashboard/cell-heatmap-overview-panel"
 import { CellHistoryMultiPicker, CellHistoryReplayPanel, type CellHistoryOverviewStats } from "@/components/dashboard/cell-history-replay-panel"
 import { ChargeDischargeTable } from "@/components/dashboard/charge-discharge-table"
 import { ComprehensiveEfficiencyPanel } from "@/components/dashboard/comprehensive-efficiency-panel"
@@ -16,6 +15,8 @@ import { CustomRangePicker } from "@/components/dashboard/custom-range-picker"
 import { DashboardHeader, ProjectProvider, useProject } from "@/components/dashboard/dashboard-header"
 import { DashboardSidebar, type SidebarTab } from "@/components/dashboard/dashboard-sidebar"
 import { HistoryDatePicker } from "@/components/dashboard/history-date-picker"
+import { MonitorCategoryTree } from "@/components/dashboard/monitor-category-tree"
+import { EmsOverview, OperationsOverview, PcsOverview } from "@/components/dashboard/operations-overview"
 import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
 import { ProjectOverviewInfoCard } from "@/components/dashboard/project-overview-info-card"
 import { ProjectTopologyPanel } from "@/components/dashboard/project-topology-panel"
@@ -218,6 +219,9 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
     () => monitorDevices.map((device) => ({ value: device.deviceId, label: device.deviceName })),
     [monitorDevices]
   )
+  // Resolve a monitor device (kind + name) from its id; falls back to the first.
+  const getMonitorDevice = (deviceId: string) =>
+    monitorDevices.find((device) => device.deviceId === deviceId) ?? monitorDevices[0]
   // 电芯历史 is BCU/Rack-level and keeps the standard BCU dropdown (the real
   // device list) — `pageBcuOptions` already is exactly that list.
   const [runningStatusDeviceId, setRunningStatusDeviceId] = useState(firstPageBcuId)
@@ -390,27 +394,29 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
     />
   )
 
-  const renderRunningStatusPage = () => (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-      <div className="grid min-h-0 flex-1 grid-cols-12 gap-4 overflow-hidden">
-        <div className="col-span-12 min-h-0 lg:col-span-6">
-          <BCUStatusQuery
-            mode="realtime"
-            deviceId={runningStatusDeviceId || undefined}
-            enableFullscreen
-            headerExtra={
-              pageBcuOptions.length > 1
-                ? renderPageBcuSelector(runningStatusDeviceId, setRunningStatusDeviceId)
-                : undefined
-            }
+  const renderRunningStatusPage = () => {
+    const selected = getMonitorDevice(runningStatusDeviceId)
+    return (
+      <div className="flex h-full min-h-0 gap-3 overflow-hidden">
+        <div className={`${isCompactViewport ? "w-[154px]" : "w-[206px]"} shrink-0`}>
+          <MonitorCategoryTree
+            devices={monitorDevices}
+            selectedDeviceId={runningStatusDeviceId}
+            onSelect={setRunningStatusDeviceId}
+            title={zh ? "运行总览" : "Operations"}
           />
         </div>
-        <div className="col-span-12 min-h-0 lg:col-span-6">
-          <CellHeatmapOverviewPanel deviceId={runningStatusDeviceId || undefined} />
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+          <OperationsOverview
+            deviceId={runningStatusDeviceId || undefined}
+            deviceKind={selected?.deviceKind ?? "rack"}
+            deviceName={selected?.deviceName ?? ""}
+            projectId={selectedProject.projectId}
+          />
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const pageToggleGroupClass =
     "flex shrink-0 items-center gap-1 overflow-hidden rounded-[12px] border border-[#27496f] bg-[linear-gradient(180deg,rgba(17,27,60,0.96),rgba(10,18,45,0.98))] p-[2px] shadow-[0_0_0_1px_rgba(115,198,255,0.05)_inset,0_10px_22px_rgba(0,0,0,0.22)]"
@@ -440,66 +446,94 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
   })
 
   const renderAlarmMonitoringPage = () => {
+    const selected = getMonitorDevice(alarmDeviceId)
+    const isBatteryKind = !selected || selected.deviceKind === "rack" || selected.deviceKind === "other"
     return (
-      <div className="no-scrollbar flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden overscroll-none">
-      <div
-        className="relative z-20 flex min-w-0 shrink-0 items-center gap-3 overflow-visible border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
-      >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
-          <div className="flex items-center gap-3">
-            <div
-              className={pageToggleGroupClass}
-              style={{ height: pageControlGroupHeight }}
+      <div className="no-scrollbar flex h-full min-h-0 min-w-0 gap-3 overflow-hidden overscroll-none">
+        <div className={`${isCompactViewport ? "w-[154px]" : "w-[206px]"} shrink-0`}>
+          <MonitorCategoryTree
+            devices={monitorDevices}
+            selectedDeviceId={alarmDeviceId}
+            onSelect={setAlarmDeviceId}
+            title={zh ? "告警分类" : "Alarms"}
+          />
+        </div>
+        <div className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden overscroll-none">
+          <div
+            className="relative z-20 flex min-w-0 shrink-0 items-center gap-3 overflow-visible border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
           >
-            {(["realtime", "history"] as BcuMode[]).map((mode) => {
-              const active = bcuMode === mode
-              const edge = mode === "realtime" ? "start" : "end"
-              return (
-                <button
-                  key={mode}
-                  onClick={() => setBcuMode(mode)}
-                  className={getPageToggleButtonClass(active, edge)}
-                  style={getPageToggleButtonStyle(active, edge)}
-                >
-                  {active && mode === "realtime" && (
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#04241c]" />
-                  )}
-                  {mode === "realtime" ? (zh ? "实时监测" : "Live") : (zh ? "历史查询" : "History")}
-                </button>
-              )
-            })}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#22d3ee]/50 to-transparent" />
+            <div className="flex items-center gap-3">
+              <div
+                className={pageToggleGroupClass}
+                style={{ height: pageControlGroupHeight }}
+              >
+                {(["realtime", "history"] as BcuMode[]).map((mode) => {
+                  const active = bcuMode === mode
+                  const edge = mode === "realtime" ? "start" : "end"
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => setBcuMode(mode)}
+                      className={getPageToggleButtonClass(active, edge)}
+                      style={getPageToggleButtonStyle(active, edge)}
+                    >
+                      {active && mode === "realtime" && (
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#04241c]" />
+                      )}
+                      {mode === "realtime" ? (zh ? "实时监测" : "Live") : (zh ? "历史查询" : "History")}
+                    </button>
+                  )
+                })}
+              </div>
+              {bcuMode === "history" && (
+                <HistoryDatePicker
+                  value={historyDate}
+                  onChange={setHistoryDate}
+                  max={yesterday}
+                  fontSize={pageControlButtonSize}
+                  height={pageControlInputHeight}
+                  minWidth={pageControlDateMinWidth}
+                />
+              )}
+              <span className="truncate text-[12px] font-semibold tracking-[0.04em] text-[#9fd6e8]">
+                {selected?.deviceName ?? ""}
+              </span>
+            </div>
           </div>
-          {bcuMode === "history" && (
-            <HistoryDatePicker
-              value={historyDate}
-              onChange={setHistoryDate}
-              max={yesterday}
-              fontSize={pageControlButtonSize}
-              height={pageControlInputHeight}
-              minWidth={pageControlDateMinWidth}
-            />
-          )}
-          {renderPageBcuSelector(alarmDeviceId, setAlarmDeviceId, monitorDeviceOptions, zh ? "设备" : "Device")}
+          <div className="relative no-scrollbar grid min-h-0 flex-1 min-w-0 grid-cols-12 grid-rows-1 gap-4 overflow-hidden overscroll-none">
+            <div className="col-span-12 row-span-1 min-h-0 min-w-0 lg:col-span-6">
+              {isBatteryKind ? (
+                <BCUStatusQuery
+                  mode={bcuMode}
+                  date={bcuMode === "history" ? historyDate : undefined}
+                  deviceId={alarmDeviceId || undefined}
+                  enableFullscreen
+                />
+              ) : selected.deviceKind === "pcs" ? (
+                <PcsOverview
+                  deviceId={alarmDeviceId || undefined}
+                  deviceName={selected.deviceName}
+                  projectId={selectedProject.projectId}
+                />
+              ) : (
+                <EmsOverview
+                  deviceId={alarmDeviceId || undefined}
+                  deviceName={selected.deviceName}
+                  projectId={selectedProject.projectId}
+                />
+              )}
+            </div>
+            <div className="col-span-12 row-span-1 min-h-0 min-w-0 lg:col-span-6">
+              <AlarmLogPanel
+                mode={bcuMode}
+                date={bcuMode === "history" ? historyDate : undefined}
+                deviceId={alarmDeviceId || undefined}
+              />
+            </div>
+            {bcuMode === "realtime" && renderAlarmComingSoonMask()}
+          </div>
         </div>
-      </div>
-      <div className="relative no-scrollbar grid min-h-0 flex-1 min-w-0 grid-cols-12 grid-rows-1 gap-4 overflow-hidden overscroll-none">
-        <div className="col-span-12 row-span-1 min-h-0 min-w-0 lg:col-span-6">
-          <BCUStatusQuery
-            mode={bcuMode}
-            date={bcuMode === "history" ? historyDate : undefined}
-            deviceId={alarmDeviceId || undefined}
-            enableFullscreen
-          />
-        </div>
-        <div className="col-span-12 row-span-1 min-h-0 min-w-0 lg:col-span-6">
-          <AlarmLogPanel
-            mode={bcuMode}
-            date={bcuMode === "history" ? historyDate : undefined}
-            deviceId={alarmDeviceId || undefined}
-          />
-        </div>
-        {bcuMode === "realtime" && renderAlarmComingSoonMask()}
-      </div>
       </div>
     )
   }
@@ -585,13 +619,13 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
                   {([
                     {
                       key: "overview",
-                      labelZh: "历史总览",
-                      labelEn: "History Overview",
+                      labelZh: "诊断总览",
+                      labelEn: "Diagnostics Overview",
                     },
                     {
                       key: "detail",
-                      labelZh: "历史明细",
-                      labelEn: "History Detail",
+                      labelZh: "诊断明细",
+                      labelEn: "Diagnostics Detail",
                     },
                   ] as { key: CellHistoryViewMode; labelZh: string; labelEn: string }[]).map((item) => {
                     const active = cellHistoryViewMode === item.key
@@ -722,8 +756,8 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
             devices={selectedProject.devices}
             projectId={selectedProject.projectId}
             storageKeyOverride="device-status-monitor-store-v1"
-            titleZh="设备状态"
-            titleEn="Device Status"
+            titleZh="设备监测"
+            titleEn="Device Monitoring"
           />
         )}
 

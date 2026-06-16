@@ -268,13 +268,13 @@ EnergyStorageDashboard
        ├─ alarm-monitoring      告警监测      （Rack/PCS/EMS；顶级项）
        ├─ 历史数据 (group)        查询历史数据
        │    ├─ cell-history     电芯历史      （Rack/BCU）
-       │    └─ trend-analysis   自定义分析    （任意时间段曲线）
+       │    └─ trend-analysis   测点查询      （自选测点 + 曲线/表格）
        ├─ 数据分析 (group)
        │    └─ analysis:<key>   各分析模块（注册表驱动，见 lib/dashboard/analysis-modules）
        └─ reports               报表信息
 ```
 
-> 实时监测三项为顶级菜单；「历史数据」分组下是查询历史数据的两项（电芯历史 + 自定义分析）；「数据分析」分组下是各分析模块。设备层级：运行监测/设备状态/告警监测覆盖 Rack/PCS/EMS，电芯历史仅 Rack/BCU。
+> 实时监测三项为顶级菜单；「历史数据」分组下是查询历史数据的两项（电芯历史 + 测点查询）；「数据分析」分组下是各分析模块。设备层级：运行监测/设备状态/告警监测覆盖 Rack/PCS/EMS，电芯历史仅 Rack/BCU。
 
 ### 6.3 各 Tab 与核心组件映射
 
@@ -286,7 +286,7 @@ EnergyStorageDashboard
 | `alarm-monitoring` | 告警监测（设备级，Rack/PCS/EMS） | `BCUStatusQuery`、`AlarmLogPanel` |
 | `cell-history` | 电芯历史回放（总览/明细） | `CellHistoryReplayPanel`、`HistoryDatePicker` |
 | `analysis:<key>` | 各分析模块（注册表驱动） | `VoltageDifferenceAnalysis`、`TemperatureDifferenceAnalysis`、`CellVoltageAnalysis` …见 `lib/dashboard/analysis-modules` |
-| `trend-analysis` | 自定义分析（唯一的历史自定义曲线工作台） | `TrendWorkspace`(trend) |
+| `trend-analysis` | 测点查询（唯一的历史自选测点查询工作台） | `TrendWorkspace`(trend) |
 | `reports` | 报表中心 | `ReportCenterPanel` |
 
 > 注：自定义"设备+元素+模板"工作台只保留两个——`device-status`(实时/status) 与 `trend-analysis`(历史/trend)。运行监测/电芯历史/告警监测均为专用视图，不再内嵌重复的自定义工作台。
