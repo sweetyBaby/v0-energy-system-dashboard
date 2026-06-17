@@ -71,7 +71,7 @@ export const ANALYSIS_MODULES: AnalysisModule[] = [
   {
     key: "voltage-diff",
     category: "battery",
-    zh: "压差分析",
+    zh: "压差",
     en: "Voltage Diff",
     icon: Zap,
     render: (data) => <VoltageDifferenceAnalysis {...data} />,
@@ -79,7 +79,7 @@ export const ANALYSIS_MODULES: AnalysisModule[] = [
   {
     key: "temperature-diff",
     category: "thermal",
-    zh: "温差分析",
+    zh: "温差",
     en: "Temp Diff",
     icon: Thermometer,
     render: (data) => <TemperatureDifferenceAnalysis {...data} />,
@@ -87,7 +87,7 @@ export const ANALYSIS_MODULES: AnalysisModule[] = [
   {
     key: "cell-voltage",
     category: "cell",
-    zh: "单体电压分析",
+    zh: "单体电压",
     en: "Cell Voltage",
     icon: GitCompare,
     render: (data) => <CellVoltageAnalysis {...data} />,

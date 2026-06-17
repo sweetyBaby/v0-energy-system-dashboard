@@ -19,11 +19,17 @@ type DragState = {
 
 // 文字底板/抹线用色：贴合本项目深色卡片风格（画布本身透明，露出卡片渐变背景）
 const PLATE_BG = "#0a1a33"
-const MIN_ZOOM = 0.25
-const MAX_ZOOM = 5
 const DRAG_THRESHOLD = 4
 const FIT_ZOOM_CAP = 2.4
+// 放大上限：相对「全貌(fit)」的最大倍数。下限恒为 1（=fit），即缩到底也始终展示完整拓扑。
+const MAX_USER_SCALE = 4
 const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.9 }
+// 节点/标签/字段的基准放大倍率（userScale=1 时）。缩放时它们与 zoom 同步放大，
+// 使「连线、文字、图标」随缩放一起变大/变小，而非引擎默认的「屏幕恒定尺寸」。
+const BASE_NODE_SCALE = 1.18
+const BASE_LABEL_SCALE = 1.28
+const BASE_FIELD_SCALE = 1.32
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 // 引擎内的节点标签/字段卡片是「屏幕恒定尺寸」：在容器尺寸下它们恒为 ~14px，本就清晰可读。
 // 故按容器原生尺寸渲染（再乘 devicePixelRatio 让文字更锐利），文字不被整体缩小；
@@ -56,6 +62,10 @@ export type TopologyViewProps = {
   resolveNav?: NavResolver
   /** 命中可跳转节点时回调 */
   onNavigate?: (nav: TopoNodeNav, node: HitNode) => void
+  /** 适应容器时的最大放大倍数上限。全屏时传更大值，让拓扑充满大画布而非维持原尺寸。 */
+  fitZoomCap?: number
+  /** 全屏模式：仅自适应充满容器，禁用滚轮缩放与拖动平移。 */
+  fullscreen?: boolean
 }
 
 // 节点布局签名：仅在节点集合/位置变化时重新 fitView（实时数据每 2s 刷新但位置不变，无需反复重算）
@@ -66,7 +76,7 @@ const layoutSig = (doc: TopologyDoc) => doc.nodes.map((n) => `${n.id}:${n.positi
  * 初始/新布局自适应容器，随后支持用户滚轮缩放与拖动画布平移；
  * 仅保留点击命中节点 → onNavigate。实时数据更新由上层每次传入新 doc 驱动。
  */
-export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps) {
+export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscreen = false }: TopologyViewProps) {
   const { language } = useLanguage()
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -75,11 +85,66 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
   resolveNavRef.current = resolveNav
   const onNavigateRef = useRef(onNavigate)
   onNavigateRef.current = onNavigate
+  // 适应上限（全屏时增大）；用 ref 让挂载期创建的闭包也能读到最新值
+  const fitCapRef = useRef(fitZoomCap ?? FIT_ZOOM_CAP)
+  fitCapRef.current = fitZoomCap ?? FIT_ZOOM_CAP
+  const fullscreenRef = useRef(fullscreen)
+  fullscreenRef.current = fullscreen
+  // 普通模式下最近一次 fit 时的画布最短边（基准）；全屏时据此放大文字/线宽，使其随大画布等比变大
+  const baseMinRef = useRef(0)
 
   const lastSigRef = useRef<string | null>(null)
   const hasUserViewRef = useRef(false)
   const dragStateRef = useRef<DragState | null>(null)
   const suppressClickRef = useRef(false)
+  // 「全貌」基线 zoom（fitView 得到，userScale=1 对应此值）与当前用户放大倍数
+  const fitZoomRef = useRef(1)
+  const userScaleRef = useRef(1)
+  // 当前布局的原始边类型表（未放大）；放大时据此按 userScale 缩放线宽
+  const edgeTypesRef = useRef<Record<string, { w?: number }> | null>(null)
+
+  // 节点尺寸（nsz）本就随画布最短边变大，但文字/线宽是「屏幕恒定」。全屏画布变大时按
+  // 画布增大比例额外放大文字/线宽，避免「大容器、小文字、细线」的失衡。普通模式恒为 1。
+  const displayScale = () => {
+    const canvas = canvasRef.current
+    if (!canvas || !fullscreenRef.current || !baseMinRef.current) return 1
+    return clamp(Math.min(canvas.width, canvas.height) / baseMinRef.current, 1, 4)
+  }
+
+  // 把「节点/标签/字段/线宽」整体放大到 userScale，使其与 zoom 同步缩放（连线、文字一起放大）
+  const applyScale = (scale: number) => {
+    const engine = engineRef.current
+    if (!engine) return
+    userScaleRef.current = scale
+    const ds = displayScale() // 全屏时文字/线宽随大画布等比放大（节点已随画布自适应，不重复）
+    engine.setOptions({
+      nodeScale: BASE_NODE_SCALE * scale,
+      labelScale: BASE_LABEL_SCALE * scale * ds,
+      fieldScale: BASE_FIELD_SCALE * scale * ds,
+    })
+    const base = edgeTypesRef.current
+    if (base) {
+      const scaled: Record<string, unknown> = {}
+      for (const k of Object.keys(base)) {
+        const t = base[k]
+        scaled[k] = { ...t, w: (typeof t.w === "number" ? t.w : 2.5) * scale * ds }
+      }
+      engine.setEdgeTypes(scaled)
+    }
+  }
+
+  // 适应容器，记录全貌基线 zoom，并把放大倍数复位为 1（基准尺寸）
+  const fitToView = () => {
+    const engine = engineRef.current
+    const canvas = canvasRef.current
+    if (!engine) return
+    // 普通模式下记录画布基准最短边（文字/线宽放大的参照），全屏不覆盖
+    if (canvas && !fullscreenRef.current) baseMinRef.current = Math.min(canvas.width, canvas.height)
+    applyScale(1) // 用基准尺寸计算 fit，保证 nsz/线宽与基线一致
+    engine.fitView(fitCapRef.current)
+    fitZoomRef.current = engine.getView().zoom || 1
+    userScaleRef.current = 1
+  }
 
   const navOf = (node: HitNode | null): TopoNodeNav | undefined => {
     if (!node) return undefined
@@ -97,7 +162,9 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
   const updateHoverCursor = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current
     if (!canvas || dragStateRef.current) return
-    canvas.style.cursor = navOf(hitAt(clientX, clientY)) ? "pointer" : "grab"
+    // 全屏禁用拖动 → 非可点击节点用默认光标（而非抓手）
+    const idle = fullscreen ? "default" : "grab"
+    canvas.style.cursor = navOf(hitAt(clientX, clientY)) ? "pointer" : idle
   }
 
   // 引擎只创建一次
@@ -110,9 +177,9 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
       lang: language === "en" ? "en" : "zh",
       paintBg: false, // 画布透明，露出卡片背景，风格与项目一致
       bgColor: PLATE_BG,
-      nodeScale: 1.18,
-      labelScale: 1.28,
-      fieldScale: 1.32,
+      nodeScale: BASE_NODE_SCALE,
+      labelScale: BASE_LABEL_SCALE,
+      fieldScale: BASE_FIELD_SCALE,
     })
     engineRef.current = engine
 
@@ -124,23 +191,25 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
     })
     engine.start()
 
-    // 容器尺寸变化：未手动调整时继续自适应；手动调整后尽量保持当前视图。
+    // 容器尺寸变化：重算全貌基线；未手动缩放时回到全貌，否则保持当前放大倍数并以画布中心为锚。
     const sync = () => {
-      const prevWidth = canvas.width || 1
-      const prevHeight = canvas.height || 1
-      const prevView = engine.getView()
       sizeCanvasBitmap(canvas, container)
       if (hasUserViewRef.current) {
-        const scaleX = canvas.width / prevWidth
-        const scaleY = canvas.height / prevHeight
-        const scale = (scaleX + scaleY) / 2
-        engine.setView({
-          zoom: prevView.zoom * scale,
-          panX: prevView.panX * scaleX,
-          panY: prevView.panY * scaleY,
-        })
+        const scale = userScaleRef.current
+        applyScale(1)
+        engine.fitView(fitCapRef.current)
+        const newFit = engine.getView().zoom || 1
+        fitZoomRef.current = newFit
+        const fitV = engine.getView() // 居中的全貌视图
+        const cx = canvas.width / 2
+        const cy = canvas.height / 2
+        const worldCx = (cx - fitV.panX) / newFit
+        const worldCy = (cy - fitV.panY) / newFit
+        const z = newFit * scale
+        engine.setView({ zoom: z, panX: cx - worldCx * z, panY: cy - worldCy * z })
+        applyScale(scale)
       } else {
-        engine.fitView(FIT_ZOOM_CAP)
+        fitToView()
       }
       engine.redraw()
     }
@@ -166,6 +235,20 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
     engine.redraw()
   }, [language])
 
+  // 适应上限变化（进入/退出全屏）：丢弃用户视图并以新上限重新适应，使拓扑充满新画布
+  useEffect(() => {
+    const engine = engineRef.current
+    const canvas = canvasRef.current
+    const container = containerRef.current
+    if (!engine || !canvas || !container) return
+    hasUserViewRef.current = false
+    sizeCanvasBitmap(canvas, container)
+    fitToView()
+    engine.redraw()
+    // fitToView/sizeCanvasBitmap 仅依赖 ref，随 fitZoomCap 变化触发即可
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitZoomCap])
+
   // 布局 / 实时数据更新：每次喂数据；仅当节点布局变化时才重新 fitView
   useEffect(() => {
     const engine = engineRef.current
@@ -174,6 +257,7 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
     if (!engine || !canvas || !container || !doc) return
 
     const { nodes, edges, edgeTypes } = docToInternal(doc, { compact: TOPOLOGY_COMPACT_SCALE })
+    edgeTypesRef.current = edgeTypes as Record<string, { w?: number }>
     engine.setEdgeTypes(edgeTypes)
     engine.setData(nodes, edges)
 
@@ -182,7 +266,10 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
       lastSigRef.current = sig
       hasUserViewRef.current = false
       sizeCanvasBitmap(canvas, container)
-      engine.fitView(FIT_ZOOM_CAP) // 新布局 → 适应一次
+      fitToView() // 新布局 → 适应一次（并复位放大倍数）
+    } else {
+      // 实时数据更新（布局不变）：保持当前缩放对应的尺寸与线宽
+      applyScale(userScaleRef.current)
     }
     engine.redraw()
   }, [doc])
@@ -196,15 +283,31 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
           const engine = engineRef.current
           const canvas = canvasRef.current
           if (!engine || !canvas) return
+          if (fullscreen) {
+            ev.preventDefault() // 全屏只自适应，禁用缩放
+            return
+          }
 
           ev.preventDefault()
           const { rect, fx, fy } = canvasScale(canvas)
           const sx = (ev.clientX - rect.left) * fx
           const sy = (ev.clientY - rect.top) * fy
           const view = engine.getView()
-          const nextZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom * Math.exp(-ev.deltaY * 0.0012)))
-          if (nextZoom === view.zoom) return
+          const fit = fitZoomRef.current || 1
+          // 以「全貌(fit)」为基准的放大倍数：下限 1（不能缩到比全貌更小），上限 MAX_USER_SCALE
+          const curScale = view.zoom / fit
+          const nextScale = clamp(curScale * Math.exp(-ev.deltaY * 0.0012), 1, MAX_USER_SCALE)
+          if (Math.abs(nextScale - curScale) < 1e-4) return
 
+          // 缩回全貌：恢复居中 fit（连线/文字回到基准尺寸）
+          if (nextScale <= 1) {
+            hasUserViewRef.current = false
+            fitToView()
+            engine.redraw()
+            return
+          }
+
+          const nextZoom = fit * nextScale
           const worldX = (sx - view.panX) / view.zoom
           const worldY = (sy - view.panY) / view.zoom
           hasUserViewRef.current = true
@@ -213,10 +316,12 @@ export function TopologyView({ doc, resolveNav, onNavigate }: TopologyViewProps)
             panX: sx - worldX * nextZoom,
             panY: sy - worldY * nextZoom,
           })
+          applyScale(nextScale) // 连线/文字/图标随 zoom 同步放大
           engine.redraw()
         }}
         onPointerDown={(ev) => {
           if (ev.button !== 0) return
+          if (fullscreen) return // 全屏禁用拖动平移（点击导航仍可用）
           const engine = engineRef.current
           const canvas = canvasRef.current
           if (!engine || !canvas) return

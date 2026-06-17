@@ -1,10 +1,10 @@
 ﻿"use client"
-
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import type { DateRange } from "react-day-picker"
 import { Wrench } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import { AlarmDeviceWorkspace } from "@/components/dashboard/alarm-device-workspace"
 import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
 import { BcuSelector } from "@/components/dashboard/bcu-selector"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
@@ -16,7 +16,7 @@ import { DashboardHeader, ProjectProvider, useProject } from "@/components/dashb
 import { DashboardSidebar, type SidebarTab } from "@/components/dashboard/dashboard-sidebar"
 import { HistoryDatePicker } from "@/components/dashboard/history-date-picker"
 import { MonitorCategoryTree } from "@/components/dashboard/monitor-category-tree"
-import { EmsOverview, OperationsOverview, PcsOverview } from "@/components/dashboard/operations-overview"
+import { OperationsOverview } from "@/components/dashboard/operations-overview"
 import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
 import { ProjectOverviewInfoCard } from "@/components/dashboard/project-overview-info-card"
 import { ProjectTopologyPanel } from "@/components/dashboard/project-topology-panel"
@@ -496,41 +496,41 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
                   minWidth={pageControlDateMinWidth}
                 />
               )}
-              <span className="truncate text-[12px] font-semibold tracking-[0.04em] text-[#9fd6e8]">
-                {selected?.deviceName ?? ""}
-              </span>
+              
             </div>
           </div>
           <div className="relative no-scrollbar grid min-h-0 flex-1 min-w-0 grid-cols-12 grid-rows-1 gap-4 overflow-hidden overscroll-none">
-            <div className="col-span-12 row-span-1 min-h-0 min-w-0 lg:col-span-6">
-              {isBatteryKind ? (
-                <BCUStatusQuery
+            {isBatteryKind ? (
+              <>
+                <div className="col-span-12 row-span-1 min-h-0 min-w-0 lg:col-span-6">
+                  <BCUStatusQuery
+                    mode={bcuMode}
+                    date={bcuMode === "history" ? historyDate : undefined}
+                    deviceId={alarmDeviceId || undefined}
+                    enableFullscreen
+                  />
+                </div>
+                <div className="col-span-12 row-span-1 min-h-0 min-w-0 lg:col-span-6">
+                  <AlarmLogPanel
+                    mode={bcuMode}
+                    date={bcuMode === "history" ? historyDate : undefined}
+                    deviceId={alarmDeviceId || undefined}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="col-span-12 row-span-1 min-h-0 min-w-0">
+                <AlarmDeviceWorkspace
                   mode={bcuMode}
                   date={bcuMode === "history" ? historyDate : undefined}
                   deviceId={alarmDeviceId || undefined}
-                  enableFullscreen
-                />
-              ) : selected.deviceKind === "pcs" ? (
-                <PcsOverview
-                  deviceId={alarmDeviceId || undefined}
+                  deviceKind={selected.deviceKind}
                   deviceName={selected.deviceName}
                   projectId={selectedProject.projectId}
                 />
-              ) : (
-                <EmsOverview
-                  deviceId={alarmDeviceId || undefined}
-                  deviceName={selected.deviceName}
-                  projectId={selectedProject.projectId}
-                />
-              )}
-            </div>
-            <div className="col-span-12 row-span-1 min-h-0 min-w-0 lg:col-span-6">
-              <AlarmLogPanel
-                mode={bcuMode}
-                date={bcuMode === "history" ? historyDate : undefined}
-                deviceId={alarmDeviceId || undefined}
-              />
-            </div>
+              </div>
+            )}
+            {/* 实时告警接口尚未就绪：电池簇 / PCS / EMS 在实时模式下统一显示开发中遮罩 */}
             {bcuMode === "realtime" && renderAlarmComingSoonMask()}
           </div>
         </div>

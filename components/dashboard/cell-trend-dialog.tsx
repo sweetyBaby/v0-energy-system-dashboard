@@ -141,6 +141,22 @@ export function CellTrendDialog({
 
   const voltageSeries = useMemo(() => result?.series.filter((s) => s.id.endsWith("::voltage")) ?? [], [result])
   const tempSeries = useMemo(() => result?.series.filter((s) => !s.id.endsWith("::voltage")) ?? [], [result])
+  const [hiddenTempSeries, setHiddenTempSeries] = useState<Record<string, boolean>>({})
+
+  const toggleTempSeries = (seriesId: string) => {
+    setHiddenTempSeries((current) => {
+      const willHide = !current[seriesId]
+      if (willHide && tempSeries.filter((series) => !current[series.id]).length <= 1) return current
+
+      if (!willHide) {
+        const next = { ...current }
+        delete next[seriesId]
+        return next
+      }
+
+      return { ...current, [seriesId]: true }
+    })
+  }
 
   const renderChart = (title: string, unit: string, series: TrendFetchResult["series"], showLegend: boolean) => (
     <div className="rounded-xl border border-[#1a2654] bg-[#0d1233] p-3">
@@ -150,12 +166,32 @@ export function CellTrendDialog({
       </div>
       {showLegend && (
         <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-          {series.map((s) => (
-            <span key={s.id} className="flex items-center gap-1.5 text-[11px] text-[#9fb6d6]">
-              <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: colorOf(s.id) }} />
-              {zh ? s.nameZh : s.nameEn}
-            </span>
-          ))}
+          {series.map((s) => {
+            const hidden = !!hiddenTempSeries[s.id]
+            const isLastVisible = !hidden && series.filter((item) => !hiddenTempSeries[item.id]).length <= 1
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => toggleTempSeries(s.id)}
+                aria-pressed={!hidden}
+                aria-disabled={isLastVisible}
+                title={zh ? (hidden ? "点击显示" : "点击隐藏") : hidden ? "Show" : "Hide"}
+                className="flex cursor-pointer items-center gap-1.5 bg-transparent p-0 text-[11px] font-medium leading-none transition-colors"
+                style={{ color: hidden ? "#90a7bd" : "#c9dcf6", textDecoration: "none" }}
+              >
+                <span
+                  className="h-2.5 w-2.5 rounded-full transition-all"
+                  style={
+                    hidden
+                      ? { background: "transparent", boxShadow: "inset 0 0 0 1.5px #7f96ad" }
+                      : { background: colorOf(s.id), boxShadow: `0 0 7px ${colorOf(s.id)}` }
+                  }
+                />
+                <span>{zh ? s.nameZh : s.nameEn}</span>
+              </button>
+            )
+          })}
         </div>
       )}
       <div className="h-[190px]">
@@ -205,6 +241,7 @@ export function CellTrendDialog({
                 activeDot={{ r: 3 }}
                 connectNulls
                 isAnimationActive={false}
+                hide={showLegend && !!hiddenTempSeries[s.id]}
               />
             ))}
           </LineChart>

@@ -12,13 +12,13 @@ import type { MonitorDeviceKind } from "@/lib/api/trend-analysis"
  *
  *   iMEMS (EMS, top layer)
  *     └ PCS (变流器)
- *         └ 电池储能单元 (battery storage unit — grouping node)
+ *         └ 电池堆 (battery stack — grouping node)
  *             ├ BCU1 (rack/BMS)
  *             ├ BCU2 …
  *
  * Selecting an EMS / PCS / BCU leaf chooses which device's *overview* to show
  * (总览维度) — distinct from {@link DeviceVariableTree} which selects measurement
- * points (明细维度). The 电池储能单元 node is a pure grouping label (expand only).
+ * points (明细维度). The 电池堆 node is a pure grouping label (expand only).
  * Shared by 运行状态 (operations) and 告警监测 (alarm).
  */
 
@@ -71,7 +71,7 @@ export function MonitorCategoryTree({
       ? [
           {
             id: "__battery_unit__",
-            label: zh ? "电池储能单元" : "Battery Unit",
+            label: zh ? "电池堆" : "Battery Stack",
             icon: BatteryCharging,
             children: rackNodes,
           },
@@ -142,7 +142,7 @@ export function MonitorCategoryTree({
               ? "border border-[#39d7cf]/42 bg-[linear-gradient(135deg,rgba(13,104,122,0.96),rgba(7,48,67,0.92))] text-[#efffff] shadow-[0_0_0_1px_rgba(57,215,207,0.08),inset_0_1px_0_rgba(233,255,255,0.16)]"
               : "border border-transparent text-[#bcd6e8] hover:bg-[rgba(115,198,255,0.08)] hover:text-[#eaf6ff]"
           }`}
-          style={{ paddingLeft: 6 + depth * 12 }}
+          style={{ paddingLeft: 4 }}
         >
           {active && (
             <span className="absolute inset-y-1 left-0 w-[2px] rounded-r-full bg-[#26f0dc] shadow-[0_0_8px_rgba(38,240,220,0.7)]" />
@@ -167,7 +167,7 @@ export function MonitorCategoryTree({
               active ? "text-[#26f0dc]" : selectable ? "text-[#78bfd1]" : "text-[#5d9bb3]"
             }`}
           />
-          <span className="flex-1 truncate text-[11.5px] font-medium tracking-[0.02em]">{node.label}</span>
+          <span className="flex-1 break-words text-[11.5px] font-medium leading-tight tracking-[0.02em]">{node.label}</span>
           {badge > 0 && (
             <span className="flex h-[15px] min-w-[15px] shrink-0 items-center justify-center rounded-full bg-[#ff4d6d] px-1 text-[9px] font-bold text-white shadow-[0_0_5px_rgba(255,77,109,0.7)]">
               {badge > 99 ? "99+" : badge}
@@ -176,7 +176,7 @@ export function MonitorCategoryTree({
         </div>
 
         {hasChildren && open && (
-          <div className="relative ml-[14px] flex flex-col border-l border-[#214a60]/70">
+          <div className="relative ml-2 flex flex-col border-l border-[#214a60]/70">
             {node.children.map((child) => renderNode(child, depth + 1))}
           </div>
         )}

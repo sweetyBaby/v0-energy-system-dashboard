@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo } from "react"
-import { FlaskConical } from "lucide-react"
+import { useMemo, useState } from "react"
+import { type LucideIcon, Activity, Network, Wifi } from "lucide-react"
 import {
   Area,
   AreaChart,
@@ -16,6 +16,7 @@ import {
 } from "recharts"
 import { BCUStatusQuery } from "@/components/dashboard/bcu-status-query"
 import { CellHeatmapOverviewPanel } from "@/components/dashboard/cell-heatmap-overview-panel"
+import { TopoCanvas, TopoFullscreenButton } from "@/components/dashboard/topology/topo-canvas"
 import { useLanguage } from "@/components/language-provider"
 import type { MonitorDeviceKind } from "@/lib/api/trend-analysis"
 
@@ -23,17 +24,15 @@ import type { MonitorDeviceKind } from "@/lib/api/trend-analysis"
  * Curated, scenario-specific *overview* (总览维度) for one monitored device,
  * rebuilt to mirror the user's reference boards:
  *  - rack → BCU running status + per-cell heatmap (real data).
- *  - pcs  → breaker single-line diagram + SOC/efficiency gauges + 3-phase
- *           output-voltage gauges + status cards + AC-current chart + fault grid.
- *  - ems  → station single-line diagram (grid / meters / load / cabinets via the
- *           public/icons assets) + stack KPIs + SOC & power charts.
+ *  - pcs  → topology (public/topo-pcs.json via the shared TopoCanvas) + SOC/efficiency
+ *           gauges + 3-phase output-voltage gauges + status cards + AC-current chart + fault grid.
+ *  - ems  → topology (public/topo-ems.json via the shared TopoCanvas) + stack KPIs
+ *           + SOC & power charts.
  *
  * PCS/EMS render from a deterministic local mock (seeded by deviceId — stable per
  * device). Layout is final; only the data source needs swapping when the backend
  * lands (hence the "示例数据" badge).
  */
-
-const ICONS = "/icons"
 
 // ─────────────────────────── mock helpers ───────────────────────────
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
@@ -77,7 +76,7 @@ const HOURS = 24
 
 // ─────────────────────────── shared UI ───────────────────────────
 const PANEL_CLASS =
-  "relative flex min-h-0 flex-col rounded-[10px] border border-[#1f4a6b] bg-[linear-gradient(180deg,rgba(10,24,42,0.96),rgba(6,15,28,0.98))] shadow-[inset_0_1px_0_rgba(120,200,255,0.05)]"
+  "relative flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-[#1f4a6b] bg-[linear-gradient(180deg,rgba(10,24,42,0.96),rgba(6,15,28,0.98))] shadow-[inset_0_1px_0_rgba(120,200,255,0.05)]"
 
 const TOOLTIP_STYLE = {
   backgroundColor: "#0d1233",
@@ -116,21 +115,6 @@ function Panel({
       )}
       <div className={`min-h-0 flex-1 px-3 pb-3 ${title ? "" : "pt-3"} ${bodyClassName}`}>{children}</div>
     </section>
-  )
-}
-
-function SampleBadge() {
-  const { language } = useLanguage()
-  const zh = language === "zh"
-  return (
-    <div className="flex shrink-0 items-center gap-2 rounded-lg border border-[#22d3ee]/25 bg-[rgba(8,22,40,0.7)] px-3 py-1.5">
-      <FlaskConical className="h-3.5 w-3.5 text-[#7ff0ff]" />
-      <span className="text-[11px] tracking-[0.04em] text-[#8fc6dd]">
-        {zh
-          ? "示例数据：布局已就绪，接入后端后替换数据源即可"
-          : "Sample data — layout ready; swap the data source once the backend lands"}
-      </span>
-    </div>
   )
 }
 
@@ -233,18 +217,6 @@ function GaugeArc({
   )
 }
 
-function StatTile({ label, value, unit, accent }: { label: string; value: string; unit?: string; accent?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-2 py-[3px]">
-      <span className="truncate text-[11px] text-[#8fb6cf]">{label}</span>
-      <span className={`shrink-0 text-[12px] font-semibold ${accent ? "text-[#ffb455]" : "text-[#dffefe]"}`}>
-        {value}
-        {unit ? <span className="ml-0.5 text-[9px] font-normal text-[#6f93ab]">{unit}</span> : null}
-      </span>
-    </div>
-  )
-}
-
 function KpiCard({ label, value, unit }: { label: string; value: string; unit: string }) {
   return (
     <div className="relative flex min-h-[108px] flex-col items-center gap-2.5 overflow-hidden rounded-[10px] border border-[#1f4a6b] bg-[linear-gradient(180deg,rgba(10,24,42,0.96),rgba(6,15,28,0.98))] px-3 pt-3.5 shadow-[inset_0_1px_0_rgba(120,200,255,0.05)]">
@@ -265,15 +237,38 @@ function KpiCard({ label, value, unit }: { label: string; value: string; unit: s
   )
 }
 
-function StatusTile({ label, value, tone }: { label: string; value: string; tone: string }) {
+function StatusTile({ label, value, tone, icon: Icon }: { label: string; value: string; tone: string; icon: LucideIcon }) {
   return (
-    <div className="relative flex flex-1 flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-[#1f4a6b] bg-[rgba(8,20,34,0.6)] px-2 pb-6 pt-5">
+    <div
+      className="relative flex min-h-0 flex-1 items-center gap-3 overflow-hidden rounded-lg border bg-[rgba(8,20,34,0.6)] px-4"
+      style={{ borderColor: `${tone}55` }}
+    >
+      {/* tone-tinted glow rising from the left */}
       <div
-        className="ops-pedestal pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 opacity-80"
+        className="pointer-events-none absolute inset-0"
+        style={{ background: `radial-gradient(130% 130% at 0% 50%, ${tone}1f, transparent 62%)` }}
         aria-hidden
       />
-      <span className="z-10 text-[11px] tracking-[0.04em] text-[#8fb6cf]">{label}</span>
-      <span className="z-10 text-[16px] font-bold" style={{ color: tone }}>
+      {/* left accent bar */}
+      <span
+        className="absolute left-0 top-1/2 h-3/5 w-[3px] -translate-y-1/2 rounded-full"
+        style={{ background: tone, boxShadow: `0 0 10px ${tone}` }}
+        aria-hidden
+      />
+      {/* icon badge with a gentle live pulse */}
+      <span
+        className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+        style={{ background: `${tone}1f`, boxShadow: `inset 0 0 0 1px ${tone}66` }}
+      >
+        <span className="absolute inset-0 animate-ping rounded-full opacity-20" style={{ background: tone }} aria-hidden />
+        <Icon className="relative h-4 w-4" style={{ color: tone }} />
+      </span>
+      {/* label + value on a single line */}
+      <span className="relative shrink-0 text-[12px] tracking-[0.04em] text-[#8fb6cf]">{label}</span>
+      <span
+        className="relative ml-auto truncate pl-2 text-[18px] font-bold leading-none"
+        style={{ color: tone, textShadow: `0 0 12px ${tone}55` }}
+      >
         {value}
       </span>
     </div>
@@ -286,8 +281,8 @@ function FaultMatrix({ items, title }: { items: FaultItem[]; title: string }) {
   const { language } = useLanguage()
   const zh = language === "zh"
   return (
-    <Panel title={title} className="min-h-0">
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 xl:grid-cols-3 2xl:grid-cols-4">
+    <Panel title={title} className="shrink-0">
+      <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 xl:grid-cols-4 2xl:grid-cols-6">
         {items.map((item) => (
           <div
             key={item.en}
@@ -305,48 +300,71 @@ function FaultMatrix({ items, title }: { items: FaultItem[]; title: string }) {
   )
 }
 
-// ─────────────────────────── SLD primitives ───────────────────────────
-/** A vertical wire segment; `flow` animates the energy moving along it. */
-function Wire({ color = "#3da9e0", height = 16, flow = false }: { color?: string; height?: number; flow?: boolean }) {
-  if (flow) {
-    return <span className="ops-wire-flow block w-[2px]" style={{ height, color }} />
-  }
-  return <span className="block w-px" style={{ height, background: color }} />
+// ─────────────────────────── chart legend toggle (shared) ───────────────────────────
+type ChartSeries = { key: string; color: string; zh: string; en: string }
+
+/** 图例显隐切换：点击淡化/恢复对应系列，强制至少保留一个可见（不可全部隐藏）。 */
+function useSeriesToggle(series: readonly ChartSeries[]) {
+  const [hidden, setHidden] = useState<Record<string, boolean>>({})
+  const toggle = (key: string) =>
+    setHidden((prev) => {
+      const willHide = !prev[key]
+      // 至少保留一个可见：当前仅剩一个可见时，禁止再隐藏
+      if (willHide && series.filter((s) => !prev[s.key]).length <= 1) return prev
+      return { ...prev, [key]: willHide }
+    })
+  return { hidden, toggle }
 }
 
-/** A closed-breaker symbol (red by default) sized for an inline wire. */
-function Breaker({ color = "#ff3b30" }: { color?: string }) {
+/** 可点击图例：隐藏项以可读的灰色 + 空心圆点表示（非删除线、非过度淡化）。PCS/EMS 图表共用。 */
+function ToggleLegend({
+  series,
+  hidden,
+  onToggle,
+  zh,
+}: {
+  series: readonly ChartSeries[]
+  hidden: Record<string, boolean>
+  onToggle: (key: string) => void
+  zh: boolean
+}) {
   return (
-    <svg width={18} height={22} viewBox="0 0 18 22" className="block">
-      <line x1="9" y1="0" x2="9" y2="5" stroke={color} strokeWidth="1.5" />
-      <line x1="9" y1="17" x2="9" y2="22" stroke={color} strokeWidth="1.5" />
-      <line x1="9" y1="17" x2="15" y2="5" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <circle cx="9" cy="17" r="1.6" fill={color} />
-      <circle cx="9" cy="5" r="1.6" fill={color} />
-    </svg>
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-0.5 pt-1">
+      {series.map((s) => {
+        const off = !!hidden[s.key]
+        return (
+          <button
+            key={s.key}
+            type="button"
+            onClick={() => onToggle(s.key)}
+            title={zh ? (off ? "点击显示" : "点击隐藏") : off ? "Show" : "Hide"}
+            className="flex cursor-pointer items-center gap-1.5 bg-transparent text-[11px] font-medium leading-none transition-colors"
+            style={{ color: off ? "#90a7bd" : s.color, textDecoration: "none" }}
+          >
+            <span
+              className="inline-block h-2 w-2 rounded-full transition-all"
+              style={
+                off
+                  ? { background: "transparent", boxShadow: "inset 0 0 0 1.5px #6b8299" }
+                  : { background: s.color, boxShadow: `0 0 6px ${s.color}` }
+              }
+            />
+            {zh ? s.zh : s.en}
+          </button>
+        )
+      })}
+    </div>
   )
 }
-
-/** The PCS inverter symbol: a green box, AC sine on one side / DC on the other. */
-function InverterSymbol({ size = 46 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 46 46" className="block">
-      <rect x="3" y="3" width="40" height="40" rx="5" fill="rgba(10,40,30,0.6)" stroke="#3ae29a" strokeWidth="1.6" />
-      <line x1="43" y1="3" x2="3" y2="43" stroke="#3ae29a" strokeWidth="1.2" opacity="0.8" />
-      <path d="M8 16 q3 -6 6 0 t6 0" fill="none" stroke="#3ae29a" strokeWidth="1.6" strokeLinecap="round" />
-      <line x1="26" y1="32" x2="38" y2="32" stroke="#3ae29a" strokeWidth="1.6" strokeLinecap="round" />
-      <line x1="28" y1="36" x2="36" y2="36" stroke="#3ae29a" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="3 2" />
-    </svg>
-  )
-}
-
-// eslint-disable-next-line @next/next/no-img-element
-const IconImg = ({ src, alt, height }: { src: string; alt: string; height: number }) => (
-  // eslint-disable-next-line @next/next/no-img-element
-  <img src={src} alt={alt} style={{ height, width: "auto" }} className="block select-none drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]" draggable={false} />
-)
 
 // ─────────────────────────── PCS overview ───────────────────────────
+// 交流三相电流系列（图例点击切换显隐，受控 hide 而非 recharts 默认行为）
+const AC_SERIES: readonly ChartSeries[] = [
+  { key: "A", color: "#a78bfa", zh: "A相电流", en: "Ia" },
+  { key: "B", color: "#22d3ee", zh: "B相电流", en: "Ib" },
+  { key: "C", color: "#facc15", zh: "C相电流", en: "Ic" },
+]
+
 const PCS_FAULTS: FaultItem[] = [
   { zh: "电网过频", en: "Grid Overfreq" },
   { zh: "电网欠频", en: "Grid Underfreq" },
@@ -374,14 +392,6 @@ const PCS_FAULTS: FaultItem[] = [
   { zh: "交流继电器开路", en: "AC Relay Open" },
 ]
 
-function ChipLabel({ text }: { text: string }) {
-  return (
-    <span className="inline-flex items-center rounded-md border border-[#2f6f96] bg-[rgba(13,46,70,0.7)] px-2 py-0.5 text-[10.5px] font-semibold tracking-[0.03em] text-[#9fdcf2]">
-      {text}
-    </span>
-  )
-}
-
 export function PcsOverview({ deviceId, deviceName }: { deviceId?: string; deviceName: string; projectId: string }) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -392,15 +402,11 @@ export function PcsOverview({ deviceId, deviceName }: { deviceId?: string; devic
   const vab = pick(`${seed}:vab`, 375, 388)
   const vbc = pick(`${seed}:vbc`, 372, 386)
   const vca = pick(`${seed}:vca`, 376, 390)
-  const ia = pick(`${seed}:ia`, 150, 220)
-  const ib = pick(`${seed}:ib`, 150, 220)
-  const ic = pick(`${seed}:ic`, 150, 220)
-  const acPower = pick(`${seed}:acp`, 30, 60)
-  const dcPower = pick(`${seed}:dcp`, 30, 60)
-  const dcCurrent = pick(`${seed}:dci`, 40, 90)
-  const dcVoltage = pick(`${seed}:dcv`, 720, 800)
-  const outputVoltage = (vab + vbc + vca) / 3
   const chargePower = pick(`${seed}:cdp`, 35, 50)
+
+  // 交流电流图例显隐（点击切换，至少保留一相）
+  const acToggle = useSeriesToggle(AC_SERIES)
+  const [topoFullscreen, setTopoFullscreen] = useState(false)
 
   const acCurrentData = useMemo(() => {
     const a = buildCurve(`${seed}:cur-a`, HOURS, 120, 260, 0)
@@ -415,172 +421,117 @@ export function PcsOverview({ deviceId, deviceName }: { deviceId?: string; devic
   }, [seed])
 
   return (
-    <div className="custom-scrollbar flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-1">
-      <SampleBadge />
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+      {/* ── Top: topology (left) + right column (gauges row · status/current row) ── */}
+      <div className="grid min-h-0 flex-1 grid-cols-12 gap-2">
+        {/* Left — PCS topology, rendered from public/topo-pcs.json (shared canvas: zoom/drag/auto-fit) */}
+        <Panel
+          title={zh ? "系统拓扑" : "System Topology"}
+          className="col-span-5"
+          action={<TopoFullscreenButton onClick={() => setTopoFullscreen(true)} />}
+        >
+          <TopoCanvas url="/topo-pcs.json" fullscreen={topoFullscreen} onExitFullscreen={() => setTopoFullscreen(false)} />
+        </Panel>
 
-      {/* Row 1 — SLD · SOC/efficiency gauges · 3-phase output voltage */}
-      <div className="grid shrink-0 grid-cols-1 gap-3 lg:grid-cols-3">
-        {/* SLD */}
-        <Panel>
-          <div className="flex h-full min-h-[260px] gap-2">
-            {/* measurement strips */}
-            <div className="flex flex-1 flex-col justify-between py-1">
-              <div>
-                <ChipLabel text={zh ? "交流断路器" : "AC Breaker"} />
-                <div className="mt-2 grid grid-cols-2 gap-x-3">
-                  <StatTile label={zh ? "A相电流" : "Ia"} value={ia.toFixed(1)} unit="A" />
-                  <StatTile label={zh ? "交流有功" : "AC P"} value={acPower.toFixed(1)} unit="kW" />
-                  <StatTile label={zh ? "B相电流" : "Ib"} value={ib.toFixed(1)} unit="A" />
-                  <StatTile label={zh ? "输出电压" : "Vout"} value={outputVoltage.toFixed(1)} unit="V" />
-                  <StatTile label={zh ? "C相电流" : "Ic"} value={ic.toFixed(1)} unit="A" />
-                </div>
+        {/* Right — two stacked rows */}
+        <div className="col-span-7 flex min-h-0 flex-col gap-2">
+          {/* Right row 1 — 运行指标 · 输出线电压 (unchanged) */}
+          <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
+            <Panel title={zh ? "运行指标" : "Indicators"}>
+              <div className="flex h-full items-center justify-around">
+                <GaugeArc value={soc} max={100} color="#22d3ee" valueText={`${soc.toFixed(2)}%`} caption="SOC" showRange />
+                <GaugeArc
+                  value={efficiency}
+                  max={100}
+                  color="#34d399"
+                  valueText={`${efficiency.toFixed(2)}%`}
+                  caption={zh ? "综合效率" : "Efficiency"}
+                  showRange
+                />
               </div>
-              <div>
-                <ChipLabel text={zh ? "直流断路器" : "DC Breaker"} />
-                <div className="mt-2">
-                  <StatTile label={zh ? "直流功率" : "DC P"} value={dcPower.toFixed(1)} unit="kW" />
-                  <StatTile label={zh ? "直流电流" : "DC I"} value={dcCurrent.toFixed(1)} unit="A" />
-                  <StatTile label={zh ? "直流电压" : "DC V"} value={dcVoltage.toFixed(1)} unit="V" />
-                </div>
+            </Panel>
+
+            <Panel title={zh ? "输出线电压" : "Output Line Voltage"}>
+              <div className="flex h-full items-center justify-around">
+                <GaugeArc value={vab} max={450} color="#60a5fa" valueText={`${vab.toFixed(0)}V`} caption={zh ? "AB线电压" : "Vab"} size={108} />
+                <GaugeArc value={vbc} max={450} color="#38bdf8" valueText={`${vbc.toFixed(0)}V`} caption={zh ? "BC线电压" : "Vbc"} size={108} />
+                <GaugeArc value={vca} max={450} color="#22d3ee" valueText={`${vca.toFixed(0)}V`} caption={zh ? "CA线电压" : "Vca"} size={108} />
               </div>
-            </div>
-
-            {/* schematic */}
-            <div className="flex w-[112px] shrink-0 flex-col items-center justify-center">
-              {/* AC busbar */}
-              <div className="ops-busbar h-[5px] w-[78px]" />
-              <Wire color="#4dd0ff" height={12} flow />
-              <Breaker color="#ff3b30" />
-              <Wire color="#4dd0ff" height={8} flow />
-              <InverterSymbol />
-              <Wire color="#4dd0ff" height={8} flow />
-              <IconImg src={`${ICONS}/pcs.png`} alt="PCS" height={62} />
-              <Wire color="#4dd0ff" height={10} flow />
-              {/* DC busbar */}
-              <div className="ops-busbar h-[5px] w-[78px]" />
-            </div>
+            </Panel>
           </div>
-        </Panel>
 
-        <Panel title={zh ? "运行指标" : "Indicators"}>
-          <div className="flex h-full items-center justify-around">
-            <GaugeArc value={soc} max={100} color="#22d3ee" valueText={`${soc.toFixed(2)}%`} caption="SOC" showRange  />
-            <GaugeArc
-              value={efficiency}
-              max={100}
-              color="#34d399"
-              valueText={`${efficiency.toFixed(2)}%`}
-              caption={zh ? "综合效率" : "Efficiency"}
-              showRange
-            />
-          </div>
-        </Panel>
+          {/* Right row 2 — 运行状态 · 交流电流 */}
+          <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
+            <Panel title={zh ? "运行状态" : "Status"}>
+              <div className="flex h-full min-h-0 flex-col gap-2">
+                <StatusTile label={zh ? "PCS在线状态" : "PCS Online"} value={zh ? "在线" : "Online"} tone="#4ade80" icon={Wifi} />
+                <StatusTile label={zh ? "工作状态" : "Work Mode"} value={zh ? "并网运行" : "On-grid"} tone="#22d3ee" icon={Network} />
+                <StatusTile label={zh ? "充放电功率" : "C/D Power"} value={`${chargePower.toFixed(1)} kW`} tone="#facc15" icon={Activity} />
+              </div>
+            </Panel>
 
-        <Panel title={zh ? "输出线电压" : "Output Line Voltage"}>
-          <div className="flex h-full items-center justify-around">
-            <GaugeArc value={vab} max={450} color="#60a5fa" valueText={`${vab.toFixed(0)}V`} caption={zh ? "AB线电压" : "Vab"} size={108} />
-            <GaugeArc value={vbc} max={450} color="#38bdf8" valueText={`${vbc.toFixed(0)}V`} caption={zh ? "BC线电压" : "Vbc"} size={108} />
-            <GaugeArc value={vca} max={450} color="#22d3ee" valueText={`${vca.toFixed(0)}V`} caption={zh ? "CA线电压" : "Vca"} size={108} />
+            <Panel title={zh ? "交流电流（ABC三相）" : "AC Current (A/B/C)"}>
+              <div className="h-full min-h-0 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={acCurrentData} margin={{ top: 6, right: 10, bottom: 0, left: -8 }}>
+                    <CartesianGrid stroke="rgba(45,74,126,0.5)" strokeDasharray="3 5" vertical={false} />
+                    <XAxis dataKey="t" tick={{ fill: "#7fa6c0", fontSize: 10 }} interval={3} axisLine={{ stroke: "#1f4366" }} tickLine={false} />
+                    <YAxis tick={{ fill: "#7fa6c0", fontSize: 10 }} axisLine={false} tickLine={false} width={42} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#9fd6e8" }} />
+                    <Legend
+                      verticalAlign="bottom"
+                      height={24}
+                      content={() => <ToggleLegend series={AC_SERIES} hidden={acToggle.hidden} onToggle={acToggle.toggle} zh={zh} />}
+                    />
+                    {AC_SERIES.map((s) => (
+                      <Line
+                        key={s.key}
+                        type="monotone"
+                        dataKey={s.key}
+                        name={zh ? s.zh : s.en}
+                        stroke={s.color}
+                        strokeWidth={1.6}
+                        dot={false}
+                        isAnimationActive={false}
+                        hide={!!acToggle.hidden[s.key]}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </Panel>
           </div>
-        </Panel>
+        </div>
       </div>
 
-      {/* Row 2 — status cards · AC current trend */}
-      <div className="grid shrink-0 grid-cols-1 gap-3 lg:grid-cols-3">
-        <Panel title={zh ? "运行状态" : "Status"}>
-          <div className="flex h-full gap-2">
-            <StatusTile label={zh ? "PCS在线状态" : "PCS Online"} value={zh ? "在线" : "Online"} tone="#4ade80" />
-            <StatusTile label={zh ? "工作状态" : "Work Mode"} value={zh ? "并网运行" : "On-grid"} tone="#22d3ee" />
-            <StatusTile label={zh ? "充放电功率" : "C/D Power"} value={`${chargePower.toFixed(1)} kW`} tone="#facc15" />
-          </div>
-        </Panel>
-
-        <Panel title={zh ? "交流电流" : "AC Current"} className="lg:col-span-2">
-          <div className="h-[200px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={acCurrentData} margin={{ top: 6, right: 10, bottom: 0, left: -8 }}>
-                <defs>
-                  <linearGradient id="pcs-ia" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#a78bfa" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="rgba(45,74,126,0.5)" strokeDasharray="3 5" vertical={false} />
-                <XAxis dataKey="t" tick={{ fill: "#7fa6c0", fontSize: 10 }} interval={3} axisLine={{ stroke: "#1f4366" }} tickLine={false} />
-                <YAxis tick={{ fill: "#7fa6c0", fontSize: 10 }} axisLine={false} tickLine={false} width={42} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#9fd6e8" }} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Area type="monotone" dataKey="A" name={zh ? "A相电流" : "Ia"} stroke="#a78bfa" fill="url(#pcs-ia)" strokeWidth={1.6} dot={false} isAnimationActive={false} />
-                <Line type="monotone" dataKey="B" name={zh ? "B相电流" : "Ib"} stroke="#22d3ee" strokeWidth={1.6} dot={false} isAnimationActive={false} />
-                <Line type="monotone" dataKey="C" name={zh ? "C相电流" : "Ic"} stroke="#facc15" strokeWidth={1.6} dot={false} isAnimationActive={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-      </div>
-
-      {/* Row 3 — fault matrix */}
+      {/* Bottom — fault matrix */}
       <FaultMatrix title={zh ? "故障状态" : "Fault Status"} items={PCS_FAULTS} />
     </div>
   )
 }
 
 // ─────────────────────────── EMS overview ───────────────────────────
-function CabinetColumn({ name, seed }: { name: string; seed: string }) {
-  const { language } = useLanguage()
-  const zh = language === "zh"
-  return (
-    <div className="flex flex-col items-center">
-      {/* drop line + breaker from busbar */}
-      <Wire color="#4dd0ff" height={10} flow />
-      <Breaker color="#ff3b30" />
-      <Wire color="#4dd0ff" height={6} flow />
-      <IconImg src={`${ICONS}/pcs.png`} alt={name} height={52} />
-      <span className="mt-0.5 text-[11px] font-semibold text-[#ff8a8a]">{name}</span>
-      <div className={`${PANEL_CLASS} mt-1.5 w-full px-2.5 py-1.5`}>
-        <StatTile label={zh ? "平均温度" : "Avg Temp"} value={pick(`${seed}:t`, 26, 31).toFixed(1)} unit="℃" />
-        <StatTile label={zh ? "簇电压" : "Cluster V"} value={pick(`${seed}:v`, 760, 790).toFixed(1)} unit="V" />
-        <StatTile label={zh ? "簇电流" : "Cluster A"} value={pick(`${seed}:a`, 30, 60).toFixed(2)} unit="A" />
-        <StatTile label={zh ? "直流功率" : "DC Power"} value={pick(`${seed}:p`, 30, 50).toFixed(2)} unit="kW" />
-        <StatTile label="SOC" value={pick(`${seed}:s`, 45, 60).toFixed(2)} unit="%" />
-        <StatTile label={zh ? "工作状态" : "Status"} value={zh ? "并网运行" : "On-grid"} accent />
-      </div>
-    </div>
-  )
-}
-
-function MeterRow({ icon, label, value, wireColor }: { icon: string; label: string; value: string; wireColor: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <IconImg src={icon} alt={label} height={34} />
-      <div className="flex items-center" style={{ color: wireColor }}>
-        <span className="ops-wire-flow-x block h-[2px] w-5" />
-        <Breaker color={wireColor} />
-        <span className="ops-wire-flow-x block h-[2px] w-4" />
-      </div>
-      <div className="flex flex-col">
-        <span className="text-[11px] text-[#9fd6e8]">{label}</span>
-        <span className="text-[12.5px] font-semibold text-[#dffefe]">{value}</span>
-      </div>
-    </div>
-  )
-}
+// 功率曲线系列（图例点击切换显隐，风格同 PCS 交流电流）
+const POWER_SERIES: readonly ChartSeries[] = [
+  { key: "grid", color: "#a78bfa", zh: "市电总功率", en: "Grid" },
+  { key: "load", color: "#60a5fa", zh: "负载功率", en: "Load" },
+  { key: "charge", color: "#f59e0b", zh: "充电设定", en: "Charge" },
+  { key: "discharge", color: "#34d399", zh: "放电设定", en: "Discharge" },
+]
 
 export function EmsOverview({ deviceId, deviceName }: { deviceId?: string; deviceName: string; projectId: string }) {
   const { language } = useLanguage()
   const zh = language === "zh"
   const seed = deviceId || deviceName || "ems"
 
-  const stackVoltage = pick(`${seed}:sv`, 760, 790)
-  const stackCurrent = pick(`${seed}:sc`, 150, 230)
   const storagePower = pick(`${seed}:sp`, 120, 180)
   const stackSoc = pick(`${seed}:ss`, 40, 70)
   const dayCharge = pick(`${seed}:dc`, 800, 1000)
   const dayDischarge = pick(`${seed}:dd`, 600, 800)
-  const totalCharge = pick(`${seed}:tc`, 140000, 150000)
-  const totalDischarge = pick(`${seed}:td`, 135000, 145000)
-  const gatewayPower = pick(`${seed}:gw`, 8, 18)
-  const gridPower = pick(`${seed}:gp`, 30, 45)
+
+  // 功率图例显隐（点击切换，至少保留一条）
+  const powerToggle = useSeriesToggle(POWER_SERIES)
+  const [topoFullscreen, setTopoFullscreen] = useState(false)
 
   const socData = useMemo(() => {
     const series = buildCurve(`${seed}:soc`, HOURS, 35, 92, 0.6)
@@ -601,62 +552,20 @@ export function EmsOverview({ deviceId, deviceName }: { deviceId?: string; devic
     }))
   }, [seed])
 
-  const cabinets = useMemo(
-    () => [1, 2, 3, 4].map((n) => ({ name: `${n}#${zh ? "柜" : ""}`, seed: `${seed}:cab${n}` })),
-    [seed, zh]
-  )
-
   return (
-    <div className="custom-scrollbar flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-1">
-      <SampleBadge />
-
-      <div className="grid min-h-0 grid-cols-1 gap-3 xl:grid-cols-12">
-        {/* Left — station single-line diagram */}
-        <Panel title={zh ? "系统拓扑" : "System Topology"} className="xl:col-span-7">
-          <div className="flex flex-col gap-2">
-            {/* grid tower */}
-            <div className="flex flex-col items-center">
-              <IconImg src="/topo/grid.png" alt="Grid" height={108} />
-              <span className="-mt-2 text-[11px] text-[#9fd6e8]">{zh ? "电网" : "Grid"}</span>
-              <Wire color="#4dd0ff" height={10} flow />
-            </div>
-
-            {/* meters · load · summary */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-y border-[#16344f]/70 py-2">
-              <div className="flex flex-col gap-2">
-                <MeterRow icon="/topo/meter.svg" label={zh ? "关口表" : "Gateway"} value={`${gatewayPower.toFixed(0)} kW`} wireColor="#3ae29a" />
-                <MeterRow icon="/topo/meter.svg" label={zh ? "并网表" : "Grid Meter"} value={`${gridPower.toFixed(2)} kW`} wireColor="#ff6b6b" />
-              </div>
-              <div className="flex flex-col items-center">
-                <IconImg src="/topo/load.png" alt="Load" height={92} />
-                <span className="-mt-2 text-[11px] text-[#9fd6e8]">{zh ? "用户负载" : "Load"}</span>
-              </div>
-              <div className="rounded-lg border border-[#1f4a6b] bg-[rgba(8,20,34,0.5)] px-3 py-1.5">
-                <div className="grid grid-cols-2 gap-x-5">
-                  <StatTile label={zh ? "堆电压" : "Stack V"} value={stackVoltage.toFixed(1)} unit="V" />
-                  <StatTile label={zh ? "储能功率" : "Power"} value={storagePower.toFixed(0)} unit="kW" />
-                  <StatTile label={zh ? "堆电流" : "Stack A"} value={stackCurrent.toFixed(1)} unit="A" />
-                  <StatTile label={zh ? "堆SOC" : "Stack SOC"} value={stackSoc.toFixed(2)} unit="%" />
-                  <StatTile label={zh ? "累计充电量" : "Total Chg"} value={totalCharge.toFixed(0)} unit="kWh" accent />
-                  <StatTile label={zh ? "累计放电量" : "Total Dis"} value={totalDischarge.toFixed(0)} unit="kWh" accent />
-                </div>
-              </div>
-            </div>
-
-            {/* main busbar */}
-            <div className="ops-busbar mt-1 h-[6px] w-full" />
-
-            {/* cabinets */}
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {cabinets.map((cab) => (
-                <CabinetColumn key={cab.name} name={cab.name} seed={cab.seed} />
-              ))}
-            </div>
-          </div>
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-12">
+        {/* Left — EMS topology, rendered from public/topo-ems.json (shared canvas: zoom/drag/auto-fit) */}
+        <Panel
+          title={zh ? "系统拓扑" : "System Topology"}
+          className="xl:col-span-7"
+          action={<TopoFullscreenButton onClick={() => setTopoFullscreen(true)} />}
+        >
+          <TopoCanvas url="/topo-ems.json" fullscreen={topoFullscreen} onExitFullscreen={() => setTopoFullscreen(false)} />
         </Panel>
 
         {/* Right — KPIs + charts */}
-        <div className="flex min-h-0 flex-col gap-3 xl:col-span-5">
+        <div className="flex min-h-0 flex-col gap-2 xl:col-span-5">
           <div className="grid grid-cols-2 gap-2">
             <KpiCard label={zh ? "堆SOC" : "Stack SOC"} value={stackSoc.toFixed(2)} unit="%" />
             <KpiCard label={zh ? "储能功率" : "Power"} value={storagePower.toFixed(0)} unit="kW" />
@@ -664,8 +573,8 @@ export function EmsOverview({ deviceId, deviceName }: { deviceId?: string; devic
             <KpiCard label={zh ? "BMS日放电量" : "Day Discharge"} value={dayDischarge.toFixed(2)} unit="kWh" />
           </div>
 
-          <Panel title="SOC">
-            <div className="h-[140px] w-full">
+          <Panel title="SOC" className="flex-1">
+            <div className="h-full min-h-[90px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={socData} margin={{ top: 6, right: 10, bottom: 0, left: -10 }}>
                   <defs>
@@ -684,19 +593,32 @@ export function EmsOverview({ deviceId, deviceName }: { deviceId?: string; devic
             </div>
           </Panel>
 
-          <Panel title={zh ? "功率" : "Power"}>
-            <div className="h-[150px] w-full">
+          <Panel title={zh ? "功率" : "Power"} className="flex-1">
+            <div className="h-full min-h-[90px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={powerData} margin={{ top: 6, right: 10, bottom: 0, left: -10 }}>
                   <CartesianGrid stroke="rgba(45,74,126,0.5)" strokeDasharray="3 5" vertical={false} />
                   <XAxis dataKey="t" tick={{ fill: "#7fa6c0", fontSize: 10 }} interval={3} axisLine={{ stroke: "#1f4366" }} tickLine={false} />
                   <YAxis tick={{ fill: "#7fa6c0", fontSize: 10 }} axisLine={false} tickLine={false} width={36} />
                   <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "#9fd6e8" }} />
-                  <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Line type="monotone" dataKey="grid" name={zh ? "市电总功率" : "Grid"} stroke="#a78bfa" strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="load" name={zh ? "负载功率" : "Load"} stroke="#60a5fa" strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="charge" name={zh ? "充电设定" : "Charge"} stroke="#f59e0b" strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="discharge" name={zh ? "放电设定" : "Discharge"} stroke="#34d399" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={22}
+                    content={() => <ToggleLegend series={POWER_SERIES} hidden={powerToggle.hidden} onToggle={powerToggle.toggle} zh={zh} />}
+                  />
+                  {POWER_SERIES.map((s) => (
+                    <Line
+                      key={s.key}
+                      type="monotone"
+                      dataKey={s.key}
+                      name={zh ? s.zh : s.en}
+                      stroke={s.color}
+                      strokeWidth={1.5}
+                      dot={false}
+                      isAnimationActive={false}
+                      hide={!!powerToggle.hidden[s.key]}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>

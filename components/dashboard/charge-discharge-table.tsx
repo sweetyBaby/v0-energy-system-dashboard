@@ -174,35 +174,45 @@ function HeroStatCard({ card, zh, base }: { card: HeroCard; zh: boolean; base: n
 
         {/* details */}
         <div className="flex flex-1 flex-col justify-around min-h-0">
-          {card.details.map((detail, idx) => (
-            <div key={detail.labelEn} className="flex items-center justify-between" style={{ gap: "4px" }}>
-              <span
-                className="shrink-0 font-medium leading-none text-[#b8d4f8]/88"
-                style={{ fontSize: overviewClampText(0.8, 0.96, 1.16) }}
-              >
-                {zh ? detail.labelZh : detail.labelEn}
-              </span>
-              {idx < card.details.length - 1 ? (
-                <div className="h-px flex-1 bg-[linear-gradient(90deg,rgba(196,230,255,0.3),transparent)]" />
-              ) : (
-                <div className="flex-1" />
-              )}
-              <div className="flex shrink-0 items-baseline" style={{ gap: "2px" }}>
+          {card.details.map((detail, idx) => {
+            // 「累计」一行用主题色高亮，更醒目
+            const isTotal = detail.labelZh === "累计" || detail.labelEn === "Total"
+            return (
+              <div key={detail.labelEn} className="flex items-center justify-between" style={{ gap: "4px" }}>
                 <span
-                  className="font-semibold tabular-nums leading-none text-[#f2f8ff]"
-                  style={{
-                    fontSize: overviewClampText(0.96, 1.12, 1.38),
-                    textShadow: `0 0 8px ${card.accent}33, 0 2px 6px rgba(0,0,0,0.4)`,
-                  }}
+                  className={`shrink-0 leading-none ${isTotal ? "font-semibold" : "font-medium text-[#b8d4f8]/88"}`}
+                  style={{ fontSize: overviewClampText(0.8, 0.96, 1.16), color: isTotal ? card.accent : undefined }}
                 >
-                  {detail.value}
+                  {zh ? detail.labelZh : detail.labelEn}
                 </span>
-                <span className="leading-none text-[#d8eeff]/85" style={{ fontSize: overviewClampText(0.78, 0.9, 1.08) }}>
-                  {detail.unit}
-                </span>
+                {idx < card.details.length - 1 ? (
+                  <div className="h-px flex-1 bg-[linear-gradient(90deg,rgba(196,230,255,0.3),transparent)]" />
+                ) : (
+                  <div className="flex-1" />
+                )}
+                <div className="flex shrink-0 items-baseline" style={{ gap: "2px" }}>
+                  <span
+                    className={`tabular-nums leading-none ${isTotal ? "font-bold" : "font-semibold text-[#f2f8ff]"}`}
+                    style={{
+                      fontSize: overviewClampText(isTotal ? 1.02 : 0.96, isTotal ? 1.2 : 1.12, isTotal ? 1.5 : 1.38),
+                      color: isTotal ? card.accent : undefined,
+                      textShadow: isTotal
+                        ? `0 0 12px ${card.accent}66, 0 2px 6px rgba(0,0,0,0.45)`
+                        : `0 0 8px ${card.accent}33, 0 2px 6px rgba(0,0,0,0.4)`,
+                    }}
+                  >
+                    {detail.value}
+                  </span>
+                  <span
+                    className="leading-none"
+                    style={{ fontSize: overviewClampText(0.78, 0.9, 1.08), color: isTotal ? card.accent : "rgba(216,238,255,0.85)" }}
+                  >
+                    {detail.unit}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </TileFrame>
@@ -315,26 +325,27 @@ export function ChargeDischargeTable() {
     },
   ]
 
+  // 收益统计后端暂无字段，先用占位值（--元）展示，待接口接入后替换
   const totalCards = [
     {
-      key: "charge-total",
-      labelZh: "累计充电量",
-      labelEn: "Total Charge",
-      value: selectedProject.overviewMetrics.totalCharge,
-      unit: "MWh",
+      key: "yesterday-revenue",
+      labelZh: "昨日收益",
+      labelEn: "Yesterday Revenue",
+      value: PLACEHOLDER,
+      unit: zh ? "元" : "CNY",
       accent: "#8af7bc",
       glow: "rgba(92,247,191,0.35)",
     },
     {
-      key: "discharge-total",
-      labelZh: "累计放电量",
-      labelEn: "Total Discharge",
-      value: selectedProject.overviewMetrics.totalDischarge,
-      unit: "MWh",
+      key: "total-revenue",
+      labelZh: "总收益",
+      labelEn: "Total Revenue",
+      value: PLACEHOLDER,
+      unit: zh ? "元" : "CNY",
       accent: "#ffb347",
       glow: "rgba(255,179,71,0.35)",
     },
-  ] as const
+  ]
 
   return (
     <div
