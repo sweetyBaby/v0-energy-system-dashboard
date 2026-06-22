@@ -129,7 +129,7 @@ export function DashboardSidebar({
   const { language } = useLanguage()
   const zh = language === "zh"
 
-  const collapsedW = 68
+  const collapsedW = 54
   const collapseLabel = zh ? "折叠菜单" : "Collapse menu"
   const expandLabel = zh ? "展开菜单" : "Expand menu"
   const backToMapLabel = zh ? "项目地图" : "Project Map"
@@ -434,14 +434,18 @@ export function DashboardSidebar({
             type="button"
             onClick={() => router.push(backToMapHref)}
             title={!expanded ? backToMapLabel : undefined}
-            className={`relative inline-flex w-full items-center overflow-hidden text-[11px] font-semibold text-[#9cc6d8] outline-none transition-all hover:bg-[rgba(14,33,52,0.72)] hover:text-[#dffbff] focus:outline-none focus-visible:outline-none ${
+            className={`relative inline-flex w-full items-center overflow-hidden rounded-lg border border-[#2f9bb0]/55 bg-[linear-gradient(135deg,rgba(13,86,102,0.55),rgba(8,40,60,0.5))] text-[11px] font-semibold text-[#cdf6f0] shadow-[inset_0_1px_0_rgba(152,232,255,0.1)] outline-none transition-all hover:border-[#45f1d0]/80 hover:bg-[linear-gradient(135deg,rgba(15,108,126,0.72),rgba(8,50,70,0.66))] hover:text-[#eafdff] hover:shadow-[0_0_14px_rgba(38,240,220,0.28)] focus:outline-none focus-visible:outline-none ${
               expanded
-                ? "h-[34px] justify-start gap-2 rounded-lg px-3"
-                : "h-[34px] justify-center rounded-lg px-0"
+                ? "h-[36px] justify-start gap-2 px-3"
+                : "h-[40px] justify-center px-0"
             }`}
           >
-            <Map className="h-4 w-4 shrink-0 text-[#7cc1d4] transition-colors group-hover:text-[#b7f2ff]" />
-            {expanded ? <span className="tracking-[0.08em]">{backToMapLabel}</span> : null}
+            <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_50%,rgba(38,240,220,0.16),transparent_55%)]" />
+            <Map
+              className="relative shrink-0 text-[#33ecdd] drop-shadow-[0_0_5px_rgba(38,240,220,0.6)] transition-colors group-hover:text-[#7ff8f0]"
+              style={{ width: expanded ? "16px" : "19px", height: expanded ? "16px" : "19px" }}
+            />
+            {expanded ? <span className="relative tracking-[0.08em]">{backToMapLabel}</span> : null}
           </button>
 
           {!expanded && (
