@@ -30,6 +30,7 @@ import {
 import { BcuSelector } from "@/components/dashboard/bcu-selector"
 import { DeviceVariableTree, type TreeDevice } from "@/components/dashboard/device-selection-tree"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
+import { TrendRangePicker } from "@/components/dashboard/trend-range-picker"
 import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
 import { DASHBOARD_DENSE_PANEL_SCALE, useFluidScale } from "@/hooks/use-fluid-scale"
@@ -152,11 +153,6 @@ const toLocalInput = (ms: number) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
     date.getMinutes()
   )}:${pad(date.getSeconds())}`
-}
-
-const fromLocalInput = (value: string) => {
-  const ms = new Date(value).getTime()
-  return Number.isNaN(ms) ? null : ms
 }
 
 const formatTick = (time: number, spanMs: number) => {
@@ -789,42 +785,22 @@ export function TrendWorkspace({
           )}
 
           {!isStatus ? (
-            <div
-              className={`ml-auto flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 ${
-                rangeValid ? "border-[#27496f]" : "border-[#ef4444]/70"
-              } bg-[#101840]/80`}
-              style={{ colorScheme: "dark", accentColor: "#22d3ee" }}
-            >
-              <Clock className="h-3.5 w-3.5 shrink-0 text-[#5d9fd6]" />
-              <input
-                type="datetime-local"
-                step={1}
-                value={toLocalInput(startTime)}
-                onChange={(event) => {
-                  const ms = fromLocalInput(event.target.value)
-                  if (ms != null) setStartTime(ms)
-                }}
-                className="bg-transparent text-[#dbeaff] outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:transition-opacity hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
-                style={{ fontSize: controlSize, accentColor: "#22d3ee" }}
-              />
-              <span className="text-[#5d7299]">-</span>
-              <input
-                type="datetime-local"
-                step={1}
-                value={toLocalInput(endTime)}
-                onChange={(event) => {
-                  const ms = fromLocalInput(event.target.value)
-                  if (ms != null) setEndTime(ms)
-                }}
-                className="bg-transparent text-[#dbeaff] outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:transition-opacity hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
-                style={{ fontSize: controlSize, accentColor: "#22d3ee" }}
-              />
-            </div>
+            <TrendRangePicker
+              startTime={startTime}
+              endTime={endTime}
+              onChange={({ startTime: nextStart, endTime: nextEnd }) => {
+                setStartTime(nextStart)
+                setEndTime(nextEnd)
+              }}
+              zh={zh}
+              fontSize={controlSize}
+              valid={rangeValid}
+            />
           ) : (
             <div className="ml-auto flex items-center gap-3">
               <span className="flex items-center gap-1.5 text-[#9bc4e8]" style={{ fontSize: controlSize }}>
                 <Clock className="h-3.5 w-3.5 text-[#5d9fd6]" />
-                {zh ? "今日" : "Today"} 00:00 - {lastUpdated ? formatFullTime(lastUpdated).slice(11) : "--:--:--"}
+                {zh ? "今日" : "Today"} 00:00:00 - {lastUpdated ? formatFullTime(lastUpdated).slice(11) : "--:--:--"}
               </span>
               <label className="flex cursor-pointer items-center gap-1.5 text-[#9bc4e8]" style={{ fontSize: controlSize }}>
                 <input

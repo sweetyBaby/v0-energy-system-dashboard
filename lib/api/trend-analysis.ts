@@ -190,8 +190,8 @@ export const TREND_INTERVALS: { value: TrendIntervalSeconds; zh: string; en: str
   { value: 86400, zh: "1天", en: "1 day" },
 ]
 
-/** Default working window for a fresh trend query: the last 12 hours. */
-export const TREND_DEFAULT_RANGE_MS = 12 * 60 * 60 * 1000
+/** Default working window for a fresh trend query: the last 6 hours. */
+export const TREND_DEFAULT_RANGE_MS = 6 * 60 * 60 * 1000
 
 /** Base cadence (seconds) used to synthesize "原始/Raw" mock points. */
 const RAW_BASE_INTERVAL_SECONDS = 60
