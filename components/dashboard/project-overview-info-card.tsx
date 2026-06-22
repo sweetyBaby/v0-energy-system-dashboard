@@ -20,9 +20,10 @@ function useOverviewFontBase(ref: React.RefObject<HTMLDivElement | null>) {
     if (!el) return
 
     const calc = (w: number, h: number) => {
-      // 字号基准随容器尺寸自适应；提高下限/上限，避免笔记本小屏下文字过小
-      const next = Math.min(w, h * 1.05) * 0.031
-      setBase(Math.max(15, Math.min(next, 19.5)))
+      // 字号基准随容器尺寸自适应。同时跟踪宽与高：大屏时卡片更高（格子更高），
+      // 基准随高度增大，内容随之放大填满格子，避免"图片下方区域太空"。
+      const next = Math.min(w * 0.046, h * 0.041)
+      setBase(Math.max(15, Math.min(next, 26)))
     }
 
     const ro = new ResizeObserver((entries) => {
@@ -122,7 +123,7 @@ export function ProjectOverviewInfoCard() {
       <div className="flex min-h-0 flex-1 flex-col" style={{ gap: "calc(var(--overview-root-size, 15px) * 0.26)" }}>
         <div
           className="relative shrink-0 overflow-hidden rounded-[14px] border border-[#68d9ff]/22 bg-[#071a34] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.16)]"
-          style={{ height: "clamp(92px, calc(var(--overview-root-size, 15px) * 6.7), 126px)" }}
+          style={{ height: "clamp(96px, calc(var(--overview-root-size, 15px) * 6.7), 190px)" }}
         >
           <img
             src={projectThumbnail}
@@ -139,7 +140,7 @@ export function ProjectOverviewInfoCard() {
           <div className="pointer-events-none absolute bottom-0 left-4 right-4 h-px bg-[linear-gradient(90deg,transparent,rgba(95,208,255,0.85),transparent)]" />
           <div
             className="absolute bottom-2 left-3 right-3 truncate font-semibold tracking-[0.02em] text-[#effaff] drop-shadow-[0_2px_8px_rgba(0,0,0,0.75)]"
-            style={{ fontSize: clampText(0.82, 0.94, 1.12) }}
+            style={{ fontSize: clampText(0.82, 0.94, 1.55) }}
           >
             {zh ? selectedProject.projectName : selectedProject.projectNameEn || selectedProject.projectName}
           </div>
@@ -148,25 +149,25 @@ export function ProjectOverviewInfoCard() {
           {profileRows.map((row) => (
             <div
               key={row.labelEn}
-              className="flex min-h-0 items-center gap-2 overflow-hidden rounded-[8px] border border-[#5fd0ff]/12 bg-[#071b38]/42 px-2.5"
+              className="flex min-h-0 items-center gap-2 overflow-hidden rounded-[8px] border border-[#6fd8ff]/24 bg-[linear-gradient(150deg,rgba(36,84,150,0.5),rgba(20,52,98,0.42))] px-2.5 shadow-[inset_0_1px_0_rgba(180,232,255,0.1)]"
             >
               <span
-                className="flex shrink-0 items-center justify-center rounded-[7px] border border-[#5fd0ff]/24 bg-[#0a2142]/70 leading-none"
-                style={{ width: "1.78em", height: "1.78em", fontSize: clampText(0.78, 0.9, 1.08) }}
+                className="flex shrink-0 items-center justify-center rounded-[7px] border border-[#7fdcff]/32 bg-[linear-gradient(150deg,rgba(28,72,128,0.9),rgba(16,46,90,0.82))] leading-none shadow-[inset_0_1px_0_rgba(190,235,255,0.12)]"
+                style={{ width: "1.78em", height: "1.78em", fontSize: clampText(0.78, 0.9, 1.5) }}
               >
                 {row.icon}
               </span>
               {/* 上下两行：标签在上、数值在下 */}
               <div className="flex min-w-0 flex-1 flex-col justify-center" style={{ gap: "calc(var(--overview-root-size, 15px) * 0.08)" }}>
-                <span className="truncate leading-tight text-[#9ec4e8]" style={{ fontSize: clampText(0.72, 0.82, 0.94) }}>
+                <span className="truncate leading-tight text-[#9ec4e8]" style={{ fontSize: clampText(0.72, 0.82, 1.3) }}>
                   {zh ? row.labelZh : row.labelEn}
                 </span>
                 <div
                   className="overflow-hidden font-semibold leading-tight tabular-nums text-[#eaf6ff]"
                   style={{
                     fontSize: META_TEXT_VALUE_LABELS.has(row.labelEn)
-                      ? clampText(0.8, 0.92, 1.05)
-                      : clampText(0.86, 1.0, 1.15),
+                      ? clampText(0.8, 0.92, 1.45)
+                      : clampText(0.86, 1.0, 1.62),
                     textShadow: "0 1px 6px rgba(0,0,0,0.6)",
                   }}
                   title={row.value}
