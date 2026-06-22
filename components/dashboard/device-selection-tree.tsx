@@ -69,7 +69,6 @@ export function DeviceVariableTree({
   value,
   onChange,
   maxSelection,
-  colorByNode,
   zh,
   title,
   labelSize,
@@ -80,7 +79,6 @@ export function DeviceVariableTree({
   value: Set<string>
   onChange: (next: Set<string>) => void
   maxSelection: number
-  colorByNode?: Map<string, string>
   zh: boolean
   title: string
   labelSize: number
@@ -183,16 +181,28 @@ export function DeviceVariableTree({
       className="flex min-h-0 shrink-0 flex-col rounded-xl border border-[#1a2654] bg-[#0d1233]"
       style={{ width }}
     >
-      <div className="flex items-center justify-between border-b border-[#1a2654] px-3 py-2.5">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 border-b border-[#1a2654] px-3 py-2.5">
+        <div className="flex min-w-0 items-center gap-2">
           <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
-          <h3 className="font-semibold text-[#00d4aa]" style={{ fontSize: titleSize }}>
+          <h3 className="truncate font-semibold text-[#00d4aa]" style={{ fontSize: titleSize }}>
             {title}
           </h3>
         </div>
-        <span className="rounded-full bg-[#1a2654] px-2 py-0.5 font-mono text-[#7fdfff]" style={{ fontSize: labelSize - 1 }}>
-          {value.size}/{maxSelection}
-        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="rounded-full bg-[#1a2654] px-2 py-0.5 font-mono text-[#7fdfff]" style={{ fontSize: labelSize - 1 }}>
+            {value.size}/{maxSelection}
+          </span>
+          <button
+            type="button"
+            onClick={() => onChange(new Set())}
+            disabled={value.size === 0}
+            title={zh ? "取消勾选" : "Clear selection"}
+            aria-label={zh ? "取消勾选" : "Clear selection"}
+            className="flex h-[22px] w-[22px] items-center justify-center rounded-md border border-[#27496f] bg-[#101840]/80 text-[#9bc4e8] transition-colors hover:border-[#ff8da3]/55 hover:text-[#ff8da3] disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       <div className="px-2.5 pb-1.5 pt-2">
@@ -254,9 +264,6 @@ export function DeviceVariableTree({
                     <span className="truncate font-medium text-[#cfe4ff]" style={{ fontSize: labelSize }}>
                       {device.deviceName}
                     </span>
-                    <span className="ml-auto shrink-0 rounded bg-[#1a2654] px-1.5 py-0.5 font-mono text-[#7fdfff]" style={{ fontSize: labelSize - 2 }}>
-                      {kindLabel}
-                    </span>
                   </button>
                 </div>
 
@@ -300,7 +307,7 @@ export function DeviceVariableTree({
                                 checked ? "bg-[#0f2030]" : "hover:bg-[#16213f]/70"
                               } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
                             >
-                              <TriCheckbox state={checked ? "all" : "none"} color={colorByNode?.get(nodeId)} />
+                              <TriCheckbox state={checked ? "all" : "none"} />
                               <span className="truncate" style={{ fontSize: labelSize, color: checked ? "#e6f4ff" : "#9fb6d6" }}>
                                 {zh ? variable.nameZh : variable.nameEn}
                               </span>
@@ -381,7 +388,7 @@ export function DeviceVariableTree({
                                               checked ? "bg-[#0f2030]" : "hover:bg-[#16213f]/70"
                                             } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
                                           >
-                                            <TriCheckbox state={checked ? "all" : "none"} color={colorByNode?.get(nodeId)} />
+                                            <TriCheckbox state={checked ? "all" : "none"} />
                                             <span
                                               className="truncate"
                                               style={{ fontSize: labelSize, color: checked ? "#e6f4ff" : "#9fb6d6" }}

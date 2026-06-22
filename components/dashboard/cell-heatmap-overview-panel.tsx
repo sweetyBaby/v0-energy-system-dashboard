@@ -170,7 +170,7 @@ function HeatmapCard({
             {title}
           </h3>
         </div>
-        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{children}</div>
+        <div className="min-h-0 min-w-0 overflow-hidden">{children}</div>
       </div>
     </section>
   )
@@ -193,8 +193,14 @@ function HeatmapGrid({
 
   return (
     <div
-      className="grid h-full min-h-0 min-w-0 flex-1 grid-cols-6 gap-1"
-      style={{ gridTemplateRows: `repeat(${RACK_LAYOUT.length}, minmax(0, 1fr))` }}
+      className="grid h-full min-h-0 shrink-0 grid-cols-6 gap-1"
+      style={{
+        gridTemplateRows: `repeat(${RACK_LAYOUT.length}, minmax(0, 1fr))`,
+        // Lock the grid to the cell matrix ratio so the 电芯 blocks stay square
+        // (never horizontally stretched); width is derived from the row height.
+        aspectRatio: `6 / ${RACK_LAYOUT.length}`,
+        maxWidth: "100%",
+      }}
     >
       {RACK_LAYOUT.flatMap((row, rowIndex) =>
         row.map((cellId, cellIndex) => {
@@ -494,7 +500,7 @@ export function CellHeatmapOverviewPanel({ deviceId }: { deviceId?: string }) {
           <HistoryStyleLoadingIndicator text={zh ? "加载热力图数据..." : "Loading heatmap..."} variant="overlay" />
         </div>
       )}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-1 md:grid-cols-2 md:grid-rows-2">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-1 md:grid-cols-[auto_auto] md:grid-rows-2 md:self-start">
         <HeatmapCard title={zh ? "电压热力图" : "Voltage Heatmap"} accentColor="#7dd3fc">
           <div className="flex h-full min-h-0 items-stretch gap-1.5 overflow-hidden">
             <HeatmapGrid

@@ -2,14 +2,12 @@
 
 import { useMemo } from "react"
 import {
-  Activity,
   AlertTriangle,
   BadgeCheck,
   BellRing,
   CircuitBoard,
   Cpu,
   Gauge,
-  Network,
   RadioTower,
   ShieldAlert,
   Timer,
@@ -161,8 +159,9 @@ function SeverityDonut({ levels, zh }: { levels: LevelDatum[]; zh: boolean }) {
 
   return (
     <div className="flex h-full min-h-0 items-center gap-3">
-      <div className="relative shrink-0" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="block -rotate-90">
+      {/* 环形图按面板可用高度自适应（封顶 150px），避免在较矮的面板里溢出遮挡标题 */}
+      <div className="relative h-full max-h-[150px] min-h-0 shrink-0" style={{ aspectRatio: "1 / 1" }}>
+        <svg viewBox={`0 0 ${size} ${size}`} className="block h-full w-full -rotate-90">
           <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={stroke} />
           {segments.map((segment) => (
             <circle
@@ -181,8 +180,8 @@ function SeverityDonut({ levels, zh }: { levels: LevelDatum[]; zh: boolean }) {
           ))}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[26px] font-bold leading-none text-[#f2fbff]">{total}</span>
-          <span className="mt-1 text-[10.5px] tracking-[0.04em] text-[#8fb6cf]">{zh ? "告警总数" : "Total"}</span>
+          <span className="text-[24px] font-bold leading-none text-[#f2fbff]">{total}</span>
+          <span className="mt-1 text-[10px] tracking-[0.04em] text-[#8fb6cf]">{zh ? "告警总数" : "Total"}</span>
         </div>
       </div>
       <div className="grid min-w-0 flex-1 grid-cols-1 gap-1.5">
@@ -386,31 +385,33 @@ function PcsAlarmWorkspace({ mode, date, deviceId, deviceName }: Omit<AlarmDevic
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-      <div className="flex min-h-0 flex-[0.56] flex-col gap-3">
-        <div className="grid shrink-0 grid-cols-4 gap-2">
+    <div className="grid h-full min-h-0 min-w-0 grid-cols-12 gap-3 overflow-hidden">
+      {/* 左栏：告警分析 */}
+      <div className="col-span-12 flex min-h-0 min-w-0 flex-col gap-3 lg:col-span-6">
+        <div className="grid shrink-0 grid-cols-2 gap-2">
           <MetricTile label={zh ? "未恢复" : "Unresolved"} value={String(unresolved)} unit={zh ? "条" : ""} icon={BellRing} accent="#fb7185" />
           <MetricTile label={zh ? "最高等级" : "Top Level"} value={topLv ? `L${topLv}` : "—"} icon={ShieldAlert} accent={LV_COLOR[topLv] ?? "#7b879d"} />
           <MetricTile label={zh ? "告警总数" : "Total"} value={String(total)} unit={zh ? "条" : ""} icon={AlertTriangle} accent="#facc15" />
           <MetricTile label={zh ? "平均持续" : "Avg Duration"} value={avgDuration.toFixed(0)} unit={zh ? "分钟" : "min"} icon={Timer} accent="#22d3ee" />
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
-          <AlarmPanel title={zh ? "告警等级分布" : "Severity Distribution"} icon={Gauge} accent="#22d3ee" className="col-span-4">
+        <div className="grid min-h-0 flex-1 grid-rows-3 gap-3">
+          <AlarmPanel title={zh ? "告警等级分布" : "Severity Distribution"} icon={Gauge} accent="#22d3ee">
             <SeverityDonut levels={levels} zh={zh} />
           </AlarmPanel>
 
-          <AlarmPanel title={zh ? "故障域分布" : "Fault Domains"} icon={CircuitBoard} accent="#facc15" className="col-span-4">
+          <AlarmPanel title={zh ? "故障域分布" : "Fault Domains"} icon={CircuitBoard} accent="#facc15">
             <DistributionBars items={domains} />
           </AlarmPanel>
 
-          <AlarmPanel title={zh ? "保护动作分布" : "Protection Actions"} icon={Zap} accent="#fb7185" className="col-span-4">
+          <AlarmPanel title={zh ? "保护动作分布" : "Protection Actions"} icon={Zap} accent="#fb7185">
             <DistributionBars items={actions} />
           </AlarmPanel>
         </div>
       </div>
 
-      <div className="min-h-0 flex-[0.44]">
+      {/* 右栏：告警日志（与电池堆一致放在右侧） */}
+      <div className="col-span-12 min-h-0 min-w-0 lg:col-span-6">
         <AlarmLogPanel
           mode={mode}
           date={mode === "history" ? date : undefined}
@@ -434,7 +435,6 @@ function EmsAlarmWorkspace({ mode, date, deviceId, deviceName }: Omit<AlarmDevic
   const topLv = highestLevel(levels)
   const affectedDevices = pickInt(`${seed}:affected`, 2, 7)
   const closedLoop = clamp(pick(`${seed}:closed`, 84, 96), 0, 100)
-  const commHealth = clamp(pick(`${seed}:comm`, 91, 99), 0, 100)
   const alarmHistory = useMemo(
     () => buildThemedAlarmHistory(seed, date ?? "", EMS_FAULT_CATALOG, zh),
     [seed, date, zh],
@@ -447,44 +447,30 @@ function EmsAlarmWorkspace({ mode, date, deviceId, deviceName }: Omit<AlarmDevic
       .sort((a, b) => b.count - a.count)
   }, [seed])
 
-  const statusDist: BarDatum[] = useMemo(() => {
-    const active = clamp(pickInt(`${seed}:st-active`, 0, 3), 0, total)
-    const ack = clamp(pickInt(`${seed}:st-ack`, 1, 5), 0, total - active)
-    const recovered = Math.max(0, total - active - ack)
-    return [
-      { label: zh ? "未恢复" : "Active", count: active, accent: "#E24B4A" },
-      { label: zh ? "已确认" : "Acknowledged", count: ack, accent: "#EF9F27" },
-      { label: zh ? "已恢复" : "Recovered", count: recovered, accent: "#34d399" },
-    ]
-  }, [seed, total, zh])
-
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-      <div className="flex min-h-0 flex-[0.56] flex-col gap-3">
-        <div className="grid shrink-0 grid-cols-5 gap-2">
+    <div className="grid h-full min-h-0 min-w-0 grid-cols-12 gap-3 overflow-hidden">
+      {/* 左栏：告警分析 */}
+      <div className="col-span-12 flex min-h-0 min-w-0 flex-col gap-3 lg:col-span-6">
+        <div className="grid shrink-0 grid-cols-2 gap-2">
           <MetricTile label={zh ? "站级告警" : "Station Alarms"} value={String(total)} unit={zh ? "条" : ""} icon={AlertTriangle} accent="#fb7185" />
           <MetricTile label={zh ? "最高等级" : "Top Level"} value={topLv ? `L${topLv}` : "—"} icon={ShieldAlert} accent={LV_COLOR[topLv] ?? "#7b879d"} />
           <MetricTile label={zh ? "影响设备" : "Affected"} value={String(affectedDevices)} unit={zh ? "台" : ""} icon={RadioTower} accent="#38bdf8" />
           <MetricTile label={zh ? "闭环率" : "Closure"} value={closedLoop.toFixed(1)} unit="%" icon={BadgeCheck} accent="#a3e635" />
-          <MetricTile label={zh ? "通讯健康" : "Comms"} value={commHealth.toFixed(1)} unit="%" icon={Network} accent="#facc15" />
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
-          <AlarmPanel title={zh ? "告警等级分布" : "Severity Distribution"} icon={Cpu} accent="#a3e635" className="col-span-4">
+        <div className="grid min-h-0 flex-1 grid-rows-2 gap-3">
+          <AlarmPanel title={zh ? "告警等级分布" : "Severity Distribution"} icon={Cpu} accent="#a3e635">
             <SeverityDonut levels={levels} zh={zh} />
           </AlarmPanel>
 
-          <AlarmPanel title={zh ? "设备告警排行" : "Alarms by Device"} icon={RadioTower} accent="#38bdf8" className="col-span-4">
+          <AlarmPanel title={zh ? "设备告警排行" : "Alarms by Device"} icon={RadioTower} accent="#38bdf8">
             <DistributionBars items={deviceRanking} />
-          </AlarmPanel>
-
-          <AlarmPanel title={zh ? "处置状态分布" : "Resolution Status"} icon={Activity} accent="#facc15" className="col-span-4">
-            <DistributionBars items={statusDist} />
           </AlarmPanel>
         </div>
       </div>
 
-      <div className="min-h-0 flex-[0.44]">
+      {/* 右栏：告警日志（与电池堆一致放在右侧） */}
+      <div className="col-span-12 min-h-0 min-w-0 lg:col-span-6">
         <AlarmLogPanel
           mode={mode}
           date={mode === "history" ? date : undefined}

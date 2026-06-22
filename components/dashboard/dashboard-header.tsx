@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
-import { Check, ChevronDown, Map } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
 import { DashboardHeaderShell } from "@/components/dashboard/dashboard-header-shell"
 import { DashboardTopControls } from "@/components/dashboard/dashboard-top-controls"
 import { NavBrand } from "@/components/dashboard/nav-brand"
@@ -315,9 +315,6 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
       : projectOptionsError
         ? zh ? "加载失败" : "Load failed"
         : zh ? "暂无项目" : "No projects"
-  const backToMapHref = hasProject
-    ? `/project-map?projectId=${encodeURIComponent(selectedProject.projectId)}`
-    : "/project-map"
   useEffect(() => {
     if (!isProjectMenuOpen) {
       return
@@ -413,12 +410,6 @@ export function DashboardHeader({ compact = false }: { compact?: boolean }) {
 
         <DashboardTopControls
           compact={useCompactHeader}
-          action={{
-            icon: Map,
-            labelZh: "项目地图",
-            labelEn: "Project Map",
-            onClick: () => router.push(backToMapHref),
-          }}
           isLoggingOut={isLoggingOut}
           onLogout={() => void handleLogout()}
         />

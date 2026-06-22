@@ -488,7 +488,6 @@ function deriveTimelineEvents(alarms: AlarmEntry[]): TimelineEvent[] {
   })
 }
 
-const LEFT_W  = 132
 const DAY_SECONDS = 24 * 60 * 60
 const DAY_END_DISPLAY_SECONDS = DAY_SECONDS - 1
 const TIMELINE_TICK_STEPS = [
@@ -516,6 +515,38 @@ const resolveTimelineMajorTickStep = (tickStep: number) => {
   return 6 * 60 * 60
 }
 
+// 按可用像素宽度过滤刻度，保证相邻标签至少间隔 minGapPx（避免如 21:00 与 23:59 折叠）。
+// 始终保留首/末刻度，并优先保证末刻度（23:59）完整、不与前一刻度重叠。
+const filterTicksByPixelGap = (
+  ticks: number[],
+  viewStart: number,
+  span: number,
+  plotWidth: number,
+  minGapPx: number,
+) => {
+  if (ticks.length <= 2 || plotWidth <= 0 || span <= 0) return ticks
+  const xOf = (value: number) => ((value - viewStart) / span) * plotWidth
+  const first = ticks[0]
+  const last = ticks[ticks.length - 1]
+  // 从末尾向前保留，确保末刻度始终在且与其左侧刻度有足够间距
+  const keptFromEnd = [last]
+  let lastKeptX = xOf(last)
+  for (let i = ticks.length - 2; i >= 1; i -= 1) {
+    const x = xOf(ticks[i])
+    if (lastKeptX - x >= minGapPx) {
+      keptFromEnd.push(ticks[i])
+      lastKeptX = x
+    }
+  }
+  const ascending = keptFromEnd.reverse()
+  if (ascending[0] !== first) ascending.unshift(first)
+  // 首刻度与其右侧刻度过近时丢弃右侧（保留首/末）
+  while (ascending.length > 2 && xOf(ascending[1]) - xOf(ascending[0]) < minGapPx) {
+    ascending.splice(1, 1)
+  }
+  return ascending
+}
+
 // ── 甘特时间轴（拖动平移 + 滚轮缩放，始终铺满容器，无横向滚动条） ─────────────
 function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[]; zh: boolean; visibleLevels?: number[] }) {
   const scale = useFluidScale<HTMLDivElement>(1180, 2560, { ...DASHBOARD_CONTENT_SCALE, maxRootPx: 27 })
@@ -529,13 +560,24 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
   const rowPaddingY = Math.round(boostMetric(scale.fluid(8, 12)))
   const labelLineHeight = boostMetric(scale.fluid(14, 20))
   const minRowHeight = Math.round(boostMetric(scale.fluid(38, 52)))
-  const leftLabelWidth = Math.round(LEFT_W * Math.min(historyTypographyBoost, 1.16))
   const tickHeaderHeight = Math.round(boostMetric(scale.fluid(18, 22)))
   const [viewStart, setViewStart] = useState(0)
   const [viewEnd,   setViewEnd]   = useState(DAY_SECONDS)
   const [tooltip, setTooltip]     = useState<{ ev: TimelineEvent; mx: number; my: number } | null>(null)
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
+  const [plotWidth, setPlotWidth] = useState(0)
   const containerRef              = useRef<HTMLDivElement>(null)
+
+  // 跟踪甘特绘图区宽度（用于按像素间距过滤时间刻度，避免标签折叠）。
+  useEffect(() => {
+    const node = containerRef.current
+    if (!node) return
+    const update = () => setPlotWidth(node.clientWidth)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
 
   const span   = viewEnd - viewStart
   const zoomed = span < DAY_SECONDS
@@ -586,9 +628,8 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
         })
 
       const laneCount = Math.max(1, laneEnds.length)
-      const normalizedLabelLength = Array.from(label).reduce((sum, char) => sum + (/[A-Za-z0-9_-]/.test(char) ? 0.6 : 1), 0)
-      const estimatedLabelLines = Math.max(1, Math.ceil(normalizedLabelLength / 10))
-      const labelHeight = Math.ceil(estimatedLabelLines * labelLineHeight + rowPaddingY * 2)
+      // 标签现为单行不换行，行高按 1 行计算即可。
+      const labelHeight = Math.ceil(labelLineHeight + rowPaddingY * 2)
 
       return {
         type,
@@ -602,6 +643,15 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
       }
     })
   }, [events, labelLineHeight, laneGap, laneHeight, minRowHeight, rowPaddingY, zh])
+
+  // 左侧故障名列宽：按最长名称单行宽度估算（CJK≈1 字宽，拉丁/数字≈0.6），
+  // 既保证名称完整不换行，又避免固定宽度带来的多余留白。封顶以保护绘图区。
+  const leftLabelWidth = useMemo(() => {
+    const unitsOf = (label: string) =>
+      Array.from(label).reduce((sum, char) => sum + (/[A-Za-z0-9_\-/]/.test(char) ? 0.6 : 1), 0)
+    const maxUnits = timelineRows.reduce((max, row) => Math.max(max, unitsOf(row.label)), 0)
+    return clamp(Math.ceil(maxUnits * labelSize) + 16, 64, 220)
+  }, [timelineRows, labelSize])
 
   const fmt = (value: number, includeSeconds = false) => {
     const safeValue = Math.max(0, Math.min(DAY_END_DISPLAY_SECONDS, Math.floor(value)))
@@ -622,6 +672,10 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
         .map((value) => Math.round(value))
     )
   ).sort((left, right) => left - right)
+  // 按绘图区宽度过滤刻度，保证相邻时间标签足够间距，避免折叠/重叠。
+  // 末刻度（23:59）右对齐、向左占位，故间距需覆盖约 1.5 个标签宽度。
+  const tickMinGapPx = Math.max(58, Math.round(tickSize * 4.8))
+  const visibleTicks = filterTicksByPixelGap(ticks, viewStart, span, plotWidth, tickMinGapPx)
   const tickLabelPaddingX = Math.round(Math.max(6, tickSize * 0.5))
   const tickLabelHeight = Math.round(Math.max(22, tickSize * 1.85))
   const edgeTickLabelInset = Math.round(Math.max(6, tickLabelPaddingX))
@@ -691,9 +745,9 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
         <div className="flex shrink-0">
           <div className="shrink-0" style={{ width: leftLabelWidth }} />
           <div className="relative min-w-0 flex-1 overflow-visible" style={{ height: tickHeaderHeight }}>
-            {ticks.map((value, index) => {
+            {visibleTicks.map((value, index) => {
               const isFirstTick = index === 0
-              const isLastTick = index === ticks.length - 1
+              const isLastTick = index === visibleTicks.length - 1
 
               return (
                 <span
@@ -748,7 +802,7 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
                       boxShadow: hoveredRow === row.type ? "inset 0 0 0 1px rgba(112,178,255,0.18)" : undefined,
                     }}
                   />
-                  <span className="whitespace-normal break-words leading-[1.28]">{row.label}</span>
+                  <span className="whitespace-nowrap leading-[1.28]" title={row.label}>{row.label}</span>
                 </div>
               ))}
             </div>
@@ -760,7 +814,7 @@ function AlarmTimeline({ events, zh, visibleLevels }: { events: TimelineEvent[];
               onMouseDown={startDrag}
             >
               <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                {ticks.map((value) => {
+                {visibleTicks.map((value) => {
                   return (
                     <Fragment key={`guide-${value}`}>
                       <div

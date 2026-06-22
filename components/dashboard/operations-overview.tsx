@@ -646,12 +646,14 @@ export function OperationsOverview({ deviceId, deviceKind, deviceName, projectId
   }
 
   // rack / other → battery cluster overview (real data).
+  // The 电芯 heatmap sizes to its (square-celled) content width; BCU 运行状态
+  // takes the remaining width.
   return (
-    <div className="grid h-full min-h-0 grid-cols-12 gap-4 overflow-hidden">
-      <div className="col-span-12 min-h-0 lg:col-span-6">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden lg:flex-row">
+      <div className="min-h-0 min-w-0 flex-1">
         <BCUStatusQuery mode="realtime" deviceId={deviceId || undefined} enableFullscreen />
       </div>
-      <div className="col-span-12 min-h-0 lg:col-span-6">
+      <div className="min-h-0 min-w-0 flex-1 lg:flex-none lg:max-w-[58%]">
         <CellHeatmapOverviewPanel deviceId={deviceId || undefined} />
       </div>
     </div>

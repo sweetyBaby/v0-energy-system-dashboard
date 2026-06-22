@@ -13,6 +13,7 @@ import {
   LineChart as LineChartIcon,
   RefreshCw,
   Save,
+  Star,
   Table as TableIcon,
   Trash2,
   TrendingUp,
@@ -35,6 +36,7 @@ import { DASHBOARD_DENSE_PANEL_SCALE, useFluidScale } from "@/hooks/use-fluid-sc
 import type { ProjectDevice } from "@/lib/api/project"
 import { buildMonitorDevices } from "@/lib/device-selection"
 import {
+  buildDeviceNodeId,
   fetchTrendSeries,
   parseTrendNodeId,
   resolveNodeMeta,
@@ -42,11 +44,13 @@ import {
   TREND_DEFAULT_RANGE_MS,
   TREND_INTERVALS,
   TREND_INTERVAL_RAW,
+  TREND_VARIABLE_BY_KEY,
   TREND_VARIABLES,
   type TrendFetchResult,
   type TrendIntervalSeconds,
   type TrendNode,
   type TrendSelection,
+  type TrendVariableKey,
 } from "@/lib/api/trend-analysis"
 
 const SERIES_COLORS = [
@@ -58,6 +62,23 @@ const SCROLLBAR =
   "[scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar]:h-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]"
 
 const AUTO_REFRESH_MS = 10000
+
+// Ant Design-style menu fold / unfold glyphs (three lines + directional arrow).
+function MenuFoldIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 1024 1024" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.6-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z" />
+    </svg>
+  )
+}
+
+function MenuUnfoldIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 1024 1024" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM142.4 642.1L298.7 519a8.84 8.84 0 0 0 0-13.9L142.4 381.9c-5.8-4.6-14.4-.5-14.4 6.9v246.3a8.9 8.9 0 0 0 14.4 7z" />
+    </svg>
+  )
+}
 
 export type TrendWorkspaceMode = "trend" | "status"
 
@@ -78,6 +99,22 @@ type TrendTemplate = {
 type TrendStore = { folders: TrendFolder[]; templates: TrendTemplate[] }
 
 const EMPTY_STORE: TrendStore = { folders: [], templates: [] }
+
+/**
+ * Built-in "通用模板": mirrors the measurement points of the BCU 运行状态曲线
+ * (Pack 电压 / 电流 / SOC / 单体温度 / 单体电压). Always present, selected by
+ * default on entry. Its node ids are bound to the site's first rack device.
+ */
+const GENERAL_TEMPLATE_ID = "__general__"
+const GENERAL_TEMPLATE_VARIABLE_KEYS: TrendVariableKey[] = [
+  "clusterVoltage",
+  "clusterCurrent",
+  "soc",
+  "maxCellVoltage",
+  "minCellVoltage",
+  "maxTemp",
+  "minTemp",
+]
 
 const genId = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID()
@@ -179,7 +216,18 @@ export function TrendWorkspace({
     [devices, includeStationDevices, projectId]
   )
 
+  // Node ids for the built-in 通用模板, bound to the site's first rack device.
+  const generalTemplateNodeIds = useMemo(() => {
+    const targetDevice = safeDevices.find((device) => (device.deviceKind ?? "rack") === "rack") ?? safeDevices[0]
+    if (!targetDevice) return []
+    const kind = targetDevice.deviceKind ?? "rack"
+    return GENERAL_TEMPLATE_VARIABLE_KEYS.filter((key) => TREND_VARIABLE_BY_KEY[key]?.deviceKinds.includes(kind)).map(
+      (key) => buildDeviceNodeId(targetDevice.deviceId, key)
+    )
+  }, [safeDevices])
+
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set())
+  const [variablesCollapsed, setVariablesCollapsed] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>("chart")
   const [startTime, setStartTime] = useState(() => Date.now() - TREND_DEFAULT_RANGE_MS)
   const [endTime, setEndTime] = useState(() => Date.now())
@@ -202,6 +250,7 @@ export function TrendWorkspace({
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
   const saveRef = useRef<HTMLDivElement>(null)
+  const initializedKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     setStore(loadStore(storageKey))
@@ -228,6 +277,18 @@ export function TrendWorkspace({
       return next.size === prev.size ? prev : next
     })
   }, [safeDevices])
+
+  // On first entry (and whenever the site's device set changes), default to the
+  // built-in 通用模板 and show its data.
+  useEffect(() => {
+    if (safeDevices.length === 0) return
+    const deviceKey = safeDevices.map((device) => device.deviceId).join("|")
+    if (initializedKeyRef.current === deviceKey) return
+    initializedKeyRef.current = deviceKey
+    if (generalTemplateNodeIds.length === 0) return
+    setSelectedNodes(new Set(generalTemplateNodeIds.slice(0, maxSelection)))
+    setActiveTemplateId(GENERAL_TEMPLATE_ID)
+  }, [safeDevices, generalTemplateNodeIds, maxSelection])
 
   const selections = useMemo<TrendSelection[]>(() => {
     const nameById = new Map(safeDevices.map((device) => [device.deviceId, device.deviceName]))
@@ -361,8 +422,14 @@ export function TrendWorkspace({
   const toggleSeriesVisibility = (seriesId: string) => {
     setHiddenSeries((prev) => {
       const next = new Set(prev)
-      if (next.has(seriesId)) next.delete(seriesId)
-      else next.add(seriesId)
+      if (next.has(seriesId)) {
+        next.delete(seriesId)
+        return next
+      }
+      // Keep at least one curve visible — block hiding the last one.
+      const visibleCount = selections.filter((selection) => !next.has(selection.nodeId)).length
+      if (visibleCount <= 1) return prev
+      next.add(seriesId)
       return next
     })
   }
@@ -371,6 +438,12 @@ export function TrendWorkspace({
   const startNew = () => {
     setActiveTemplateId(null)
     setSelectedNodes(new Set())
+  }
+
+  const applyGeneralTemplate = () => {
+    if (generalTemplateNodeIds.length === 0) return
+    setSelectedNodes(new Set(generalTemplateNodeIds.slice(0, maxSelection)))
+    setActiveTemplateId(GENERAL_TEMPLATE_ID)
   }
 
   const handleCreateFolder = () => {
@@ -496,6 +569,8 @@ export function TrendWorkspace({
   const RootIcon = isStatus ? Gauge : LineChartIcon
   const colTitle = titleZh && titleEn ? (zh ? titleZh : titleEn) : isStatus ? (zh ? "设备监测" : "Device Monitoring") : zh ? "历史数据" : "Historical Data"
   const rootLabel = isStatus ? (zh ? "今日趋势" : "Today") : zh ? "趋势" : "Trend"
+  // 设备监测（status）下数据按固定节奏自动刷新，故该间隔语义为"刷新间隔"。
+  const intervalLabel = isStatus ? (zh ? "刷新间隔" : "Refresh interval") : zh ? "采样间隔" : "Interval"
 
   const renderTemplateRow = (template: TrendTemplate) => {
     const active = activeTemplateId === template.id
@@ -531,11 +606,23 @@ export function TrendWorkspace({
         className="flex min-h-0 shrink-0 flex-col rounded-xl border border-[#1a2654] bg-[#0d1233]"
         style={{ width: isCompactViewport ? 168 : 204 }}
       >
-        <div className="flex items-center gap-2 border-b border-[#1a2654] px-3 py-2.5">
-          <ColTitleIcon className="h-4 w-4 shrink-0 text-[#00d4aa]" />
-          <h3 className="truncate font-semibold text-[#00d4aa]" style={{ fontSize: titleSize }}>
-            {colTitle}
-          </h3>
+        <div className="flex items-center justify-between gap-2 border-b border-[#1a2654] px-3 py-2.5">
+          <div className="flex min-w-0 items-center gap-2">
+            <ColTitleIcon className="h-4 w-4 shrink-0 text-[#00d4aa]" />
+            <h3 className="truncate font-semibold text-[#00d4aa]" style={{ fontSize: titleSize }}>
+              {colTitle}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setVariablesCollapsed((value) => !value)}
+            className="flex shrink-0 items-center justify-center rounded-md border border-[#27496f] bg-[#101840]/80 p-1 text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
+            title={variablesCollapsed ? (zh ? "展开设备变量" : "Expand variables") : (zh ? "折叠设备变量" : "Collapse variables")}
+            aria-label={variablesCollapsed ? (zh ? "展开设备变量" : "Expand variables") : (zh ? "折叠设备变量" : "Collapse variables")}
+            aria-expanded={!variablesCollapsed}
+          >
+            {variablesCollapsed ? <MenuUnfoldIcon className="h-4 w-4" /> : <MenuFoldIcon className="h-4 w-4" />}
+          </button>
         </div>
 
         <div className="px-2.5 py-2">
@@ -588,6 +675,26 @@ export function TrendWorkspace({
             </span>
           </button>
 
+          <button
+            type="button"
+            onClick={applyGeneralTemplate}
+            disabled={generalTemplateNodeIds.length === 0}
+            className={`mb-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              activeTemplateId === GENERAL_TEMPLATE_ID ? "bg-[rgba(38,240,220,0.12)]" : "hover:bg-[#16213f]/70"
+            }`}
+          >
+            <Star
+              className={`h-4 w-4 shrink-0 ${activeTemplateId === GENERAL_TEMPLATE_ID ? "text-[#26f0dc]" : "text-[#78bfd1]"}`}
+              fill={activeTemplateId === GENERAL_TEMPLATE_ID ? "currentColor" : "none"}
+            />
+            <span
+              className="truncate font-medium"
+              style={{ fontSize: labelSize, color: activeTemplateId === GENERAL_TEMPLATE_ID ? "#bff8f2" : "#cfe4ff" }}
+            >
+              {zh ? "通用模板" : "General"}
+            </span>
+          </button>
+
           {rootTemplates.map((template) => renderTemplateRow(template))}
 
           {store.folders.map((folder) => {
@@ -630,18 +737,19 @@ export function TrendWorkspace({
       </div>
 
       {/* Column 2: device / variable tree */}
-      <DeviceVariableTree
-        devices={safeDevices}
-        value={selectedNodes}
-        onChange={handleSelectionChange}
-        maxSelection={maxSelection}
-        colorByNode={colorByNode}
-        zh={zh}
-        title={zh ? "设备变量" : "Variables"}
-        labelSize={labelSize}
-        titleSize={titleSize}
-        width={isCompactViewport ? 210 : 256}
-      />
+      {!variablesCollapsed && (
+        <DeviceVariableTree
+          devices={safeDevices}
+          value={selectedNodes}
+          onChange={handleSelectionChange}
+          maxSelection={maxSelection}
+          zh={zh}
+          title={zh ? "设备变量" : "Variables"}
+          labelSize={labelSize}
+          titleSize={titleSize}
+          width={isCompactViewport ? 210 : 256}
+        />
+      )}
 
       {/* Right: toolbar + chart / table */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border border-[#1a2654] bg-[#0d1233]">
@@ -685,7 +793,7 @@ export function TrendWorkspace({
               className={`ml-auto flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 ${
                 rangeValid ? "border-[#27496f]" : "border-[#ef4444]/70"
               } bg-[#101840]/80`}
-              style={{ colorScheme: "dark" }}
+              style={{ colorScheme: "dark", accentColor: "#22d3ee" }}
             >
               <Clock className="h-3.5 w-3.5 shrink-0 text-[#5d9fd6]" />
               <input
@@ -696,8 +804,8 @@ export function TrendWorkspace({
                   const ms = fromLocalInput(event.target.value)
                   if (ms != null) setStartTime(ms)
                 }}
-                className="bg-transparent text-[#dbeaff] outline-none"
-                style={{ fontSize: controlSize }}
+                className="bg-transparent text-[#dbeaff] outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:transition-opacity hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+                style={{ fontSize: controlSize, accentColor: "#22d3ee" }}
               />
               <span className="text-[#5d7299]">-</span>
               <input
@@ -708,8 +816,8 @@ export function TrendWorkspace({
                   const ms = fromLocalInput(event.target.value)
                   if (ms != null) setEndTime(ms)
                 }}
-                className="bg-transparent text-[#dbeaff] outline-none"
-                style={{ fontSize: controlSize }}
+                className="bg-transparent text-[#dbeaff] outline-none [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:transition-opacity hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+                style={{ fontSize: controlSize, accentColor: "#22d3ee" }}
               />
             </div>
           ) : (
@@ -730,10 +838,11 @@ export function TrendWorkspace({
             </div>
           )}
 
-          {/* 采样间隔：显式展示标签，避免只看到选中值（如"原始"）不知含义 */}
+          {/* 采样间隔：显式展示标签，避免只看到选中值（如"原始"）不知含义。
+              设备监测（status）下该控件语义为刷新间隔。 */}
           <div className="flex items-center gap-1.5">
             <span className="whitespace-nowrap text-[#9bc4e8]" style={{ fontSize: controlSize }}>
-              {zh ? "采样间隔" : "Interval"}
+              {intervalLabel}
             </span>
             <BcuSelector
               value={String(interval)}
@@ -741,7 +850,7 @@ export function TrendWorkspace({
               options={TREND_INTERVALS.map((item) => ({ value: String(item.value), label: zh ? item.zh : item.en }))}
               allLabel=""
               includeAllOption={false}
-              label={zh ? "采样间隔" : "Interval"}
+              label={intervalLabel}
               compact
               fontSize={controlSize}
               height={32}
@@ -919,8 +1028,8 @@ export function TrendWorkspace({
                   type="number"
                   scale="time"
                   domain={["dataMin", "dataMax"]}
-                  axisLine={false}
-                  tickLine={false}
+                  axisLine={{ stroke: "#33507a" }}
+                  tickLine={{ stroke: "#33507a" }}
                   tick={{ fill: "#7b8ab8", fontSize: chartFontSize }}
                   tickFormatter={(value: number) => formatTick(value, spanMs)}
                   minTickGap={56}
@@ -930,8 +1039,8 @@ export function TrendWorkspace({
                     key={axis.unit}
                     yAxisId={axis.unit}
                     orientation={axis.orientation}
-                    axisLine={false}
-                    tickLine={false}
+                    axisLine={{ stroke: "#33507a" }}
+                    tickLine={{ stroke: "#33507a" }}
                     width={44}
                     tick={{ fill: "#7b8ab8", fontSize: chartFontSize }}
                     tickFormatter={(value: number) => `${value}`}

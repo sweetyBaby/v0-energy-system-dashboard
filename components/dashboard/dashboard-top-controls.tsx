@@ -1,5 +1,4 @@
 import * as React from "react"
-import type { LucideIcon } from "lucide-react"
 import { Check, ChevronDown, Globe, LogOut, UserCircle2 } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import {
@@ -11,16 +10,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { getStoredAuthUsername } from "@/lib/auth-storage"
 
-type ActionConfig = {
-  icon: LucideIcon
-  labelZh: string
-  labelEn: string
-  onClick: () => void
-}
-
 type DashboardTopControlsProps = {
   compact?: boolean
-  action?: ActionConfig
   isLoggingOut?: boolean
   onLogout: () => void
 }
@@ -32,15 +23,14 @@ const LANGUAGE_OPTIONS = [
 
 export function DashboardTopControls({
   compact = false,
-  action,
   isLoggingOut = false,
   onLogout,
 }: DashboardTopControlsProps) {
   const { language, setLanguage } = useLanguage()
   const zh = language === "zh"
   const controlHeight = compact ? "h-[30px]" : "h-[34px]"
-  const buttonClass =
-    "relative inline-flex items-center gap-2 overflow-hidden rounded-[14px] border border-[#22465c]/84 bg-[linear-gradient(180deg,rgba(8,19,32,0.92),rgba(5,11,21,0.98))] px-3 text-[11px] font-semibold text-[#d7eaf5] shadow-[0_0_0_1px_rgba(132,220,255,0.05)_inset,0_10px_22px_rgba(0,0,0,0.18)] outline-none transition-all hover:border-[#3e7592] hover:text-[#f4fcff] hover:shadow-[0_0_0_1px_rgba(132,220,255,0.1)_inset,0_0_16px_rgba(59,196,255,0.08)] focus:outline-none focus-visible:outline-none focus-visible:border-[#3e7592] data-[state=open]:border-[#3e7592]"
+  const iconButtonClass =
+    "relative inline-flex items-center justify-center gap-1 overflow-hidden rounded-[14px] border border-[#22465c]/84 bg-[linear-gradient(180deg,rgba(8,19,32,0.92),rgba(5,11,21,0.98))] px-2.5 text-[#d7eaf5] shadow-[0_0_0_1px_rgba(132,220,255,0.05)_inset,0_10px_22px_rgba(0,0,0,0.18)] outline-none transition-all hover:border-[#3e7592] hover:text-[#f4fcff] hover:shadow-[0_0_0_1px_rgba(132,220,255,0.1)_inset,0_0_16px_rgba(59,196,255,0.08)] focus:outline-none focus-visible:outline-none focus-visible:border-[#3e7592] data-[state=open]:border-[#3e7592]"
   const [username, setUsername] = React.useState("")
   const logoutLabel = zh ? "退出" : "Logout"
   const languageLabel = zh ? "语言切换" : "Switch language"
@@ -53,14 +43,6 @@ export function DashboardTopControls({
 
   return (
     <div className="flex shrink-0 items-center gap-2">
-      {action ? (
-        <button type="button" onClick={action.onClick} className={`${buttonClass} ${controlHeight}`}>
-          <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/52 to-transparent" />
-          <action.icon className="h-3.5 w-3.5 text-[#88e7ff]" />
-          <span className="tracking-[0.08em]">{zh ? action.labelZh : action.labelEn}</span>
-        </button>
-      ) : null}
-
       {/* Language dropdown select */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -68,13 +50,10 @@ export function DashboardTopControls({
             type="button"
             aria-label={languageLabel}
             title={languageLabel}
-            className={`${buttonClass} ${controlHeight} gap-1.5 pr-2`}
+            className={`${iconButtonClass} ${controlHeight}`}
           >
-            <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/52 to-transparent" />
-            <Globe className="h-3.5 w-3.5 shrink-0 text-[#88e7ff]" />
-            <span className="text-[11px] font-semibold tracking-[0.04em] text-[#eef9ff]">
-              {zh ? "中文" : "English"}
-            </span>
+            <span className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/52 to-transparent" />
+            <Globe className="h-4 w-4 shrink-0 text-[#88e7ff]" />
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#86aac2]" />
           </button>
         </DropdownMenuTrigger>
@@ -115,15 +94,11 @@ export function DashboardTopControls({
           <button
             type="button"
             aria-label={menuLabel}
-            className={`${buttonClass} ${controlHeight} min-w-[128px] justify-between gap-2 pr-2.5`}
+            title={username || usernameFallback}
+            className={`${iconButtonClass} ${controlHeight}`}
           >
-            <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/52 to-transparent" />
-            <span className="flex min-w-0 items-center gap-2">
-              <UserCircle2 className="h-3.5 w-3.5 shrink-0 text-[#9bdcff]" />
-              <span className="truncate text-[11px] font-semibold tracking-[0.04em] text-[#eef9ff]">
-                {username || usernameFallback}
-              </span>
-            </span>
+            <span className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-[#8aefff]/52 to-transparent" />
+            <UserCircle2 className="h-4 w-4 shrink-0 text-[#9bdcff]" />
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#86aac2]" />
           </button>
         </DropdownMenuTrigger>
