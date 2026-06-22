@@ -372,7 +372,7 @@ export function TrendRangePicker({
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-md px-2.5 py-1 text-[#9bc4e8] transition-colors hover:text-[#cfe4ff]"
+              className="rounded-md border border-[#27496f] bg-[#101840]/60 px-3.5 py-1 text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
               style={{ fontSize }}
             >
               {zh ? "取消" : "Cancel"}

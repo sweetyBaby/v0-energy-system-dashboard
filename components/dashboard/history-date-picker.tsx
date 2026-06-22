@@ -1,12 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Crosshair } from "lucide-react"
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Crosshair } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { useFluidScale } from "@/hooks/use-fluid-scale"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const monthNamesEn = [
   "January",
@@ -35,6 +34,7 @@ const parseLocalDate = (value: string) => {
 const toDayStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
 const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1)
 const addMonths = (date: Date, months: number) => new Date(date.getFullYear(), date.getMonth() + months, 1)
+const monthIndex = (date: Date) => date.getFullYear() * 12 + date.getMonth()
 const isFuture = (date: Date, max: Date) => toDayStart(date) > toDayStart(max)
 const clampToMax = (date: Date, max: Date) => (isFuture(date, max) ? toDayStart(max) : toDayStart(date))
 
@@ -66,7 +66,6 @@ export function HistoryDatePicker({
   const panelHintSize = scale.fluid(11, 13)
   const triggerHeight = `${resolvedHeight}px`
   const panelWidth = scale.fluid(320, 376)
-  const navEdge = scale.fluid(36, 42)
 
   const maxDate = useMemo(() => parseLocalDate(max), [max])
   const selected = useMemo(() => clampToMax(value ? parseLocalDate(value) : maxDate, maxDate), [value, maxDate])
@@ -79,20 +78,16 @@ export function HistoryDatePicker({
 
   const monthNames = zh ? monthNamesZh : monthNamesEn
 
-  const yearOptions = useMemo(() => {
-    const years: number[] = []
-    for (let year = 2024; year <= maxDate.getFullYear(); year += 1) {
-      years.push(year)
-    }
-    return years
-  }, [maxDate])
-
   const formatted = zh
     ? `${selected.getFullYear()}/${selected.getMonth() + 1}/${selected.getDate()}`
     : `${monthNamesEn[selected.getMonth()].slice(0, 3)} ${selected.getDate()}, ${selected.getFullYear()}`
 
-  const canGoNextMonth =
-    viewDate.getFullYear() < maxDate.getFullYear() || viewDate.getMonth() < maxDate.getMonth()
+  const minMonthIndex = 2024 * 12
+  const maxMonthIndex = monthIndex(maxDate)
+  const canPrevMonth = monthIndex(viewDate) > minMonthIndex
+  const canPrevYear = monthIndex(addMonths(viewDate, -12)) >= minMonthIndex
+  const canGoNextMonth = monthIndex(viewDate) < maxMonthIndex
+  const canNextYear = monthIndex(addMonths(viewDate, 12)) <= maxMonthIndex
 
   return (
     <div ref={scale.ref} style={scale.rootStyle}>
@@ -130,74 +125,49 @@ export function HistoryDatePicker({
             </div>
           </div>
 
-          <div className="border-b border-[#1a2654] p-3">
-            <div className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-2">
-              <Select
-                value={String(viewDate.getFullYear())}
-                onValueChange={(nextYear) =>
-                  setViewDate(startOfMonth(clampToMax(new Date(Number(nextYear), viewDate.getMonth(), 1), maxDate)))
-                }
-              >
-                <SelectTrigger
-                  className="w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]"
-                  style={{ height: triggerHeight, fontSize: panelControlSize }}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]" style={{ fontSize: panelControlSize }}>
-                  {yearOptions.map((year) => (
-                    <SelectItem key={year} value={String(year)} className="text-[#e8f4fc]" style={{ fontSize: panelControlSize }}>
-                      {zh ? `${year}年` : String(year)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={String(viewDate.getMonth())}
-                onValueChange={(nextMonth) =>
-                  setViewDate(startOfMonth(clampToMax(new Date(viewDate.getFullYear(), Number(nextMonth), 1), maxDate)))
-                }
-              >
-                <SelectTrigger
-                  className="w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]"
-                  style={{ height: triggerHeight, fontSize: panelControlSize }}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]" style={{ fontSize: panelControlSize }}>
-                  {monthNames.map((month, index) => (
-                    <SelectItem
-                      key={`${month}-${index}`}
-                      value={String(index)}
-                      className="text-[#e8f4fc]"
-                      style={{ fontSize: panelControlSize }}
-                    >
-                      {month}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
+          {/* Ant Design style nav: «(year) ‹(month) [label] ›(month) »(year) */}
+          <div className="flex items-center justify-between border-b border-[#1a2654] px-3 py-2.5" style={{ fontSize: panelControlSize }}>
+            <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setViewDate((prev) => addMonths(prev, -1))}
-                className="flex items-center justify-center rounded-md border border-[#26456e] bg-[#101840] text-[#c7d7f5] transition-colors hover:border-[#22d3ee]/50 hover:text-white"
-                style={{ width: navEdge, height: navEdge }}
+                onClick={() => canPrevYear && setViewDate((prev) => startOfMonth(addMonths(prev, -12)))}
+                disabled={!canPrevYear}
+                className="rounded p-1 text-[#7b8ab8] transition-colors hover:text-[#cfe4ff] disabled:cursor-not-allowed disabled:opacity-30"
+                aria-label={zh ? "上一年" : "Previous year"}
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => canPrevMonth && setViewDate((prev) => startOfMonth(addMonths(prev, -1)))}
+                disabled={!canPrevMonth}
+                className="rounded p-1 text-[#7b8ab8] transition-colors hover:text-[#cfe4ff] disabled:cursor-not-allowed disabled:opacity-30"
                 aria-label={zh ? "上一个月" : "Previous month"}
               >
-                <ChevronLeft style={{ width: triggerIconSize, height: triggerIconSize }} />
+                <ChevronLeft className="h-4 w-4" />
               </button>
-
+            </div>
+            <span className="font-semibold text-[#e8f4fc]">
+              {zh ? `${viewDate.getFullYear()}年 ${monthNames[viewDate.getMonth()]}` : `${monthNamesEn[viewDate.getMonth()]} ${viewDate.getFullYear()}`}
+            </span>
+            <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => canGoNextMonth && setViewDate((prev) => addMonths(prev, 1))}
+                onClick={() => canGoNextMonth && setViewDate((prev) => startOfMonth(clampToMax(addMonths(prev, 1), maxDate)))}
                 disabled={!canGoNextMonth}
-                className="flex items-center justify-center rounded-md border border-[#26456e] bg-[#101840] text-[#c7d7f5] transition-colors hover:border-[#22d3ee]/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
-                style={{ width: navEdge, height: navEdge }}
+                className="rounded p-1 text-[#7b8ab8] transition-colors hover:text-[#cfe4ff] disabled:cursor-not-allowed disabled:opacity-30"
                 aria-label={zh ? "下一个月" : "Next month"}
               >
-                <ChevronRight style={{ width: triggerIconSize, height: triggerIconSize }} />
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => canNextYear && setViewDate((prev) => startOfMonth(clampToMax(addMonths(prev, 12), maxDate)))}
+                disabled={!canNextYear}
+                className="rounded p-1 text-[#7b8ab8] transition-colors hover:text-[#cfe4ff] disabled:cursor-not-allowed disabled:opacity-30"
+                aria-label={zh ? "下一年" : "Next year"}
+              >
+                <ChevronsRight className="h-4 w-4" />
               </button>
             </div>
           </div>
