@@ -12,7 +12,6 @@ import {
   LayoutDashboard,
   ListChecks,
   Map,
-  TrendingUp,
 } from "lucide-react"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { useLanguage } from "@/components/language-provider"
@@ -52,32 +51,26 @@ const isGroup = (item: SidebarItem): item is SidebarGroup => "children" in item
 /**
  * Sidebar information architecture.
  * - Realtime monitoring views (运行状态 / 设备监测 / 告警监测) are top-level items.
- * - 历史数据 groups the two historical-query views (电芯诊断 + 测点查询).
- * - 数据分析 groups the registry-driven analysis modules.
+ * - 历史数据 is the measurement-query view (formerly "测点查询"), now a top-level leaf.
+ * - 数据分析 groups 电芯诊断 plus the registry-driven analysis modules.
  * To add a monitoring view, add a top-level leaf; for analysis, append to
- * `ANALYSIS_MODULES`; for a historical-query view, add to the 历史数据 children.
+ * `ANALYSIS_MODULES` (or add a leaf to the 数据分析 children).
  */
 const SIDEBAR_ITEMS: SidebarItem[] = [
   { key: "realtime", icon: LayoutDashboard, zh: "总览", en: "Overview" },
   { key: "history", icon: Gauge, zh: "运行状态", en: "Operations" },
   { key: "device-status", icon: ListChecks, zh: "设备监测", en: "Device Monitoring" },
   { key: "alarm-monitoring", icon: Bell, zh: "告警监测", en: "Alarm" },
-  {
-    groupKey: "history-data",
-    icon: Database,
-    zh: "历史数据",
-    en: "Historical Data",
-    children: [
-      { key: "cell-history", icon: History, zh: "电芯诊断", en: "Cell Diagnostics" },
-      { key: "trend-analysis", icon: TrendingUp, zh: "测点查询", en: "Measurement Query" },
-    ],
-  },
+  // 历史数据：即原"测点查询"视图（电芯诊断已并入数据分析）。
+  { key: "trend-analysis", icon: Database, zh: "历史数据", en: "Historical Data" },
   {
     groupKey: "analysis",
     icon: BarChart3,
     zh: "数据分析",
     en: "Analysis",
     children: [
+      // 电芯诊断：作为数据分析的一项子页面。
+      { key: "cell-history", icon: History, zh: "电芯诊断", en: "Cell Diagnostics" },
       // Each registered analysis module is a direct second-level item.
       ...ANALYSIS_MODULES.map(
         (module): SidebarLeaf => ({

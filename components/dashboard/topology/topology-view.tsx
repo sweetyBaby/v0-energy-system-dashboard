@@ -64,7 +64,10 @@ export type TopologyViewProps = {
   onNavigate?: (nav: TopoNodeNav, node: HitNode) => void
   /** 适应容器时的最大放大倍数上限。全屏时传更大值，让拓扑充满大画布而非维持原尺寸。 */
   fitZoomCap?: number
-  /** 全屏模式：仅自适应充满容器，禁用滚轮缩放与拖动平移。 */
+  /**
+   * 全屏模式：进入时按 fitZoomCap 充满容器（文字/连线随大画布等比放大），
+   * 同样支持滚轮缩放与拖动平移；缩放下限为进入全屏时的全貌尺寸（=fit）。
+   */
   fullscreen?: boolean
 }
 
@@ -162,8 +165,8 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
   const updateHoverCursor = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current
     if (!canvas || dragStateRef.current) return
-    // 全屏禁用拖动 → 非可点击节点用默认光标（而非抓手）
-    const idle = fullscreen ? "default" : "grab"
+    // 可点击节点用 pointer，否则抓手（全屏同样支持缩放与拖动平移）
+    const idle = "grab"
     canvas.style.cursor = navOf(hitAt(clientX, clientY)) ? "pointer" : idle
   }
 
@@ -283,10 +286,6 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
           const engine = engineRef.current
           const canvas = canvasRef.current
           if (!engine || !canvas) return
-          if (fullscreen) {
-            ev.preventDefault() // 全屏只自适应，禁用缩放
-            return
-          }
 
           ev.preventDefault()
           const { rect, fx, fy } = canvasScale(canvas)
@@ -321,7 +320,6 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
         }}
         onPointerDown={(ev) => {
           if (ev.button !== 0) return
-          if (fullscreen) return // 全屏禁用拖动平移（点击导航仍可用）
           const engine = engineRef.current
           const canvas = canvasRef.current
           if (!engine || !canvas) return

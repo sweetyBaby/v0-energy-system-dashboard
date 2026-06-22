@@ -494,7 +494,7 @@ export function TrendWorkspace({
 
   const ColTitleIcon = isStatus ? Gauge : TrendingUp
   const RootIcon = isStatus ? Gauge : LineChartIcon
-  const colTitle = titleZh && titleEn ? (zh ? titleZh : titleEn) : isStatus ? (zh ? "设备监测" : "Device Monitoring") : zh ? "测点查询" : "Measurement Query"
+  const colTitle = titleZh && titleEn ? (zh ? titleZh : titleEn) : isStatus ? (zh ? "设备监测" : "Device Monitoring") : zh ? "历史数据" : "Historical Data"
   const rootLabel = isStatus ? (zh ? "今日趋势" : "Today") : zh ? "趋势" : "Trend"
 
   const renderTemplateRow = (template: TrendTemplate) => {
@@ -730,18 +730,24 @@ export function TrendWorkspace({
             </div>
           )}
 
-          <BcuSelector
-            value={String(interval)}
-            onChange={(value) => setSampleInterval(Number(value) as TrendIntervalSeconds)}
-            options={TREND_INTERVALS.map((item) => ({ value: String(item.value), label: zh ? item.zh : item.en }))}
-            allLabel=""
-            includeAllOption={false}
-            label={zh ? "采样间隔" : "Interval"}
-            compact
-            fontSize={controlSize}
-            height={32}
-            minWidth={84}
-          />
+          {/* 采样间隔：显式展示标签，避免只看到选中值（如"原始"）不知含义 */}
+          <div className="flex items-center gap-1.5">
+            <span className="whitespace-nowrap text-[#9bc4e8]" style={{ fontSize: controlSize }}>
+              {zh ? "采样间隔" : "Interval"}
+            </span>
+            <BcuSelector
+              value={String(interval)}
+              onChange={(value) => setSampleInterval(Number(value) as TrendIntervalSeconds)}
+              options={TREND_INTERVALS.map((item) => ({ value: String(item.value), label: zh ? item.zh : item.en }))}
+              allLabel=""
+              includeAllOption={false}
+              label={zh ? "采样间隔" : "Interval"}
+              compact
+              fontSize={controlSize}
+              height={32}
+              minWidth={84}
+            />
+          </div>
 
           <button
             type="button"

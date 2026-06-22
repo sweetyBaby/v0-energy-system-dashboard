@@ -1206,14 +1206,28 @@ function HistoryAlarmListRow({
 }
 
 // ── 主组件 ────────────────────────────────────────────────────────────────────
+export type AlarmHistoryOverride = {
+  detailItems: FaultDetailItem[]
+  listItems: FaultListItem[]
+}
+
 export function AlarmLogPanel({
   mode = "realtime",
   date,
   deviceId,
+  historyOverride,
+  showMatrix = true,
 }: {
   mode?: "realtime" | "history"
   date?: string
   deviceId?: string
+  /**
+   * 注入的历史告警数据：传入则跳过 fetch，直接以该数据渲染甘特/表格。
+   * 用于 PCS/EMS 等按主题注入种子故障目录的设备页（其占位 deviceId 无真实故障接口）。
+   */
+  historyOverride?: AlarmHistoryOverride | null
+  /** 是否显示「类型 × 等级 占比矩阵」。PCS/EMS 页关闭以避免与顶部分析重复。 */
+  showMatrix?: boolean
 }) {
   const { language } = useLanguage()
   const { selectedProject } = useProject()
@@ -1298,6 +1312,13 @@ export function AlarmLogPanel({
       return
     }
 
+    // 注入历史数据时不发起请求（PCS/EMS 主题化种子目录）
+    if (historyOverride) {
+      setIsHistoryLoading(false)
+      setHistoryError(null)
+      return
+    }
+
     if (!selectedProject.projectId || !date || !effectiveDeviceId) {
       setIsHistoryLoading(false)
       setHistoryError(null)
@@ -1361,10 +1382,14 @@ export function AlarmLogPanel({
       cancelled = true
       abortController.abort()
     }
-  }, [date, effectiveDeviceId, hasMatchingHistoryFaultListState, hasMatchingHistoryFaultState, historyRequestKey, mode, selectedProject.projectId, zh])
+  }, [date, effectiveDeviceId, hasMatchingHistoryFaultListState, hasMatchingHistoryFaultState, historyOverride, historyRequestKey, mode, selectedProject.projectId, zh])
 
-  const historyFaultItems = hasMatchingHistoryFaultState ? (historyFaultState?.items ?? []) : []
-  const historyFaultListItems = hasMatchingHistoryFaultListState ? (historyFaultListState?.items ?? []) : []
+  const historyFaultItems = historyOverride
+    ? historyOverride.detailItems
+    : hasMatchingHistoryFaultState ? (historyFaultState?.items ?? []) : []
+  const historyFaultListItems = historyOverride
+    ? historyOverride.listItems
+    : hasMatchingHistoryFaultListState ? (historyFaultListState?.items ?? []) : []
   const historyApiAlarms = useMemo(
     () => normalizeHistoryFaultAlarms(historyFaultItems, deviceNameMap),
     [deviceNameMap, historyFaultItems]
@@ -1529,7 +1554,7 @@ export function AlarmLogPanel({
                 <div className="min-h-[260px] flex-1 overflow-hidden">
                   <AlarmTimeline events={timelineEvents} zh={zh} visibleLevels={historyVisibleLevels} />
                 </div>
-                <AlarmTypeStats items={historyFaultItems} zh={zh} />
+                {showMatrix && <AlarmTypeStats items={historyFaultItems} zh={zh} />}
               </>
             )}
           </div>

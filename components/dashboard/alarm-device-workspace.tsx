@@ -16,8 +16,9 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react"
-import { AlarmLogPanel } from "@/components/dashboard/alarm-log-panel"
+import { AlarmLogPanel, type AlarmHistoryOverride } from "@/components/dashboard/alarm-log-panel"
 import { useLanguage } from "@/components/language-provider"
+import type { FaultDetailItem, FaultListItem } from "@/lib/api/fault"
 import type { MonitorDeviceKind } from "@/lib/api/trend-analysis"
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
@@ -241,6 +242,113 @@ const buildLevels = (seed: string): LevelDatum[] => [
   { lv: 5, count: pickInt(`${seed}:l5`, 0, 2) },
 ]
 
+// ─────────────────────────── 主题化告警目录（种子 mock）───────────────────────────
+// PCS / EMS 现场多为占位设备，无真实故障接口；按主题注入故障目录，让底部甘特图/表格
+// 呈现本主题（电气保护 / 站级）的故障名，而非回退到 BCU 的电池故障。待后端按设备出
+// 故障接口后，移除 historyOverride 即可自动切回真实数据。
+type FaultCatalogEntry = { zh: string; en: string; level: number }
+
+const PCS_FAULT_CATALOG: FaultCatalogEntry[] = [
+  { zh: "绝缘检测故障", en: "Insulation Fault", level: 5 },
+  { zh: "EPO 急停故障", en: "EPO Fault", level: 5 },
+  { zh: "直流过流", en: "DC Overcurrent", level: 4 },
+  { zh: "IGBT 过温", en: "IGBT Overtemp", level: 4 },
+  { zh: "电网缺相", en: "Grid Phase Loss", level: 4 },
+  { zh: "直流继电器开路", en: "DC Relay Open", level: 4 },
+  { zh: "交流继电器开路", en: "AC Relay Open", level: 4 },
+  { zh: "电网过频", en: "Grid Overfreq", level: 3 },
+  { zh: "电网欠频", en: "Grid Underfreq", level: 3 },
+  { zh: "运行母线过压", en: "Run Bus Overvolt", level: 3 },
+  { zh: "预充母线欠压", en: "Precharge Undervolt", level: 2 },
+  { zh: "EMS 通信故障", en: "EMS Comm Fault", level: 2 },
+  { zh: "BMS 通讯故障", en: "BMS Comm Fault", level: 2 },
+  { zh: "风扇故障", en: "Fan Fault", level: 2 },
+]
+
+const EMS_FAULT_CATALOG: FaultCatalogEntry[] = [
+  { zh: "消防联动触发", en: "Fire Linkage Triggered", level: 5 },
+  { zh: "急停触发", en: "E-stop Triggered", level: 5 },
+  { zh: "调度指令越限", en: "Dispatch Limit Exceeded", level: 3 },
+  { zh: "策略下发失败", en: "Strategy Push Failed", level: 3 },
+  { zh: "PCS 通讯中断", en: "PCS Comm Interrupted", level: 3 },
+  { zh: "BMS 通讯中断", en: "BMS Comm Interrupted", level: 3 },
+  { zh: "功率偏差超标", en: "Power Deviation High", level: 3 },
+  { zh: "网关心跳丢失", en: "Gateway Heartbeat Lost", level: 2 },
+  { zh: "采集延迟超限", en: "Acquisition Latency High", level: 2 },
+  { zh: "空调故障", en: "HVAC Fault", level: 2 },
+  { zh: "门禁告警", en: "Access Alarm", level: 1 },
+  { zh: "时钟同步异常", en: "Clock Sync Error", level: 1 },
+]
+
+const pad2 = (value: number) => String(value).padStart(2, "0")
+const secondsToClock = (value: number) => `${pad2(Math.floor(value / 3600))}:${pad2(Math.floor((value % 3600) / 60))}:${pad2(value % 60)}`
+
+/** 由主题故障目录确定性生成历史告警数据（甘特用 detail + 表格用 list），按 seed+date 稳定。 */
+const buildThemedAlarmHistory = (
+  seed: string,
+  statDate: string,
+  catalog: FaultCatalogEntry[],
+  zh: boolean,
+): AlarmHistoryOverride => {
+  const detailItems: FaultDetailItem[] = []
+  const listItems: FaultListItem[] = []
+
+  catalog.forEach((entry, idx) => {
+    const rng = mulberry32(hashSeed(`${seed}:${statDate}:${entry.en}`))
+    const ri = (n: number) => Math.floor(rng() * n)
+    // 前 6 类保证至少出现 1 次，避免全空；其余按概率出现 0~3 次
+    const occurrences = idx < 6 ? 1 + ri(3) : ri(4)
+    if (occurrences === 0) return
+
+    const intervals = Array.from({ length: occurrences }, () => {
+      const startSec = ri(24 * 3600 - 4500)
+      const durationSec = (5 + ri(66)) * 60
+      return { startSec, durationSec }
+    }).sort((left, right) => left.startSec - right.startSec)
+
+    const timeIntervals = intervals.map(({ startSec, durationSec }) => ({
+      start: secondsToClock(startSec),
+      end: secondsToClock(startSec + durationSec),
+      durationSeconds: durationSec,
+    }))
+    const totalDurationSeconds = intervals.reduce((sum, item) => sum + item.durationSec, 0)
+    const firstStart = intervals[0].startSec
+    const last = intervals[intervals.length - 1]
+    const lastEnd = last.startSec + last.durationSec
+    const name = zh ? entry.zh : entry.en
+    const id = `${seed}-themed-${idx}`
+
+    detailItems.push({
+      id,
+      projectId: "",
+      deviceId: seed,
+      statDate,
+      faultName: name,
+      level: `L${entry.level}`,
+      levelValue: entry.level,
+      totalDurationSeconds,
+      occurrenceRatio: totalDurationSeconds / (24 * 3600),
+      timeIntervals,
+    })
+    listItems.push({
+      id,
+      projectId: "",
+      deviceId: seed,
+      statDate,
+      faultCode: `F${1000 + idx}`,
+      faultName: name,
+      level: `L${entry.level}`,
+      levelValue: entry.level,
+      firstOccur: secondsToClock(firstStart),
+      lastOccur: secondsToClock(lastEnd),
+      windowDurationSeconds: lastEnd - firstStart,
+      rowCount: occurrences,
+    })
+  })
+
+  return { detailItems, listItems }
+}
+
 // ─────────────────────────── PCS：电气保护主题 ───────────────────────────
 function PcsAlarmWorkspace({ mode, date, deviceId, deviceName }: Omit<AlarmDeviceWorkspaceProps, "deviceKind" | "projectId">) {
   const { language } = useLanguage()
@@ -252,6 +360,10 @@ function PcsAlarmWorkspace({ mode, date, deviceId, deviceName }: Omit<AlarmDevic
   const topLv = highestLevel(levels)
   const unresolved = clamp(pickInt(`${seed}:unres`, 1, levels[3].count + levels[4].count + 1), 0, total)
   const avgDuration = pick(`${seed}:dur`, 18, 64)
+  const alarmHistory = useMemo(
+    () => buildThemedAlarmHistory(seed, date ?? "", PCS_FAULT_CATALOG, zh),
+    [seed, date, zh],
+  )
 
   const domains: BarDatum[] = useMemo(
     () => [
@@ -299,7 +411,13 @@ function PcsAlarmWorkspace({ mode, date, deviceId, deviceName }: Omit<AlarmDevic
       </div>
 
       <div className="min-h-0 flex-[0.44]">
-        <AlarmLogPanel mode={mode} date={mode === "history" ? date : undefined} deviceId={deviceId} />
+        <AlarmLogPanel
+          mode={mode}
+          date={mode === "history" ? date : undefined}
+          deviceId={deviceId}
+          historyOverride={alarmHistory}
+          showMatrix={false}
+        />
       </div>
     </div>
   )
@@ -317,6 +435,10 @@ function EmsAlarmWorkspace({ mode, date, deviceId, deviceName }: Omit<AlarmDevic
   const affectedDevices = pickInt(`${seed}:affected`, 2, 7)
   const closedLoop = clamp(pick(`${seed}:closed`, 84, 96), 0, 100)
   const commHealth = clamp(pick(`${seed}:comm`, 91, 99), 0, 100)
+  const alarmHistory = useMemo(
+    () => buildThemedAlarmHistory(seed, date ?? "", EMS_FAULT_CATALOG, zh),
+    [seed, date, zh],
+  )
 
   const deviceRanking: BarDatum[] = useMemo(() => {
     const sources = ["PCS-01", "BCU-03", "BCU-07", "EMS", "BCU-05"]
@@ -363,7 +485,13 @@ function EmsAlarmWorkspace({ mode, date, deviceId, deviceName }: Omit<AlarmDevic
       </div>
 
       <div className="min-h-0 flex-[0.44]">
-        <AlarmLogPanel mode={mode} date={mode === "history" ? date : undefined} deviceId={deviceId} />
+        <AlarmLogPanel
+          mode={mode}
+          date={mode === "history" ? date : undefined}
+          deviceId={deviceId}
+          historyOverride={alarmHistory}
+          showMatrix={false}
+        />
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Maximize2, Minimize2 } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { TopologyView } from "@/components/dashboard/topology/topology-view"
@@ -137,16 +138,11 @@ export function TopoCanvas({
     />
   )
 
-  return (
-    <div
-      className={
-        fullscreen
-          ? "fixed inset-0 z-[60] bg-[linear-gradient(180deg,#081a36,#050f24)] p-3"
-          : "relative h-full w-full"
-      }
-    >
-      {/* 全屏视图内的退出按钮（恢复原来大小）；进入按钮在卡片标题栏 */}
-      {fullscreen && (
+  // 全屏：通过 portal 渲染到 body，避免被祖先的层叠上下文（z-index）/包含块困住，
+  // 从而真正覆盖整页并保证退出按钮可见（否则会出现"其他元素透出、找不到退出按钮"）。
+  if (fullscreen && typeof document !== "undefined") {
+    return createPortal(
+      <div className="fixed inset-0 z-[200] bg-[linear-gradient(180deg,#081a36,#050f24)] p-3">
         <button
           type="button"
           onClick={onExitFullscreen}
@@ -156,8 +152,11 @@ export function TopoCanvas({
         >
           <Minimize2 className="h-4 w-4" />
         </button>
-      )}
-      {content}
-    </div>
-  )
+        {content}
+      </div>,
+      document.body,
+    )
+  }
+
+  return <div className="relative h-full w-full">{content}</div>
 }
