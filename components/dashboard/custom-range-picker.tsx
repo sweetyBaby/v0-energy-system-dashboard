@@ -1,11 +1,10 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Crosshair } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Crosshair } from "lucide-react"
 import type { DateRange } from "react-day-picker"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useLanguage } from "@/components/language-provider"
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -14,30 +13,19 @@ const monthNamesEn = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ]
-
-const monthNamesZh = [
-  "1月", "2月", "3月", "4月", "5月", "6月",
-  "7月", "8月", "9月", "10月", "11月", "12月",
-]
-
+const monthNamesZh = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
 const weekdayNamesZh = ["一", "二", "三", "四", "五", "六", "日"]
 
 const toDayStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
-
-const getDayDiff = (from: Date, to: Date) =>
-  Math.round((toDayStart(to).getTime() - toDayStart(from).getTime()) / DAY_MS)
-
+const getDayDiff = (from: Date, to: Date) => Math.round((toDayStart(to).getTime() - toDayStart(from).getTime()) / DAY_MS)
 const getRangeLength = (from: Date, to: Date) => getDayDiff(from, to) + 1
-
 const startOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1)
-
 const addMonths = (date: Date, months: number) => new Date(date.getFullYear(), date.getMonth() + months, 1)
+const monthIndex = (date: Date) => date.getFullYear() * 12 + date.getMonth()
 
 const formatRangeLabel = (range: DateRange | undefined, language: "zh" | "en") => {
   if (!range?.from) return language === "zh" ? "选择日期范围" : "Select range"
-
   const formatDate = (date: Date) => `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
-
   if (!range.to) return formatDate(range.from)
   return `${formatDate(range.from)} - ${formatDate(range.to)}`
 }
@@ -74,11 +62,35 @@ export function CustomRangePicker({
   const { language } = useLanguage()
   const zh = language === "zh"
   const [open, setOpen] = useState(false)
-  const [pickerMonth, setPickerMonth] = useState<Date>(startOfMonth(value?.from ?? maxDate))
   const [rangeError, setRangeError] = useState("")
+  const [hoverDate, setHoverDate] = useState<Date | null>(null)
+  // Draft selection — committed to onChange only when 确定 is pressed.
+  const [draft, setDraft] = useState<DateRange | undefined>(value)
 
   const normalizedMaxDate = useMemo(() => toDayStart(maxDate), [maxDate])
+  const maxMonthIndex = monthIndex(normalizedMaxDate)
   const monthNames = zh ? monthNamesZh : monthNamesEn
+
+  // The right panel is always one month after the left; cap the left panel so the
+  // right one never goes past the max selectable month.
+  const clampLeft = (month: Date) =>
+    monthIndex(month) > maxMonthIndex - 1 ? addMonths(normalizedMaxDate, -1) : startOfMonth(month)
+
+  const [leftMonth, setLeftMonth] = useState<Date>(() => clampLeft(startOfMonth(value?.from ?? maxDate)))
+  const rightMonth = addMonths(leftMonth, 1)
+
+  // Re-seed the draft + view from the committed value each time the panel opens.
+  useEffect(() => {
+    if (!open) {
+      setHoverDate(null)
+      return
+    }
+    setDraft(value)
+    setRangeError("")
+    setLeftMonth(clampLeft(startOfMonth(value?.from ?? maxDate)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
   const resolvedHeight = height ?? (compact ? 34 : 36)
   const resolvedFontSize = fontSize ?? null
   const triggerFontSize = resolvedFontSize ? `${resolvedFontSize}px` : "clamp(0.82rem, calc(var(--overview-root-size, 15px) * 0.92), 1.02rem)"
@@ -87,66 +99,95 @@ export function CustomRangePicker({
     : "clamp(0.92rem, calc(var(--overview-root-size, 15px) * 1.02), 1.1rem)"
   const panelTitleFontSize = "clamp(0.92rem, calc(var(--overview-root-size, 15px) * 1.02), 1.08rem)"
   const panelHintFontSize = "clamp(0.72rem, calc(var(--overview-root-size, 15px) * 0.8), 0.84rem)"
-  const panelControlFontSize = "clamp(0.82rem, calc(var(--overview-root-size, 15px) * 0.92), 0.96rem)"
-  const quickSelectFontSize = "clamp(0.84rem, calc(var(--overview-root-size, 15px) * 0.94), 0.98rem)"
+  const navLabelFontSize = "clamp(0.86rem, calc(var(--overview-root-size, 15px) * 0.96), 1rem)"
+  const footerFontSize = "clamp(0.84rem, calc(var(--overview-root-size, 15px) * 0.94), 0.98rem)"
 
-  const yearOptions = useMemo(() => {
-    const years: number[] = []
-    for (let year = 2024; year <= normalizedMaxDate.getFullYear(); year += 1) {
-      years.push(year)
-    }
-    return years
-  }, [normalizedMaxDate])
+  const canPrev = monthIndex(leftMonth) > 2024 * 12
+  const canNext = monthIndex(rightMonth) < maxMonthIndex
+  const canNextYear = monthIndex(addMonths(rightMonth, 12)) <= maxMonthIndex
 
-  const canGoNextMonth =
-    pickerMonth.getFullYear() < normalizedMaxDate.getFullYear() ||
-    pickerMonth.getMonth() < normalizedMaxDate.getMonth()
+  // Ant Design hover preview: after the first click (from set, to empty), hovering a
+  // day previews the range that would result.
+  const selectingEnd = Boolean(draft?.from && !draft.to)
+  const previewMatcher = (date: Date) => {
+    if (!selectingEnd || !hoverDate || !draft?.from) return false
+    const d = toDayStart(date).getTime()
+    const a = toDayStart(draft.from).getTime()
+    const b = toDayStart(hoverDate).getTime()
+    return d > Math.min(a, b) && d <= Math.max(a, b)
+  }
 
   const handleRangeSelect = (nextRange: DateRange | undefined) => {
     if (!nextRange?.from) {
-      onChange(undefined)
+      setDraft(undefined)
       setRangeError("")
       return
     }
-
     if (!nextRange.to) {
-      onChange({ from: toDayStart(nextRange.from), to: undefined })
+      setDraft({ from: toDayStart(nextRange.from), to: undefined })
       setRangeError("")
       return
     }
-
     const from = toDayStart(nextRange.from)
     const to = toDayStart(nextRange.to)
-
     if (getRangeLength(from, to) > maxDays) {
-      onChange({ from, to: undefined })
+      // Keep the new start, ask for a closer end — do not commit / close.
+      setDraft({ from, to: undefined })
       setRangeError(maxRangeError)
-      setPickerMonth(startOfMonth(from))
+      setLeftMonth(clampLeft(startOfMonth(from)))
       return
     }
-
-    onChange({ from, to })
+    setDraft({ from, to })
     setRangeError("")
-    setPickerMonth(startOfMonth(from))
+    setHoverDate(null)
+  }
+
+  const draftComplete = Boolean(draft?.from && draft.to)
+
+  const commit = () => {
+    if (!draftComplete) return
+    onChange(draft)
     setOpen(false)
+  }
+
+  const navButtonClass =
+    "rounded p-1 text-[#7b8ab8] transition-colors hover:text-[#cfe4ff] disabled:cursor-not-allowed disabled:opacity-30"
+
+  const calendarClassNames = {
+    months: "flex gap-4",
+    // Fixed panel width keeps the dual panels compact so the popover fits on screen.
+    month: "flex w-[192px] flex-col gap-1",
+    month_caption: "hidden",
+    weekdays: "flex",
+    weekday: "flex-1 rounded-md text-[12px] text-[#7b8ab8]",
+    day: "relative aspect-square w-full p-0 text-center",
+    selected: "bg-[#00d4aa] text-[#041123] font-semibold",
+    today: "rounded-md ring-1 ring-[#45f1d0]/60",
+    outside: "text-[#7b8ab8]/60",
+    disabled: "text-[#8d97aa] opacity-45",
+    // Override the inner day button too — it carries data-[range-middle]:bg-accent
+    // (the theme's orange) which would otherwise sit on top of the cell color.
+    range_middle: "rounded-none [&_button]:!bg-[#15406d] [&_button]:!text-[#dff8ff]",
+    range_start: "rounded-l-md bg-[#00d4aa] text-[#041123]",
+    range_end: "rounded-r-md bg-[#00d4aa] text-[#041123]",
   }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            className={`flex items-center gap-2 rounded-xl border text-[#e8f4fc] transition-all ${compact ? "px-2.5" : "px-3.5"}`}
-            style={{
-              fontSize: triggerFontSize,
-              height: `${resolvedHeight}px`,
-              minWidth: minWidth ? `${minWidth}px` : undefined,
-              background: "linear-gradient(180deg,rgba(17,27,60,0.98),rgba(10,18,45,0.98))",
-              borderColor: open ? "rgba(69,241,208,0.55)" : "rgba(39,73,111,1)",
-              boxShadow: open
-                ? "0 0 0 1px rgba(69,241,208,0.08) inset, 0 0 18px rgba(34,211,238,0.14)"
-                : "0 0 0 1px rgba(115,198,255,0.05) inset, 0 8px 18px rgba(0,0,0,0.16)",
-            }}
-          >
+      <PopoverTrigger asChild>
+        <button
+          className={`flex items-center gap-2 rounded-xl border text-[#e8f4fc] transition-all ${compact ? "px-2.5" : "px-3.5"}`}
+          style={{
+            fontSize: triggerFontSize,
+            height: `${resolvedHeight}px`,
+            minWidth: minWidth ? `${minWidth}px` : undefined,
+            background: "linear-gradient(180deg,rgba(17,27,60,0.98),rgba(10,18,45,0.98))",
+            borderColor: open ? "rgba(69,241,208,0.55)" : "rgba(39,73,111,1)",
+            boxShadow: open
+              ? "0 0 0 1px rgba(69,241,208,0.08) inset, 0 0 18px rgba(34,211,238,0.14)"
+              : "0 0 0 1px rgba(115,198,255,0.05) inset, 0 8px 18px rgba(0,0,0,0.16)",
+          }}
+        >
           <CalendarDays className="shrink-0 text-[#8db7ff]" style={{ width: triggerIconSize, height: triggerIconSize }} />
           <span className="font-semibold tracking-[0.01em]">{buttonLabel ?? formatRangeLabel(value, language)}</span>
           <ChevronDown className="shrink-0 text-[#7b8ab8]" style={{ width: triggerIconSize, height: triggerIconSize }} />
@@ -155,129 +196,104 @@ export function CustomRangePicker({
 
       <PopoverContent
         align={align}
-        className="z-50 w-[360px] rounded-2xl border border-[#26456e] bg-[#0d1233] p-0 text-[#e8f4fc]"
+        side="bottom"
+        sideOffset={6}
+        avoidCollisions
+        collisionPadding={12}
+        className="z-50 w-auto rounded-2xl border border-[#3f6ea8] bg-[#0d1233] p-0 text-[#e8f4fc] shadow-[0_18px_48px_rgba(0,0,0,0.6),0_0_0_1px_rgba(69,241,208,0.18)]"
       >
-        <div className="border-b border-[#1a2654] px-4 py-3">
-          <div className="font-semibold text-[#e8f4fc]" style={{ fontSize: panelTitleFontSize }}>
+        <div className="border-b border-[#1a2654] px-4 py-2.5">
+          <span className="font-semibold text-[#e8f4fc]" style={{ fontSize: panelTitleFontSize }}>
             {zh ? "选择日期范围" : "Select range"}
-            <span className="ml-1 font-normal text-[#7b8ab8]" style={{ fontSize: panelHintFontSize }}>
-              {zh ? `（${hint}）` : `(${hint})`}
-            </span>
+          </span>
+          <div className="mt-1 text-[#7b8ab8]" style={{ fontSize: panelHintFontSize }}>
+            {rangeError ? <span className="text-[#fda4af]">{rangeError}</span> : zh ? `（${hint}）` : `(${hint})`}
           </div>
-          {rangeError && <div className="mt-1 text-[#fda4af]" style={{ fontSize: panelHintFontSize }}>{rangeError}</div>}
         </div>
 
-        <div className="border-b border-[#1a2654] p-3">
-          <div className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-2">
-            <Select
-              value={String(pickerMonth.getFullYear())}
-              onValueChange={(nextYear) => setPickerMonth(new Date(Number(nextYear), pickerMonth.getMonth(), 1))}
-            >
-              <SelectTrigger className="h-10 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]" style={{ fontSize: panelControlFontSize }}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]" style={{ fontSize: panelControlFontSize }}>
-                {yearOptions.map((year) => (
-                  <SelectItem key={year} value={String(year)} className="text-[#e8f4fc]" style={{ fontSize: panelControlFontSize }}>
-                    {zh ? `${year}年` : String(year)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={String(pickerMonth.getMonth())}
-              onValueChange={(nextMonth) => setPickerMonth(new Date(pickerMonth.getFullYear(), Number(nextMonth), 1))}
-            >
-              <SelectTrigger className="h-10 w-full rounded-lg border-[#26456e] bg-[#101840] text-[#e8f4fc]" style={{ fontSize: panelControlFontSize }}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="border-[#26456e] bg-[#101840] text-[#e8f4fc]" style={{ fontSize: panelControlFontSize }}>
-                {monthNames.map((month, index) => (
-                  <SelectItem key={`${month}-${index}`} value={String(index)} className="text-[#e8f4fc]" style={{ fontSize: panelControlFontSize }}>
-                    {month}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <button
-              type="button"
-              onClick={() => setPickerMonth((prev) => addMonths(prev, -1))}
-              className="flex h-10 w-10 items-center justify-center rounded-md border border-[#26456e] bg-[#101840] text-[#c7d7f5] transition-colors hover:border-[#22d3ee]/50 hover:text-white"
-              aria-label={zh ? "上一个月" : "Previous month"}
-            >
-              <ChevronLeft className="h-[18px] w-[18px]" />
+        {/* Dual-panel nav header */}
+        <div className="flex items-center justify-between px-4 pt-2" style={{ fontSize: navLabelFontSize }}>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => canPrev && setLeftMonth((prev) => clampLeft(addMonths(prev, -12)))} disabled={!canPrev} className={navButtonClass} aria-label={zh ? "上一年" : "Previous year"}>
+              <ChevronsLeft className="h-4 w-4" />
             </button>
-
-            <button
-              type="button"
-              onClick={() => canGoNextMonth && setPickerMonth((prev) => addMonths(prev, 1))}
-              disabled={!canGoNextMonth}
-              className="flex h-10 w-10 items-center justify-center rounded-md border border-[#26456e] bg-[#101840] text-[#c7d7f5] transition-colors hover:border-[#22d3ee]/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
-              aria-label={zh ? "下一个月" : "Next month"}
-            >
-              <ChevronRight className="h-[18px] w-[18px]" />
+            <button type="button" onClick={() => canPrev && setLeftMonth((prev) => clampLeft(addMonths(prev, -1)))} disabled={!canPrev} className={navButtonClass} aria-label={zh ? "上一月" : "Previous month"}>
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex flex-1 items-center justify-around px-2 font-semibold text-[#e8f4fc]">
+            <span>{zh ? `${leftMonth.getFullYear()}年 ${monthNames[leftMonth.getMonth()]}` : `${monthNames[leftMonth.getMonth()]} ${leftMonth.getFullYear()}`}</span>
+            <span>{zh ? `${rightMonth.getFullYear()}年 ${monthNames[rightMonth.getMonth()]}` : `${monthNames[rightMonth.getMonth()]} ${rightMonth.getFullYear()}`}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => canNext && setLeftMonth((prev) => addMonths(prev, 1))} disabled={!canNext} className={navButtonClass} aria-label={zh ? "下一月" : "Next month"}>
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => canNextYear && setLeftMonth((prev) => clampLeft(addMonths(prev, 12)))} disabled={!canNextYear} className={navButtonClass} aria-label={zh ? "下一年" : "Next year"}>
+              <ChevronsRight className="h-4 w-4" />
             </button>
           </div>
         </div>
 
         <Calendar
           mode="range"
-          selected={value}
-          month={pickerMonth}
-          onMonthChange={(month) => setPickerMonth(startOfMonth(month))}
+          selected={draft}
+          month={leftMonth}
+          numberOfMonths={2}
+          onMonthChange={(month) => setLeftMonth(clampLeft(month))}
           onSelect={handleRangeSelect}
-          numberOfMonths={1}
+          onDayMouseEnter={(day) => setHoverDate(day)}
           weekStartsOn={zh ? 1 : 0}
-          formatters={
-            zh
-              ? {
-                  formatWeekdayName: (date) => weekdayNamesZh[(date.getDay() + 6) % 7],
-                }
-              : undefined
-          }
+          formatters={zh ? { formatWeekdayName: (date) => weekdayNamesZh[(date.getDay() + 6) % 7] } : undefined}
+          modifiers={{ preview: previewMatcher }}
+          modifiersClassNames={{ preview: "rounded-none [&_button]:!bg-[#15406d]/55 [&_button]:!text-[#dff8ff]" }}
           disabled={(date) => {
             const day = toDayStart(date)
             if (day > normalizedMaxDate) return true
-            if (value?.from && !value.to) {
-              return Math.abs(getDayDiff(value.from, day)) > maxDays - 1
-            }
+            if (draft?.from && !draft.to) return Math.abs(getDayDiff(draft.from, day)) > maxDays - 1
             return false
           }}
           hideNavigation
-          showOutsideDays
-          className="bg-[#0d1233] p-3"
-          classNames={{
-            month_caption: "hidden",
-            weekday: "flex-1 rounded-md text-[13px] text-[#7b8ab8]",
-            day: "relative aspect-square w-full p-0 text-center",
-            selected: "rounded-md bg-[#00d4aa] text-[#041123] font-semibold",
-            today: "rounded-md bg-[#1c315f] text-[#e8f4fc]",
-            outside: "text-[#7b8ab8]/70",
-            disabled: "text-[#8d97aa] opacity-55",
-            range_middle: "bg-[#15406d] text-[#dff8ff]",
-            range_start: "rounded-l-md bg-[#00d4aa] text-[#041123]",
-            range_end: "rounded-r-md bg-[#00d4aa] text-[#041123]",
-          }}
+          // No outside days: in dual-panel view an endpoint would otherwise also show
+          // (highlighted) in the adjacent month, looking like a 3rd selected date.
+          showOutsideDays={false}
+          className="bg-transparent px-3 py-2 [--cell-size:28px]"
+          classNames={calendarClassNames}
         />
 
-        <div className="border-t border-[#1a2654] px-4 py-3">
+        {/* Footer: quick-select (left) + 取消 / 确定 (right) */}
+        <div className="flex items-center justify-between gap-2 border-t border-[#1a2654] px-4 py-2.5" style={{ fontSize: footerFontSize }}>
           <button
             type="button"
             onClick={() => {
               const current = normalizedMaxDate
-              onChange({ from: current, to: current })
+              setDraft({ from: current, to: current })
               setRangeError("")
-              setPickerMonth(startOfMonth(current))
-              setOpen(false)
+              setHoverDate(null)
+              setLeftMonth(clampLeft(startOfMonth(current)))
             }}
-            className="mx-auto flex items-center gap-1.5 text-[#e8f4fc] transition-colors hover:text-[#22d3ee]"
-            style={{ fontSize: quickSelectFontSize }}
+            className="flex items-center gap-1.5 text-[#9bc4e8] transition-colors hover:text-[#22d3ee]"
           >
-            <Crosshair className="h-[18px] w-[18px]" />
+            <Crosshair className="h-[16px] w-[16px]" />
             <span>{quickSelectLabel ?? (zh ? "今天" : "Today")}</span>
           </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-md border border-[#27496f] px-3 py-1 text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
+            >
+              {zh ? "取消" : "Cancel"}
+            </button>
+            <button
+              type="button"
+              onClick={commit}
+              disabled={!draftComplete}
+              className="rounded-md bg-[#00d4aa] px-4 py-1 font-semibold text-[#04241c] transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {zh ? "确定" : "OK"}
+            </button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
