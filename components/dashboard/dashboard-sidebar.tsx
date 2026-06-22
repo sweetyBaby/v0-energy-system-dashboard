@@ -349,44 +349,77 @@ export function DashboardSidebar({
           const anyChildActive = item.children.some((child) => child.key === activeTab)
           const open = openGroups.has(item.groupKey)
 
-          // Collapsed: parent icon with a hover fly-out listing children.
+          // Collapsed: clicking the parent toggles an inline vertical sub-menu
+          // (child icons stacked right below it in the rail), so switching
+          // analyses stays in the nav instead of hiding behind a hover fly-out.
+          // The fly-out is still offered on hover while the sub-menu is closed,
+          // as a quick labelled preview.
           if (!expanded) {
             return (
-              <div key={item.groupKey} className="group relative">
-                {renderNavButton({
-                  icon: item.icon,
-                  label: groupLabel,
-                  isActive: anyChildActive,
-                  onClick: () =>
-                    onTabChange(anyChildActive ? activeTab : item.children[0].key),
-                })}
-                <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 min-w-[148px] rounded-lg border border-[#1a3a52] bg-[rgba(4,12,26,0.97)] p-1.5 opacity-0 shadow-[0_8px_28px_rgba(0,0,0,0.5)] transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
-                  <div className="px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5d83a0]">
-                    {groupLabel}
-                  </div>
-                  {item.children.map((child) => {
-                    const childActive = activeTab === child.key
-                    const ChildIcon = child.icon
-                    return (
-                      <button
-                        key={child.key}
-                        type="button"
-                        onClick={() => onTabChange(child.key)}
-                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors ${
-                          childActive
-                            ? "bg-[rgba(38,240,220,0.12)] text-[#bff8f2]"
-                            : "text-[#bcd6e8] hover:bg-[rgba(115,198,255,0.08)] hover:text-[#eaf6ff]"
-                        }`}
-                      >
-                        <ChildIcon
-                          className={`h-3.5 w-3.5 shrink-0 ${childActive ? "text-[#26f0dc]" : "text-[#78bfd1]"}`}
-                        />
-                        <span className="truncate">{zh ? child.zh : child.en}</span>
-                      </button>
-                    )
+              <div key={item.groupKey} className="flex flex-col gap-1">
+                <div className="group relative">
+                  {renderNavButton({
+                    icon: item.icon,
+                    label: groupLabel,
+                    isActive: anyChildActive && !open,
+                    softActive: anyChildActive && open,
+                    onClick: () => toggleGroup(item),
                   })}
-                  <div className="absolute -left-[5px] top-4 border-4 border-transparent border-r-[#1a3a52]" />
+                  {/* Expandability affordance: a tiny caret that flips when open. */}
+                  <ChevronDown
+                    className={`pointer-events-none absolute bottom-1 right-1 h-2.5 w-2.5 text-[#6fbecf] transition-transform duration-200 ${
+                      open ? "rotate-180 text-[#26f0dc]" : ""
+                    }`}
+                  />
+
+                  {!open && (
+                    <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 min-w-[148px] rounded-lg border border-[#1a3a52] bg-[rgba(4,12,26,0.97)] p-1.5 opacity-0 shadow-[0_8px_28px_rgba(0,0,0,0.5)] transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+                      <div className="px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5d83a0]">
+                        {groupLabel}
+                      </div>
+                      {item.children.map((child) => {
+                        const childActive = activeTab === child.key
+                        const ChildIcon = child.icon
+                        return (
+                          <button
+                            key={child.key}
+                            type="button"
+                            onClick={() => onTabChange(child.key)}
+                            className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors ${
+                              childActive
+                                ? "bg-[rgba(38,240,220,0.12)] text-[#bff8f2]"
+                                : "text-[#bcd6e8] hover:bg-[rgba(115,198,255,0.08)] hover:text-[#eaf6ff]"
+                            }`}
+                          >
+                            <ChildIcon
+                              className={`h-3.5 w-3.5 shrink-0 ${childActive ? "text-[#26f0dc]" : "text-[#78bfd1]"}`}
+                            />
+                            <span className="truncate">{zh ? child.zh : child.en}</span>
+                          </button>
+                        )
+                      })}
+                      <div className="absolute -left-[5px] top-4 border-4 border-transparent border-r-[#1a3a52]" />
+                    </div>
+                  )}
                 </div>
+
+                {/* Inline vertical sub-menu within the collapsed rail. */}
+                {open && (
+                  <div className="flex flex-col gap-1">
+                    {item.children.map((child) => (
+                      <div key={child.key} className="group relative">
+                        {renderNavButton({
+                          icon: child.icon,
+                          label: zh ? child.zh : child.en,
+                          isActive: activeTab === child.key,
+                          onClick: () => onTabChange(child.key),
+                          isChild: true,
+                        })}
+                        {renderCollapsedTooltip(zh ? child.zh : child.en)}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           }
