@@ -29,6 +29,13 @@ const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.9 }
 const BASE_NODE_SCALE = 1.18
 const BASE_LABEL_SCALE = 1.28
 const BASE_FIELD_SCALE = 1.32
+// 文字/线宽随容器最短边（CSS px）线性适配：minSide=TEXT_REF_MIN 时倍率=1。
+// 引擎里图标(nsz)本就随容器最短边自适配，但标签/字段/线宽是「屏幕恒定」——此倍率让它们也随容器
+// 一起变大（普通卡片不至于太小、全屏时同步放大，而非只放大连线）。floor 防小容器过小，cap 防过大。
+// 故此倍率只施于 label/field/edge，不施于 nodeScale（否则图标会被二次放大）。
+const TEXT_REF_MIN = 640
+const TEXT_SCALE_MIN = 1
+const TEXT_SCALE_MAX = 2.6
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 // 引擎内的节点标签/字段卡片是「屏幕恒定尺寸」：在容器尺寸下它们恒为 ~14px，本就清晰可读。
@@ -93,8 +100,6 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
   fitCapRef.current = fitZoomCap ?? FIT_ZOOM_CAP
   const fullscreenRef = useRef(fullscreen)
   fullscreenRef.current = fullscreen
-  // 普通模式下最近一次 fit 时的画布最短边（基准）；全屏时据此放大文字/线宽，使其随大画布等比变大
-  const baseMinRef = useRef(0)
 
   const lastSigRef = useRef<string | null>(null)
   // 已加载图标的 type 集合签名：仅当画布用到的 type 变化时才重新拉图标（实时数据刷新不触发）
@@ -108,31 +113,34 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
   // 当前布局的原始边类型表（未放大）；放大时据此按 userScale 缩放线宽
   const edgeTypesRef = useRef<Record<string, { w?: number }> | null>(null)
 
-  // 节点尺寸（nsz）本就随画布最短边变大，但文字/线宽是「屏幕恒定」。全屏画布变大时按
-  // 画布增大比例额外放大文字/线宽，避免「大容器、小文字、细线」的失衡。普通模式恒为 1。
-  const displayScale = () => {
-    const canvas = canvasRef.current
-    if (!canvas || !fullscreenRef.current || !baseMinRef.current) return 1
-    return clamp(Math.min(canvas.width, canvas.height) / baseMinRef.current, 1, 4)
+  // 文字/线宽随「容器最短边(CSS px)」自适配（普通与全屏统一）：minSide=TEXT_REF_MIN 时为 1，
+  // 容器越大越放大（cap），越小不缩到比基准更小（floor）。与引擎图标(nsz)随容器变大保持一致，
+  // 避免「大容器/全屏只放大连线、文字仍是小号」的失衡。
+  const containerScale = () => {
+    const container = containerRef.current
+    if (!container) return 1
+    const minSide = Math.min(container.clientWidth, container.clientHeight)
+    if (!minSide) return 1
+    return clamp(minSide / TEXT_REF_MIN, TEXT_SCALE_MIN, TEXT_SCALE_MAX)
   }
 
-  // 把「节点/标签/字段/线宽」整体放大到 userScale，使其与 zoom 同步缩放（连线、文字一起放大）
+  // 把「标签/字段/线宽」整体放大到 userScale × 容器适配；图标(nodeScale)只随 userScale（容器适配已在 nsz 内）
   const applyScale = (scale: number) => {
     const engine = engineRef.current
     if (!engine) return
     userScaleRef.current = scale
-    const ds = displayScale() // 全屏时文字/线宽随大画布等比放大（节点已随画布自适应，不重复）
+    const cs = containerScale()
     engine.setOptions({
       nodeScale: BASE_NODE_SCALE * scale,
-      labelScale: BASE_LABEL_SCALE * scale * ds,
-      fieldScale: BASE_FIELD_SCALE * scale * ds,
+      labelScale: BASE_LABEL_SCALE * scale * cs,
+      fieldScale: BASE_FIELD_SCALE * scale * cs,
     })
     const base = edgeTypesRef.current
     if (base) {
       const scaled: Record<string, unknown> = {}
       for (const k of Object.keys(base)) {
         const t = base[k]
-        scaled[k] = { ...t, w: (typeof t.w === "number" ? t.w : 2.5) * scale * ds }
+        scaled[k] = { ...t, w: (typeof t.w === "number" ? t.w : 2.5) * scale * cs }
       }
       engine.setEdgeTypes(scaled)
     }
@@ -141,11 +149,8 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
   // 适应容器，记录全貌基线 zoom，并把放大倍数复位为 1（基准尺寸）
   const fitToView = () => {
     const engine = engineRef.current
-    const canvas = canvasRef.current
     if (!engine) return
-    // 普通模式下记录画布基准最短边（文字/线宽放大的参照），全屏不覆盖
-    if (canvas && !fullscreenRef.current) baseMinRef.current = Math.min(canvas.width, canvas.height)
-    applyScale(1) // 用基准尺寸计算 fit，保证 nsz/线宽与基线一致
+    applyScale(1) // 复位用户缩放为 1（文字/线宽仍按容器适配）
     engine.fitView(fitCapRef.current)
     fitZoomRef.current = engine.getView().zoom || 1
     userScaleRef.current = 1
