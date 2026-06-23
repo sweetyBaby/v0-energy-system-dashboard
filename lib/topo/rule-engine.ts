@@ -84,6 +84,11 @@ export function evalCond(cond: TopoCond | null | undefined, ctx: Ctx): boolean {
   return cmpOp(lv, cond.op || "truthy", rv)
 }
 
+/** 与运营端 runtime.js 一致：text 等不支持状态信号的节点不写 .status/.online。 */
+function nodeSupportsStateSignals(n: TopologyDoc["nodes"][number]): boolean {
+  return !!(n && n.type !== "text")
+}
+
 /** 求值上下文：画布静态默认值（字段 value / status / online=true / 全局信号样例 / sampleSignals）← 实时信号覆盖 */
 export function buildContext(topology: TopologyDoc, signals?: TopoSignals | null): Ctx {
   const ctx: Ctx = {}
@@ -92,8 +97,10 @@ export function buildContext(topology: TopologyDoc, signals?: TopoSignals | null
       const key = f.key && typeof f.key === "object" ? f.key.zh : (f.key as unknown as string)
       if (key != null) ctx[n.id + "." + key] = f.value === "--" ? "" : f.value
     })
-    ctx[n.id + ".status"] = n.status && typeof n.status === "object" ? n.status.zh : ((n.status as unknown as string) || "")
-    ctx[n.id + ".online"] = true
+    if (nodeSupportsStateSignals(n)) {
+      ctx[n.id + ".status"] = n.status && typeof n.status === "object" ? n.status.zh : ((n.status as unknown as string) || "")
+      ctx[n.id + ".online"] = true
+    }
   })
   ;(topology.signals || []).forEach((s) => {
     if (s && s.name != null && s.sample !== undefined) ctx[s.name] = s.sample

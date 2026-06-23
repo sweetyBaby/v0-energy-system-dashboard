@@ -183,7 +183,8 @@
       "status": {
         "zh": "发电",
         "en": "Generating"
-      }
+      },
+      "visibleWhen": { "var": "solar_1.P(kW)", "op": ">", "val": 0 }
     },
     {
       "id": "bms_1",
@@ -400,6 +401,11 @@
       "dash": [],
       "route": "smart",
       "dir": "both",
+      "dirRules": [
+        { "when": { "var": "pcs_1.I(A)", "op": ">", "val": 0 }, "dir": "forward" },
+        { "when": { "var": "pcs_1.I(A)", "op": "<", "val": 0 }, "dir": "reverse" },
+        { "when": { "var": "pcs_1.I(A)", "op": "==", "val": 0 }, "dir": "none" }
+      ],
       "width": 1,
       "label": "",
       "showLabel": true,
@@ -470,7 +476,8 @@
       "waypoints": [],
       "active": true,
       "fromPort": "bottom",
-      "toPort": "top"
+      "toPort": "top",
+      "showWhen": { "var": "gen_1.online", "op": "truthy" }
     }
   ]
 }

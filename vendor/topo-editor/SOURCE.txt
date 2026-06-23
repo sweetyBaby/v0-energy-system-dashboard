@@ -1,0 +1,3 @@
+source: enercloud-platform/topo/topo-editor/topology-editor.js
+synced-from-mtime: 2025-06-17 16:12
+note: 抽取 lib/topo/engine.ts 的上游源；勿手改，更新后重跑 scripts/build-topo-engine.mjs

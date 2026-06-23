@@ -62,6 +62,106 @@ export function createTopoEngine(canvas, opts = {}) {
     const lum = (r * 0.299 + g * 0.587 + b * 0.114); return lum > 128 ? "rgba(0,40,90,0.13)" : "rgba(120,170,220,0.28)"
   }
   function bgPlate() { return bgColor }
+  // ===== 端口/几何辅助：由 scripts/build-topo-engine.mjs 从 topology-editor.js 同步，勿手改 =====
+function _pathScore(p,a,b){
+  return _pathLen(p)+_pathBends(p)*18+_pathDetourPenalty(p,a,b)*4;
+}
+function _pathBends(p){
+  if(!p||p.length<3)return 0;
+  let n=0;
+  for(let i=1;i<p.length-1;i++){
+    const a=p[i-1],b=p[i],c=p[i+1];
+    const dx1=Math.sign(b[0]-a[0]),dy1=Math.sign(b[1]-a[1]);
+    const dx2=Math.sign(c[0]-b[0]),dy2=Math.sign(c[1]-b[1]);
+    if(dx1!==dx2||dy1!==dy2)n++;
+  }
+  return n;
+}
+function _pathDetourPenalty(p,a,b){
+  if(!p||p.length<2||!a||!b)return 0;
+  const ba=nodeBox(a),bb=nodeBox(b);
+  const direct=Math.hypot(bb.cx-ba.cx,bb.cy-ba.cy);
+  const margin=Math.max(80,Math.min(180,direct*0.35));
+  const minX=Math.min(ba.left,bb.left)-margin,maxX=Math.max(ba.right,bb.right)+margin;
+  const minY=Math.min(ba.top,bb.top)-margin,maxY=Math.max(ba.bottom,bb.bottom)+margin;
+  let pen=0;
+  p.forEach(pt=>{
+    if(pt[0]<minX)pen+=minX-pt[0]; else if(pt[0]>maxX)pen+=pt[0]-maxX;
+    if(pt[1]<minY)pen+=minY-pt[1]; else if(pt[1]>maxY)pen+=pt[1]-maxY;
+  });
+  return pen;
+}
+function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+function isLinearBusNode(n){
+  return !!(n&&['busbar','trunk_ac','trunk_dc','tie_line'].includes(n.type));
+}
+function linearBusSpan(n){
+  const b=nodeBox(n), s=nsz(n);
+  // 母线/主干线图标主体是横向线段，不是完整方盒；连接点应落在线段上。
+  const half=s*0.42;
+  return {y:b.cy,left:b.cx-half,right:b.cx+half,cx:b.cx};
+}
+function linearBusPort(n, wx){
+  const sp=linearBusSpan(n);
+  const x=clamp(wx,sp.left,sp.right);
+  const ratio=(sp.right===sp.left)?0.5:(x-sp.left)/(sp.right-sp.left);
+  return {name:'line:'+ratio.toFixed(3),point:[x,sp.y],dist:0};
+}
+function nodePortPoint(n, port){
+  const b=nodeBox(n);
+  if(isLinearBusNode(n)){
+    if(typeof port==='string'&&port.startsWith('line:')){
+      const sp=linearBusSpan(n), r=clamp(parseFloat(port.slice(5)),0,1);
+      return [sp.left+(sp.right-sp.left)*(isFinite(r)?r:0.5),sp.y];
+    }
+    if(port==='left'||port==='right'||port==='top'||port==='bottom'||port==='center'){
+      const sp=linearBusSpan(n);
+      if(port==='left')return [sp.left,sp.y];
+      if(port==='right')return [sp.right,sp.y];
+      return [sp.cx,sp.y];
+    }
+  }
+  switch(port){
+    case 'top': return [b.cx,b.top];
+    case 'right': return [b.right,b.cy];
+    case 'bottom': return [b.cx,b.bottom];
+    case 'left': return [b.left,b.cy];
+    case 'center': return [b.cx,b.cy];
+    default: return null;
+  }
+}
+function nearestNodePort(n, wx, wy){
+  if(isLinearBusNode(n)){
+    const p=linearBusPort(n,wx);
+    p.dist=Math.hypot(wx-p.point[0],wy-p.point[1]);
+    return p;
+  }
+  const ports=['top','right','bottom','left'];
+  let best=null,bd=Infinity;
+  ports.forEach(name=>{
+    const p=nodePortPoint(n,name);
+    const d=Math.hypot(wx-p[0],wy-p[1]);
+    if(d<bd){bd=d;best={name,point:p,dist:d};}
+  });
+  return best;
+}
+function directionalNodePort(n, wx, wy){
+  if(isLinearBusNode(n))return linearBusPort(n,wx);
+  const b=nodeBox(n);
+  const dx=wx-b.cx,dy=wy-b.cy,adx=Math.abs(dx),ady=Math.abs(dy);
+  if(ady>adx*0.8)return {name:dy<0?'top':'bottom',point:nodePortPoint(n,dy<0?'top':'bottom'),dist:0};
+  if(adx>ady*0.8)return {name:dx<0?'left':'right',point:nodePortPoint(n,dx<0?'left':'right'),dist:0};
+  return nearestNodePort(n,wx,wy);
+}
+function edgeAnchorPoint(n, tx, ty, port){
+  const explicit=nodePortPoint(n,port);
+  if(explicit)return explicit;
+  const inferred=directionalNodePort(n,tx,ty);
+  return inferred?inferred.point:anchorPoint(n,tx,ty);
+}
+function portSide(port){return {left:'L',right:'R',top:'T',bottom:'B'}[port]||null;}
+  // ===== END 同步 =====
+
 
   // ===== BEGIN 逐字抽取：几何工具 + 通道布线引擎（topo.html 1361-2161）=====
 function nodeLabel(n){ return lang==='en' ? (n.labelEn||n.labelZh||n.id) : (n.labelZh||n.label||n.id); }
@@ -87,7 +187,7 @@ function nodeBox(n){
   const s=nsz(n);
   // 图标绘制 y 从 n.y - s*0.72 到 n.y + s*0.28，视觉中心在 n.y - s*0.22
   const cx=n.x, cy=n.y - s*0.22;
-  const hw=s*0.40, hh=s*0.40;
+  const hw=s*0.50, hh=s*0.50;
   return {cx,cy,hw,hh,left:cx-hw,right:cx+hw,top:cy-hh,bottom:cy+hh};
 }
 // 从节点视觉中心朝目标方向，求与包围盒边界的交点（连线起止贴边，不进图标内部）
@@ -138,7 +238,7 @@ function segBoxClip(p1,p2,box){
 }
 function ptInBox(p,box){ return p[0]>=box.left&&p[0]<=box.right&&p[1]>=box.top&&p[1]<=box.bottom; }
 // 把折线两端裁剪到节点视觉盒边界（彻底移除盒内点，连线只到设备边缘）
-function clipEnds(pts,a,b){
+function clipEnds(pts,a,b,e){
   const ba=nodeBox(a), bb=nodeBox(b);
   pts=pts.map(p=>p.slice());
   // ── 头部：找路径离开 a 盒的那一段，在盒边界处截断（沿该段方向，保持轴对齐）──
@@ -162,6 +262,10 @@ function clipEnds(pts,a,b){
     if(r){ const t=r.tmax; cp=[p[0]+(q[0]-p[0])*t, p[1]+(q[1]-p[1])*t]; }
     pts=pts.slice(0,ti+1); pts[pts.length-1]=cp;
   }
+  if(pts.length>=2){
+    pts[0]=edgeAnchorPoint(a,pts[1][0],pts[1][1],e&&e.fromPort);
+    pts[pts.length-1]=edgeAnchorPoint(b,pts[pts.length-2][0],pts[pts.length-2][1],e&&e.toPort);
+  }
   // ── 兜底：若首/尾段仍是斜的，插入拐点矫正为 L ──
   if(pts.length>=2){
     const p0=pts[0],p1=pts[1];
@@ -180,7 +284,7 @@ let _pathCache={}, _pathCacheSig='', _dragging=false, _dragIds=new Set(), _busTr
 function topoSig(){
   // 拓扑签名：节点位置 + 边连接，变化时缓存失效
   return nodes.map(n=>n.id+':'+Math.round(n.x)+','+Math.round(n.y)+':'+n.type).join('|')+'##'+
-         edges.map(e=>e.from+'>'+e.to+':'+(e.route||'')).join('|');
+         edges.map(e=>e.from+'>'+e.to+':'+(e.route||'')+':'+(e.fromPort||'')+'>'+(e.toPort||'')).join('|');
 }
 function invalidatePathCache(){ _pathCache={}; }
 let _routeCache=null, _routeCacheKey='';
@@ -228,14 +332,15 @@ function segOverlapPenalty(x1,y1,x2,y2){
 // 正交路由：加密网格（节点边界 + 多条中间车道）+ A*，强避让
 function routeOrtho(a,b,e){
   const ba=nodeBox(a), bb=nodeBox(b);
+  const sp=edgeAnchorPoint(a,bb.cx,bb.cy,e.fromPort), tp=edgeAnchorPoint(b,ba.cx,ba.cy,e.toPort);
   const obs=buildObstacleGrid();
   const GAP=20;
   const xsSet=new Set(),ysSet=new Set();
-  xsSet.add(ba.cx);xsSet.add(bb.cx);ysSet.add(ba.cy);ysSet.add(bb.cy);
+  xsSet.add(sp[0]);xsSet.add(tp[0]);ysSet.add(sp[1]);ysSet.add(tp[1]);
   obs.forEach(o=>{xsSet.add(o.l-GAP);xsSet.add(o.r+GAP);ysSet.add(o.t-GAP);ysSet.add(o.b+GAP);});
   // 在起止之间加入多条中间车道，给并行连线更多分流空间
-  const lo_x=Math.min(ba.cx,bb.cx),hi_x=Math.max(ba.cx,bb.cx);
-  const lo_y=Math.min(ba.cy,bb.cy),hi_y=Math.max(ba.cy,bb.cy);
+  const lo_x=Math.min(sp[0],tp[0]),hi_x=Math.max(sp[0],tp[0]);
+  const lo_y=Math.min(sp[1],tp[1]),hi_y=Math.max(sp[1],tp[1]);
   for(let k=1;k<=3;k++){
     xsSet.add(lo_x+(hi_x-lo_x)*k/4);
     ysSet.add(lo_y+(hi_y-lo_y)*k/4);
@@ -248,7 +353,7 @@ function routeOrtho(a,b,e){
   const xs=[...xsSet].sort((p,q)=>p-q), ys=[...ysSet].sort((p,q)=>p-q);
   const xi=new Map(xs.map((v,i)=>[v,i])), yi=new Map(ys.map((v,i)=>[v,i]));
   const W=xs.length,H=ys.length;
-  const sx=xi.get(ba.cx),sy=yi.get(ba.cy),tx=xi.get(bb.cx),ty=yi.get(bb.cy);
+  const sx=xi.get(sp[0]),sy=yi.get(sp[1]),tx=xi.get(tp[0]),ty=yi.get(tp[1]);
   function key(ix,iy){return ix*2000+iy;}
   const open=[{ix:sx,iy:sy,g:0,f:0,dir:-1,prev:null}];
   const seen=new Map();
@@ -275,8 +380,8 @@ function routeOrtho(a,b,e){
     }
   }
   if(!goal){
-    const mx=(ba.cx+bb.cx)/2;
-    return [[ba.cx,ba.cy],[mx,ba.cy],[mx,bb.cy],[bb.cx,bb.cy]];
+    const mx=(sp[0]+tp[0])/2;
+    return [sp,[mx,sp[1]],[mx,tp[1]],tp];
   }
   const path=[];let c=goal;while(c){path.unshift([xs[c.ix],ys[c.iy]]);c=c.prev;}
   const merged=[path[0]];
@@ -320,15 +425,15 @@ function edgePathRaw(e){
   if(route==='manual' && e.waypoints && e.waypoints.length>0){
     // 手动拐点：起点→各拐点→终点，端点裁剪到设备边缘
     let pts=[[a.x,ba.cy], ...e.waypoints.map(p=>p.slice()), [b.x,bb.cy]];
-    pts[0]=anchorPoint(a, pts[1][0], pts[1][1]);
-    pts[pts.length-1]=anchorPoint(b, pts[pts.length-2][0], pts[pts.length-2][1]);
+    pts[0]=edgeAnchorPoint(a, pts[1][0], pts[1][1], e.fromPort);
+    pts[pts.length-1]=edgeAnchorPoint(b, pts[pts.length-2][0], pts[pts.length-2][1], e.toPort);
     // 强制正交：在非横平竖直的段之间插入直角拐点
     if(e.orthoSnap!==false){ pts=orthogonalize(pts); }
     return pts;
   }
   if(route==='arc'){
-    const p0=anchorPoint(a, bb.cx, bb.cy);
-    const p1=anchorPoint(b, ba.cx, ba.cy);
+    const p0=edgeAnchorPoint(a, bb.cx, bb.cy, e.fromPort);
+    const p1=edgeAnchorPoint(b, ba.cx, ba.cy, e.toPort);
     const mx=(p0[0]+p1[0])/2, my=(p0[1]+p1[1])/2;
     const dx=p1[0]-p0[0], dy=p1[1]-p0[1], len=Math.hypot(dx,dy)||1;
     const sib=edges.filter(x=>x.from===e.from); const idx=sib.indexOf(e);
@@ -345,34 +450,36 @@ function edgePathRaw(e){
   if(route==='ortho'){
     let pts;
     try{ pts=routeOrtho(a,b,e); }catch(err){ pts=null; }
-    let cl = pts?clipEnds(pts,a,b):null;
+    let cl = pts?clipEnds(pts,a,b,e):null;
     if(!cl || pathHitsNodes(cl,e.from,e.to)) cl=detourRoute(a,b,e);
     return cl;
   }
   if(route==='lshape'){
     // 简单 L 型：按 orthoDir 选择先横后竖或先竖后横（用于消除交叉，方向可切换）
+    const p0=edgeAnchorPoint(a, bb.cx, bb.cy, e.fromPort);
+    const p1=edgeAnchorPoint(b, ba.cx, ba.cy, e.toPort);
     let pts;
-    if(e.orthoDir==='vh') pts=[[ba.cx,ba.cy],[ba.cx,bb.cy],[bb.cx,bb.cy]];
-    else pts=[[ba.cx,ba.cy],[bb.cx,ba.cy],[bb.cx,bb.cy]];
+    if(e.orthoDir==='vh') pts=[p0,[p0[0],p1[1]],p1];
+    else pts=[p0,[p1[0],p0[1]],p1];
     // 若该 L 穿设备，退回保底避障路由
     if(pathHitsNodes(pts,e.from,e.to)){
       pts=detourRoute(a,b,e);
       return pts;
     }
-    return clipEnds(pts,a,b);
+    return clipEnds(pts,a,b,e);
   }
   if(route==='line'){
     // 纯直线：起止锚点直连，始终保持为一条直线（不横平竖直、不自动避障、不汇流）
-    return [anchorPoint(a, bb.cx, bb.cy), anchorPoint(b, ba.cx, ba.cy)];
+    return [edgeAnchorPoint(a, bb.cx, bb.cy, e.fromPort), edgeAnchorPoint(b, ba.cx, ba.cy, e.toPort)];
   }
   // 直线：动态锚点（随节点位置自适应）
-  const p0=anchorPoint(a, bb.cx, bb.cy);
-  const p1=anchorPoint(b, ba.cx, ba.cy);
+  const p0=edgeAnchorPoint(a, bb.cx, bb.cy, e.fromPort);
+  const p1=edgeAnchorPoint(b, ba.cx, ba.cy, e.toPort);
   // 若直线穿过其他设备，自动改用避障路由（默认直线·遇障碍转L）
   if(pathHitsNodes([p0,p1], e.from, e.to)){
     let pts;
     try{ pts=routeOrtho(a,b,e); }catch(err){ pts=null; }
-    let cl = pts?clipEnds(pts,a,b):null;
+    let cl = pts?clipEnds(pts,a,b,e):null;
     if(!cl || pathHitsNodes(cl,e.from,e.to)) cl=detourRoute(a,b,e);
     return cl;
   }
@@ -395,8 +502,8 @@ function channelRoute(){
   edges.forEach(e=>{
     const a=nodes.find(n=>n.id===e.from), b=nodes.find(n=>n.id===e.to);
     if(!a||!b)return;
-    e._sideFrom=sideOf(a,b);
-    e._sideTo=sideOf(b,a);
+    e._sideFrom=portSide(e.fromPort)||sideOf(a,b);
+    e._sideTo=portSide(e.toPort)||sideOf(b,a);
     sideMap[a.id][e._sideFrom].push(e);
     sideMap[b.id][e._sideTo].push(e);
   });
@@ -437,19 +544,19 @@ function channelRoute(){
 
     const tf=trunkInfo[a.id+'|'+e._sideFrom];
     const tt=trunkInfo[b.id+'|'+e._sideTo];
-    const fJoin=tf.join.slice();
-    const tJoin=tt.join.slice();
+    const fJoin=isLinearBusNode(a)?edgeAnchorPoint(a,bb.cx,bb.cy,e.fromPort):tf.join.slice();
+    const tJoin=isLinearBusNode(b)?edgeAnchorPoint(b,ba.cx,ba.cy,e.toPort):tt.join.slice();
     // 直连快速通道
     const aligned = Math.abs(ba.cx-bb.cx)<14 || Math.abs(ba.cy-bb.cy)<14;
     if(routeStyle!==1 && aligned){
-      const p0=anchorPoint(a,bb.cx,bb.cy), p1=anchorPoint(b,ba.cx,ba.cy);
+      const p0=edgeAnchorPoint(a,bb.cx,bb.cy,e.fromPort), p1=edgeAnchorPoint(b,ba.cx,ba.cy,e.toPort);
       if(!pathHitsNodes([p0,p1],e.from,e.to)){ _pathCache[e._cacheKey]=[p0,p1]; edgeCands[e._cacheKey]=null; return; }
     }
     const fTrunkPt = tf.horiz ? [fJoin[0], tf.trunkC] : [tf.trunkC, fJoin[1]];
     const tTrunkPt = tt.horiz ? [tJoin[0], tt.trunkC] : [tt.trunkC, tJoin[1]];
     const safe=(p)=>{ if(!pathHitsNodes(p,e.from,e.to))return simplifyPath(p,e.from,e.to);
       let pts; try{ pts=routeOrtho(a,b,e); }catch(err){ pts=null; }
-      let cl=pts?clipEnds(pts,a,b):null; if(!cl||pathHitsNodes(cl,e.from,e.to)) cl=detourRoute(a,b,e); return cl; };
+      let cl=pts?clipEnds(pts,a,b,e):null; if(!cl||pathHitsNodes(cl,e.from,e.to)) cl=detourRoute(a,b,e); return cl; };
     // 合并版：fJoin → fTrunkPt →(沿 to 主干法线收拢)→ tTrunkPt(共享) → tJoin
     let mPath=[fJoin, fTrunkPt];
     if(Math.abs(fTrunkPt[0]-tTrunkPt[0])>1 && Math.abs(fTrunkPt[1]-tTrunkPt[1])>1){
@@ -544,28 +651,28 @@ function _pathLen(p){ if(!p||p.length<2)return 0; let d=0; for(let i=0;i<p.lengt
 // 顺序即「偏好度」，优化器在交叉数相同的情况下取更靠前/更短者。
 function straightVariants(a,b,e){
   const ba=nodeBox(a), bb=nodeBox(b);
-  const p0=anchorPoint(a,bb.cx,bb.cy), p1=anchorPoint(b,ba.cx,ba.cy);
+  const p0=edgeAnchorPoint(a,bb.cx,bb.cy,e.fromPort), p1=edgeAnchorPoint(b,ba.cx,ba.cy,e.toPort);
   const out=[];
   const seen=new Set();
   const push=(pts)=>{ if(!pts||pts.length<2)return; const k=pts.map(p=>Math.round(p[0])+','+Math.round(p[1])).join(';'); if(seen.has(k))return; seen.add(k); out.push(pts); };
-  const add=(raw)=>{ const cl=clipEnds(raw.map(p=>p.slice()),a,b); if(cl&&!pathHitsNodes(cl,e.from,e.to)) push(simplifyPath(cl,e.from,e.to)); };
+  const add=(raw)=>{ const cl=clipEnds(raw.map(p=>p.slice()),a,b,e); if(cl&&!pathHitsNodes(cl,e.from,e.to)) push(simplifyPath(cl,e.from,e.to)); };
   // 0) 直线（端点直连）
   if(!pathHitsNodes([p0,p1],e.from,e.to)) push([p0.slice(),p1.slice()]);
   // 1) 两种 L 型
-  add([[ba.cx,ba.cy],[bb.cx,ba.cy],[bb.cx,bb.cy]]);  // 先横后竖
-  add([[ba.cx,ba.cy],[ba.cx,bb.cy],[bb.cx,bb.cy]]);  // 先竖后横
+  add([p0,[p1[0],p0[1]],p1]);  // 先横后竖
+  add([p0,[p0[0],p1[1]],p1]);  // 先竖后横
   // 2) Z 型中线（横/竖各取若干分割比例）
   for(const f of [0.5,0.35,0.65,0.25,0.75]){
-    const mx=ba.cx+(bb.cx-ba.cx)*f, my=ba.cy+(bb.cy-ba.cy)*f;
-    add([[ba.cx,ba.cy],[mx,ba.cy],[mx,bb.cy],[bb.cx,bb.cy]]);
-    add([[ba.cx,ba.cy],[ba.cx,my],[bb.cx,my],[bb.cx,bb.cy]]);
+    const mx=p0[0]+(p1[0]-p0[0])*f, my=p0[1]+(p1[1]-p0[1])*f;
+    add([p0,[mx,p0[1]],[mx,p1[1]],p1]);
+    add([p0,[p0[0],my],[p1[0],my],p1]);
   }
   // 3) A* 正交避障兜底
   try{ const o=routeOrtho(a,b,e); add(o); }catch(_){}
   if(out.length===0) out.push(detourRoute(a,b,e)||[p0.slice(),p1.slice()]);
   // 按长度排序，但直连（含 2 点的真直线）永远排第一
   const straightFirst = out[0] && out[0].length===2 ? out.shift() : null;
-  out.sort((u,v)=>_pathLen(u)-_pathLen(v));
+  out.sort((u,v)=>_pathScore(u,a,b)-_pathScore(v,a,b));
   if(straightFirst) out.unshift(straightFirst);
   return out;
 }
@@ -581,9 +688,10 @@ function optimizeChannel(edgeCands){
       // 候选列表：直线模式用其 L/Z 候选；通道模式用 合并/自然/走廊变体。
       const tries = cand.straight ? cand.variants.slice() : (()=>{const t=[];if(cand.merged)t.push(cand.merged);if(cand.natural)t.push(cand.natural);t.push(...buildCorridorVariants(e));return t;})();
       // 选交叉最少；并列时取更短；再并列时取更靠前（偏好度更高）的候选。
-      let bc=best, bestV=null, bestLen=Infinity, bestTi=Infinity;
-      for(let ti=0;ti<tries.length;ti++){ const v=tries[ti]; if(!v)continue; _pathCache[ck]=v; const now=_countCross(); const len=_pathLen(v);
-        if(now<bc || (now===bc && (len<bestLen-0.5 || (Math.abs(len-bestLen)<=0.5 && ti<bestTi)))){bc=now;bestV=v;bestLen=len;bestTi=ti;} }
+      const a=nodes.find(n=>n.id===e.from),b=nodes.find(n=>n.id===e.to);
+      let bc=best, bestV=null, bestScore=Infinity, bestTi=Infinity;
+      for(let ti=0;ti<tries.length;ti++){ const v=tries[ti]; if(!v)continue; _pathCache[ck]=v; const now=_countCross(); const score=_pathScore(v,a,b);
+        if(now<bc || (now===bc && (score<bestScore-0.5 || (Math.abs(score-bestScore)<=0.5 && ti<bestTi)))){bc=now;bestV=v;bestScore=score;bestTi=ti;} }
       if(bestV && bc<=best){_pathCache[ck]=bestV; if(bc<best)improved=true; best=bc;}
       else _pathCache[ck]=orig;
       if(best===0)break;
@@ -636,7 +744,7 @@ function approachSide(pt, box){
 // 保底避障路由：尝试多条正交折线，返回第一条不穿任何设备的；都不行则返回穿越最少的
 function detourRoute(a,b,e){
   const ba=nodeBox(a), bb=nodeBox(b);
-  const p0=[ba.cx,ba.cy], p1=[bb.cx,bb.cy];
+  const p0=edgeAnchorPoint(a,bb.cx,bb.cy,e.fromPort), p1=edgeAnchorPoint(b,ba.cx,ba.cy,e.toPort);
   // 收集所有障碍（排除 a、b）的边界，作为候选绕行通道
   const obs=nodes.filter(n=>n.id!==a.id&&n.id!==b.id).map(n=>nodeBox(n));
   const cands=[];
@@ -652,7 +760,7 @@ function detourRoute(a,b,e){
   // 选第一条完全不穿设备的；否则穿越最少的
   let best=null, bestHits=Infinity;
   for(const c of cands){
-    const cl=clipEnds(c,a,b);
+    const cl=clipEnds(c,a,b,e);
     let hits=0;
     for(const n of nodes){ if(n.id===a.id||n.id===b.id)continue;
       for(let i=0;i<cl.length-1;i++) if(segRectHit(cl[i][0],cl[i][1],cl[i+1][0],cl[i+1][1],n,6)){hits++;break;}
@@ -660,7 +768,7 @@ function detourRoute(a,b,e){
     if(hits===0) return cl;
     if(hits<bestHits){bestHits=hits;best=cl;}
   }
-  return best||clipEnds([p0,p1],a,b);
+  return best||clipEnds([p0,p1],a,b,e);
 }
 function applyBusMerge(){
   _busTrunks=[];
@@ -716,7 +824,7 @@ function applyBusMerge(){
             // 退出合并：用避障正交路由重算这条线
             const a=nodes.find(n=>n.id===e.from), b=nodes.find(n=>n.id===e.to);
             let pts; try{ pts=routeOrtho(a,b,e); }catch(err){ pts=null; }
-            let clipped = pts? clipEnds(pts,a,b) : null;
+            let clipped = pts? clipEnds(pts,a,b,e) : null;
             // 若 A* 仍穿设备（或失败），用「绕到障碍上/下方」的保底正交折线
             if(!clipped || pathHitsNodes(clipped, e.from, e.to)){
               clipped = detourRoute(a,b,e);

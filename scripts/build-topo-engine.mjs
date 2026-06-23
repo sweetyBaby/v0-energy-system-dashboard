@@ -1,177 +1,141 @@
-// 从运营端 topo.html 抽取「只读渲染引擎」到 lib/topo/engine.ts。
+// 把运营端最新拓扑引擎的「布线/几何/端口」函数就地同步进 lib/topo/engine.ts。
 //
-// 思路：渲染/路由算法逐段 *逐字* 抽取（保证与运营端像素级一致），
-// 仅重写 drawAll（去掉编辑态可视化与 DOM 依赖）、自写 fitView/动画循环/公共 API，
-// 并把所有原全局变量收进工厂闭包。运营端升级后重跑本脚本即可重新同步。
+// 背景（重要，先读再改）：
+//   旧版脚本按 *行号区段* 从单文件 topo.html 逐字裁剪，整文件重生成 engine.ts。
+//   运营端后来把代码拆成独立的 topology-editor.js，行号区段全部失效；而且 engine.ts
+//   早已不是纯生成物——它是「半手工 fork」：
+//     · 自写部分：header（含 nodeScale/labelScale/fieldScale 选项）、drawAll、fitView、
+//       动画循环、公共 API、以及 draw* 一族（去掉编辑态耦合 + 织入缩放定制）。
+//     · 跟随上游部分：几何 + 通道布线（端口锚点能力在此）。
+//   「整文件重生成」会冲掉手工 fork。故本脚本改为 **按函数名就地 upsert**：
+//     只替换/插入下面 SYNC 清单里的函数（布线 + 端口辅助），对 PATCHES 里的函数补回
+//     缩放定制，其余（draw fork / header / footer）一律原样保留。幂等、冲突即报错。
 //
-// 用法： node scripts/build-topo-engine.mjs
+// 维护：运营端 topology-editor.js 更新后
+//   1) 重新 vendor： cp <运营端>/topo-editor/topology-editor.js vendor/topo-editor/
+//   2) node scripts/build-topo-engine.mjs
+//   3) git diff lib/topo/engine.ts 核对，dev 跑总览拓扑验证
+// 若上游新增了我们也需要的渲染能力（不止布线），把相关函数名加进 SYNC 即可；
+// 若上游改了 PATCHES 命中的那行，脚本会报错，提示你重新核对该补丁。
+//
+// 用法： node scripts/build-topo-engine.mjs   [--check]   (--check 只校验不写文件)
 import fs from "node:fs"
 import path from "node:path"
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..")
-const srcPath = path.join(root, "topo.html")
+const srcPath = path.join(root, "vendor", "topo-editor", "topology-editor.js")
 const outPath = path.join(root, "lib", "topo", "engine.ts")
+const checkOnly = process.argv.includes("--check")
 
-const lines = fs.readFileSync(srcPath, "utf8").split("\n")
-// slice(a,b) → 含 1-indexed 行 a..b
-const slice = (a, b) => lines.slice(a - 1, b).join("\n")
+// ── 跟随上游、就地 upsert 的函数（顺序即插入新函数时的写入顺序）──
+// 布线 / 几何（端口锚点能力随这批进来）：
+const SYNC_ROUTING = [
+  "nodeBox", "clipEnds", "topoSig", "buildObstacleGrid", "routeOrtho", "edgePathRaw",
+  "channelRoute", "straightVariants", "optimizeChannel", "detourRoute", "applyBusMerge", "nsz",
+  "_pathScore", "_pathBends", "_pathDetourPenalty",
+]
+// 端口辅助（engine.ts 原本没有，本次新增）：
+const SYNC_PORTS = [
+  "clamp", "isLinearBusNode", "linearBusSpan", "linearBusPort",
+  "nodePortPoint", "nearestNodePort", "directionalNodePort", "edgeAnchorPoint", "portSide",
+]
+const SYNC = [...SYNC_ROUTING, ...SYNC_PORTS]
 
-// 逐字抽取的源码区段（topo.html 行号；运营端改版后需核对这些边界）
-const GEO_ROUTE = slice(1361, 2161) // 几何工具 + 确定性通道布线引擎
-const CROSS = slice(3223, 3234) // segsCross / pathsCross（被布线引擎引用，但定义在编辑区段）
-const DRAW_A = slice(2163, 2190) // hexRgb / rgba / drawJunctionDots
-const DRAW_B = slice(2304, 2674) // 跨线弧 + drawEdge/drawNode/drawTextNode/字段 chip
+// ── 缩放定制补丁：upsert 上游版本后，把我们的 nodeScale/labelScale/fieldScale 织回去 ──
+// find 必须在「刚 upsert 进来的上游函数体」里唯一命中，否则报错（说明上游改了该行，需人工复核）。
+const PATCHES = {
+  // 节点尺寸随 nodeScale 联动（仪表盘缩放时图标同步放大）
+  nsz: [{ find: "return s*(base/600)*scale;", replace: "return s*(base/600)*scale*nodeScale;" }],
+  // 障碍盒底部按「带缩放的标签字号」延伸（与我们的 labelScale 体系一致）
+  buildObstacleGrid: [{ find: "const lfs=(n.fontSize||14);", replace: "const lfs=labelFontPx(n)/zoom;" }],
+}
 
-// 连线类型默认表（topo.html 579-593，逐字）
-const DEFAULT_ET = `const DEFAULT_ET = {
-  ac_power: {label:'交流电力', labelEn:'AC Power', color:'#e74c3c',w:2.5,dash:[],    anim:'flow',     spd:.5, desc:'电网交流传输，红色流动'},
-  dc_power: {label:'直流电力', labelEn:'DC Power', color:'#e67e22',w:2.5,dash:[],    anim:'flow',     spd:.5, desc:'直流母线传输'},
-  pipe_blue:{label:'蓝光管道', labelEn:'Blue Pipe', color:'#3aa0ff',w:2.5,dash:[],    anim:'pipe',     spd:.7, desc:'母线管道，蓝色光点流动'},
-  pipe_gold:{label:'金光管道', labelEn:'Gold Pipe', color:'#f5c518',w:2.5,dash:[],    anim:'pipe',     spd:.7, desc:'高亮管道，金色光点流动'},
-  charge:   {label:'充电中',   labelEn:'Charging', color:'#2ecc71',w:2.5,dash:[],    anim:'flow',     spd:.9, desc:'充电，绿色快流'},
-  discharge:{label:'放电中',   labelEn:'Discharging', color:'#3498db',w:2.5,dash:[],    anim:'flow',     spd:.9, desc:'放电，蓝色快流'},
-  busbar:   {label:'母线汇流', labelEn:'Busbar', color:'#4dd0ff',w:3.5,dash:[],    anim:'glow',     spd:.3, desc:'母线/汇流排，较粗实线'},
-  standby:  {label:'待机',     labelEn:'Standby', color:'#f1c40f',w:2,  dash:[5,5], anim:'pulse',    spd:.2, desc:'待机，慢速脉冲'},
-  comm:     {label:'通信线',   labelEn:'Comm Line', color:'#9b59b6',w:1.5,dash:[4,4], anim:'dash',     spd:1.2,desc:'通信/控制信号'},
-  pv_power: {label:'光伏出力', labelEn:'PV Output', color:'#f9ca24',w:2.5,dash:[],    anim:'flow',     spd:.6, desc:'光伏直流出力'},
-  fault:    {label:'故障告警', labelEn:'Fault Alarm', color:'#ff3333',w:2.5,dash:[4,4], anim:'alarm',    spd:2.0,desc:'故障/告警，急闪'},
-  disabled: {label:'断路',     labelEn:'Open Circuit', color:'#445566',w:2,  dash:[8,8], anim:'none',     spd:0,  desc:'断路/停用'},
-  neutral:  {label:'接地线',   labelEn:'Ground', color:'#888888',w:1.5,dash:[3,5], anim:'none',     spd:0,  desc:'中性/接地线'},
-}`
+// engine.ts 中既存的依赖（被 SYNC 函数引用，但属于 draw fork / header，不在本脚本管辖）——
+// 仅做存在性断言，缺失则说明 fork 被破坏，应停止同步。
+const REQUIRED_IN_ENGINE = ["nsz", "nodeBox", "anchorPoint", "labelFontPx", "_pathLen", "_pathCache"]
+// 新函数插入锚点（header 末尾的 bgPlate 之后；函数声明在闭包内会提升，位置不影响调用）。
+// 不含换行，兼容 CRLF/LF。
+const INSERT_ANCHOR = "  function bgPlate() { return bgColor }"
 
-const header = `// @ts-nocheck
-/* eslint-disable */
-/**
- * 储能拓扑渲染引擎（只读）—— 由 scripts/build-topo-engine.mjs 从运营端 topo.html 自动抽取生成。
- *
- * 渲染与路由算法逐字抽取自 topo.html（schema 2.0），保证与运营端像素级一致；
- * 已剥离全部编辑态（拖拽/选择/对齐/撤销/侧栏/导出）。
- *
- * ⚠️ 请勿手改本文件的算法区段。运营端升级后重跑 scripts/build-topo-engine.mjs 同步。
- */
-
-${DEFAULT_ET}
-
-/**
- * @param {HTMLCanvasElement} canvas
- * @param {{bgColor?:string, lang?:'zh'|'en', showGrid?:boolean, showEdgeLabels?:boolean, showFieldChips?:boolean, busMerge?:boolean}} [opts]
- */
-export function createTopoEngine(canvas, opts = {}) {
-  const ctx = canvas.getContext("2d")
-
-  // ── 视图 / 编辑态（编辑相关恒为只读默认值，替代 topo.html 全局变量）──
-  let nodes = [], edges = []
-  let zoom = 1, panX = 0, panY = 0, animT = 0
-  let bgColor = opts.bgColor || "#0a1f40"
-  // paintBg=false：不铺满画布底色（画布透明，露出外层卡片背景），但 bgColor 仍用于文字底板/抹线
-  let paintBg = opts.paintBg !== false
-  let lang = opts.lang || "zh"
-  let showGrid = opts.showGrid === true
-  let showEdgeLabels = opts.showEdgeLabels !== false
-  let showFieldChips = opts.showFieldChips !== false
-  let showAnchors = false
-  let globalWidth = 1
-  let busMerge = opts.busMerge !== false
-  let busMergeGap = 16, busTrunkBold = true, busStyle = "busbar", busOffsets = {}, busShareTrunk = false, busShowHandles = false, routeStyle = 3, busAggregation = false
-  const selNode = null, selEdge = null
-  let selSet = new Set(), selChips = new Set()
-  const edgeMode = false, edgeFrom = null, rubber = null
-  const IMGS = {}, CUSTOM_ICONS = {}
-  let ET = Object.assign({}, DEFAULT_ET)
-
-  // ── 基础工具（topo.html 818 / 920 / 2762）──
-  function toWorld(sx, sy) { return [(sx - panX) / zoom, (sy - panY) / zoom] }
-  function gridColor() {
-    const c = bgColor.replace("#", ""); const r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16)
-    const lum = (r * 0.299 + g * 0.587 + b * 0.114); return lum > 128 ? "rgba(0,40,90,0.13)" : "rgba(120,170,220,0.28)"
-  }
-  function bgPlate() { return bgColor }
-`
-
-const footer = `
-  // ── 只读 drawAll（重写：去掉编辑态可视化与 DOM 依赖；其余与 topo.html 一致）──
-  function drawAll() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    if (paintBg) { ctx.fillStyle = bgColor; ctx.fillRect(0, 0, canvas.width, canvas.height) }
-    ctx.save(); ctx.translate(panX, panY); ctx.scale(zoom, zoom)
-    if (showGrid) {
-      const step = 40
-      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0)
-      ctx.strokeStyle = gridColor(); ctx.lineWidth = 1
-      const ox = ((panX % step) + step) % step, oy = ((panY % step) + step) % step
-      ctx.beginPath()
-      for (let x = ox; x <= canvas.width; x += step) { const px = Math.round(x) + 0.5; ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height) }
-      for (let y = oy; y <= canvas.height; y += step) { const py = Math.round(y) + 0.5; ctx.moveTo(0, py); ctx.lineTo(canvas.width, py) }
-      ctx.stroke(); ctx.restore()
+// ── 大括号配平：从源码中按函数名抽出完整 `function NAME(...){...}`（跳过字符串/注释里的花括号）──
+function extractFn(src, name) {
+  const re = new RegExp(`function\\s+${name}\\s*\\(`)
+  const m = re.exec(src)
+  if (!m) return null
+  let i = src.indexOf("{", m.index)
+  if (i < 0) return null
+  let depth = 0, inStr = null, esc = false, inLine = false, inBlock = false
+  const start = m.index
+  for (; i < src.length; i++) {
+    const c = src[i], n = src[i + 1]
+    if (inLine) { if (c === "\n") inLine = false; continue }
+    if (inBlock) { if (c === "*" && n === "/") { inBlock = false; i++ } continue }
+    if (inStr) {
+      if (esc) { esc = false; continue }
+      if (c === "\\") { esc = true; continue }
+      if (c === inStr) inStr = null
+      continue
     }
-    computeCrossHops()
-    edges.forEach(drawEdge); drawJunctionDots(); nodes.forEach(drawNode)
-    ctx.restore()
+    if (c === "/" && n === "/") { inLine = true; i++; continue }
+    if (c === "/" && n === "*") { inBlock = true; i++; continue }
+    if (c === "'" || c === '"' || c === "`") { inStr = c; continue }
+    if (c === "{") depth++
+    else if (c === "}") { depth--; if (depth === 0) return { text: src.slice(start, i + 1), start, end: i + 1 } }
+  }
+  return null
+}
+
+const fail = (msg) => { console.error("✗ " + msg); process.exit(1) }
+
+const upstream = fs.readFileSync(srcPath, "utf8")
+let engine = fs.readFileSync(outPath, "utf8")
+const EOL = engine.includes("\r\n") ? "\r\n" : "\n"
+// 上游函数体统一换成 engine.ts 的行尾，避免混入异种换行
+const toEol = (s) => s.replace(/\r\n/g, "\n").replace(/\n/g, EOL)
+
+// 0) 前置断言：fork 必须自洽
+for (const dep of REQUIRED_IN_ENGINE) {
+  if (!new RegExp(`\\b${dep}\\b`).test(engine)) fail(`engine.ts 缺少依赖符号「${dep}」——手工 fork 可能已损坏，停止同步。`)
+}
+if (!engine.includes(INSERT_ANCHOR)) fail(`engine.ts 找不到插入锚点（bgPlate 行）——请检查 header 是否被改动。`)
+
+// 1) 逐个 upsert
+let replaced = 0, inserted = 0, patched = 0
+const insertBlock = []
+for (const name of SYNC) {
+  const up = extractFn(upstream, name)
+  if (!up) fail(`上游 topology-editor.js 中找不到函数「${name}」——上游可能重命名/删除了它，请更新 SYNC 清单。`)
+
+  // 应用缩放补丁（在上游函数文本上操作）
+  let body = toEol(up.text)
+  for (const p of PATCHES[name] || []) {
+    const cnt = body.split(p.find).length - 1
+    if (cnt !== 1) fail(`缩放补丁失配：函数「${name}」中「${p.find}」命中 ${cnt} 次（应为 1）——上游改了该行，请人工复核 PATCHES。`)
+    body = body.replace(p.find, p.replace)
+    patched++
   }
 
-  // ── fitView（topo.html 3356，去掉 DOM）──
-  function fitViewInner(capZoom) {
-    if (nodes.length === 0) return
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    nodes.forEach(n => {
-      const s = nsz(n)
-      const f = (!n.hideFields && n.data) ? n.data.filter(x => !x.hidden).length : 0
-      const rc = f ? 185 : 0
-      minX = Math.min(minX, n.x - s); minY = Math.min(minY, n.y - s)
-      maxX = Math.max(maxX, n.x + s + rc); maxY = Math.max(maxY, n.y + s * 1.5)
-    })
-    const w = maxX - minX, h = maxY - minY, pad = 48
-    if (!(w > 0) || !(h > 0)) return
-    const zx = (canvas.width - pad * 2) / w, zy = (canvas.height - pad * 2) / h
-    zoom = Math.max(0.2, Math.min(capZoom || 2, Math.min(zx, zy)))
-    panX = pad - minX * zoom + (canvas.width - pad * 2 - w * zoom) / 2
-    panY = pad - minY * zoom + (canvas.height - pad * 2 - h * zoom) / 2
-  }
-
-  // ── 动画循环 ──
-  let rafId = null, running = false
-  function frame(ts) { animT = (ts || 0) * 0.001; drawAll(); rafId = requestAnimationFrame(frame) }
-
-  // ── 公共 API ──
-  return {
-    setData(n, e) { nodes = n || []; edges = e || []; _pathCache = {}; _pathCacheSig = "" },
-    setEdgeTypes(map) { if (map) ET = Object.assign({}, ET, map) },
-    setIcons(map) { if (map) Object.assign(IMGS, map) },
-    setBg(c) { if (c) bgColor = c },
-    setLang(l) { lang = (l === "en") ? "en" : "zh" },
-    setOptions(o) {
-      o = o || {}
-      if ("showGrid" in o) showGrid = !!o.showGrid
-      if ("showEdgeLabels" in o) showEdgeLabels = !!o.showEdgeLabels
-      if ("showFieldChips" in o) showFieldChips = !!o.showFieldChips
-      if ("busMerge" in o) busMerge = !!o.busMerge
-      _pathCacheSig = ""
-    },
-    fitView(cap) { fitViewInner(cap); fitViewInner(cap) }, // 跑两次让 nsz 随新 zoom 收敛
-    resize() { _pathCacheSig = ""; drawAll() },
-    redraw() { _pathCacheSig = ""; drawAll() },
-    hitTestNode(sx, sy) { const [wx, wy] = toWorld(sx, sy); return nodeAt(wx, wy) },
-    getView() { return { zoom, panX, panY } },
-    setView(v) { v = v || {}; if (typeof v.zoom === "number") zoom = v.zoom; if (typeof v.panX === "number") panX = v.panX; if (typeof v.panY === "number") panY = v.panY },
-    start() { if (running) return; running = true; rafId = requestAnimationFrame(frame) },
-    stop() { running = false; if (rafId) cancelAnimationFrame(rafId); rafId = null },
-    destroy() { running = false; if (rafId) cancelAnimationFrame(rafId); rafId = null; nodes = []; edges = [] },
+  const existing = extractFn(engine, name)
+  if (existing) {
+    engine = engine.slice(0, existing.start) + body + engine.slice(existing.end)
+    replaced++
+  } else {
+    insertBlock.push(body)
+    inserted++
   }
 }
-`
 
-const banner = (label, fromLine, toLine) =>
-  `\n  // ===== BEGIN 逐字抽取：${label}（topo.html ${fromLine}-${toLine}）=====\n`
-const bannerEnd = `  // ===== END 逐字抽取 =====\n`
+// 2) 插入新函数（带横幅，便于辨识来源）
+if (insertBlock.length) {
+  const banner = EOL + "  // ===== 端口/几何辅助：由 scripts/build-topo-engine.mjs 从 topology-editor.js 同步，勿手改 =====" + EOL
+  const block = banner + insertBlock.join(EOL) + EOL + "  // ===== END 同步 =====" + EOL
+  engine = engine.replace(INSERT_ANCHOR, INSERT_ANCHOR + block)
+}
 
-const body =
-  header +
-  banner("几何工具 + 通道布线引擎", 1361, 2161) + GEO_ROUTE + "\n" + bannerEnd +
-  banner("线段相交判定 segsCross/pathsCross", 3223, 3234) + CROSS + "\n" + bannerEnd +
-  banner("绘制工具 hexRgb/rgba/drawJunctionDots", 2163, 2190) + DRAW_A + "\n" + bannerEnd +
-  banner("跨线弧 + 连线/节点/字段绘制", 2304, 2674) + DRAW_B + "\n" + bannerEnd +
-  footer
-
-fs.mkdirSync(path.dirname(outPath), { recursive: true })
-fs.writeFileSync(outPath, body)
-console.log("wrote", path.relative(root, outPath), "(" + body.split("\n").length + " lines)")
+// 3) 写回
+if (checkOnly) {
+  console.log(`[check] OK：可同步 替换 ${replaced} / 新增 ${inserted} / 补丁 ${patched}（未写文件）`)
+} else {
+  fs.writeFileSync(outPath, engine)
+  console.log(`✓ 同步完成：替换 ${replaced} 个、新增 ${inserted} 个、应用补丁 ${patched} 处 → ${path.relative(root, outPath)}`)
+}
