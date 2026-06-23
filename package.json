@@ -4,10 +4,11 @@
   "private": true,
   "packageManager": "pnpm@10.18.2",
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "next dev -p 3008",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "build:topo-icons": "node scripts/build-topo-icons.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

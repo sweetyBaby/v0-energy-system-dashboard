@@ -1,27 +1,34 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLanguage } from "@/components/language-provider"
 import { TopoCanvas, TopoFullscreenButton } from "@/components/dashboard/topology/topo-canvas"
-import { makeMockSignals } from "@/lib/topo/mock-signals"
+import { fetchTopologyLayout, makeTopologySignals } from "@/lib/topo/topo-api"
 import { resolveTopoNav } from "@/lib/topo/project-topology-config"
 import type { TopoNodeNav } from "@/lib/topo/topo-types"
 
 const clampText = (minRem: number, multiple: number, maxRem: number) =>
   `clamp(${minRem}rem, calc(var(--overview-root-size, 15px) * ${multiple}), ${maxRem}rem)`
 
-// 阶段 1/2：先用运营端导出的示例布局 + 模拟实时信号跑通渲染与动态。
-// 数据契约与运营端一致（见 topo/拓扑系统-接入文档.md §4）：布局 = 画布 JSON（含规则），
-// 实时数据 = 扁平 {信号名:值}。后续替换：SAMPLE_TOPOLOGY_URL → 按 projectId 拉取布局接口；
-// makeMockSignals → 实时信号接口（轮询/WebSocket，增量合并即可）。拉取/渲染逻辑由 TopoCanvas 共用。
-const SAMPLE_TOPOLOGY_URL = "/topology-sample.json"
-
-export function ProjectTopologyPanel({ onNavigateTab }: { onNavigateTab?: (tab: string) => void }) {
+// 取数全部走接缝层 lib/topo/topo-api.ts（见 docs/拓扑前后台接口定义.md）：
+// 现在走 mock，后端就绪后只改接缝层（TOPOLOGY_USE_MOCK=false），本组件零改动。
+export function ProjectTopologyPanel({
+  onNavigateTab,
+  projectId,
+}: {
+  onNavigateTab?: (tab: string) => void
+  /** 多项目时传入；mock 阶段忽略，接口阶段用于按项目拉取布局/信号。 */
+  projectId?: string
+}) {
   const { language } = useLanguage()
   const zh = language === "zh"
   const router = useRouter()
   const [fullscreen, setFullscreen] = useState(false)
+
+  // 稳定引用：避免每次渲染重建导致 TopoCanvas 重新拉取/重启信号轮询
+  const loadDoc = useCallback(() => fetchTopologyLayout(projectId), [projectId])
+  const makeSignals = useMemo(() => makeTopologySignals(projectId), [projectId])
 
   const handleNavigate = (nav: TopoNodeNav) => {
     if (nav.page.startsWith("/")) {
@@ -41,8 +48,8 @@ export function ProjectTopologyPanel({ onNavigateTab }: { onNavigateTab?: (tab: 
       {/* 拓扑画布：铺满整个面板，作为单一容器（拖动/缩放用满全幅，顶部不再被状态栏切走一条） */}
       <div className="absolute inset-0 z-[1]">
         <TopoCanvas
-          url={SAMPLE_TOPOLOGY_URL}
-          makeSignals={makeMockSignals}
+          loadDoc={loadDoc}
+          makeSignals={makeSignals}
           resolveNav={resolveTopoNav}
           onNavigate={handleNavigate}
           fullscreen={fullscreen}

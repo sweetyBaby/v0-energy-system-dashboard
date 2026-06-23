@@ -153,35 +153,53 @@ export function docToInternal(doc: TopologyDoc, options: TopologyInternalOptions
   }
 }
 
-// ───── 图标加载：/topo-icons.json（type → base64 dataURL，抽取自运营端元素库）─────
-let iconsPromise: Promise<Record<string, HTMLImageElement>> | null = null
+// ───── 图标加载：public/topo/icons/*（按 type 走文件路径，清单见 icon-manifest.json）─────
+// 资源由 scripts/build-topo-icons.mjs 从运营端「元素库包」生成（见 docs/topology-engine-and-rules.md）。
+// 优于内联 dataURL：可审查 diff、按图标缓存、无 base64 膨胀、可只加载画布用到的 type。
 
-export function loadTopoIcons(): Promise<Record<string, HTMLImageElement>> {
-  if (iconsPromise) return iconsPromise
-  iconsPromise = fetch("/topo-icons.json")
-    .then((r) => r.json() as Promise<Record<string, string>>)
-    .then(
-      (map) =>
-        new Promise<Record<string, HTMLImageElement>>((resolve) => {
-          const imgs: Record<string, HTMLImageElement> = {}
-          const entries = Object.entries(map)
-          if (entries.length === 0) return resolve(imgs)
-          let remaining = entries.length
-          const done = () => {
-            remaining -= 1
-            if (remaining === 0) resolve(imgs)
-          }
-          entries.forEach(([type, src]) => {
-            const img = new Image()
-            img.onload = () => {
-              imgs[type] = img
-              done()
-            }
-            img.onerror = done
-            img.src = src
-          })
-        }),
-    )
-    .catch(() => ({}))
-  return iconsPromise
+type IconManifest = { version?: string; paths: Record<string, string> }
+
+const ICON_BASE = "/topo/icons/"
+const ICON_MANIFEST_URL = "/topo/icon-manifest.json"
+
+let manifestPromise: Promise<IconManifest> | null = null
+// 逐图标缓存（跨多张画布共享）：同一 type 至多加载一次
+const imgCache = new Map<string, Promise<HTMLImageElement | null>>()
+
+function loadManifest(): Promise<IconManifest> {
+  if (!manifestPromise) {
+    manifestPromise = fetch(ICON_MANIFEST_URL)
+      .then((r) => (r.ok ? (r.json() as Promise<IconManifest>) : { paths: {} }))
+      .catch(() => ({ paths: {} }))
+  }
+  return manifestPromise
+}
+
+function loadOneIcon(type: string, file: string, version?: string): Promise<HTMLImageElement | null> {
+  let p = imgCache.get(type)
+  if (!p) {
+    p = new Promise<HTMLImageElement | null>((resolve) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => resolve(null) // 缺图标 → 引擎按 type 画兜底方块，不阻塞
+      img.src = ICON_BASE + file + (version ? `?v=${encodeURIComponent(version)}` : "")
+    })
+    imgCache.set(type, p)
+  }
+  return p
+}
+
+/**
+ * 加载图标为 { type → HTMLImageElement }，交给 engine.setIcons。
+ * 传 types 时只加载这些 type（画布实际用到的）；不传则加载清单内全部。
+ */
+export async function loadTopoIcons(types?: string[]): Promise<Record<string, HTMLImageElement>> {
+  const manifest = await loadManifest()
+  const wanted = (types && types.length ? types : Object.keys(manifest.paths)).filter((t) => manifest.paths[t])
+  const entries = await Promise.all(
+    wanted.map((t) => loadOneIcon(t, manifest.paths[t], manifest.version).then((img) => [t, img] as const)),
+  )
+  const out: Record<string, HTMLImageElement> = {}
+  for (const [t, img] of entries) if (img) out[t] = img
+  return out
 }

@@ -12,13 +12,19 @@ import type { NavResolver, TopologyDoc, TopoNodeNav, TopoSignals } from "@/lib/t
 const FULLSCREEN_FIT_CAP = 12
 
 export type TopoCanvasProps = {
-  /** 布局 JSON 的地址（public 下的静态文件或后端接口）。 */
-  url: string
+  /** 布局 JSON 的地址（public 下的静态文件或后端接口）。与 loadDoc 二选一。 */
+  url?: string
+  /**
+   * 异步布局加载器（优先于 url）：走接缝层 lib/topo/topo-api.ts 时用此项，
+   * 后续 mock→API 切换只改接缝层，本组件不感知。
+   */
+  loadDoc?: () => Promise<TopologyDoc>
   /**
    * 可选的实时信号生成器：传入则按 intervalMs 周期合并信号并按运营端契约求值规则
    * （显隐/流向 + 字段回写）；不传则渲染静态布局（动画边由引擎自身驱动）。
+   * 可返回 Promise（真实接口轮询）或同步值（mock）。
    */
-  makeSignals?: (t: number) => TopoSignals
+  makeSignals?: (t: number) => TopoSignals | Promise<TopoSignals>
   intervalMs?: number
   /** 节点 → 跳转解析（与纵览页一致，可选）。 */
   resolveNav?: NavResolver
@@ -54,6 +60,7 @@ export function TopoFullscreenButton({ onClick, className = "" }: { onClick: () 
  */
 export function TopoCanvas({
   url,
+  loadDoc,
   makeSignals,
   intervalMs = 2000,
   resolveNav,
@@ -79,18 +86,22 @@ export function TopoCanvas({
     return () => window.removeEventListener("keydown", onKey)
   }, [fullscreen, onExitFullscreen])
 
-  // 拉取布局 JSON（url 变化时重新拉取）
+  // 拉取布局 JSON（loadDoc 优先于 url；二者变化时重新拉取）
   useEffect(() => {
     let cancelled = false
     setError(false)
     setBaseDoc(null)
     setDoc(null)
     signalsRef.current = {}
-    fetch(url)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json() as Promise<TopologyDoc>
-      })
+    const load = loadDoc
+      ? loadDoc()
+      : url
+        ? fetch(url).then((r) => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`)
+            return r.json() as Promise<TopologyDoc>
+          })
+        : Promise.reject(new Error("TopoCanvas: 需要 url 或 loadDoc"))
+    load
       .then((json) => {
         if (!cancelled) setBaseDoc(json)
       })
@@ -100,24 +111,40 @@ export function TopoCanvas({
     return () => {
       cancelled = true
     }
-  }, [url])
+  }, [url, loadDoc])
 
-  // 实时信号轮询（可选）：合并信号 → 规则求值 + 字段回写；无生成器则渲染静态布局
+  // 实时信号轮询（可选）：合并信号 → 规则求值 + 字段回写；无生成器则渲染静态布局。
+  // makeSignals 可同步（mock）或异步（接口轮询）；inFlight 防止慢接口下 tick 叠加。
   useEffect(() => {
     if (!baseDoc) return
     if (!makeSignals) {
       setDoc(baseDoc)
       return
     }
+    let cancelled = false
+    let inFlight = false
     let t = 0
-    const tick = () => {
-      signalsRef.current = { ...signalsRef.current, ...makeSignals(t) }
-      setDoc(applySignals(baseDoc, signalsRef.current))
-      t += intervalMs / 1000
+    const tick = async () => {
+      if (inFlight) return
+      inFlight = true
+      try {
+        const next = await makeSignals(t)
+        if (cancelled) return
+        signalsRef.current = { ...signalsRef.current, ...next }
+        setDoc(applySignals(baseDoc, signalsRef.current))
+        t += intervalMs / 1000
+      } catch {
+        // 信号拉取失败：保留上一帧，下个周期重试
+      } finally {
+        inFlight = false
+      }
     }
-    tick()
-    const timer = window.setInterval(tick, intervalMs)
-    return () => window.clearInterval(timer)
+    void tick()
+    const timer = window.setInterval(() => void tick(), intervalMs)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
   }, [baseDoc, makeSignals, intervalMs])
 
   const content = error ? (

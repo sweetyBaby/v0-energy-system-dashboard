@@ -97,6 +97,8 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
   const baseMinRef = useRef(0)
 
   const lastSigRef = useRef<string | null>(null)
+  // 已加载图标的 type 集合签名：仅当画布用到的 type 变化时才重新拉图标（实时数据刷新不触发）
+  const lastTypesSigRef = useRef<string | null>(null)
   const hasUserViewRef = useRef(false)
   const dragStateRef = useRef<DragState | null>(null)
   const suppressClickRef = useRef(false)
@@ -186,12 +188,7 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     })
     engineRef.current = engine
 
-    let disposed = false
-    void loadTopoIcons().then((imgs) => {
-      if (disposed) return
-      engine.setIcons(imgs)
-      engine.redraw()
-    })
+    // 图标按画布实际用到的 type 懒加载（见下方 doc effect）；此处仅创建并启动引擎
     engine.start()
 
     // 容器尺寸变化：重算全貌基线；未手动缩放时回到全貌，否则保持当前放大倍数并以画布中心为锚。
@@ -221,7 +218,6 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     ro.observe(container)
 
     return () => {
-      disposed = true
       ro.disconnect()
       engine.destroy()
       engineRef.current = null
@@ -263,6 +259,20 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     edgeTypesRef.current = edgeTypes as Record<string, { w?: number }>
     engine.setEdgeTypes(edgeTypes)
     engine.setData(nodes, edges)
+
+    // 图标：仅当画布用到的 type 集合变化时拉取（实时数据每 2s 刷新但 type 不变，不重复请求）
+    const typesSig = Array.from(new Set(doc.nodes.map((n) => n.type)))
+      .sort()
+      .join(",")
+    if (typesSig !== lastTypesSigRef.current) {
+      lastTypesSigRef.current = typesSig
+      const types = typesSig ? typesSig.split(",") : []
+      void loadTopoIcons(types).then((imgs) => {
+        if (engineRef.current !== engine) return // 已卸载/重建
+        engine.setIcons(imgs)
+        engine.redraw()
+      })
+    }
 
     const sig = layoutSig(doc)
     if (sig !== lastSigRef.current) {
