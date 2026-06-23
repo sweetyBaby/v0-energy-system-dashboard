@@ -267,10 +267,13 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     if (typesSig !== lastTypesSigRef.current) {
       lastTypesSigRef.current = typesSig
       const types = typesSig ? typesSig.split(",") : []
+      // 应用到「解析时的当前引擎」而非捕获的 engine：StrictMode 双挂载会重建引擎，
+      // 捕获的旧引擎已销毁，结果会被丢弃导致图标永不显示。
       void loadTopoIcons(types).then((imgs) => {
-        if (engineRef.current !== engine) return // 已卸载/重建
-        engine.setIcons(imgs)
-        engine.redraw()
+        const eng = engineRef.current
+        if (!eng) return
+        eng.setIcons(imgs)
+        eng.redraw()
       })
     }
 
