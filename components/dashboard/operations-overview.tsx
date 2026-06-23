@@ -93,27 +93,40 @@ function Panel({
   children,
   className = "",
   bodyClassName = "",
+  overlayHeader = false,
 }: {
   title?: string
   action?: React.ReactNode
   children: React.ReactNode
   className?: string
   bodyClassName?: string
+  /** 内容铺满整个面板、标题/按钮悬浮其上（用于拓扑：拖动/缩放用满全幅，顶部不被标题条切走）。 */
+  overlayHeader?: boolean
 }) {
   return (
     <section className={`${PANEL_CLASS} ${className}`}>
-      <span className="pointer-events-none absolute bottom-1 left-1 h-2.5 w-2.5 border-b border-l border-[#2aa7d6]/70" />
-      <span className="pointer-events-none absolute bottom-1 right-1 h-2.5 w-2.5 border-b border-r border-[#2aa7d6]/70" />
+      <span className="pointer-events-none absolute bottom-1 left-1 z-[3] h-2.5 w-2.5 border-b border-l border-[#2aa7d6]/70" />
+      <span className="pointer-events-none absolute bottom-1 right-1 z-[3] h-2.5 w-2.5 border-b border-r border-[#2aa7d6]/70" />
       {title && (
-        <div className="flex shrink-0 items-center justify-between gap-2 px-3 pt-2 pb-1">
-          <div className="flex items-center gap-2">
+        <div
+          className={`flex items-center justify-between gap-2 px-3 pt-2 pb-1 ${
+            overlayHeader ? "pointer-events-none absolute inset-x-0 top-0 z-[2]" : "shrink-0"
+          }`}
+        >
+          <div className={`flex items-center gap-2 ${overlayHeader ? "pointer-events-auto" : ""}`}>
             <span className="h-3 w-1 rounded-full bg-[#26f0dc]" />
             <span className="text-[12.5px] font-semibold tracking-[0.04em] text-[#d9f6ff]">{title}</span>
           </div>
-          {action}
+          {action && <span className={overlayHeader ? "pointer-events-auto" : ""}>{action}</span>}
         </div>
       )}
-      <div className={`min-h-0 flex-1 px-3 pb-3 ${title ? "" : "pt-3"} ${bodyClassName}`}>{children}</div>
+      <div
+        className={`${
+          overlayHeader ? "absolute inset-0 z-[1]" : `min-h-0 flex-1 px-3 pb-3 ${title ? "" : "pt-3"}`
+        } ${bodyClassName}`}
+      >
+        {children}
+      </div>
     </section>
   )
 }
@@ -428,6 +441,7 @@ export function PcsOverview({ deviceId, deviceName }: { deviceId?: string; devic
         <Panel
           title={zh ? "系统拓扑" : "System Topology"}
           className="col-span-5"
+          overlayHeader
           action={<TopoFullscreenButton onClick={() => setTopoFullscreen(true)} />}
         >
           <TopoCanvas url="/topo-pcs.json" fullscreen={topoFullscreen} onExitFullscreen={() => setTopoFullscreen(false)} />
@@ -559,6 +573,7 @@ export function EmsOverview({ deviceId, deviceName }: { deviceId?: string; devic
         <Panel
           title={zh ? "系统拓扑" : "System Topology"}
           className="xl:col-span-7"
+          overlayHeader
           action={<TopoFullscreenButton onClick={() => setTopoFullscreen(true)} />}
         >
           <TopoCanvas url="/topo-ems.json" fullscreen={topoFullscreen} onExitFullscreen={() => setTopoFullscreen(false)} />
