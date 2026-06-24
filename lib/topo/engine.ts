@@ -1118,7 +1118,7 @@ function drawEdge(e){
       if(d<0)continue;const dd=(e.dir==='reverse')?(total-d):d;
       const[px,py]=pointAt(pts,dd);
       ctx.beginPath();ctx.fillStyle=cfg.color;ctx.shadowColor=cfg.color;ctx.shadowBlur=8/zoom;
-      ctx.arc(px,py,(cfg.w*0.6)/zoom,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      ctx.arc(px,py,(Math.max(2.2,cfg.w*0.72))/zoom,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
     }
   } else if(cfg.anim==='busbar'){
     ctx.strokeStyle=cfg.color;ctx.lineWidth=cfg.w/zoom;ctx.shadowColor=cfg.color;ctx.shadowBlur=6/zoom;
@@ -1134,7 +1134,8 @@ function drawEdge(e){
     strokePolyline(pts,cfg.dash.map(d=>d/zoom));ctx.globalAlpha=1;ctx.shadowBlur=0;
     if(cfg.anim==='flow'||cfg.anim==='dash'){
       const pl=cfg.anim==='dash'?3:8,gap=cfg.anim==='dash'?8:16,off=(animT*cfg.spd*55)%(pl+gap);
-      ctx.strokeStyle=rgba(cfg.color,.92);ctx.lineWidth=(cfg.w+.5)/zoom;
+      // 与运营端一致：流向高亮为白色行进虚线、线宽随粗细钳制（区别于此前的「同色细虚线」）
+      ctx.strokeStyle='rgba(255,255,255,0.94)';ctx.lineWidth=Math.max(2.4,Math.min(cfg.w*.78,8.5))/zoom;
       if(e.dir==='both'){strokePolyline(pts,[pl/zoom,gap/zoom],-off/zoom);strokePolyline(pts,[pl/zoom,gap/zoom],off/zoom);}
       else strokePolyline(pts,[pl/zoom,gap/zoom],(e.dir==='reverse'?off:-off)/zoom);
     }

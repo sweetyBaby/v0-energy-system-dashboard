@@ -34,11 +34,11 @@ const BASE_FIELD_SCALE = 1.32
 // 避免全屏只放大连线/图标、文字仍是小号。TEXT_GAIN 控制放大速度（越大文字越突出），
 // floor=1 防小容器文字过小/重叠，cap 防过大。连线只随文字「适度」变粗（EDGE_DAMP<1）。
 // 此倍率只施于 label/field/edge，不施于 nodeScale（图标已自适配，避免二次放大）。
-const TEXT_REF_MIN = 640
+const TEXT_REF_MIN = 480
 const TEXT_GAIN = 1.8
 const TEXT_SCALE_MIN = 1
 const TEXT_SCALE_MAX = 3.2
-const EDGE_DAMP = 0.4
+const EDGE_DAMP = 0.5
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 // 引擎内的节点标签/字段卡片是「屏幕恒定尺寸」：在容器尺寸下它们恒为 ~14px，本就清晰可读。
