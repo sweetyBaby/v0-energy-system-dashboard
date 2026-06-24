@@ -49,6 +49,32 @@ TopologyView → engine.setData → 引擎只按"已定型的 doc"画
 
 **核心设计：显隐/流向在数据层算好，引擎只画。** 这正是运营端文档里的「方案 B（自研渲染器，用规则引擎，自己画图）」。我们没有走「把规则塞进渲染器」那条（见 §5）。
 
+### 1.1 数据 vs 渲染规则（数据无关的通用渲染标准）
+
+**关键：渲染规则全部固定在代码里、对任何拓扑 JSON 通用，不针对某个 JSON 文件。** mock 与 API 走同一套
+（取数接缝见 `topo-api.ts`）。接 API 后只要返回符合 `TopologyDoc` 契约的 JSON（=运营端导出格式），
+下面这套渲染规则自动生效，**无需为每个项目改代码**（已用 topology-sample / topo-pcs / topo-ems 三套不同拓扑验证）。
+
+| | 来源 | 内容 |
+|---|---|---|
+| **数据**（逐项目不同） | API 返回的 JSON（运营端导出） | 节点/连线/位置 `position`、`edgeStyles`、规则 `visibleWhen/showWhen/dirRules`、`signals` —— 遵循 `lib/topo/topo-types.ts` 的 `TopologyDoc`（`schemaVersion: 2.0`） |
+| **渲染规则**（所有 JSON 通用，代码里） | `lib/topo/engine.ts` + `components/dashboard/topology/topology-view.tsx` | 见下表 |
+
+渲染规则读的是 doc 的**通用字段**（`type` / `edgeType` / `anim` / `color` / `position` / `data`…），不认任何具体节点 id 或数值：
+
+| 规则 | 位置 | 说明 |
+|---|---|---|
+| 连线线型 = 白色流动虚线 | `engine.drawEdge`（flow/dash 分支） | 由 `edgeStyles[type].anim='flow'` 触发；与运营端一致 |
+| 箭头 = 实心箭头 | `engine.drawArrowSeg` | 与运营端一致（非细线开口箭头） |
+| 图标随容器最短边自适配 | `engine.nsz`（`minSide/600`） | 与运营端同一算法 |
+| 文字/线宽随容器缩放 | `topology-view` `textScale`（`TEXT_REF_MIN/GAIN`） | 容器越大越大；线宽与文字同系数 |
+| 留白 / 占满容器 | `engine.fitViewInner` `pad` | 越小越占满；边界已含标签+字段 chip，不裁切 |
+| 布局适度压缩 | `topology-view` `TOPOLOGY_COMPACT_SCALE` | 连线偏长时整体收紧；几何压缩，与具体节点无关 |
+
+**API 侧需遵守的约定**（详见 `docs/拓扑前后台接口定义.md`）：JSON 结构 = `TopologyDoc`；线型由 `edgeStyles` 的
+`anim/color/width` 驱动；`node.type` 需有对应图标（否则画兜底方块，图标走 `scripts/build-topo-icons.mjs` 管线）；
+实时数据 = 扁平 `{信号名:值}`。满足这些，渲染与当前 mock 完全一致。
+
 各层职责简表：
 
 | 文件 | 职责 |
