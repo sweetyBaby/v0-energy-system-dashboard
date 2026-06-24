@@ -7,9 +7,14 @@
 
 import type { NavResolver } from "./topo-types"
 
+// 「数据分析」是按模块参数化的 tab（analysis:<模块key>），不存在裸 "analysis" tab——
+// 用裸 "analysis" 会导致点击跳转无效。默认进第一个分析模块「压差」，换默认改这里即可。
+const ANALYSIS_TAB = "analysis:voltage-diff"
+
 /**
  * 节点类型 → 目标页面（dashboard tab key）。这是本项目侧的映射，运营端不感知。
- * page 取值为 tab key：realtime / history / alarm-monitoring / cell-history / analysis / reports；
+ * page 取值必须是真实存在的 tab key：realtime / history / alarm-monitoring / cell-history /
+ * `analysis:<模块key>`（如 analysis:voltage-diff）/ trend-analysis / device-status / reports；
  * 若取以 "/" 开头的路径（如 "/project-map"）则按外部路由跳转。
  *
  * ⚠️ 默认映射为合理猜测，按产品需求在此调整即可。未列出的类型点击无动作。
@@ -21,14 +26,14 @@ const TYPE_TO_PAGE: Record<string, string> = {
   // 变流/能量管理 → 运行状态
   pcs: "history",
   ems: "history",
-  // 电源 / 计量 / 负载 → 数据分析
-  grid: "analysis",
-  solar: "analysis",
-  generator: "analysis",
-  meter: "analysis",
-  meter2: "analysis",
-  load: "analysis",
-  charger: "analysis",
+  // 电源 / 计量 / 负载 → 数据分析（参数化 tab，不能用裸 "analysis"）
+  grid: ANALYSIS_TAB,
+  solar: ANALYSIS_TAB,
+  generator: ANALYSIS_TAB,
+  meter: ANALYSIS_TAB,
+  meter2: ANALYSIS_TAB,
+  load: ANALYSIS_TAB,
+  charger: ANALYSIS_TAB,
   // 安全 / 环境设备 → 告警监测
   fire: "alarm-monitoring",
   aircon: "alarm-monitoring",
