@@ -23,7 +23,7 @@ const DRAG_THRESHOLD = 4
 const FIT_ZOOM_CAP = 2.4
 // 放大上限：相对「全貌(fit)」的最大倍数。下限恒为 1（=fit），即缩到底也始终展示完整拓扑。
 const MAX_USER_SCALE = 4
-const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.9 }
+const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.8 }
 // 节点/标签/字段的基准放大倍率（userScale=1 时）。缩放时它们与 zoom 同步放大，
 // 使「连线、文字、图标」随缩放一起变大/变小，而非引擎默认的「屏幕恒定尺寸」。
 const BASE_NODE_SCALE = 1.18

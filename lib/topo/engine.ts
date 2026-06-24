@@ -1190,11 +1190,12 @@ function drawEdge(e){
   ctx.restore();
 }
 function drawArrowSeg(p1,p2,color,w){
+  // 与运营端一致：实心箭头（更大、可见），区别于此前的「细线开口箭头」
   const ang=Math.atan2(p2[1]-p1[1],p2[0]-p1[0]);
-  const t=.6,ax=p1[0]+(p2[0]-p1[0])*t,ay=p1[1]+(p2[1]-p1[1])*t,as=Math.max(4,w*2.6)/zoom;
-  ctx.save();ctx.translate(ax,ay);ctx.rotate(ang);ctx.strokeStyle=color;ctx.lineWidth=Math.max(.8,w*.6)/zoom;
+  const t=.6,ax=p1[0]+(p2[0]-p1[0])*t,ay=p1[1]+(p2[1]-p1[1])*t,as=Math.max(8,w*3.8)/zoom;
+  ctx.save();ctx.translate(ax,ay);ctx.rotate(ang);ctx.fillStyle=color;ctx.strokeStyle=color;ctx.lineWidth=Math.max(1.1,w*.55)/zoom;
   ctx.setLineDash([]);ctx.shadowColor=color;ctx.shadowBlur=3/zoom;
-  ctx.beginPath();ctx.moveTo(-as,-as*.5);ctx.lineTo(0,0);ctx.lineTo(-as,as*.5);ctx.stroke();ctx.restore();
+  ctx.beginPath();ctx.moveTo(as*.18,0);ctx.lineTo(-as,-as*.58);ctx.lineTo(-as*.62,0);ctx.lineTo(-as,as*.58);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
 }
 
 function rotatePt(px,py,cx,cy,rad){if(!rad)return [px,py];const c=Math.cos(rad),s=Math.sin(rad);const dx=px-cx,dy=py-cy;return [cx+dx*c-dy*s, cy+dx*s+dy*c];}
