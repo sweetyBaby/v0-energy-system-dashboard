@@ -1469,7 +1469,7 @@ function fieldChipAt(wx,wy){
       minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY)
       maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY)
     })
-    const w = maxX - minX, h = maxY - minY, pad = 34
+    const w = maxX - minX, h = maxY - minY, pad = 12
     if (!(w > 0) || !(h > 0)) return
     const zx = (canvas.width - pad * 2) / w, zy = (canvas.height - pad * 2) / h
     zoom = Math.max(0.2, Math.min(capZoom || 2, Math.min(zx, zy)))
