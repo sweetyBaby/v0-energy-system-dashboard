@@ -29,14 +29,14 @@ const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.8 }
 const BASE_NODE_SCALE = 1.18
 const BASE_LABEL_SCALE = 1.28
 const BASE_FIELD_SCALE = 1.32
-// 文字/线宽随容器最短边（CSS px）放大：minSide=TEXT_REF_MIN 时倍率=1，更大（全屏/大卡片）按增益放大。
-// 引擎里图标(nsz)本就随容器自适配，标签/字段/线宽是「屏幕恒定」——此倍率让文字与线宽随容器同步放大，
-// 粗细与文字一致缩放（不再阻尼）。TEXT_GAIN 控制放大速度，floor=1 防小容器过小/重叠，cap 防过大。
+// 文字/线宽随容器最短边（CSS px）「线性·成比例」缩放：textScale = minSide / TEXT_REF_MIN。
+// 关键：与引擎图标(nsz ∝ minSide/600)同步 → 文字/图标/连线的比例**恒定**，不随容器大小变化，
+// 故笔记本与扩展屏（不同尺寸）观感一致、不会因变大而文字撑爆重叠。**不要用增益(>1)**：超比例
+// 增长会让大屏文字涨得比图标/间距快而重叠。clamp 仅作极端兜底，正常区间内保持纯线性。
 // 此倍率施于 label/field/edge，不施于 nodeScale（图标已自适配，避免二次放大）。
-const TEXT_REF_MIN = 480
-const TEXT_GAIN = 1.8
-const TEXT_SCALE_MIN = 1
-const TEXT_SCALE_MAX = 3.2
+const TEXT_REF_MIN = 560
+const TEXT_SCALE_MIN = 0.75
+const TEXT_SCALE_MAX = 4
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 // 引擎内的节点标签/字段卡片是「屏幕恒定尺寸」：在容器尺寸下它们恒为 ~14px，本就清晰可读。
@@ -121,7 +121,7 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     if (!container) return 1
     const minSide = Math.min(container.clientWidth, container.clientHeight)
     if (!minSide) return 1
-    return clamp(1 + (minSide / TEXT_REF_MIN - 1) * TEXT_GAIN, TEXT_SCALE_MIN, TEXT_SCALE_MAX)
+    return clamp(minSide / TEXT_REF_MIN, TEXT_SCALE_MIN, TEXT_SCALE_MAX)
   }
 
   // 标签/字段/线宽 统一随 userScale × 文字适配(ts) 缩放：文字与线宽随容器同步变化，粗细一致；
