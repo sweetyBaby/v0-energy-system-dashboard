@@ -29,16 +29,14 @@ const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.8 }
 const BASE_NODE_SCALE = 1.18
 const BASE_LABEL_SCALE = 1.28
 const BASE_FIELD_SCALE = 1.32
-// 文字随容器最短边（CSS px）放大：minSide=TEXT_REF_MIN 时倍率=1，更大（全屏/大卡片）按增益放大。
-// 引擎里图标(nsz)本就随容器自适配，标签/字段是「屏幕恒定」——此倍率让文字「为主」随容器同步放大，
-// 避免全屏只放大连线/图标、文字仍是小号。TEXT_GAIN 控制放大速度（越大文字越突出），
-// floor=1 防小容器文字过小/重叠，cap 防过大。连线只随文字「适度」变粗（EDGE_DAMP<1）。
-// 此倍率只施于 label/field/edge，不施于 nodeScale（图标已自适配，避免二次放大）。
+// 文字/线宽随容器最短边（CSS px）放大：minSide=TEXT_REF_MIN 时倍率=1，更大（全屏/大卡片）按增益放大。
+// 引擎里图标(nsz)本就随容器自适配，标签/字段/线宽是「屏幕恒定」——此倍率让文字与线宽随容器同步放大，
+// 粗细与文字一致缩放（不再阻尼）。TEXT_GAIN 控制放大速度，floor=1 防小容器过小/重叠，cap 防过大。
+// 此倍率施于 label/field/edge，不施于 nodeScale（图标已自适配，避免二次放大）。
 const TEXT_REF_MIN = 480
 const TEXT_GAIN = 1.8
 const TEXT_SCALE_MIN = 1
 const TEXT_SCALE_MAX = 3.2
-const EDGE_DAMP = 0.5
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 // 引擎内的节点标签/字段卡片是「屏幕恒定尺寸」：在容器尺寸下它们恒为 ~14px，本就清晰可读。
@@ -126,14 +124,13 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     return clamp(1 + (minSide / TEXT_REF_MIN - 1) * TEXT_GAIN, TEXT_SCALE_MIN, TEXT_SCALE_MAX)
   }
 
-  // 标签/字段放大到 userScale × 文字适配；连线只随文字「适度」变粗（EDGE_DAMP）；
+  // 标签/字段/线宽 统一随 userScale × 文字适配(ts) 缩放：文字与线宽随容器同步变化，粗细一致；
   // 图标(nodeScale)只随 userScale（容器适配已在引擎 nsz 内，避免二次放大）。
   const applyScale = (scale: number) => {
     const engine = engineRef.current
     if (!engine) return
     userScaleRef.current = scale
-    const ts = textScale()
-    const es = 1 + (ts - 1) * EDGE_DAMP // 连线适度放大（不与文字同幅）
+    const ts = textScale() // 线宽与文字共用同一容器缩放系数（不再阻尼），保证粗细随容器一致缩放
     engine.setOptions({
       nodeScale: BASE_NODE_SCALE * scale,
       labelScale: BASE_LABEL_SCALE * scale * ts,
@@ -144,7 +141,7 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
       const scaled: Record<string, unknown> = {}
       for (const k of Object.keys(base)) {
         const t = base[k]
-        scaled[k] = { ...t, w: (typeof t.w === "number" ? t.w : 2.5) * scale * es }
+        scaled[k] = { ...t, w: (typeof t.w === "number" ? t.w : 2.5) * scale * ts }
       }
       engine.setEdgeTypes(scaled)
     }
