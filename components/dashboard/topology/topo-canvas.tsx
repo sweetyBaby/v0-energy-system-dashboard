@@ -12,10 +12,14 @@ import type { NavResolver, TopologyDoc, TopoNodeNav, TopoSignals } from "@/lib/t
 const FULLSCREEN_FIT_CAP = 12
 
 export type TopoCanvasProps = {
-  /** 布局 JSON 的地址（public 下的静态文件或后端接口）。与 loadDoc 二选一。 */
+  /**
+   * 仅用于「静态/本地」布局文件（public 下固定 JSON，如运行状态页的 topo-pcs/ems）。
+   * ⚠️ 动态 / 后端 API 数据不要走这里——必须用 loadDoc 经接缝层 lib/topo/topo-api.ts，
+   * 否则会绕过 mock↔API 的统一切换点。与 loadDoc 二选一，loadDoc 优先。
+   */
   url?: string
   /**
-   * 异步布局加载器（优先于 url）：走接缝层 lib/topo/topo-api.ts 时用此项，
+   * 异步布局加载器（优先于 url）：动态 / API 数据走此项（经接缝层 lib/topo/topo-api.ts），
    * 后续 mock→API 切换只改接缝层，本组件不感知。
    */
   loadDoc?: () => Promise<TopologyDoc>
@@ -73,8 +77,12 @@ export function TopoCanvas({
   const [baseDoc, setBaseDoc] = useState<TopologyDoc | null>(null)
   const [doc, setDoc] = useState<TopologyDoc | null>(null)
   const [error, setError] = useState(false)
+  // 实时信号连续拉取失败 → 进入「数据陈旧」态（仍显示最近一帧，但给可见提示）
+  const [signalStale, setSignalStale] = useState(false)
   // 信号累积合并（等价运营端 topo:merge 语义）：接口只发变化的信号也能正确驱动
   const signalsRef = useRef<TopoSignals>({})
+  // 连续失败计数：达到阈值才提示，避免偶发抖动误报
+  const signalFailRef = useRef(0)
 
   // 全屏时支持 ESC 退出
   useEffect(() => {
@@ -121,20 +129,30 @@ export function TopoCanvas({
       setDoc(baseDoc)
       return
     }
+    // 先用「布局 + 已累积信号」渲染一帧：即使实时信号从首次起就失败，拓扑也能显示（占位值），
+    // 不会卡在「加载中」——信号成功后再叠加实时值。
+    setDoc(applySignals(baseDoc, signalsRef.current))
     let cancelled = false
     let inFlight = false
     let t = 0
+    signalFailRef.current = 0
+    setSignalStale(false)
+    const SIGNAL_STALE_AFTER = 3 // 连续失败 N 次才提示（默认 2s 间隔 → 约 6s）
     const tick = async () => {
       if (inFlight) return
       inFlight = true
       try {
         const next = await makeSignals(t)
         if (cancelled) return
+        signalFailRef.current = 0
+        setSignalStale(false) // 恢复成功 → 清除提示（值不变时 React 自动跳过重渲染）
         signalsRef.current = { ...signalsRef.current, ...next }
         setDoc(applySignals(baseDoc, signalsRef.current))
         t += intervalMs / 1000
       } catch {
-        // 信号拉取失败：保留上一帧，下个周期重试
+        // 信号拉取失败：保留上一帧、下个周期重试；连续多次才提示「数据陈旧」
+        signalFailRef.current += 1
+        if (!cancelled && signalFailRef.current >= SIGNAL_STALE_AFTER) setSignalStale(true)
       } finally {
         inFlight = false
       }
@@ -165,6 +183,14 @@ export function TopoCanvas({
     />
   )
 
+  // 信号陈旧提示：浮层、不挡交互；仅在有实时数据且连续拉取失败时出现
+  const staleBadge =
+    signalStale && !error && doc ? (
+      <div className="pointer-events-none absolute left-1/2 top-2 z-[5] -translate-x-1/2 whitespace-nowrap rounded-full border border-amber-400/40 bg-[#2a1c08]/85 px-2.5 py-[2px] text-[11px] text-amber-300 backdrop-blur-sm">
+        {zh ? "● 实时数据更新中断，显示最近数据" : "● Live data interrupted — showing last known"}
+      </div>
+    ) : null
+
   // 全屏：通过 portal 渲染到 body，避免被祖先的层叠上下文（z-index）/包含块困住，
   // 从而真正覆盖整页并保证退出按钮可见（否则会出现"其他元素透出、找不到退出按钮"）。
   if (fullscreen && typeof document !== "undefined") {
@@ -179,11 +205,17 @@ export function TopoCanvas({
         >
           <Minimize2 className="h-4 w-4" />
         </button>
+        {staleBadge}
         {content}
       </div>,
       document.body,
     )
   }
 
-  return <div className="relative h-full w-full">{content}</div>
+  return (
+    <div className="relative h-full w-full">
+      {staleBadge}
+      {content}
+    </div>
+  )
 }
