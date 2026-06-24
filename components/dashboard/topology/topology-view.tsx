@@ -29,17 +29,17 @@ const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.8 }
 const BASE_NODE_SCALE = 1.18
 const BASE_LABEL_SCALE = 1.28
 const BASE_FIELD_SCALE = 1.32
-// 文字/线宽缩放：textScale = clamp(画布位图最短边 / TEXT_REF_MIN, MIN, MAX)。
-// 关键：按「画布位图」最短边(canvas.width/height = CSS×DPR)取数，与引擎图标(nsz 同样按位图
-// minSide/600)**同一口径**。这样：
-//   ① 文字与图标比例恒定 → 任何尺寸都不会因变大而重叠；
-//   ② 抵消 DPR 差异——引擎按位图 px 画字、显示再÷DPR，若按 CSS px 取数高 DPR(笔记本)会把字
-//      缩小、低 DPR(扩展屏)放大，正是「笔记本太小/扩展屏太大」的根因。按位图取数后 DPR 抵消，
-//      同样 CSS 尺寸的面板在任何 DPR 下文字 CSS 大小一致。
-// 不用增益(>1)：超比例增长会让大屏文字比图标/间距涨得快而重叠。
-const TEXT_REF_MIN = 420
-const TEXT_SCALE_MIN = 1
-const TEXT_SCALE_MAX = 4
+// 文字/线宽与「适应后的 fit 缩放」成比例：textScale = clamp(fitZoom × TEXT_FIT_K, MIN, MAX)。
+// fitZoom 由 engine.fitView 得出，已综合「容器尺寸 ÷ 布局疏密」：
+//   · 布局越密/越大(world 越大) → fitZoom 越小 → 文字越小 → 绝不堆叠；
+//   · 布局越疏/容器越大 → fitZoom 越大 → 文字越大 → 在容器内充分利用空间。
+// 等价于「整图随 fitZoom 接近统一缩放」，实现「容器内最大化完整显示且不重叠」。
+// 因 fitView 的边界含文字、文字又随 fitZoom 变 → 用 PROBE 字号先测几何 fit，再据此定正式字号
+// 重排并二次 fit（见 fitToView），避免循环依赖。
+const TEXT_FIT_K = 1.9
+const TEXT_SCALE_MIN = 0.85
+const TEXT_SCALE_MAX = 1.7
+const PROBE_TEXT_SCALE = 1.2
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 // 引擎内的节点标签/字段卡片是「屏幕恒定尺寸」：在容器尺寸下它们恒为 ~14px，本就清晰可读。
@@ -117,15 +117,9 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
   // 当前布局的原始边类型表（未放大）；放大时据此按 userScale 缩放线宽
   const edgeTypesRef = useRef<Record<string, { w?: number }> | null>(null)
 
-  // 文字随「容器最短边(CSS px)」放大（普通与全屏统一）：minSide=TEXT_REF_MIN 时为 1，
-  // 超过则按 TEXT_GAIN 增益放大（文字为主、放大更明显），小于则不缩（floor，避免过小/重叠）。
-  const textScale = () => {
-    const canvas = canvasRef.current
-    // 按画布位图最短边取数（含 DPR），与引擎图标 nsz 同口径 → 文字/图标比例恒定且 DPR 无关
-    const minSide = canvas ? Math.min(canvas.width, canvas.height) : 0
-    if (!minSide) return 1
-    return clamp(minSide / TEXT_REF_MIN, TEXT_SCALE_MIN, TEXT_SCALE_MAX)
-  }
+  // 当前生效的文字倍率：由 fitToView 据 fit 缩放算出并写入；测量几何 fit 时为 null → 用 PROBE 字号
+  const fitTextScaleRef = useRef<number | null>(null)
+  const textScale = () => fitTextScaleRef.current ?? PROBE_TEXT_SCALE
 
   // 标签/字段/线宽 统一随 userScale × 文字适配(ts) 缩放：文字与线宽随容器同步变化，粗细一致；
   // 图标(nodeScale)只随 userScale（容器适配已在引擎 nsz 内，避免二次放大）。
@@ -150,11 +144,18 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     }
   }
 
-  // 适应容器，记录全貌基线 zoom，并把放大倍数复位为 1（基准尺寸）
+  // 适应容器：两遍 fit——先用 PROBE 字号测几何 fit，据其 zoom 定正式字号，再重排并二次 fit。
   const fitToView = () => {
     const engine = engineRef.current
     if (!engine) return
-    applyScale(1) // 复位用户缩放为 1（文字/线宽仍按容器适配）
+    // 1) 几何 fit（PROBE 字号）
+    fitTextScaleRef.current = null
+    applyScale(1)
+    engine.fitView(fitCapRef.current)
+    const probeZoom = engine.getView().zoom || 1
+    // 2) 由 fit 缩放定正式字号，重排 + 二次 fit
+    fitTextScaleRef.current = clamp(probeZoom * TEXT_FIT_K, TEXT_SCALE_MIN, TEXT_SCALE_MAX)
+    applyScale(1)
     engine.fitView(fitCapRef.current)
     fitZoomRef.current = engine.getView().zoom || 1
     userScaleRef.current = 1
