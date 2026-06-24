@@ -29,13 +29,16 @@ const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.8 }
 const BASE_NODE_SCALE = 1.18
 const BASE_LABEL_SCALE = 1.28
 const BASE_FIELD_SCALE = 1.32
-// 文字/线宽随容器最短边（CSS px）「线性·成比例」缩放：textScale = minSide / TEXT_REF_MIN。
-// 关键：与引擎图标(nsz ∝ minSide/600)同步 → 文字/图标/连线的比例**恒定**，不随容器大小变化，
-// 故笔记本与扩展屏（不同尺寸）观感一致、不会因变大而文字撑爆重叠。**不要用增益(>1)**：超比例
-// 增长会让大屏文字涨得比图标/间距快而重叠。clamp 仅作极端兜底，正常区间内保持纯线性。
-// 此倍率施于 label/field/edge，不施于 nodeScale（图标已自适配，避免二次放大）。
-const TEXT_REF_MIN = 560
-const TEXT_SCALE_MIN = 0.75
+// 文字/线宽缩放：textScale = clamp(画布位图最短边 / TEXT_REF_MIN, MIN, MAX)。
+// 关键：按「画布位图」最短边(canvas.width/height = CSS×DPR)取数，与引擎图标(nsz 同样按位图
+// minSide/600)**同一口径**。这样：
+//   ① 文字与图标比例恒定 → 任何尺寸都不会因变大而重叠；
+//   ② 抵消 DPR 差异——引擎按位图 px 画字、显示再÷DPR，若按 CSS px 取数高 DPR(笔记本)会把字
+//      缩小、低 DPR(扩展屏)放大，正是「笔记本太小/扩展屏太大」的根因。按位图取数后 DPR 抵消，
+//      同样 CSS 尺寸的面板在任何 DPR 下文字 CSS 大小一致。
+// 不用增益(>1)：超比例增长会让大屏文字比图标/间距涨得快而重叠。
+const TEXT_REF_MIN = 420
+const TEXT_SCALE_MIN = 1
 const TEXT_SCALE_MAX = 4
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
@@ -117,9 +120,9 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
   // 文字随「容器最短边(CSS px)」放大（普通与全屏统一）：minSide=TEXT_REF_MIN 时为 1，
   // 超过则按 TEXT_GAIN 增益放大（文字为主、放大更明显），小于则不缩（floor，避免过小/重叠）。
   const textScale = () => {
-    const container = containerRef.current
-    if (!container) return 1
-    const minSide = Math.min(container.clientWidth, container.clientHeight)
+    const canvas = canvasRef.current
+    // 按画布位图最短边取数（含 DPR），与引擎图标 nsz 同口径 → 文字/图标比例恒定且 DPR 无关
+    const minSide = canvas ? Math.min(canvas.width, canvas.height) : 0
     if (!minSide) return 1
     return clamp(minSide / TEXT_REF_MIN, TEXT_SCALE_MIN, TEXT_SCALE_MAX)
   }
