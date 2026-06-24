@@ -1337,8 +1337,9 @@ function fieldChipPos(n,i){
   const step=(fieldFontPx(n)+18*fieldScale)/zoom; // 卡片高度(字号+上下padding) + 间距（屏幕固定）
   const baseY=n.y-s*0.40+i*step;              // 自上而下堆叠（含舒适间距）
   const f=n.data[i];
-  const ox=(f.ox!=null?f.ox:0), oy=(f.oy!=null?f.oy:0);   // ox/oy 以屏幕像素存储
-  return {x:baseX+ox/zoom, y:baseY+oy/zoom, h:cfs*1.5, cfs};
+  const ox=(f.ox!=null?f.ox:0), oy=(f.oy!=null?f.oy:0);          // ox/oy 屏幕像素偏移（兼容旧）
+  const wox=(f.wox!=null?f.wox:0), woy=(f.woy!=null?f.woy:0);    // wox/woy 世界坐标偏移（运营端导出，随缩放等比，重现编辑器摆位）
+  return {x:baseX+wox+ox/zoom, y:baseY+woy+oy/zoom, h:cfs*1.5, cfs};
 }
 function fieldChipText(f){
   const k=dataKey(f);
@@ -1358,7 +1359,7 @@ function drawFieldChips(n,s){
     const padX=(7*fieldScale)/zoom, padY=(4*fieldScale)/zoom, rr=(5*fieldScale)/zoom;   // 屏幕固定（随 1/zoom）
     const bx=pos.x, by=pos.y-pos.cfs, bw=tw+padX*2, bh=pos.cfs+padY*2;
     // 引导线：当 chip 被拖离默认位置较远时，用细线连回节点视觉中心，避免不知归属
-    const off=Math.hypot(f.ox||0,f.oy||0);
+    const off=Math.hypot((f.wox||0)+(f.ox||0),(f.woy||0)+(f.oy||0));
     if(off>40){
       const nb=nodeBox(n);
       // chip 中心

@@ -62,11 +62,13 @@ function toInternalNode(n: TopoNode): InternalNode {
       keyEn: f.key?.en ?? f.key?.zh ?? "",
       // 运行时 dv 为空字符串时引擎显示 "--"；导出的 "--" 占位归一为空
       dv: f.value === "--" || f.value == null ? "" : f.value,
-      // 忽略运营端导出的字段偏移：offset 是「编辑器 zoom≈1 下的屏幕像素」，引擎按 offset/zoom 应用，
-      // 在仪表盘的自适应小尺寸（fit zoom 远小于 1）下会被放大成巨大位移，把字段卡片拖到图标上造成遮挡。
-      // 只读视图统一用默认位置（图标右侧、自上而下堆叠），不遮挡元素（间距由布局保证）。
+      // 接回运营端字段偏移（offset 是世界坐标），以 wox/woy 传给引擎按「世界坐标」应用——随缩放等比，
+      // 重现运营端精心摆位（如 PCS 字段左下避开断路器）。与早先「ox/oy 屏幕像素」不同：屏幕像素偏移在
+      // 小 fit 下会变成巨大位移、把卡片拖到图标上；世界坐标偏移随 fit 缩小、不会遮挡。
       ox: 0,
       oy: 0,
+      wox: f.offset?.x ?? 0,
+      woy: f.offset?.y ?? 0,
       hidden: !!f.hidden,
     })),
   }
