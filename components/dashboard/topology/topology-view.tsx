@@ -29,8 +29,12 @@ const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.8 }
 // nodeScale=1 即图标=sizeWorld，标签/字段基准=1 即世界字号；用户滚轮缩放(userScale)整体放大。
 // 「文字可读下限」(方案2)：统一缩放下若屏幕字号过小，按下限放大标签/字段字号（极端下可能轻微重叠）。
 const ENGINE_BASE_FONT = 14 // 与 engine labelFontPx 基准一致：world 字号 = ENGINE_BASE_FONT × labelScale
-const LABEL_FLOOR_PX = 13 // 标签最小屏幕字号
-const FIELD_FLOOR_PX = 11 // 字段最小屏幕字号
+// 用户诉求：文字看清楚（优先）、图标别太大。故图标按 ICON_SCALE 缩小（运营端 sizeWorld 偏大），
+// 文字用较高的可读下限放大；二者叠加 → 图标适中、文字清晰。
+const ICON_SCALE = 0.5 // 图标相对 sizeWorld 的缩小倍率（统一缩放下避免图标过大）
+const LABEL_FLOOR_PX = 17 // 标签最小屏幕字号（文字优先，调大）
+const FIELD_FLOOR_PX = 15 // 字段最小屏幕字号
+const TEXT_FLOOR_CAP = 3 // 可读下限放大封顶
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 // 引擎内的节点标签/字段卡片是「屏幕恒定尺寸」：在容器尺寸下它们恒为 ~14px，本就清晰可读。
@@ -120,7 +124,7 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     if (!engine) return
     userScaleRef.current = scale
     engine.setOptions({
-      nodeScale: scale,
+      nodeScale: ICON_SCALE * scale,
       labelScale: labelFloorRef.current * scale,
       fieldScale: fieldFloorRef.current * scale,
     })
@@ -147,11 +151,13 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     applyScale(1)
     engine.fitView(fitCapRef.current)
     const z = engine.getView().zoom || 1
-    fitZoomRef.current = z
-    // 2) 可读下限（仅放大显示字号，不再 fit）：屏幕字号 = world字号×z，低于下限则放大世界字号
-    labelFloorRef.current = clamp(LABEL_FLOOR_PX / (ENGINE_BASE_FONT * z), 1, 2)
-    fieldFloorRef.current = clamp(FIELD_FLOOR_PX / (ENGINE_BASE_FONT * 0.92 * z), 1, 2)
+    // 2) 可读下限：屏幕字号 = world字号×z，低于下限则放大世界字号（文字优先）。下限只按这一次的 z
+    //    计算（不随二次 fit 反复重算 → 不会反馈发散），再二次 fit 让放大的文字也完整纳入、不裁切。
+    labelFloorRef.current = clamp(LABEL_FLOOR_PX / (ENGINE_BASE_FONT * z), 1, TEXT_FLOOR_CAP)
+    fieldFloorRef.current = clamp(FIELD_FLOOR_PX / (ENGINE_BASE_FONT * 0.92 * z), 1, TEXT_FLOOR_CAP)
     applyScale(1)
+    engine.fitView(fitCapRef.current)
+    fitZoomRef.current = engine.getView().zoom || 1
     userScaleRef.current = 1
   }
 
