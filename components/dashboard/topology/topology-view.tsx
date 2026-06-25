@@ -48,6 +48,12 @@ const TEXT_FLOOR_CAP = 5 // 可读下限放大封顶
 // 取值高于普通卡片的自然尺寸，故只在大屏/全屏真正触顶时才收敛（普通卡片不受影响）。
 const ICON_MAX_PX = 150 // 图标最大屏幕尺寸 CSS px
 const TEXT_MAX_PX = 32 // 标签/字段最大屏幕字号 CSS px
+// 连线粗细同样随容器自适应（此前为屏幕恒定，图标/文字放大后显细）：CSS 线宽 ≈ CSS 适配缩放 × 增益，
+// 钳制在 [下限, 上限]；保留各线型相对粗细(如母线更粗)。下限保证可见、上限避免大屏/全屏无限变粗。
+const NOMINAL_EDGE_W = 2.5 // 数据中典型连线宽度，作为相对粗细与目标换算的基准
+const LINE_GAIN = 3.0 // 标称连线 CSS 宽度 ≈ (fitZoom/DPR) × 此增益
+const LINE_MIN_PX = 2.5 // 连线最小屏幕宽度 CSS px
+const LINE_MAX_PX = 6 // 连线最大屏幕宽度 CSS px
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 // 引擎内的节点标签/字段卡片是「屏幕恒定尺寸」：在容器尺寸下它们恒为 ~14px，本就清晰可读。
@@ -141,6 +147,8 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
   const iconNormRef = useRef(0.5)
   // 图标尺寸上限系数（≤1）：大屏/全屏 fit 过大时按 ICON_MAX_PX 等比收敛；普通卡片为 1（不收敛）。
   const iconCapRef = useRef(1)
+  // 连线粗细的容器自适应系数（fitToView 据 fitZoom 算）：乘到各线型基础宽度上，使线宽随容器缩放、有上下限。
+  const edgeFitScaleRef = useRef(1)
   // 本拓扑布局压缩系数 = TOPOLOGY_TARGET_SPAN / 世界包围盒最长边（doc effect 按布局算，缓存复用）。
   const compactRef = useRef(0.5)
 
@@ -160,7 +168,8 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
       const scaled: Record<string, unknown> = {}
       for (const k of Object.keys(base)) {
         const t = base[k]
-        scaled[k] = { ...t, w: (typeof t.w === "number" ? t.w : 2.5) * scale }
+        // 连线宽度 = 基础宽度(保留相对粗细) × 容器自适应系数 × 用户缩放
+        scaled[k] = { ...t, w: (typeof t.w === "number" ? t.w : NOMINAL_EDGE_W) * edgeFitScaleRef.current * scale }
       }
       engine.setEdgeTypes(scaled)
     }
@@ -211,7 +220,11 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
       labelFloorRef.current *= k
       fieldFloorRef.current *= k
     }
-    applyScale(1) // 应用收紧后的尺寸（不再 fit，仅缩小不裁切）
+    // 连线粗细随容器自适应：标称 CSS 线宽 = (CSS 适配缩放 zf/DPR)×增益，钳制 [下限,上限]，再换算为
+    // 引擎基础宽度的倍率（连线宽度不影响 fit 包围盒，故由最终 zf 直接定、无回弹问题）。
+    const lineCss = clamp((zf / effDpr) * LINE_GAIN, LINE_MIN_PX, LINE_MAX_PX)
+    edgeFitScaleRef.current = (lineCss * effDpr) / NOMINAL_EDGE_W
+    applyScale(1) // 应用收紧后的尺寸 + 连线宽度（不再 fit，仅缩小不裁切）
     userScaleRef.current = 1
   }
 
@@ -261,10 +274,10 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
       sizeCanvasBitmap(canvas, container)
       if (hasUserViewRef.current) {
         const scale = userScaleRef.current
-        applyScale(1)
-        engine.fitView(fitCapRef.current)
-        const newFit = engine.getView().zoom || 1
-        fitZoomRef.current = newFit
+        // 先按新容器重算「自然全貌」——fitToView 会一并刷新 文字下限/上限、图标上限、连线粗细 等自适应系数，
+        // 再把用户缩放叠加回去（以画布中心为锚）。否则 resize 时这些系数（尤其连线粗细）仍停留在旧容器尺度。
+        fitToView()
+        const newFit = fitZoomRef.current || 1
         const fitV = engine.getView() // 居中的全貌视图
         const cx = canvas.width / 2
         const cy = canvas.height / 2
