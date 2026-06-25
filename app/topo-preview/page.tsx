@@ -1,5 +1,8 @@
+import { notFound } from "next/navigation"
 import { TopoCanvas } from "@/components/dashboard/topology/topo-canvas"
 export default async function P({ searchParams }: { searchParams: Promise<{ t?: string }> }) {
+  // 仅开发环境可访问：生产构建下返回 404，避免内部验证路由对外暴露
+  if (process.env.NODE_ENV === "production") notFound()
   const { t } = await searchParams
   const map: Record<string, [string, number, number]> = {
     sample: ["/topology-sample.json", 1360, 620],
