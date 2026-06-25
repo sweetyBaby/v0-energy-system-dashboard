@@ -23,9 +23,12 @@ const DRAG_THRESHOLD = 4
 const FIT_ZOOM_CAP = 1.8
 // 放大上限：相对「全貌(fit)」的最大倍数。下限恒为 1（=fit），即缩到底也始终展示完整拓扑。
 const MAX_USER_SCALE = 4
-// 布局轻压缩（朝质心）。注意：均匀压缩后 fitView 会重新铺满容器，故不改变连线的屏幕长度；
-// 连线“变短”靠的是 FIT_ZOOM_CAP 限制小世界拓扑的过度放大（带留白），而非此处。
-const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.8 }
+// 按「每张拓扑」归一化布局尺度：compact = TOPOLOGY_TARGET_SPAN / 该拓扑世界包围盒最长边
+// （朝质心缩放，允许 >1 扩张小世界）。这样不同世界尺寸的拓扑归一化后包围盒一致 → fitView 后
+// 各拓扑「适配缩放、文字/图标大小、连线占比」都一致，且都铺满容器（小世界不再留白、大世界不溢出）。
+// 这是对动态 JSON 通用的关键：尺寸/位置按容器归一（次要因素），而连线/线型/走向/规则等关键因素
+// 全部来自 JSON 与引擎、保持与运营端一致。
+const TOPOLOGY_TARGET_SPAN = 640
 // ── 统一缩放(uniform zoom)：图标(sizeWorld)/标签(fontSize)/字段(偏移+字号) 全部世界坐标，
 // 由 engine.fitView 等比缩放铺满容器 → 完整、最大、永不堆叠（忠实重现运营端、对任意 JSON 通用）。
 // nodeScale=1 即图标=sizeWorld，标签/字段基准=1 即世界字号；用户滚轮缩放(userScale)整体放大。
@@ -33,7 +36,10 @@ const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.8 }
 const ENGINE_BASE_FONT = 14 // 与 engine labelFontPx 基准一致：world 字号 = ENGINE_BASE_FONT × labelScale
 // 用户诉求：文字看清楚（优先）、图标别太大。故图标按 ICON_SCALE 缩小（运营端 sizeWorld 偏大），
 // 文字用较高的可读下限放大；二者叠加 → 图标适中、文字清晰。
-const ICON_SCALE = 0.3 // 图标相对 sizeWorld 的缩小倍率：图标更小→腾出空间让文字更大（文字优先）
+// 图标整体归一化目标（世界坐标 nsz 目标值）。引擎 nsz=sizeWorld×nodeScale，本项目按「每张拓扑
+// 的 sizeWorld 中位数」算 nodeScale=ICON_TARGET_WORLD/median，使各拓扑图标整体大小适中且一致，
+// 同时保留同一拓扑内节点的相对大小（走线/几何沿用运营端）。配合 fit cap≈1.8 → 屏幕约 ICON_TARGET_WORLD×1.8。
+const ICON_TARGET_WORLD = 42
 const LABEL_FLOOR_PX = 18 // 标签最小屏幕字号（文字优先，调大）
 const FIELD_FLOOR_PX = 16 // 字段最小屏幕字号
 const TEXT_FLOOR_CAP = 4 // 可读下限放大封顶
@@ -79,8 +85,16 @@ export type TopologyViewProps = {
   fullscreen?: boolean
 }
 
-// 节点布局签名：仅在节点集合/位置变化时重新 fitView（实时数据每 2s 刷新但位置不变，无需反复重算）
-const layoutSig = (doc: TopologyDoc) => doc.nodes.map((n) => `${n.id}:${n.position?.x},${n.position?.y}`).join("|")
+// 布局签名：仅涵盖会改变「归一化(span/median)与 fitView 包围盒」的输入——
+// 节点 位置/sizeWorld/可见性 + 「手动布线(route==='manual')且有拐点」的连线(其拐点/显隐影响包围盒)。
+// 普通连线的 active 显隐（如发电机联络线 showWhen）不进签名 → 实时切换时不会重置用户的平移/缩放。
+const layoutSig = (doc: TopologyDoc) =>
+  doc.nodes.map((n) => `${n.id}:${n.position?.x},${n.position?.y}:${n.sizeWorld ?? 0}:${n.visible === false ? 0 : 1}`).join("|") +
+  "##" +
+  doc.edges
+    .filter((e) => e.route === "manual" && (e.waypoints?.length ?? 0) > 0)
+    .map((e) => `${e.from}-${e.to}:${e.active === false ? 0 : 1}:${(e.waypoints ?? []).map((p) => `${p.x},${p.y}`).join(";")}`)
+    .join("|")
 
 /**
  * 拓扑只读视图：渲染布局 JSON，背景透明贴合项目卡片风格。
@@ -118,6 +132,10 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
   // 由 fitToView 据 fitZoom 算出；默认 1（纯统一缩放，字号即世界 fontSize）。
   const labelFloorRef = useRef(1)
   const fieldFloorRef = useRef(1)
+  // 图标归一化系数 = ICON_TARGET_WORLD / 本拓扑 sizeWorld 中位数（doc effect 计算）。
+  const iconNormRef = useRef(0.5)
+  // 本拓扑布局压缩系数 = TOPOLOGY_TARGET_SPAN / 世界包围盒最长边（doc effect 按布局算，缓存复用）。
+  const compactRef = useRef(0.5)
 
   // 统一缩放：图标=sizeWorld(nodeScale=1)，标签/字段=世界 fontSize×可读下限，全部随 fitView 等比；
   // 用户滚轮缩放(scale)整体放大。连线为屏幕恒定原生宽度（仅随用户缩放略变，不参与堆叠问题）。
@@ -126,7 +144,7 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     if (!engine) return
     userScaleRef.current = scale
     engine.setOptions({
-      nodeScale: ICON_SCALE * scale,
+      nodeScale: iconNormRef.current * scale,
       labelScale: labelFloorRef.current * scale,
       fieldScale: fieldFloorRef.current * scale,
     })
@@ -268,7 +286,41 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     const container = containerRef.current
     if (!engine || !canvas || !container || !doc) return
 
-    const { nodes, edges, edgeTypes } = docToInternal(doc, { compact: TOPOLOGY_COMPACT_SCALE })
+    // 布局变化时（非实时数据刷新）重算「每张拓扑」的归一化系数：图标整体大小 + 布局压缩。
+    const sig = layoutSig(doc)
+    const layoutChanged = sig !== lastSigRef.current
+    if (layoutChanged) {
+      // 仅用「实际会渲染的可见节点」（与 docToInternal 一致：过滤 visible===false），避免被规则隐藏的
+      // 离群节点（visibleWhen/showWhen）撑大跨度/带偏中位数，导致可见拓扑被缩小、留白。
+      const visible = doc.nodes.filter((n) => n.visible !== false)
+      // 图标整体大小：按 sizeWorld 中位数归一（保留同图相对尺寸，跨图一致适中）
+      const sizes = visible
+        .filter((n) => n.type !== "text" && n.type !== "anchor" && (n.sizeWorld ?? 0) > 0)
+        .map((n) => n.sizeWorld as number)
+        .sort((a, b) => a - b)
+      const median = sizes.length ? sizes[Math.floor(sizes.length / 2)] : 0
+      iconNormRef.current = median > 0 ? ICON_TARGET_WORLD / median : 0.5
+      // 布局压缩：按世界包围盒最长边归一到 TOPOLOGY_TARGET_SPAN（允许 >1 扩张小世界）。
+      // 包围盒含「可见节点」+「手动布线(route==='manual')且未被规则隐藏(active!==false)的连线拐点」——
+      // 与引擎 fitView 同一集合，避免归一化与适配口径不一致（手动拐点被放大后又被缩出视野）。
+      const pts = visible.length ? visible : doc.nodes
+      const xs = pts.map((n) => n.position?.x ?? 0)
+      const ys = pts.map((n) => n.position?.y ?? 0)
+      const visIds = new Set(pts.map((n) => n.id))
+      for (const e of doc.edges) {
+        // 仅计入会渲染的手动布线拐点：route==='manual'、未被隐藏、且两端节点都可见（与引擎 fit 同口径）
+        if (e.route !== "manual" || e.active === false || !visIds.has(e.from) || !visIds.has(e.to)) continue
+        for (const p of e.waypoints ?? []) {
+          xs.push(p.x)
+          ys.push(p.y)
+        }
+      }
+      const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) || 1
+      compactRef.current = clamp(TOPOLOGY_TARGET_SPAN / span, 0.15, 4)
+    }
+
+    const c = compactRef.current
+    const { nodes, edges, edgeTypes } = docToInternal(doc, { compact: { x: c, y: c } })
     edgeTypesRef.current = edgeTypes as Record<string, { w?: number }>
     engine.setEdgeTypes(edgeTypes)
     engine.setData(nodes, edges)
@@ -290,8 +342,7 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
       })
     }
 
-    const sig = layoutSig(doc)
-    if (sig !== lastSigRef.current) {
+    if (layoutChanged) {
       lastSigRef.current = sig
       hasUserViewRef.current = false
       sizeCanvasBitmap(canvas, container)

@@ -172,11 +172,11 @@ function fieldFontPx(n){ return (n.fontSize||14)*0.92*fieldScale; }
 function nsz(typeOrNode){
   const type=typeof typeOrNode==='string'?typeOrNode:typeOrNode.type;
   const scale=typeof typeOrNode==='string'?1:(typeOrNode.scale||1);
-  // 统一缩放：优先用节点世界尺寸 sizeWorld（世界坐标，随 fitView 等比缩放，重现运营端比例）。
-  const sw=(typeof typeOrNode==='object'&&typeOrNode.sizeWorld)?Number(typeOrNode.sizeWorld):0;
-  if(sw>0) return sw*scale*nodeScale;
-  // 回退：类型基准（世界坐标基准值，约 600px 画布 zoom≈1 时的等效尺寸）
-  const s={grid:80,pcs:66,bms:66,meter:56,meter2:60,load:66,solar:74,transformer:64,switch:60,generator:68,cabinet:64,highvolt:60,ems:64,aircon:60,fire:58,sensor:58,busbar:70,charger:60,h2_storage:64,
+  // 优先用运营端 sizeWorld（世界坐标，保留各节点相对几何 → 走线/裁剪/包围盒与运营端一致），
+  // 缺省时回退类型基准。各拓扑「整体」图标大小由调用方按拓扑归一化 nodeScale 调成适中一致
+  // （sizeWorld 在不同拓扑差异极大，靠 nodeScale 归一，既尊重相对尺寸又避免某些拓扑图标过大）。
+  const sw=(typeof typeOrNode==='object'&&typeOrNode.sizeWorld>0)?Number(typeOrNode.sizeWorld):0;
+  const s=sw||{grid:80,pcs:66,bms:66,meter:56,meter2:60,load:66,solar:74,transformer:64,switch:60,generator:68,cabinet:64,highvolt:60,ems:64,aircon:60,fire:58,sensor:58,busbar:70,charger:60,h2_storage:64,
     cb_closed:44,switch_open:44,disconnector:44,contactor:44,fuse:44,iso_g:44,lbs_g:44,disc_v_g:44,
     trunk_ac:70,trunk_dc:70,tie_line:66,
     anchor:26}[type]||62;
@@ -1505,6 +1505,19 @@ function fieldChipAt(wx,wy){
       const b = nodeVisualBounds(n)
       minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY)
       maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY)
+    })
+    // 纳入「手动布线(route==='manual')且两端节点都存在」的拐点：仅这些会真正按 waypoints 渲染，
+    // 故只有它们应影响 fit（非 manual、或端点已被规则隐藏而无法渲染的连线，其残留 waypoints 不计入，
+    // 以免把画布拉去包含不可见几何）。布局可能被放大(compact>1)，手动 waypoints 超出节点盒也不被裁。
+    const _nodeIds = new Set(nodes.map(n => n.id))
+    edges.forEach(e => {
+      const wps = e && e.waypoints
+      if (e.route !== 'manual' || !Array.isArray(wps) || !_nodeIds.has(e.from) || !_nodeIds.has(e.to)) return
+      wps.forEach(p => {
+        if (!Array.isArray(p)) return
+        minX = Math.min(minX, p[0]); minY = Math.min(minY, p[1])
+        maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1])
+      })
     })
     const w = maxX - minX, h = maxY - minY, pad = 12
     if (!(w > 0) || !(h > 0)) return

@@ -99,8 +99,9 @@ function toInternalEdge(e: TopoEdge): InternalEdge {
 }
 
 function compactLayout(nodes: InternalNode[], edges: InternalEdge[], compact: TopologyInternalOptions["compact"]) {
-  const scaleX = Math.max(0.1, Math.min(1, compact?.x ?? 1))
-  const scaleY = Math.max(0.1, Math.min(1, compact?.y ?? 1))
+  // 允许 >1（扩张）：小世界拓扑需放大节点间距，使其归一化后与大世界拓扑在容器内呈现一致比例
+  const scaleX = Math.max(0.1, Math.min(4, compact?.x ?? 1))
+  const scaleY = Math.max(0.1, Math.min(4, compact?.y ?? 1))
   if ((scaleX === 1 && scaleY === 1) || nodes.length === 0) {
     return { nodes, edges }
   }
