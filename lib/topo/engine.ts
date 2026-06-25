@@ -172,13 +172,15 @@ function fieldFontPx(n){ return (n.fontSize||14)*0.92*fieldScale; }
 function nsz(typeOrNode){
   const type=typeof typeOrNode==='string'?typeOrNode:typeOrNode.type;
   const scale=typeof typeOrNode==='string'?1:(typeOrNode.scale||1);
-  const base=Math.min(canvas.width,canvas.height)/zoom;
+  // 统一缩放：优先用节点世界尺寸 sizeWorld（世界坐标，随 fitView 等比缩放，重现运营端比例）。
+  const sw=(typeof typeOrNode==='object'&&typeOrNode.sizeWorld)?Number(typeOrNode.sizeWorld):0;
+  if(sw>0) return sw*scale*nodeScale;
+  // 回退：类型基准（世界坐标基准值，约 600px 画布 zoom≈1 时的等效尺寸）
   const s={grid:80,pcs:66,bms:66,meter:56,meter2:60,load:66,solar:74,transformer:64,switch:60,generator:68,cabinet:64,highvolt:60,ems:64,aircon:60,fire:58,sensor:58,busbar:70,charger:60,h2_storage:64,
-    // 开关元件：默认偏大，统一缩小为更紧凑的尺寸
     cb_closed:44,switch_open:44,disconnector:44,contactor:44,fuse:44,iso_g:44,lbs_g:44,disc_v_g:44,
     trunk_ac:70,trunk_dc:70,tie_line:66,
     anchor:26}[type]||62;
-  return s*(base/600)*scale*nodeScale;
+  return s*scale*nodeScale;
 }
 function nodeAt(wx,wy){for(let i=nodes.length-1;i>=0;i--){const n=nodes[i];if(n.type==='text'){const b=n._textBox;if(b&&wx>=b.x&&wx<=b.x+b.w&&wy>=b.y&&wy<=b.y+b.h)return n;continue;}const s=nsz(n);if(n.type==='anchor'){const vcy=n.y-s*0.22, hit=Math.max(s*0.5, 11/zoom);if(Math.abs(wx-n.x)<hit&&Math.abs(wy-vcy)<hit)return n;continue;}if(Math.abs(wx-n.x)<s*.55&&Math.abs(wy-n.y)<s*.5)return n;}return null;}
 // 返回节点边界上的锚点（从中心朝目标方向，落在图标外缘）
@@ -1252,7 +1254,8 @@ function drawNode(n){
   else{ctx.fillStyle='#1a3a5c';ctx.fillRect(n.x-s/2,n.y-s*.72,s,s);const fs=10/zoom;ctx.fillStyle='#4dd0ff';ctx.font=fs+'px Courier New';ctx.textAlign='center';ctx.fillText(n.type,n.x,n.y+fs*.5);}
   ctx.restore();
   if(!n.hideLabel){
-  const lfs=labelFontPx(n)/zoom;
+  // 统一缩放：标签字号用世界坐标(labelFontPx 不再 /zoom)，随 fitView 等比，与图标同步缩放
+  const lfs=labelFontPx(n);
   ctx.font='bold '+lfs+"px -apple-system,'Microsoft YaHei',sans-serif";ctx.textAlign='center';
   const lblTxt=nodeLabel(n);
   // 标签放在图标实际绘制区域的底边之下，确保不遮挡图标任何部分（含台座光晕）
@@ -1260,8 +1263,8 @@ function drawNode(n){
   const imgBottom=n.y + s*0.28;
   const lblY=imgBottom + lfs*0.85;  // 图标底边下方留固定小间距
   const tw=ctx.measureText(lblTxt).width;
-  // 标签背景板：用背景色近不透明 + 圆角，彻底遮住下方连线
-  const padX=(6*labelScale)/zoom, plateY=lblY-lfs*0.82, plateH=lfs*1.25, plateX=n.x-tw/2-padX, plateW=tw+padX*2, rr=(4*labelScale)/zoom;
+  // 标签背景板：世界坐标内边距/圆角（随 fitView 等比）
+  const padX=6*labelScale, plateY=lblY-lfs*0.82, plateH=lfs*1.25, plateX=n.x-tw/2-padX, plateW=tw+padX*2, rr=4*labelScale;
   ctx.fillStyle=bgPlate();
   ctx.beginPath();
   if(ctx.roundRect)ctx.roundRect(plateX,plateY,plateW,plateH,rr); else ctx.rect(plateX,plateY,plateW,plateH);
@@ -1332,10 +1335,11 @@ function drawTextNode(n){
 // 计算某字段 chip 的默认位置（节点右侧堆叠）。全部用世界坐标常量，缩放稳定
 function fieldChipPos(n,i){
   const s=nsz(n);
-  const cfs=fieldFontPx(n)/zoom;              // 字号随 1/zoom，屏幕字号恒定（与图标一致）
-  const baseX=n.x+s*0.5+(14*fieldScale)/zoom; // 节点右侧（屏幕固定间距，不随缩放漂移）
-  const step=(fieldFontPx(n)+18*fieldScale)/zoom; // 卡片高度(字号+上下padding) + 间距（屏幕固定）
-  const baseY=n.y-s*0.40+i*step;              // 自上而下堆叠（含舒适间距）
+  // 统一缩放：全部世界坐标（不再 /zoom），随 fitView 等比缩放，与图标/标签同步、重现运营端比例
+  const cfs=fieldFontPx(n);                    // 字段字号（世界坐标）
+  const baseX=n.x+s*0.5+14*fieldScale;         // 节点右侧（世界间距）
+  const step=fieldFontPx(n)+18*fieldScale;     // 卡片高度 + 间距（世界）
+  const baseY=n.y-s*0.40+i*step;               // 自上而下堆叠
   const f=n.data[i];
   const ox=(f.ox!=null?f.ox:0), oy=(f.oy!=null?f.oy:0);          // ox/oy 屏幕像素偏移（兼容旧）
   const wox=(f.wox!=null?f.wox:0), woy=(f.woy!=null?f.woy:0);    // wox/woy 世界坐标偏移（运营端导出，随缩放等比，重现编辑器摆位）
@@ -1356,7 +1360,7 @@ function drawFieldChips(n,s){
     const txt=fieldChipText(f);
     ctx.font=pos.cfs+"px -apple-system,'Microsoft YaHei',sans-serif";ctx.textAlign='left';
     const tw=ctx.measureText(txt).width;
-    const padX=(7*fieldScale)/zoom, padY=(4*fieldScale)/zoom, rr=(5*fieldScale)/zoom;   // 屏幕固定（随 1/zoom）
+    const padX=7*fieldScale, padY=4*fieldScale, rr=5*fieldScale;   // 世界坐标内边距/圆角（随 fitView 等比）
     const bx=pos.x, by=pos.y-pos.cfs, bw=tw+padX*2, bh=pos.cfs+padY*2;
     // 引导线：当 chip 被拖离默认位置较远时，用细线连回节点视觉中心，避免不知归属
     const off=Math.hypot((f.wox||0)+(f.ox||0),(f.woy||0)+(f.oy||0));

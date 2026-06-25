@@ -24,22 +24,13 @@ const FIT_ZOOM_CAP = 2.4
 // 放大上限：相对「全貌(fit)」的最大倍数。下限恒为 1（=fit），即缩到底也始终展示完整拓扑。
 const MAX_USER_SCALE = 4
 const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.8 }
-// 节点/标签/字段的基准放大倍率（userScale=1 时）。缩放时它们与 zoom 同步放大，
-// 使「连线、文字、图标」随缩放一起变大/变小，而非引擎默认的「屏幕恒定尺寸」。
-const BASE_NODE_SCALE = 1.18
-const BASE_LABEL_SCALE = 1.28
-const BASE_FIELD_SCALE = 1.32
-// 文字/线宽与「适应后的 fit 缩放」成比例：textScale = clamp(fitZoom × TEXT_FIT_K, MIN, MAX)。
-// fitZoom 由 engine.fitView 得出，已综合「容器尺寸 ÷ 布局疏密」：
-//   · 布局越密/越大(world 越大) → fitZoom 越小 → 文字越小 → 绝不堆叠；
-//   · 布局越疏/容器越大 → fitZoom 越大 → 文字越大 → 在容器内充分利用空间。
-// 等价于「整图随 fitZoom 接近统一缩放」，实现「容器内最大化完整显示且不重叠」。
-// 因 fitView 的边界含文字、文字又随 fitZoom 变 → 用 PROBE 字号先测几何 fit，再据此定正式字号
-// 重排并二次 fit（见 fitToView），避免循环依赖。
-const TEXT_FIT_K = 1.9
-const TEXT_SCALE_MIN = 0.85
-const TEXT_SCALE_MAX = 1.7
-const PROBE_TEXT_SCALE = 1.2
+// ── 统一缩放(uniform zoom)：图标(sizeWorld)/标签(fontSize)/字段(偏移+字号) 全部世界坐标，
+// 由 engine.fitView 等比缩放铺满容器 → 完整、最大、永不堆叠（忠实重现运营端、对任意 JSON 通用）。
+// nodeScale=1 即图标=sizeWorld，标签/字段基准=1 即世界字号；用户滚轮缩放(userScale)整体放大。
+// 「文字可读下限」(方案2)：统一缩放下若屏幕字号过小，按下限放大标签/字段字号（极端下可能轻微重叠）。
+const ENGINE_BASE_FONT = 14 // 与 engine labelFontPx 基准一致：world 字号 = ENGINE_BASE_FONT × labelScale
+const LABEL_FLOOR_PX = 13 // 标签最小屏幕字号
+const FIELD_FLOOR_PX = 11 // 字段最小屏幕字号
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 // 引擎内的节点标签/字段卡片是「屏幕恒定尺寸」：在容器尺寸下它们恒为 ~14px，本就清晰可读。
@@ -117,47 +108,50 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
   // 当前布局的原始边类型表（未放大）；放大时据此按 userScale 缩放线宽
   const edgeTypesRef = useRef<Record<string, { w?: number }> | null>(null)
 
-  // 当前生效的文字倍率：由 fitToView 据 fit 缩放算出并写入；测量几何 fit 时为 null → 用 PROBE 字号
-  const fitTextScaleRef = useRef<number | null>(null)
-  const textScale = () => fitTextScaleRef.current ?? PROBE_TEXT_SCALE
+  // 文字「可读下限」放大倍率（方案2）：统一缩放下若屏幕字号过小，按下限放大标签/字段世界字号。
+  // 由 fitToView 据 fitZoom 算出；默认 1（纯统一缩放，字号即世界 fontSize）。
+  const labelFloorRef = useRef(1)
+  const fieldFloorRef = useRef(1)
 
-  // 标签/字段/线宽 统一随 userScale × 文字适配(ts) 缩放：文字与线宽随容器同步变化，粗细一致；
-  // 图标(nodeScale)只随 userScale（容器适配已在引擎 nsz 内，避免二次放大）。
+  // 统一缩放：图标=sizeWorld(nodeScale=1)，标签/字段=世界 fontSize×可读下限，全部随 fitView 等比；
+  // 用户滚轮缩放(scale)整体放大。连线为屏幕恒定原生宽度（仅随用户缩放略变，不参与堆叠问题）。
   const applyScale = (scale: number) => {
     const engine = engineRef.current
     if (!engine) return
     userScaleRef.current = scale
-    const ts = textScale() // 线宽与文字共用同一容器缩放系数（不再阻尼），保证粗细随容器一致缩放
     engine.setOptions({
-      nodeScale: BASE_NODE_SCALE * scale,
-      labelScale: BASE_LABEL_SCALE * scale * ts,
-      fieldScale: BASE_FIELD_SCALE * scale * ts,
+      nodeScale: scale,
+      labelScale: labelFloorRef.current * scale,
+      fieldScale: fieldFloorRef.current * scale,
     })
     const base = edgeTypesRef.current
     if (base) {
       const scaled: Record<string, unknown> = {}
       for (const k of Object.keys(base)) {
         const t = base[k]
-        scaled[k] = { ...t, w: (typeof t.w === "number" ? t.w : 2.5) * scale * ts }
+        scaled[k] = { ...t, w: (typeof t.w === "number" ? t.w : 2.5) * scale }
       }
       engine.setEdgeTypes(scaled)
     }
   }
 
-  // 适应容器：两遍 fit——先用 PROBE 字号测几何 fit，据其 zoom 定正式字号，再重排并二次 fit。
+  // 适应容器：按「纯统一缩放」fit（保证整图完整、不溢出、不堆叠），再把文字「可读下限」作为
+  // 纯显示放大叠加（不重新 fit，避免 文字↔fit 反馈不稳定/裁切）。极端小尺寸下放大的文字可能轻微
+  // 越界/相邻（方案2 取舍）；下限放大封顶 2 倍以控制该影响。
   const fitToView = () => {
     const engine = engineRef.current
     if (!engine) return
-    // 1) 几何 fit（PROBE 字号）
-    fitTextScaleRef.current = null
+    // 1) 纯统一缩放 fit（图标=sizeWorld、字号=世界 fontSize，等比铺满）
+    labelFloorRef.current = 1
+    fieldFloorRef.current = 1
     applyScale(1)
     engine.fitView(fitCapRef.current)
-    const probeZoom = engine.getView().zoom || 1
-    // 2) 由 fit 缩放定正式字号，重排 + 二次 fit
-    fitTextScaleRef.current = clamp(probeZoom * TEXT_FIT_K, TEXT_SCALE_MIN, TEXT_SCALE_MAX)
+    const z = engine.getView().zoom || 1
+    fitZoomRef.current = z
+    // 2) 可读下限（仅放大显示字号，不再 fit）：屏幕字号 = world字号×z，低于下限则放大世界字号
+    labelFloorRef.current = clamp(LABEL_FLOOR_PX / (ENGINE_BASE_FONT * z), 1, 2)
+    fieldFloorRef.current = clamp(FIELD_FLOOR_PX / (ENGINE_BASE_FONT * 0.92 * z), 1, 2)
     applyScale(1)
-    engine.fitView(fitCapRef.current)
-    fitZoomRef.current = engine.getView().zoom || 1
     userScaleRef.current = 1
   }
 
@@ -192,9 +186,10 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
       lang: language === "en" ? "en" : "zh",
       paintBg: false, // 画布透明，露出卡片背景，风格与项目一致
       bgColor: PLATE_BG,
-      nodeScale: BASE_NODE_SCALE,
-      labelScale: BASE_LABEL_SCALE,
-      fieldScale: BASE_FIELD_SCALE,
+      // 统一缩放初值：图标=sizeWorld、字号=世界 fontSize（fitToView 会据 fitZoom 再定可读下限）
+      nodeScale: 1,
+      labelScale: 1,
+      fieldScale: 1,
     })
     engineRef.current = engine
 

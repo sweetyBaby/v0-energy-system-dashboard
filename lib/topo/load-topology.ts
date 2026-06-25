@@ -48,6 +48,8 @@ function toInternalNode(n: TopoNode): InternalNode {
     label: n.label?.zh ?? "",
     x: n.position?.x ?? 0,
     y: n.position?.y ?? 0,
+    // 世界尺寸：统一缩放渲染按此画图标（随 fitView 等比），重现运营端比例
+    sizeWorld: n.sizeWorld ?? 0,
     scale: n.scale ?? 1,
     rotation: n.rotation ?? 0,
     fontSize: n.fontSize ?? 14,
