@@ -1411,7 +1411,9 @@ function ensureChipLayout(){
   const fM=Math.max(2,3*fieldScale);   // chip 与障碍/彼此的内缩容差（世界坐标）
   const placed=[];
   const hits=(t,owner)=>{
-    for(const o of obst){ if(o.owner===owner) continue; if(_rectsOverlap(t,o,fM)) return true; } // 不与自身节点比（默认即在其右侧）
+    // 与所有节点图标/名称盒比较（含自身节点）：运营端偏移可能把卡片拉回压在本节点图标上（如电池 SOC/温度
+    // 偏移为负、叠加放大后的图标→遮挡本体），故自身节点也要避让，确保「数据字段不遮挡元素节点」。
+    for(const o of obst){ if(_rectsOverlap(t,o,fM)) return true; }
     for(const q of placed){ if(_rectsOverlap(t,q,fM)) return true; }
     for(const sgm of segs){ if(_segHitsRect(sgm[0],sgm[1],t,fM)) return true; }
     return false;

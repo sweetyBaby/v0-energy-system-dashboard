@@ -44,6 +44,10 @@ const ICON_TARGET_WORLD = 84
 // 故二者自然字号相等，下限也用同一值 → 标签与字段屏幕字号一致（用户诉求：同样的字号）。
 const TEXT_FLOOR_PX = 15 // 标签/字段统一的最小屏幕字号 CSS px
 const TEXT_FLOOR_CAP = 5 // 可读下限放大封顶
+// 屏幕尺寸「上限」：避免大屏/全屏(高 fit 缩放)下图标与文字被无限放大。下限保证可读、上限保证不过大；
+// 取值高于普通卡片的自然尺寸，故只在大屏/全屏真正触顶时才收敛（普通卡片不受影响）。
+const ICON_MAX_PX = 150 // 图标最大屏幕尺寸 CSS px
+const TEXT_MAX_PX = 32 // 标签/字段最大屏幕字号 CSS px
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 // 引擎内的节点标签/字段卡片是「屏幕恒定尺寸」：在容器尺寸下它们恒为 ~14px，本就清晰可读。
@@ -135,6 +139,8 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
   const fieldFloorRef = useRef(1)
   // 图标归一化系数 = ICON_TARGET_WORLD / 本拓扑 sizeWorld 中位数（doc effect 计算）。
   const iconNormRef = useRef(0.5)
+  // 图标尺寸上限系数（≤1）：大屏/全屏 fit 过大时按 ICON_MAX_PX 等比收敛；普通卡片为 1（不收敛）。
+  const iconCapRef = useRef(1)
   // 本拓扑布局压缩系数 = TOPOLOGY_TARGET_SPAN / 世界包围盒最长边（doc effect 按布局算，缓存复用）。
   const compactRef = useRef(0.5)
 
@@ -145,7 +151,7 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     if (!engine) return
     userScaleRef.current = scale
     engine.setOptions({
-      nodeScale: iconNormRef.current * scale,
+      nodeScale: iconNormRef.current * iconCapRef.current * scale,
       labelScale: labelFloorRef.current * scale,
       fieldScale: fieldFloorRef.current * scale,
     })
@@ -171,21 +177,41 @@ export function TopologyView({ doc, resolveNav, onNavigate, fitZoomCap, fullscre
     // 1) 纯统一缩放 fit（图标=sizeWorld、字号=世界 fontSize，等比铺满）
     labelFloorRef.current = 1
     fieldFloorRef.current = 1
+    iconCapRef.current = 1
     applyScale(1)
     engine.fitView(fitCapRef.current)
     const z = engine.getView().zoom || 1
-    // 引擎按「位图像素」绘制(canvas.width = CSS×DPR)，z 也是位图口径。可读下限要的是 CSS 像素，
-    // 故乘以有效 DPR(canvas.width/clientWidth)，否则高 DPR 笔记本上下限文字会被缩成 下限/DPR、偏小。
+    // 引擎按「位图像素」绘制(canvas.width = CSS×DPR)，z 也是位图口径。下限/上限要的是 CSS 像素，
+    // 故乘以有效 DPR(canvas.width/clientWidth)，否则高 DPR 笔记本上尺寸会被缩成 目标/DPR、偏差。
     const effDpr = canvas && container && container.clientWidth ? canvas.width / container.clientWidth : 1
-    // 2) 可读下限：屏幕字号(CSS) = world字号×z/DPR，低于下限则放大世界字号（文字优先）。下限只按这一次的
-    //    z 计算（不随二次 fit 反复重算 → 不会反馈发散），再二次 fit 让放大的文字也完整纳入、不裁切。
-    // 标签与字段同一下限公式（fieldFontPx 已无 0.92）→ 二者屏幕字号一致
-    const floor = clamp((TEXT_FLOOR_PX * effDpr) / (ENGINE_BASE_FONT * z), 1, TEXT_FLOOR_CAP)
-    labelFloorRef.current = floor
-    fieldFloorRef.current = floor
+    // 2) 文字屏幕字号(CSS = world字号×z/DPR)夹在 [下限, 上限]：自然=1，先抬到下限(保证可读)，再压到上限
+    //    (大屏/全屏不无限放大)。下限/上限只按这一次的 z 计算（不随二次 fit 反复重算→不发散）。
+    //    标签与字段同一公式（fieldFontPx 已无 0.92）→ 二者屏幕字号一致。
+    const minScale = (TEXT_FLOOR_PX * effDpr) / (ENGINE_BASE_FONT * z)
+    const maxScale = (TEXT_MAX_PX * effDpr) / (ENGINE_BASE_FONT * z)
+    let textScale = 1 // 自然字号
+    if (minScale > 1) textScale = Math.min(minScale, TEXT_FLOOR_CAP) // 抬到可读下限（放大封顶 5×）
+    if (maxScale < textScale) textScale = maxScale // 压到上限（大屏/全屏不无限放大）
+    labelFloorRef.current = textScale
+    fieldFloorRef.current = textScale
+    // 图标屏幕尺寸上限：中位节点屏幕≈ICON_TARGET_WORLD×z/DPR，超 ICON_MAX_PX 则整体等比收敛（≤1）。
+    const iconScreen = (ICON_TARGET_WORLD * z) / effDpr
+    iconCapRef.current = iconScreen > ICON_MAX_PX ? ICON_MAX_PX / iconScreen : 1
     applyScale(1)
     engine.fitView(fitCapRef.current)
-    fitZoomRef.current = engine.getView().zoom || 1
+    const zf = engine.getView().zoom || 1
+    fitZoomRef.current = zf
+    // 3) 用「最终 fit 缩放 zf」收紧上限：收紧上一步因收缩几何而被抬高的 zoom 带来的回弹（Codex P2）。
+    //    只会**进一步缩小**，绝不放大 → 元素始终在已 fit 的包围盒内，不会越界裁切；故无需再 fit。
+    const iconScreenF = (ICON_TARGET_WORLD * iconCapRef.current * zf) / effDpr
+    if (iconScreenF > ICON_MAX_PX) iconCapRef.current *= ICON_MAX_PX / iconScreenF
+    const textScreenF = (ENGINE_BASE_FONT * textScale * zf) / effDpr
+    if (textScreenF > TEXT_MAX_PX) {
+      const k = TEXT_MAX_PX / textScreenF
+      labelFloorRef.current *= k
+      fieldFloorRef.current *= k
+    }
+    applyScale(1) // 应用收紧后的尺寸（不再 fit，仅缩小不裁切）
     userScaleRef.current = 1
   }
 
