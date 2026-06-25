@@ -167,7 +167,7 @@ function portSide(port){return {left:'L',right:'R',top:'T',bottom:'B'}[port]||nu
 function nodeLabel(n){ return lang==='en' ? (n.labelEn||n.labelZh||n.id) : (n.labelZh||n.label||n.id); }
 function dataKey(f){ return lang==='en' ? (f.keyEn||f.key) : f.key; }
 function labelFontPx(n){ return (n.fontSize||14)*labelScale; }
-function fieldFontPx(n){ return (n.fontSize||14)*0.92*fieldScale; }
+function fieldFontPx(n){ return (n.fontSize||14)*fieldScale; } // 与 labelFontPx 同字号（用户诉求：节点名称与数据字段同样大小）
 
 function nsz(typeOrNode){
   const type=typeof typeOrNode==='string'?typeOrNode:typeOrNode.type;
