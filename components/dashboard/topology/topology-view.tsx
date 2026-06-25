@@ -20,9 +20,11 @@ type DragState = {
 // 文字底板/抹线用色：贴合本项目深色卡片风格（画布本身透明，露出卡片渐变背景）
 const PLATE_BG = "#0a1a33"
 const DRAG_THRESHOLD = 4
-const FIT_ZOOM_CAP = 2.4
+const FIT_ZOOM_CAP = 1.8
 // 放大上限：相对「全貌(fit)」的最大倍数。下限恒为 1（=fit），即缩到底也始终展示完整拓扑。
 const MAX_USER_SCALE = 4
+// 布局轻压缩（朝质心）。注意：均匀压缩后 fitView 会重新铺满容器，故不改变连线的屏幕长度；
+// 连线“变短”靠的是 FIT_ZOOM_CAP 限制小世界拓扑的过度放大（带留白），而非此处。
 const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.8 }
 // ── 统一缩放(uniform zoom)：图标(sizeWorld)/标签(fontSize)/字段(偏移+字号) 全部世界坐标，
 // 由 engine.fitView 等比缩放铺满容器 → 完整、最大、永不堆叠（忠实重现运营端、对任意 JSON 通用）。
@@ -31,7 +33,7 @@ const TOPOLOGY_COMPACT_SCALE = { x: 0.82, y: 0.8 }
 const ENGINE_BASE_FONT = 14 // 与 engine labelFontPx 基准一致：world 字号 = ENGINE_BASE_FONT × labelScale
 // 用户诉求：文字看清楚（优先）、图标别太大。故图标按 ICON_SCALE 缩小（运营端 sizeWorld 偏大），
 // 文字用较高的可读下限放大；二者叠加 → 图标适中、文字清晰。
-const ICON_SCALE = 0.4 // 图标相对 sizeWorld 的缩小倍率：图标更小→腾出空间让文字更大（文字优先）
+const ICON_SCALE = 0.3 // 图标相对 sizeWorld 的缩小倍率：图标更小→腾出空间让文字更大（文字优先）
 const LABEL_FLOOR_PX = 18 // 标签最小屏幕字号（文字优先，调大）
 const FIELD_FLOOR_PX = 16 // 字段最小屏幕字号
 const TEXT_FLOOR_CAP = 4 // 可读下限放大封顶

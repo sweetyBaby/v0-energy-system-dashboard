@@ -1332,6 +1332,37 @@ function drawTextNode(n){
   lines.forEach((l,i)=>{ctx.fillText(l,n.x,n.y-totalH/2+lh*(i+0.5));});
   ctx.shadowBlur=0;ctx.restore();
 }
+// 节点名称标签的包围盒（世界坐标，与 drawNode 中标签绘制一致）；无标签返回 null
+function labelBox(n){
+  if(!n||n.hideLabel||n.type==='text'||n.type==='anchor')return null;
+  const s=nsz(n), lfs=labelFontPx(n);
+  const lblY=n.y+s*0.28+lfs*0.85;
+  const tw=measureTextWidth('bold '+lfs+"px -apple-system,'Microsoft YaHei',sans-serif", nodeLabel(n));
+  const padX=6*labelScale;
+  return {left:n.x-tw/2-padX, right:n.x+tw/2+padX, top:lblY-lfs*0.82, bottom:lblY-lfs*0.82+lfs*1.25};
+}
+// 方案A 避让：整列统一下移，使「与标签横向重叠」的那批 chip 整体落到标签下方，避免覆盖节点名称。
+// 关键：位移量按这批 chip 中**最高**者的顶边算（移到标签底边之下）——下移后该列里横向压标签的
+// chip 全部位于标签下方，不会出现「下移把上方 chip 拖进标签」的残留重叠（横向不压标签的 chip 不参与）。
+function fieldLabelShift(n){
+  if(!n.data||!n.data.length)return 0;
+  const lb=labelBox(n);if(!lb)return 0;
+  const s=nsz(n), cfs=fieldFontPx(n), step=cfs+18*fieldScale;
+  const padX=7*fieldScale, padY=4*fieldScale, font=cfs+"px -apple-system,'Microsoft YaHei',sans-serif";
+  let intersects=false, minTop=Infinity;
+  for(let i=0;i<n.data.length;i++){
+    const f=n.data[i];if(f.hidden)continue;
+    const x=n.x+s*0.5+14*fieldScale+(f.wox||0)+(f.ox||0)/zoom;
+    const y=n.y-s*0.40+i*step+(f.woy||0)+(f.oy||0)/zoom;
+    const tw=measureTextWidth(font, fieldChipText(f));
+    const cL=x, cR=x+tw+padX*2, cT=y-cfs, cB=y+padY;
+    if(cR>lb.left&&cL<lb.right){            // 仅横向压住标签的 chip 参与
+      minTop=Math.min(minTop, cT);
+      if(cB>lb.top&&cT<lb.bottom)intersects=true;
+    }
+  }
+  return intersects ? lb.bottom-minTop+6*fieldScale : 0;
+}
 // 计算某字段 chip 的默认位置（节点右侧堆叠）。全部用世界坐标常量，缩放稳定
 function fieldChipPos(n,i){
   const s=nsz(n);
@@ -1343,7 +1374,8 @@ function fieldChipPos(n,i){
   const f=n.data[i];
   const ox=(f.ox!=null?f.ox:0), oy=(f.oy!=null?f.oy:0);          // ox/oy 屏幕像素偏移（兼容旧）
   const wox=(f.wox!=null?f.wox:0), woy=(f.woy!=null?f.woy:0);    // wox/woy 世界坐标偏移（运营端导出，随缩放等比，重现编辑器摆位）
-  return {x:baseX+wox+ox/zoom, y:baseY+woy+oy/zoom, h:cfs*1.5, cfs};
+  // 方案A：整列统一下移以避开节点名称（同一位移施于所有 chip，保持堆叠间距不变）
+  return {x:baseX+wox+ox/zoom, y:baseY+woy+oy/zoom+fieldLabelShift(n), h:cfs*1.5, cfs};
 }
 function fieldChipText(f){
   const k=dataKey(f);
