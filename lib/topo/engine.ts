@@ -283,6 +283,7 @@ function clipEnds(pts,a,b,e){
 }
 // ───── 正交网格 A* 路由：绕开节点障碍 + 惩罚与已有连线交叉 ─────
 let _pathCache={}, _pathCacheSig='', _dragging=false, _dragIds=new Set(), _busTrunks=[];
+let _chipLayoutSig=''; // 字段卡片全局避让的缓存签名（布局/缩放/数值文字变化才重算）
 function topoSig(){
   // 拓扑签名：节点位置 + 边连接，变化时缓存失效
   return nodes.map(n=>n.id+':'+Math.round(n.x)+','+Math.round(n.y)+':'+n.type).join('|')+'##'+
@@ -1363,6 +1364,71 @@ function fieldLabelShift(n){
   }
   return intersects ? lb.bottom-minTop+6*fieldScale : 0;
 }
+// 字段 chip 的「默认」左上角与尺寸（世界坐标，含运营端偏移 + 方案A 列位移；不含全局避让 _shift）。
+function chipDefaultBox(n,i){
+  const s=nsz(n), cfs=fieldFontPx(n);
+  const step=cfs+18*fieldScale;
+  const f=n.data[i];
+  const x=n.x+s*0.5+14*fieldScale+(f.wox||0)+(f.ox||0)/zoom;       // 节点右侧 + 运营端偏移
+  const y=n.y-s*0.40+i*step+(f.woy||0)+(f.oy||0)/zoom+fieldLabelShift(n);
+  const padX=7*fieldScale, padY=4*fieldScale;
+  const tw=measureTextWidth(cfs+"px -apple-system,'Microsoft YaHei',sans-serif", fieldChipText(f));
+  return {x, y:y-cfs, w:tw+padX*2, h:cfs+padY*2}; // 与 drawFieldChips 的 bx/by/bw/bh 完全一致
+}
+// 矩形相交（带内缩 m：仅当「实质性」重叠才算碰撞，避免边缘轻触触发不必要的位移）
+function _rectsOverlap(a,b,m){ return a.x+m < b.x+b.w-m && a.x+a.w-m > b.x+m && a.y+m < b.y+b.h-m && a.y+a.h-m > b.y+m; }
+// 线段是否穿过矩形（内缩 m）：端点在内即命中；否则按四条边做线段相交
+function _segHitsRect(p0,p1,r,m){
+  const L=r.x+m, R=r.x+r.w-m, T=r.y+m, B=r.y+r.h-m; if(R<=L||B<=T) return false;
+  const inside=(px,py)=>px>=L&&px<=R&&py>=T&&py<=B;
+  if(inside(p0[0],p0[1])||inside(p1[0],p1[1])) return true;
+  const seg=(ax,ay,bx,by,cx,cy,dx,dy)=>{ // 两线段是否相交
+    const d1=(dx-cx)*(ay-cy)-(dy-cy)*(ax-cx), d2=(dx-cx)*(by-cy)-(dy-cy)*(bx-cx);
+    const d3=(bx-ax)*(cy-ay)-(by-ay)*(cx-ax), d4=(bx-ax)*(dy-ay)-(by-ay)*(dx-ax);
+    return ((d1>0)!==(d2>0))&&((d3>0)!==(d4>0));
+  };
+  const x0=p0[0],y0=p0[1],x1=p1[0],y1=p1[1];
+  return seg(x0,y0,x1,y1,L,T,R,T)||seg(x0,y0,x1,y1,R,T,R,B)||seg(x0,y0,x1,y1,R,B,L,B)||seg(x0,y0,x1,y1,L,B,L,T);
+}
+// 字段卡片全局避让：把每张 chip 从「默认位置」做最小位移，使其不压住 ①其他节点图标/名称 ②其他 chip
+// ③连线。纯世界几何（与 zoom 无关，按 _chipLayoutSig 缓存）。默认位置无碰撞时位移为 0 → 运营端精心摆位
+// 的布局保持不变；仅当默认位置确有遮挡（多见于动态 API 数据无精修偏移）才纠偏，故只会变好、不会变差。
+function ensureChipLayout(){
+  let sig=nodeScale+'|'+labelScale+'|'+fieldScale+'|'+lang+'|'+zoom.toFixed(3)+'#';
+  for(const n of nodes){ sig+=n.id+','+n.x+','+n.y+','+(n.sizeWorld||0)+','+(n.hideFields?1:0);
+    if(n.data) for(const f of n.data){ if(!f.hidden) sig+=':'+fieldChipText(f); } sig+=';'; }
+  if(sig===_chipLayoutSig) return; _chipLayoutSig=sig;
+  // 障碍：节点图标盒 + 名称盒
+  const obst=[];
+  for(const n of nodes){ const nb=nodeBox(n); obst.push({owner:n,x:nb.left,y:nb.top,w:nb.right-nb.left,h:nb.bottom-nb.top});
+    const lb=labelBox(n); if(lb) obst.push({owner:n,x:lb.left,y:lb.top,w:lb.right-lb.left,h:lb.bottom-lb.top}); }
+  // 障碍：连线段（按真实渲染路径取折线段）
+  const segs=[]; for(const e of edges){ const p=edgePath(e); if(p&&p.length>=2) for(let k=0;k<p.length-1;k++){ if(Array.isArray(p[k])&&Array.isArray(p[k+1])) segs.push([p[k],p[k+1]]); } }
+  // 收集 chip（按 节点序→字段序，保证位移确定、可复现）
+  const chips=[];
+  for(const n of nodes){ if(n.hideFields||!n.data||!n.data.length||n.type==='text'||n.type==='anchor'){ if(n.data) for(const f of n.data) f._shift=null; continue; }
+    for(let i=0;i<n.data.length;i++){ const f=n.data[i]; if(f.hidden){f._shift=null;continue;} f._shift={dx:0,dy:0}; chips.push({n,f,i,b:chipDefaultBox(n,i)}); } }
+  const fM=Math.max(2,3*fieldScale);   // chip 与障碍/彼此的内缩容差（世界坐标）
+  const placed=[];
+  const hits=(t,owner)=>{
+    for(const o of obst){ if(o.owner===owner) continue; if(_rectsOverlap(t,o,fM)) return true; } // 不与自身节点比（默认即在其右侧）
+    for(const q of placed){ if(_rectsOverlap(t,q,fM)) return true; }
+    for(const sgm of segs){ if(_segHitsRect(sgm[0],sgm[1],t,fM)) return true; }
+    return false;
+  };
+  for(const c of chips){
+    const b=c.b, gap=6*fieldScale, stepY=b.h+gap, stepX=b.w*0.55+gap;
+    // 候选位移：默认(0,0) 优先；其余按「八方向 × 步长」铺开，再按位移距离升序——取**最近**的无碰撞位，
+    // 位移最小、最不破坏运营端原摆位（不会因「先试完所有下移」而被推到很远）。
+    const tries=[[0,0]];
+    for(let k=1;k<=8;k++) for(const[ux,uy] of [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]]) tries.push([ux*k*stepX, uy*k*stepY]);
+    tries.sort((p,q)=>(p[0]*p[0]+p[1]*p[1])-(q[0]*q[0]+q[1]*q[1]));
+    let chosen=[0,0];
+    for(const [dx,dy] of tries){ if(!hits({x:b.x+dx,y:b.y+dy,w:b.w,h:b.h},c.n)){ chosen=[dx,dy]; break; } }
+    c.f._shift={dx:chosen[0],dy:chosen[1]};                // 找不到无碰撞位则保持默认（最坏=现状，不退化）
+    placed.push({x:b.x+chosen[0],y:b.y+chosen[1],w:b.w,h:b.h});
+  }
+}
 // 计算某字段 chip 的默认位置（节点右侧堆叠）。全部用世界坐标常量，缩放稳定
 function fieldChipPos(n,i){
   const s=nsz(n);
@@ -1374,8 +1440,9 @@ function fieldChipPos(n,i){
   const f=n.data[i];
   const ox=(f.ox!=null?f.ox:0), oy=(f.oy!=null?f.oy:0);          // ox/oy 屏幕像素偏移（兼容旧）
   const wox=(f.wox!=null?f.wox:0), woy=(f.woy!=null?f.woy:0);    // wox/woy 世界坐标偏移（运营端导出，随缩放等比，重现编辑器摆位）
-  // 方案A：整列统一下移以避开节点名称（同一位移施于所有 chip，保持堆叠间距不变）
-  return {x:baseX+wox+ox/zoom, y:baseY+woy+oy/zoom+fieldLabelShift(n), h:cfs*1.5, cfs};
+  // 方案A：整列统一下移以避开节点名称；_shift：全局避让（避开其他节点/连线/其他 chip，见 ensureChipLayout）
+  const sh=f._shift||{dx:0,dy:0};
+  return {x:baseX+wox+ox/zoom+sh.dx, y:baseY+woy+oy/zoom+fieldLabelShift(n)+sh.dy, h:cfs*1.5, cfs};
 }
 function fieldChipText(f){
   const k=dataKey(f);
@@ -1394,8 +1461,9 @@ function drawFieldChips(n,s){
     const tw=ctx.measureText(txt).width;
     const padX=7*fieldScale, padY=4*fieldScale, rr=5*fieldScale;   // 世界坐标内边距/圆角（随 fitView 等比）
     const bx=pos.x, by=pos.y-pos.cfs, bw=tw+padX*2, bh=pos.cfs+padY*2;
-    // 引导线：当 chip 被拖离默认位置较远时，用细线连回节点视觉中心，避免不知归属
-    const off=Math.hypot((f.wox||0)+(f.ox||0),(f.woy||0)+(f.oy||0));
+    // 引导线：当 chip 被拖离默认位置较远时（运营端偏移 或 全局避让位移），用细线连回节点视觉中心，避免不知归属
+    const sh=f._shift||{dx:0,dy:0};
+    const off=Math.hypot((f.wox||0)+(f.ox||0)+sh.dx,(f.woy||0)+(f.oy||0)+sh.dy);
     if(off>40){
       const nb=nodeBox(n);
       // chip 中心
@@ -1452,7 +1520,9 @@ function fieldChipAt(wx,wy){
       ctx.stroke(); ctx.restore()
     }
     computeCrossHops()
-    edges.forEach(drawEdge); drawJunctionDots(); nodes.forEach(drawNode)
+    edges.forEach(drawEdge); drawJunctionDots()
+    ensureChipLayout() // 连线路径已就绪 → 解算字段卡片避让（缓存，仅布局/缩放变化时重算）
+    nodes.forEach(drawNode)
     ctx.restore()
   }
 
@@ -1500,6 +1570,7 @@ function fieldChipAt(wx,wy){
   }
   function fitViewInner(capZoom) {
     if (nodes.length === 0) return
+    ensureChipLayout() // 先解算避让，使 nodeVisualBounds 纳入位移后的 chip → fit 不裁切被挪开的卡片
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     nodes.forEach(n => {
       const b = nodeVisualBounds(n)
@@ -1533,7 +1604,9 @@ function fieldChipAt(wx,wy){
 
   // ── 公共 API ──
   return {
-    setData(n, e) { nodes = n || []; edges = e || []; _pathCache = {}; _pathCacheSig = "" },
+    // 重置 _chipLayoutSig：实时刷新会用「全新的节点/字段对象」替换数据，即便布局/文字签名不变，
+    // 新对象也未带 _shift；不失效缓存会让 ensureChipLayout 提前返回、避让位移回退为 0。故此处强制下次重算。
+    setData(n, e) { nodes = n || []; edges = e || []; _pathCache = {}; _pathCacheSig = ""; _chipLayoutSig = "" },
     setEdgeTypes(map) { if (map) ET = Object.assign({}, ET, map) },
     setIcons(map) { if (map) Object.assign(IMGS, map) },
     setBg(c) { if (c) bgColor = c },
