@@ -1,7 +1,7 @@
 "use client"
 
 import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { Battery, Building2, CalendarClock, MapPin, Receipt, Zap } from "lucide-react"
+import { Battery, Building2, CalendarClock, MapPin } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { useProject } from "@/components/dashboard/dashboard-header"
 import { DEFAULT_PROJECT_IMAGE } from "@/lib/api/project"
@@ -106,12 +106,10 @@ export function ProjectOverviewInfoCard() {
     ).find((value) => hasDisplayText(value) && !isRegionCode(value)) ?? REVENUE_PLACEHOLDER
 
   const profileRows: InfoRow[] = [
-    { icon: <Zap className={iconClass} fill="currentColor" />, labelZh: "额定功率", labelEn: "Rated Power", value: selectedProject.ratedPower },
     { icon: <Battery className={iconClass} />, labelZh: "额定容量", labelEn: "Rated Capacity", value: selectedProject.ratedCapacity },
     { icon: <CalendarClock className={iconClass} />, labelZh: "投运日期", labelEn: "Commission Date", value: selectedProject.commissioningDate },
     { icon: <MapPin className={iconClass} />, labelZh: "所属地区", labelEn: "Region", value: regionDisplayValue },
     { icon: <Building2 className={iconClass} />, labelZh: "业主单位", labelEn: "Owner", value: selectedProject.company },
-    { icon: <Receipt className={iconClass} />, labelZh: "电价信息", labelEn: "Tariff", value: selectedProject.tariffInfo },
   ]
 
   return (
@@ -123,7 +121,7 @@ export function ProjectOverviewInfoCard() {
       <div className="flex min-h-0 flex-1 flex-col" style={{ gap: "calc(var(--overview-root-size, 15px) * 0.26)" }}>
         <div
           className="relative shrink-0 overflow-hidden rounded-[14px] border border-[#68d9ff]/22 bg-[#071a34] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.16)]"
-          style={{ height: "clamp(96px, calc(var(--overview-root-size, 15px) * 6.7), 190px)" }}
+          style={{ height: "clamp(160px, calc(var(--overview-root-size, 15px) * 11), 320px)" }}
         >
           <img
             src={projectThumbnail}
@@ -145,7 +143,7 @@ export function ProjectOverviewInfoCard() {
             {zh ? selectedProject.projectName : selectedProject.projectNameEn || selectedProject.projectName}
           </div>
         </div>
-        <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-3" style={{ columnGap: "calc(var(--overview-root-size, 15px) * 0.56)", rowGap: "calc(var(--overview-root-size, 15px) * 0.22)" }}>
+        <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2" style={{ columnGap: "calc(var(--overview-root-size, 15px) * 0.56)", rowGap: "calc(var(--overview-root-size, 15px) * 0.22)" }}>
           {profileRows.map((row) => (
             <div
               key={row.labelEn}
