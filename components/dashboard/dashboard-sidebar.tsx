@@ -157,7 +157,7 @@ export function DashboardSidebar({
     return Math.max(...widths)
   }, [openGroups, zh])
   const textWidth = labelWidth + (zh ? 2 : 4)
-  const expandedW = textWidth + 40
+  const expandedW = textWidth + 56
 
   // Restore which groups were left open across reloads.
   useEffect(() => {
