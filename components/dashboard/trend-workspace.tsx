@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Check,
   ChevronRight,
@@ -11,6 +11,8 @@ import {
   Folder as FolderIcon,
   Gauge,
   LineChart as LineChartIcon,
+  Maximize2,
+  Minimize2,
   RefreshCw,
   Save,
   Star,
@@ -146,6 +148,31 @@ const persistStore = (storageKey: string, store: TrendStore) => {
   }
 }
 
+// Per-workspace left-rail UI prefs (rail collapsed / 模板 area open). Kept apart
+// from the template store under a `:ui` suffix so the rail remembers its layout
+// across visits without touching saved templates.
+type UiPrefs = { railCollapsed: boolean; templatesOpen: boolean }
+const DEFAULT_UI_PREFS: UiPrefs = { railCollapsed: false, templatesOpen: false }
+const loadUiPrefs = (storageKey: string): UiPrefs => {
+  if (typeof window === "undefined") return DEFAULT_UI_PREFS
+  try {
+    const raw = window.localStorage.getItem(`${storageKey}:ui`)
+    if (!raw) return DEFAULT_UI_PREFS
+    const parsed = JSON.parse(raw) as Partial<UiPrefs>
+    return { railCollapsed: !!parsed.railCollapsed, templatesOpen: !!parsed.templatesOpen }
+  } catch {
+    return DEFAULT_UI_PREFS
+  }
+}
+const persistUiPrefs = (storageKey: string, prefs: UiPrefs) => {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(`${storageKey}:ui`, JSON.stringify(prefs))
+  } catch {
+    /* storage may be unavailable; ignore */
+  }
+}
+
 const pad = (value: number) => String(value).padStart(2, "0")
 
 const toLocalInput = (ms: number) => {
@@ -223,7 +250,10 @@ export function TrendWorkspace({
   }, [safeDevices])
 
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set())
-  const [variablesCollapsed, setVariablesCollapsed] = useState(false)
+  // Whole merged left rail collapse (frees the chart). The 模板 area within the
+  // rail has its own open/closed state and defaults closed (one-line bar).
+  const [railCollapsed, setRailCollapsed] = useState(false)
+  const [templatesOpen, setTemplatesOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>("chart")
   const [startTime, setStartTime] = useState(() => Date.now() - TREND_DEFAULT_RANGE_MS)
   const [endTime, setEndTime] = useState(() => Date.now())
@@ -236,6 +266,21 @@ export function TrendWorkspace({
   const [lastUpdated, setLastUpdated] = useState<number | null>(null)
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
 
+  // ---- chart zoom / pan / fullscreen ----
+  // X 轴可见时间窗口（null = 全量）。滚轮缩放、拖拽平移都只改这个域。
+  const [xDomain, setXDomain] = useState<[number, number] | null>(null)
+  const [isPanning, setIsPanning] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const chartCardRef = useRef<HTMLDivElement>(null)
+  const xDomainRef = useRef<[number, number] | null>(null)
+  const fullDomainRef = useRef<[number, number] | null>(null)
+  const minSpanRef = useRef(1000)
+  // 最近一次悬停的 (像素x, 数据时间值)，用于把滚轮/拖拽换算成时间域。
+  const hoverRef = useRef<{ x: number; val: number } | null>(null)
+  const valuePerPixelRef = useRef(0)
+  const panRef = useRef<{ startX: number; domain: [number, number] } | null>(null)
+  const wheelCleanupRef = useRef<(() => void) | null>(null)
+
   // Template / folder store (localStorage-backed; swap for an API later).
   const [store, setStore] = useState<TrendStore>(EMPTY_STORE)
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set())
@@ -247,9 +292,30 @@ export function TrendWorkspace({
   const [newFolderName, setNewFolderName] = useState("")
   const saveRef = useRef<HTMLDivElement>(null)
   const initializedKeyRef = useRef<string | null>(null)
+  const uiPrefsLoadedKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     setStore(loadStore(storageKey))
+  }, [storageKey])
+
+  // Persist rail layout changes. Declared BEFORE the load effect so that on the
+  // first mount flush (and after any storageKey change) it runs while the loaded
+  // key still differs from the current storageKey and skips — otherwise it would
+  // write the previous workspace's prefs over the new key's stored prefs before
+  // the load effect restores them.
+  useEffect(() => {
+    if (uiPrefsLoadedKeyRef.current !== storageKey) return
+    persistUiPrefs(storageKey, { railCollapsed, templatesOpen })
+  }, [storageKey, railCollapsed, templatesOpen])
+
+  // Restore the rail layout for this workspace on mount and whenever storageKey
+  // changes; the persist effect above then re-runs with the loaded values (now
+  // that the loaded key matches) on the following render.
+  useEffect(() => {
+    const prefs = loadUiPrefs(storageKey)
+    setRailCollapsed(prefs.railCollapsed)
+    setTemplatesOpen(prefs.templatesOpen)
+    uiPrefsLoadedKeyRef.current = storageKey
   }, [storageKey])
 
   useEffect(() => {
@@ -408,6 +474,146 @@ export function TrendWorkspace({
     if (!result || result.timestamps.length < 2) return endTime - startTime
     return result.timestamps[result.timestamps.length - 1] - result.timestamps[0]
   }, [result, endTime, startTime])
+
+  // Full data extent + zoom limit, kept in refs for the native wheel listener.
+  const fullDomain = useMemo<[number, number] | null>(() => {
+    if (!result || result.timestamps.length === 0) return null
+    return [result.timestamps[0], result.timestamps[result.timestamps.length - 1]]
+  }, [result])
+  useEffect(() => {
+    fullDomainRef.current = fullDomain
+    const gap =
+      result && result.timestamps.length > 1 ? result.timestamps[1] - result.timestamps[0] : 1000
+    minSpanRef.current = Math.max(gap * 3, 1000)
+  }, [fullDomain, result])
+  useEffect(() => {
+    xDomainRef.current = xDomain
+  }, [xDomain])
+
+  // Reset zoom when the underlying query changes (not on a status-mode poll).
+  useEffect(() => {
+    setXDomain(null)
+  }, [selectionKey, interval, startTime, endTime])
+
+  // Keep the zoom window valid as the live data extent shifts — status mode
+  // polls with a Date.now()/startOfToday window, so a left-zoomed chart could
+  // otherwise hold stale (e.g. pre-midnight) timestamps and clip all new points.
+  useEffect(() => {
+    if (!fullDomain) return
+    setXDomain((prev) => {
+      if (!prev) return prev
+      const [fl, fr] = fullDomain
+      if (prev[1] <= fl || prev[0] >= fr) return null // window fully outside new data
+      const width = Math.min(prev[1] - prev[0], fr - fl)
+      let [l, r] = prev
+      if (l < fl) {
+        l = fl
+        r = fl + width
+      }
+      if (r > fr) {
+        r = fr
+        l = fr - width
+      }
+      if (l <= fl && r >= fr) return null
+      return l === prev[0] && r === prev[1] ? prev : [l, r]
+    })
+  }, [fullDomain])
+
+  const displaySpanMs = xDomain ? xDomain[1] - xDomain[0] : spanMs
+
+  // ---- fullscreen ----
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement === chartCardRef.current)
+    document.addEventListener("fullscreenchange", onChange)
+    return () => document.removeEventListener("fullscreenchange", onChange)
+  }, [])
+
+  const toggleFullscreen = () => {
+    const el = chartCardRef.current
+    if (!el) return
+    if (document.fullscreenElement) void document.exitFullscreen()
+    else void el.requestFullscreen?.()
+  }
+
+  // ---- wheel zoom (native listener so we can preventDefault page scroll) ----
+  const attachChartArea = useCallback((node: HTMLDivElement | null) => {
+    if (wheelCleanupRef.current) {
+      wheelCleanupRef.current()
+      wheelCleanupRef.current = null
+    }
+    if (!node) return
+    const onWheel = (event: WheelEvent) => {
+      const full = fullDomainRef.current
+      if (!full || full[1] <= full[0]) return
+      event.preventDefault()
+      const [l, r] = xDomainRef.current ?? full
+      const focus = Math.min(Math.max(hoverRef.current?.val ?? (l + r) / 2, l), r)
+      const factor = event.deltaY > 0 ? 1.3 : 1 / 1.3
+      let newL = focus - (focus - l) * factor
+      let newR = focus + (r - focus) * factor
+      newL = Math.max(full[0], newL)
+      newR = Math.min(full[1], newR)
+      if (factor < 1 && newR - newL < minSpanRef.current) return // zoom-in limit
+      if (newL <= full[0] && newR >= full[1]) setXDomain(null)
+      else setXDomain([newL, newR])
+    }
+    node.addEventListener("wheel", onWheel, { passive: false })
+    wheelCleanupRef.current = () => node.removeEventListener("wheel", onWheel)
+  }, [])
+
+  // ---- drag pan ----
+  const handleChartMouseDown = (state: { chartX?: number } | null) => {
+    const full = fullDomainRef.current
+    if (!state || state.chartX == null || !full) return
+    const [l, r] = xDomainRef.current ?? full
+    panRef.current = { startX: state.chartX, domain: [l, r] }
+    setIsPanning(true)
+  }
+
+  const handleChartMouseMove = (state: { chartX?: number; activeLabel?: number | string } | null) => {
+    if (!state) return
+    const px = state.chartX
+    const val = typeof state.activeLabel === "number" ? state.activeLabel : null
+    if (px != null && val != null) {
+      const prev = hoverRef.current
+      if (prev && prev.x !== px) {
+        const slope = (val - prev.val) / (px - prev.x)
+        if (Number.isFinite(slope) && slope !== 0) valuePerPixelRef.current = slope
+      }
+      hoverRef.current = { x: px, val }
+    }
+    const pan = panRef.current
+    const full = fullDomainRef.current
+    const slope = valuePerPixelRef.current
+    if (!pan || px == null || !full || !slope) return
+    const deltaVal = (px - pan.startX) * slope
+    const width = pan.domain[1] - pan.domain[0]
+    let newL = pan.domain[0] - deltaVal
+    let newR = pan.domain[1] - deltaVal
+    if (newL < full[0]) {
+      newL = full[0]
+      newR = full[0] + width
+    }
+    if (newR > full[1]) {
+      newR = full[1]
+      newL = full[1] - width
+    }
+    if (newL <= full[0] && newR >= full[1]) setXDomain(null)
+    else setXDomain([newL, newR])
+  }
+
+  const endPan = () => {
+    panRef.current = null
+    setIsPanning(false)
+  }
+
+  // End panning even if the mouse is released outside the chart.
+  useEffect(() => {
+    if (!isPanning) return
+    const onUp = () => endPan()
+    window.addEventListener("mouseup", onUp)
+    return () => window.removeEventListener("mouseup", onUp)
+  }, [isPanning])
 
   // ---- selection ----
   const handleSelectionChange = (next: Set<string>) => {
@@ -568,6 +774,13 @@ export function TrendWorkspace({
   // 设备监测（status）下数据按固定节奏自动刷新，故该间隔语义为"刷新间隔"。
   const intervalLabel = isStatus ? (zh ? "刷新间隔" : "Refresh interval") : zh ? "采样间隔" : "Interval"
 
+  // Name shown on the collapsed 模板 bar so the active preset stays visible.
+  const activeTemplateName = useMemo(() => {
+    if (activeTemplateId === GENERAL_TEMPLATE_ID) return zh ? "通用模板" : "General"
+    if (activeTemplateId === null) return rootLabel
+    return store.templates.find((item) => item.id === activeTemplateId)?.name ?? rootLabel
+  }, [activeTemplateId, store.templates, rootLabel, zh])
+
   const renderTemplateRow = (template: TrendTemplate) => {
     const active = activeTemplateId === template.id
     return (
@@ -597,158 +810,210 @@ export function TrendWorkspace({
 
   return (
     <div ref={scale.ref} className={`flex h-full min-h-0 ${isCompactViewport ? "gap-2" : "gap-3"}`} style={scale.rootStyle}>
-      {/* Column 1: template / folder tree */}
-      <div
-        className="flex min-h-0 shrink-0 flex-col rounded-xl border border-[#1a2654] bg-[#0d1233]"
-        style={{ width: isCompactViewport ? 168 : 204 }}
-      >
-        <div className="flex items-center justify-between gap-2 border-b border-[#1a2654] px-3 py-2.5">
-          <div className="flex min-w-0 items-center gap-2">
-            <ColTitleIcon className="h-4 w-4 shrink-0 text-[#00d4aa]" />
-            <h3 className="truncate font-semibold text-[#00d4aa]" style={{ fontSize: titleSize }}>
-              {colTitle}
-            </h3>
+      {/* Merged left rail: 模板 (collapsible bar) + 设备变量 tree in one container.
+          Collapsing the whole rail hands the freed width to the chart. */}
+      {railCollapsed ? (
+        <button
+          type="button"
+          onClick={() => setRailCollapsed(false)}
+          className="flex h-full w-9 shrink-0 flex-col items-center gap-3 rounded-xl border border-[#1a2654] bg-[#0d1233] py-3 text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
+          title={zh ? "展开变量面板" : "Expand panel"}
+          aria-label={zh ? "展开变量面板" : "Expand panel"}
+        >
+          <MenuUnfoldIcon className="h-4 w-4 shrink-0" />
+          <span className="font-semibold tracking-[0.18em] [writing-mode:vertical-rl]" style={{ fontSize: labelSize }}>
+            {colTitle}
+          </span>
+        </button>
+      ) : (
+        <div
+          className="flex min-h-0 shrink-0 flex-col rounded-xl border border-[#1a2654] bg-[#0d1233]"
+          style={{ width: isCompactViewport ? 210 : 256 }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between gap-2 border-b border-[#1a2654] px-3 py-2.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <ColTitleIcon className="h-4 w-4 shrink-0 text-[#00d4aa]" />
+              <h3 className="truncate font-semibold text-[#00d4aa]" style={{ fontSize: titleSize }}>
+                {colTitle}
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRailCollapsed(true)}
+              className="flex shrink-0 items-center justify-center rounded-md border border-[#27496f] bg-[#101840]/80 p-1 text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
+              title={zh ? "折叠面板" : "Collapse panel"}
+              aria-label={zh ? "折叠面板" : "Collapse panel"}
+            >
+              <MenuFoldIcon className="h-4 w-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setVariablesCollapsed((value) => !value)}
-            className="flex shrink-0 items-center justify-center rounded-md border border-[#27496f] bg-[#101840]/80 p-1 text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
-            title={variablesCollapsed ? (zh ? "展开设备变量" : "Expand variables") : (zh ? "折叠设备变量" : "Collapse variables")}
-            aria-label={variablesCollapsed ? (zh ? "展开设备变量" : "Expand variables") : (zh ? "折叠设备变量" : "Collapse variables")}
-            aria-expanded={!variablesCollapsed}
-          >
-            {variablesCollapsed ? <MenuUnfoldIcon className="h-4 w-4" /> : <MenuFoldIcon className="h-4 w-4" />}
-          </button>
-        </div>
 
-        <div className="px-2.5 py-2">
-          <button
-            type="button"
-            onClick={() => setShowNewFolder((value) => !value)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#27496f] bg-[#101840]/80 py-1.5 font-medium text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
-            style={{ fontSize: controlSize }}
-          >
-            <FolderPlus className="h-3.5 w-3.5" />
-            {zh ? "文件夹" : "Folder"}
-          </button>
-          {showNewFolder && (
-            <div className="mt-1.5 flex items-center gap-1">
-              <input
-                autoFocus
-                value={newFolderName}
-                onChange={(event) => setNewFolderName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") handleCreateFolder()
-                  if (event.key === "Escape") setShowNewFolder(false)
-                }}
-                placeholder={zh ? "文件夹名称" : "Folder name"}
-                className="w-full rounded-md border border-[#27496f] bg-[#101840] px-2 py-1 text-[#dbeaff] outline-none placeholder:text-[#5d7299]"
-                style={{ fontSize: controlSize }}
-              />
+          {/* 模板 area: one-line bar (shows active template); expands to the tree */}
+          <div className="border-b border-[#1a2654]">
+            <div className="flex items-center">
               <button
                 type="button"
-                onClick={handleCreateFolder}
-                disabled={!newFolderName.trim()}
-                className="shrink-0 rounded-md bg-[#00d4aa] px-1.5 py-1 text-[#04241c] disabled:opacity-40"
+                onClick={() => setTemplatesOpen((value) => !value)}
+                className="flex min-w-0 flex-1 items-center gap-1.5 px-2.5 py-2 text-left transition-colors hover:bg-[#16213f]/60"
+                aria-expanded={templatesOpen}
               >
-                <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                <ChevronRight
+                  className={`h-3.5 w-3.5 shrink-0 text-[#6f86ad] transition-transform ${templatesOpen ? "rotate-90" : ""}`}
+                />
+                <Star
+                  className="h-3.5 w-3.5 shrink-0 text-[#78bfd1]"
+                  fill={activeTemplateId === GENERAL_TEMPLATE_ID ? "currentColor" : "none"}
+                />
+                <span className="shrink-0 font-medium text-[#9bc4e8]" style={{ fontSize: labelSize }}>
+                  {zh ? "模板" : "Templates"}
+                </span>
+                <span className="truncate text-[#bff8f2]" style={{ fontSize: labelSize }} title={activeTemplateName}>
+                  {activeTemplateName}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTemplatesOpen(true)
+                  setShowNewFolder((value) => !value)
+                }}
+                className="mr-1.5 flex shrink-0 items-center justify-center rounded-md border border-[#27496f] bg-[#101840]/80 p-1 text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
+                title={zh ? "新建文件夹" : "New folder"}
+                aria-label={zh ? "新建文件夹" : "New folder"}
+              >
+                <FolderPlus className="h-3.5 w-3.5" />
               </button>
             </div>
-          )}
-        </div>
 
-        <div className={`min-h-0 flex-1 overflow-y-auto px-1.5 pb-2 ${SCROLLBAR}`}>
-          <button
-            type="button"
-            onClick={startNew}
-            className={`mb-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors ${
-              activeTemplateId === null ? "bg-[rgba(38,240,220,0.12)]" : "hover:bg-[#16213f]/70"
-            }`}
-          >
-            <RootIcon className={`h-4 w-4 shrink-0 ${activeTemplateId === null ? "text-[#26f0dc]" : "text-[#78bfd1]"}`} />
-            <span className="truncate font-medium" style={{ fontSize: labelSize, color: activeTemplateId === null ? "#bff8f2" : "#cfe4ff" }}>
-              {rootLabel}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={applyGeneralTemplate}
-            disabled={generalTemplateNodeIds.length === 0}
-            className={`mb-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-              activeTemplateId === GENERAL_TEMPLATE_ID ? "bg-[rgba(38,240,220,0.12)]" : "hover:bg-[#16213f]/70"
-            }`}
-          >
-            <Star
-              className={`h-4 w-4 shrink-0 ${activeTemplateId === GENERAL_TEMPLATE_ID ? "text-[#26f0dc]" : "text-[#78bfd1]"}`}
-              fill={activeTemplateId === GENERAL_TEMPLATE_ID ? "currentColor" : "none"}
-            />
-            <span
-              className="truncate font-medium"
-              style={{ fontSize: labelSize, color: activeTemplateId === GENERAL_TEMPLATE_ID ? "#bff8f2" : "#cfe4ff" }}
-            >
-              {zh ? "通用模板" : "General"}
-            </span>
-          </button>
-
-          {rootTemplates.map((template) => renderTemplateRow(template))}
-
-          {store.folders.map((folder) => {
-            const open = openFolders.has(folder.id)
-            const folderTemplates = templatesByFolder.get(folder.id) ?? []
-            return (
-              <div key={folder.id} className="mb-0.5">
-                <div className="group/folder flex items-center rounded-md px-1 hover:bg-[#16213f]/70">
-                  <button type="button" onClick={() => toggleFolderOpen(folder.id)} className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 text-left">
-                    <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-[#6f86ad] transition-transform ${open ? "rotate-90" : ""}`} />
-                    <FolderIcon className="h-3.5 w-3.5 shrink-0 text-[#5d9fd6]" />
-                    <span className="truncate font-medium text-[#cfe4ff]" style={{ fontSize: labelSize }}>
-                      {folder.name}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteFolder(folder.id)}
-                    className="shrink-0 p-0.5 text-[#46618a] opacity-0 transition-opacity hover:text-[#ff8da3] group-hover/folder:opacity-100"
-                    title={zh ? "删除文件夹" : "Delete folder"}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-                {open && (
-                  <div className="ml-3 border-l border-[#1a2654] pl-1.5">
-                    {folderTemplates.length > 0 ? (
-                      folderTemplates.map((template) => renderTemplateRow(template))
-                    ) : (
-                      <div className="px-2 py-1.5 text-[#46618a]" style={{ fontSize: labelSize - 1 }}>
-                        {zh ? "（空）" : "(empty)"}
-                      </div>
-                    )}
+            {templatesOpen && (
+              <div className="px-1.5 pb-2">
+                {showNewFolder && (
+                  <div className="mb-1.5 flex items-center gap-1 px-1">
+                    <input
+                      autoFocus
+                      value={newFolderName}
+                      onChange={(event) => setNewFolderName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") handleCreateFolder()
+                        if (event.key === "Escape") setShowNewFolder(false)
+                      }}
+                      placeholder={zh ? "文件夹名称" : "Folder name"}
+                      className="w-full rounded-md border border-[#27496f] bg-[#101840] px-2 py-1 text-[#dbeaff] outline-none placeholder:text-[#5d7299]"
+                      style={{ fontSize: controlSize }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateFolder}
+                      disabled={!newFolderName.trim()}
+                      className="shrink-0 rounded-md bg-[#00d4aa] px-1.5 py-1 text-[#04241c] disabled:opacity-40"
+                    >
+                      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                    </button>
                   </div>
                 )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
 
-      {/* Column 2: device / variable tree */}
-      {!variablesCollapsed && (
-        <DeviceVariableTree
-          devices={safeDevices}
-          value={selectedNodes}
-          onChange={handleSelectionChange}
-          maxSelection={maxSelection}
-          zh={zh}
-          title={zh ? "设备变量" : "Variables"}
-          labelSize={labelSize}
-          titleSize={titleSize}
-          width={isCompactViewport ? 210 : 256}
-        />
+                <div className={`max-h-[34vh] overflow-y-auto ${SCROLLBAR}`}>
+                  <button
+                    type="button"
+                    onClick={startNew}
+                    className={`mb-0.5 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
+                      activeTemplateId === null ? "bg-[rgba(38,240,220,0.12)]" : "hover:bg-[#16213f]/70"
+                    }`}
+                  >
+                    <RootIcon className={`h-4 w-4 shrink-0 ${activeTemplateId === null ? "text-[#26f0dc]" : "text-[#78bfd1]"}`} />
+                    <span
+                      className="truncate font-medium"
+                      style={{ fontSize: labelSize, color: activeTemplateId === null ? "#bff8f2" : "#cfe4ff" }}
+                    >
+                      {rootLabel}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={applyGeneralTemplate}
+                    disabled={generalTemplateNodeIds.length === 0}
+                    className={`mb-0.5 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                      activeTemplateId === GENERAL_TEMPLATE_ID ? "bg-[rgba(38,240,220,0.12)]" : "hover:bg-[#16213f]/70"
+                    }`}
+                  >
+                    <Star
+                      className={`h-4 w-4 shrink-0 ${activeTemplateId === GENERAL_TEMPLATE_ID ? "text-[#26f0dc]" : "text-[#78bfd1]"}`}
+                      fill={activeTemplateId === GENERAL_TEMPLATE_ID ? "currentColor" : "none"}
+                    />
+                    <span
+                      className="truncate font-medium"
+                      style={{ fontSize: labelSize, color: activeTemplateId === GENERAL_TEMPLATE_ID ? "#bff8f2" : "#cfe4ff" }}
+                    >
+                      {zh ? "通用模板" : "General"}
+                    </span>
+                  </button>
+
+                  {rootTemplates.map((template) => renderTemplateRow(template))}
+
+                  {store.folders.map((folder) => {
+                    const open = openFolders.has(folder.id)
+                    const folderTemplates = templatesByFolder.get(folder.id) ?? []
+                    return (
+                      <div key={folder.id} className="mb-0.5">
+                        <div className="group/folder flex items-center rounded-md px-1 hover:bg-[#16213f]/70">
+                          <button type="button" onClick={() => toggleFolderOpen(folder.id)} className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 text-left">
+                            <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-[#6f86ad] transition-transform ${open ? "rotate-90" : ""}`} />
+                            <FolderIcon className="h-3.5 w-3.5 shrink-0 text-[#5d9fd6]" />
+                            <span className="truncate font-medium text-[#cfe4ff]" style={{ fontSize: labelSize }}>
+                              {folder.name}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteFolder(folder.id)}
+                            className="shrink-0 p-0.5 text-[#46618a] opacity-0 transition-opacity hover:text-[#ff8da3] group-hover/folder:opacity-100"
+                            title={zh ? "删除文件夹" : "Delete folder"}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                        {open && (
+                          <div className="ml-3 border-l border-[#1a2654] pl-1.5">
+                            {folderTemplates.length > 0 ? (
+                              folderTemplates.map((template) => renderTemplateRow(template))
+                            ) : (
+                              <div className="px-2 py-1.5 text-[#46618a]" style={{ fontSize: labelSize - 1 }}>
+                                {zh ? "（空）" : "(empty)"}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 设备变量 tree fills the remaining height */}
+          <DeviceVariableTree
+            embedded
+            devices={safeDevices}
+            value={selectedNodes}
+            onChange={handleSelectionChange}
+            maxSelection={maxSelection}
+            zh={zh}
+            title={zh ? "设备变量" : "Variables"}
+            labelSize={labelSize}
+            titleSize={titleSize}
+            width={0}
+          />
+        </div>
       )}
 
       {/* Right: toolbar + chart / table */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border border-[#1a2654] bg-[#0d1233]">
+      <div
+        ref={chartCardRef}
+        className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border border-[#1a2654] bg-[#0d1233]"
+      >
         <div className="flex flex-wrap items-center gap-2 border-b border-[#1a2654] px-3 py-2.5">
           {!isStatus ? (
             <div className="flex items-center gap-4">
@@ -854,6 +1119,17 @@ export function TrendWorkspace({
           >
             <Download className="h-3.5 w-3.5" />
             {zh ? "导出" : "Export"}
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="flex items-center gap-1.5 rounded-lg border border-[#27496f] bg-[#101840]/80 px-2.5 py-1.5 font-medium text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
+            style={{ fontSize: controlSize }}
+            title={isFullscreen ? (zh ? "退出全屏" : "Exit fullscreen") : (zh ? "全屏" : "Fullscreen")}
+          >
+            {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            {isFullscreen ? (zh ? "退出全屏" : "Exit") : (zh ? "全屏" : "Fullscreen")}
           </button>
 
           <div className="relative" ref={saveRef}>
@@ -996,18 +1272,33 @@ export function TrendWorkspace({
               </table>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 12, right: 16, left: 4, bottom: 4 }}>
+            <div
+              ref={attachChartArea}
+              className={`relative h-full w-full select-none ${isPanning ? "cursor-grabbing" : "cursor-grab"}`}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={chartData}
+                margin={{ top: 12, right: 16, left: 4, bottom: 4 }}
+                onMouseDown={handleChartMouseDown}
+                onMouseMove={handleChartMouseMove}
+                onMouseUp={endPan}
+                onMouseLeave={() => {
+                  endPan()
+                  hoverRef.current = null
+                }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#1a2654" vertical={false} />
                 <XAxis
                   dataKey="t"
                   type="number"
                   scale="time"
-                  domain={["dataMin", "dataMax"]}
+                  domain={xDomain ?? ["dataMin", "dataMax"]}
+                  allowDataOverflow
                   axisLine={{ stroke: "#33507a" }}
                   tickLine={{ stroke: "#33507a" }}
                   tick={{ fill: "#7b8ab8", fontSize: chartFontSize }}
-                  tickFormatter={(value: number) => formatTick(value, spanMs)}
+                  tickFormatter={(value: number) => formatTick(value, displaySpanMs)}
                   minTickGap={56}
                 />
                 {unitAxes.map((axis) => (
@@ -1061,6 +1352,7 @@ export function TrendWorkspace({
                 ))}
               </LineChart>
             </ResponsiveContainer>
+            </div>
           )}
         </div>
       </div>
