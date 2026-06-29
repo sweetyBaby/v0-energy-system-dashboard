@@ -74,6 +74,7 @@ export function DeviceVariableTree({
   labelSize,
   titleSize,
   width,
+  embedded = false,
 }: {
   devices: TreeDevice[]
   value: Set<string>
@@ -84,6 +85,13 @@ export function DeviceVariableTree({
   labelSize: number
   titleSize: number | string
   width: number
+  /**
+   * When true, render without the outer panel chrome (border/bg/fixed width) and
+   * without the standalone title header — the count badge + clear move into the
+   * search row. Used by TrendWorkspace's merged left rail (模板 bar + variable tree
+   * share one container) so the tree fills the remaining height.
+   */
+  embedded?: boolean
 }) {
   const [openDevices, setOpenDevices] = useState<Set<string>>(new Set())
   const [openCellGroups, setOpenCellGroups] = useState<Set<string>>(new Set())
@@ -178,49 +186,84 @@ export function DeviceVariableTree({
 
   return (
     <div
-      className="flex min-h-0 shrink-0 flex-col rounded-xl border border-[#1a2654] bg-[#0d1233]"
-      style={{ width }}
+      className={
+        embedded
+          ? "flex min-h-0 flex-1 flex-col"
+          : "flex min-h-0 shrink-0 flex-col rounded-xl border border-[#1a2654] bg-[#0d1233]"
+      }
+      style={embedded ? undefined : { width }}
+      role={embedded ? "region" : undefined}
+      aria-label={embedded ? title : undefined}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-[#1a2654] px-3 py-2.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
-          <h3 className="truncate font-semibold text-[#00d4aa]" style={{ fontSize: titleSize }}>
-            {title}
-          </h3>
+      {!embedded && (
+        <div className="flex items-center justify-between gap-2 border-b border-[#1a2654] px-3 py-2.5">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="h-4 w-1 rounded-full bg-[#00d4aa]" />
+            <h3 className="truncate font-semibold text-[#00d4aa]" style={{ fontSize: titleSize }}>
+              {title}
+            </h3>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="rounded-full bg-[#1a2654] px-2 py-0.5 font-mono text-[#7fdfff]" style={{ fontSize: labelSize - 1 }}>
+              {value.size}/{maxSelection}
+            </span>
+            <button
+              type="button"
+              onClick={() => onChange(new Set())}
+              disabled={value.size === 0}
+              title={zh ? "取消勾选" : "Clear selection"}
+              aria-label={zh ? "取消勾选" : "Clear selection"}
+              className="flex h-[22px] w-[22px] items-center justify-center rounded-md border border-[#27496f] bg-[#101840]/80 text-[#9bc4e8] transition-colors hover:border-[#ff8da3]/55 hover:text-[#ff8da3] disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <span className="rounded-full bg-[#1a2654] px-2 py-0.5 font-mono text-[#7fdfff]" style={{ fontSize: labelSize - 1 }}>
-            {value.size}/{maxSelection}
-          </span>
-          <button
-            type="button"
-            onClick={() => onChange(new Set())}
-            disabled={value.size === 0}
-            title={zh ? "取消勾选" : "Clear selection"}
-            aria-label={zh ? "取消勾选" : "Clear selection"}
-            className="flex h-[22px] w-[22px] items-center justify-center rounded-md border border-[#27496f] bg-[#101840]/80 text-[#9bc4e8] transition-colors hover:border-[#ff8da3]/55 hover:text-[#ff8da3] disabled:cursor-not-allowed disabled:opacity-35"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
+      )}
 
-      <div className="px-2.5 pb-1.5 pt-2">
-        <div className="flex items-center gap-2 rounded-lg border border-[#1a2654] bg-[#101840]/70 px-2.5 py-1.5">
+      <div className={`flex items-center gap-1.5 px-2.5 pb-1.5 ${embedded ? "pt-1.5" : "pt-2"}`}>
+        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#27496f] bg-[#101840]/70 px-2.5 py-1.5 transition-colors focus-within:border-[#2aa7b3]">
           <Search className="h-3.5 w-3.5 shrink-0 text-[#5d7299]" />
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder={zh ? "搜索变量/电芯" : "Search"}
-            className="w-full bg-transparent text-[#dbeaff] outline-none placeholder:text-[#5d7299]"
+            placeholder={embedded ? (zh ? "搜索" : "Search") : zh ? "搜索变量/电芯" : "Search"}
+            aria-label={zh ? `${title}：搜索变量/电芯` : `${title}: search variables`}
+            className="w-full min-w-0 bg-transparent text-[#dbeaff] outline-none placeholder:text-[#5d7299]"
             style={{ fontSize: labelSize }}
           />
           {search && (
-            <button type="button" onClick={() => setSearch("")} className="shrink-0 text-[#5d7299] hover:text-[#9bc4e8]">
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              title={zh ? "清除搜索" : "Clear search"}
+              aria-label={zh ? "清除搜索" : "Clear search"}
+              className="shrink-0 text-[#5d7299] hover:text-[#9bc4e8]"
+            >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
+        {embedded && (
+          <>
+            <span
+              className="shrink-0 rounded-full bg-[#1a2654] px-2 py-0.5 font-mono text-[#7fdfff]"
+              style={{ fontSize: labelSize - 1 }}
+            >
+              {value.size}/{maxSelection}
+            </span>
+            <button
+              type="button"
+              onClick={() => onChange(new Set())}
+              disabled={value.size === 0}
+              title={zh ? "取消勾选" : "Clear selection"}
+              aria-label={zh ? "取消勾选" : "Clear selection"}
+              className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border border-[#27496f] bg-[#101840]/80 text-[#9bc4e8] transition-colors hover:border-[#ff8da3]/55 hover:text-[#ff8da3] disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </>
+        )}
       </div>
 
       <div className={`min-h-0 flex-1 overflow-y-auto px-1.5 pb-2 ${SCROLLBAR}`}>
@@ -418,7 +461,9 @@ export function DeviceVariableTree({
         )}
       </div>
 
-      {value.size > 0 && (
+      {/* Embedded mode already exposes clear via the ✕ in the search row, so the
+          footer is dropped there to avoid a duplicate clear-selection control. */}
+      {!embedded && value.size > 0 && (
         <button
           type="button"
           onClick={() => onChange(new Set())}

@@ -32,6 +32,7 @@ import {
 import { BcuSelector } from "@/components/dashboard/bcu-selector"
 import { DeviceVariableTree, type TreeDevice } from "@/components/dashboard/device-selection-tree"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
+import { MenuFoldIcon } from "@/components/dashboard/menu-fold-icons"
 import { TrendRangePicker } from "@/components/dashboard/trend-range-picker"
 import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
@@ -65,23 +66,6 @@ const SCROLLBAR =
   "[scrollbar-color:rgba(34,211,238,0.38)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar]:h-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#1f4f78] [&::-webkit-scrollbar-thumb:hover]:bg-[#2aa7b3]"
 
 const AUTO_REFRESH_MS = 10000
-
-// Ant Design-style menu fold / unfold glyphs (three lines + directional arrow).
-function MenuFoldIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 1024 1024" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.6-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z" />
-    </svg>
-  )
-}
-
-function MenuUnfoldIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 1024 1024" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM142.4 642.1L298.7 519a8.84 8.84 0 0 0 0-13.9L142.4 381.9c-5.8-4.6-14.4-.5-14.4 6.9v246.3a8.9 8.9 0 0 0 14.4 7z" />
-    </svg>
-  )
-}
 
 export type TrendWorkspaceMode = "trend" | "status"
 
@@ -152,14 +136,19 @@ const persistStore = (storageKey: string, store: TrendStore) => {
 // from the template store under a `:ui` suffix so the rail remembers its layout
 // across visits without touching saved templates.
 type UiPrefs = { railCollapsed: boolean; templatesOpen: boolean }
-const DEFAULT_UI_PREFS: UiPrefs = { railCollapsed: false, templatesOpen: false }
+const DEFAULT_UI_PREFS: UiPrefs = { railCollapsed: false, templatesOpen: true }
 const loadUiPrefs = (storageKey: string): UiPrefs => {
   if (typeof window === "undefined") return DEFAULT_UI_PREFS
   try {
     const raw = window.localStorage.getItem(`${storageKey}:ui`)
     if (!raw) return DEFAULT_UI_PREFS
     const parsed = JSON.parse(raw) as Partial<UiPrefs>
-    return { railCollapsed: !!parsed.railCollapsed, templatesOpen: !!parsed.templatesOpen }
+    // Fall back to the defaults for fields a partial/legacy entry omits, so a
+    // stored value lacking `templatesOpen` doesn't override its `true` default.
+    return {
+      railCollapsed: typeof parsed.railCollapsed === "boolean" ? parsed.railCollapsed : DEFAULT_UI_PREFS.railCollapsed,
+      templatesOpen: typeof parsed.templatesOpen === "boolean" ? parsed.templatesOpen : DEFAULT_UI_PREFS.templatesOpen,
+    }
   } catch {
     return DEFAULT_UI_PREFS
   }
@@ -251,9 +240,10 @@ export function TrendWorkspace({
 
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set())
   // Whole merged left rail collapse (frees the chart). The 模板 area within the
-  // rail has its own open/closed state and defaults closed (one-line bar).
+  // rail has its own open/closed state and defaults open; both are restored from
+  // persisted UI prefs on mount.
   const [railCollapsed, setRailCollapsed] = useState(false)
-  const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [templatesOpen, setTemplatesOpen] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>("chart")
   const [startTime, setStartTime] = useState(() => Date.now() - TREND_DEFAULT_RANGE_MS)
   const [endTime, setEndTime] = useState(() => Date.now())
@@ -811,21 +801,9 @@ export function TrendWorkspace({
   return (
     <div ref={scale.ref} className={`flex h-full min-h-0 ${isCompactViewport ? "gap-2" : "gap-3"}`} style={scale.rootStyle}>
       {/* Merged left rail: 模板 (collapsible bar) + 设备变量 tree in one container.
-          Collapsing the whole rail hands the freed width to the chart. */}
-      {railCollapsed ? (
-        <button
-          type="button"
-          onClick={() => setRailCollapsed(false)}
-          className="flex h-full w-9 shrink-0 flex-col items-center gap-3 rounded-xl border border-[#1a2654] bg-[#0d1233] py-3 text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
-          title={zh ? "展开变量面板" : "Expand panel"}
-          aria-label={zh ? "展开变量面板" : "Expand panel"}
-        >
-          <MenuUnfoldIcon className="h-4 w-4 shrink-0" />
-          <span className="font-semibold tracking-[0.18em] [writing-mode:vertical-rl]" style={{ fontSize: labelSize }}>
-            {colTitle}
-          </span>
-        </button>
-      ) : (
+          When collapsed the rail leaves the flow entirely (zero width) — a small
+          floating chevron on the chart's left edge restores it (see below). */}
+      {railCollapsed ? null : (
         <div
           className="flex min-h-0 shrink-0 flex-col rounded-xl border border-[#1a2654] bg-[#0d1233]"
           style={{ width: isCompactViewport ? 210 : 256 }}
@@ -1012,8 +990,21 @@ export function TrendWorkspace({
       {/* Right: toolbar + chart / table */}
       <div
         ref={chartCardRef}
-        className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border border-[#1a2654] bg-[#0d1233]"
+        className="relative flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border border-[#1a2654] bg-[#0d1233]"
       >
+        {/* Floating restore handle, mirroring the app sidebar's expander — only
+            shown while the rail is collapsed; straddles the chart's left edge. */}
+        {railCollapsed && (
+          <button
+            type="button"
+            onClick={() => setRailCollapsed(false)}
+            className="absolute left-0 top-1/2 z-20 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#27496f] bg-[#0d1233] text-[#9bc4e8] shadow-[0_2px_10px_rgba(0,0,0,0.45)] transition-colors hover:border-[#45f1d0]/60 hover:text-[#cffcf2]"
+            title={zh ? "展开变量面板" : "Expand panel"}
+            aria-label={zh ? "展开变量面板" : "Expand panel"}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        )}
         <div className="flex flex-wrap items-center gap-2 border-b border-[#1a2654] px-3 py-2.5">
           {!isStatus ? (
             <div className="flex items-center gap-4">

@@ -4,7 +4,6 @@ import {
   BarChart3,
   Bell,
   ChevronDown,
-  ChevronLeft,
   Database,
   FileText,
   Gauge,
@@ -14,6 +13,7 @@ import {
   Map,
 } from "lucide-react"
 import { useProject } from "@/components/dashboard/dashboard-header"
+import { MenuFoldIcon, MenuUnfoldIcon } from "@/components/dashboard/menu-fold-icons"
 import { useLanguage } from "@/components/language-provider"
 import { ANALYSIS_MODULES, analysisModuleTabKey } from "@/lib/dashboard/analysis-modules"
 
@@ -323,7 +323,21 @@ export function DashboardSidebar({
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#26f0dc]/35 to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[#8fe8ff]/20 to-transparent" />
 
-      <div className="h-3 shrink-0" />
+      {/* Top collapse/expand toggle (Ant-style fold glyph in a rounded square),
+          replacing the old circular edge button so it no longer collides with
+          the TrendWorkspace rail's floating restore handle. */}
+      <div className={`relative flex shrink-0 items-center px-2 pb-1 pt-2.5 ${expanded ? "justify-end" : "justify-center"}`}>
+        <button
+          type="button"
+          onClick={() => onExpandedChange(!expanded)}
+          aria-expanded={expanded}
+          aria-label={expanded ? collapseLabel : expandLabel}
+          title={expanded ? collapseLabel : expandLabel}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#27496f] bg-[#101d33]/80 text-[#9fdcef] transition-colors hover:border-[#45f1d0]/70 hover:text-[#7ff8f0]"
+        >
+          {expanded ? <MenuFoldIcon className="h-[18px] w-[18px]" /> : <MenuUnfoldIcon className="h-[18px] w-[18px]" />}
+        </button>
+      </div>
 
       <nav className="custom-scrollbar relative flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-1.5 py-1.5">
         {SIDEBAR_ITEMS.map((item) => {
@@ -492,21 +506,6 @@ export function DashboardSidebar({
 
         <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-[#26f0dc]/18 to-transparent" />
       </aside>
-
-      {/* Whole-sidebar collapse/expand: a circular arrow straddling the right
-          edge, vertically centered. Lives on the (non-clipped) wrapper so it can
-          sit half outside the overflow-hidden aside. */}
-      <button
-        type="button"
-        onClick={() => onExpandedChange(!expanded)}
-        aria-expanded={expanded}
-        aria-label={expanded ? collapseLabel : expandLabel}
-        title={expanded ? collapseLabel : expandLabel}
-        className="group absolute right-0 top-1/2 z-40 flex h-9 w-9 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-[#2a5a72] bg-[#0b1830] text-[#9fdcef] shadow-[0_4px_14px_rgba(0,0,0,0.5)] transition-all duration-200 hover:border-[#45f1d0]/70 hover:text-[#7ff8f0] hover:shadow-[0_0_16px_rgba(38,240,220,0.4)] active:scale-90"
-      >
-        <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(38,240,220,0.2),transparent_70%)] opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
-        <ChevronLeft className={`relative h-4 w-4 transition-transform duration-300 ${expanded ? "" : "rotate-180"}`} />
-      </button>
     </div>
   )
 }
