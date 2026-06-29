@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Check,
+  ChevronDown,
   ChevronRight,
   Clock,
   Download,
@@ -15,6 +16,7 @@ import {
   Minimize2,
   RefreshCw,
   Save,
+  Search,
   Star,
   Table as TableIcon,
   Trash2,
@@ -32,7 +34,7 @@ import {
 import { BcuSelector } from "@/components/dashboard/bcu-selector"
 import { DeviceVariableTree, type TreeDevice } from "@/components/dashboard/device-selection-tree"
 import { HistoryStyleLoadingIndicator } from "@/components/dashboard/history-style-loading-indicator"
-import { MenuFoldIcon } from "@/components/dashboard/menu-fold-icons"
+import { RailCollapseButton, RailRestoreHandle } from "@/components/dashboard/rail-collapse-controls"
 import { TrendRangePicker } from "@/components/dashboard/trend-range-picker"
 import { useLanguage } from "@/components/language-provider"
 import { useDashboardViewport } from "@/hooks/use-dashboard-viewport"
@@ -108,6 +110,24 @@ const genId = () => {
   return `${Date.now()}-${Math.round(Math.random() * 1e6)}`
 }
 
+// Sentinel <select> value for the "保存到 → 新建分组" inline-create option.
+const NEW_GROUP_VALUE = "__new_group__"
+
+// Lightweight fuzzy match for the template picker search: a case-insensitive
+// substring hit, or a character-subsequence match (so "tyqs" matches "通用-曲势"
+// style abbreviations). Empty query matches everything.
+const fuzzyMatch = (query: string, text: string) => {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  const t = text.toLowerCase()
+  if (t.includes(q)) return true
+  let i = 0
+  for (let c = 0; c < t.length && i < q.length; c += 1) {
+    if (t[c] === q[i]) i += 1
+  }
+  return i === q.length
+}
+
 const loadStore = (storageKey: string): TrendStore => {
   if (typeof window === "undefined") return EMPTY_STORE
   try {
@@ -132,22 +152,19 @@ const persistStore = (storageKey: string, store: TrendStore) => {
   }
 }
 
-// Per-workspace left-rail UI prefs (rail collapsed / 模板 area open). Kept apart
-// from the template store under a `:ui` suffix so the rail remembers its layout
-// across visits without touching saved templates.
-type UiPrefs = { railCollapsed: boolean; templatesOpen: boolean }
-const DEFAULT_UI_PREFS: UiPrefs = { railCollapsed: false, templatesOpen: true }
+// Per-workspace left-rail UI prefs (rail collapsed). Kept apart from the
+// template store under a `:ui` suffix so the rail remembers its layout across
+// visits without touching saved templates.
+type UiPrefs = { railCollapsed: boolean }
+const DEFAULT_UI_PREFS: UiPrefs = { railCollapsed: false }
 const loadUiPrefs = (storageKey: string): UiPrefs => {
   if (typeof window === "undefined") return DEFAULT_UI_PREFS
   try {
     const raw = window.localStorage.getItem(`${storageKey}:ui`)
     if (!raw) return DEFAULT_UI_PREFS
     const parsed = JSON.parse(raw) as Partial<UiPrefs>
-    // Fall back to the defaults for fields a partial/legacy entry omits, so a
-    // stored value lacking `templatesOpen` doesn't override its `true` default.
     return {
       railCollapsed: typeof parsed.railCollapsed === "boolean" ? parsed.railCollapsed : DEFAULT_UI_PREFS.railCollapsed,
-      templatesOpen: typeof parsed.templatesOpen === "boolean" ? parsed.templatesOpen : DEFAULT_UI_PREFS.templatesOpen,
     }
   } catch {
     return DEFAULT_UI_PREFS
@@ -243,7 +260,6 @@ export function TrendWorkspace({
   // rail has its own open/closed state and defaults open; both are restored from
   // persisted UI prefs on mount.
   const [railCollapsed, setRailCollapsed] = useState(false)
-  const [templatesOpen, setTemplatesOpen] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>("chart")
   const [startTime, setStartTime] = useState(() => Date.now() - TREND_DEFAULT_RANGE_MS)
   const [endTime, setEndTime] = useState(() => Date.now())
@@ -273,14 +289,22 @@ export function TrendWorkspace({
 
   // Template / folder store (localStorage-backed; swap for an API later).
   const [store, setStore] = useState<TrendStore>(EMPTY_STORE)
-  const [openFolders, setOpenFolders] = useState<Set<string>>(new Set())
+  // Groups are expanded by default; this tracks the ones the user has manually
+  // collapsed (presence = collapsed, absence = open).
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set())
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null)
+  // 模板 picker dropdown (transient — not persisted) + its fuzzy-search query.
+  const [templateMenuOpen, setTemplateMenuOpen] = useState(false)
+  const [templateQuery, setTemplateQuery] = useState("")
   const [showSave, setShowSave] = useState(false)
   const [saveName, setSaveName] = useState("")
   const [saveFolderId, setSaveFolderId] = useState<string>("")
+  // Inline "新建分组" name typed inside the save popover (when 保存到 = 新建分组).
+  const [saveGroupName, setSaveGroupName] = useState("")
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
   const saveRef = useRef<HTMLDivElement>(null)
+  const templatePickerRef = useRef<HTMLDivElement>(null)
   const initializedKeyRef = useRef<string | null>(null)
   const uiPrefsLoadedKeyRef = useRef<string | null>(null)
 
@@ -295,8 +319,8 @@ export function TrendWorkspace({
   // the load effect restores them.
   useEffect(() => {
     if (uiPrefsLoadedKeyRef.current !== storageKey) return
-    persistUiPrefs(storageKey, { railCollapsed, templatesOpen })
-  }, [storageKey, railCollapsed, templatesOpen])
+    persistUiPrefs(storageKey, { railCollapsed })
+  }, [storageKey, railCollapsed])
 
   // Restore the rail layout for this workspace on mount and whenever storageKey
   // changes; the persist effect above then re-runs with the loaded values (now
@@ -304,7 +328,6 @@ export function TrendWorkspace({
   useEffect(() => {
     const prefs = loadUiPrefs(storageKey)
     setRailCollapsed(prefs.railCollapsed)
-    setTemplatesOpen(prefs.templatesOpen)
     uiPrefsLoadedKeyRef.current = storageKey
   }, [storageKey])
 
@@ -316,6 +339,18 @@ export function TrendWorkspace({
     document.addEventListener("mousedown", handler)
     return () => document.removeEventListener("mousedown", handler)
   }, [showSave])
+
+  useEffect(() => {
+    if (!templateMenuOpen) return
+    const handler = (event: MouseEvent) => {
+      if (templatePickerRef.current && !templatePickerRef.current.contains(event.target as Node)) {
+        setTemplateMenuOpen(false)
+        setShowNewFolder(false)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [templateMenuOpen])
 
   // Drop selections that no longer map to a device of the current site.
   useEffect(() => {
@@ -626,16 +661,12 @@ export function TrendWorkspace({
     })
   }
 
-  // ---- templates / folders ----
-  const startNew = () => {
-    setActiveTemplateId(null)
-    setSelectedNodes(new Set())
-  }
-
+  // ---- templates / 分组 (groups) ----
   const applyGeneralTemplate = () => {
     if (generalTemplateNodeIds.length === 0) return
     setSelectedNodes(new Set(generalTemplateNodeIds.slice(0, maxSelection)))
     setActiveTemplateId(GENERAL_TEMPLATE_ID)
+    setTemplateMenuOpen(false)
   }
 
   const handleCreateFolder = () => {
@@ -653,22 +684,39 @@ export function TrendWorkspace({
   const handleSaveTemplate = () => {
     const name = saveName.trim()
     if (!name || selectedNodes.size === 0) return
+    // 保存到 = 新建分组 → create the group inline (and bail if it has no name).
+    const makingGroup = saveFolderId === NEW_GROUP_VALUE
+    const newGroupName = saveGroupName.trim()
+    if (makingGroup && !newGroupName) return
+    const newGroup: TrendFolder | null = makingGroup ? { id: genId(), name: newGroupName } : null
+    const folderId = newGroup ? newGroup.id : saveFolderId || null
     const template: TrendTemplate = {
       id: genId(),
       name,
-      folderId: saveFolderId || null,
+      folderId,
       nodeIds: Array.from(selectedNodes),
       durationMs: Math.max(60_000, endTime - startTime),
       interval,
     }
     setStore((prev) => {
-      const next = { ...prev, templates: [...prev.templates, template] }
+      const next = {
+        folders: newGroup ? [...prev.folders, newGroup] : prev.folders,
+        templates: [...prev.templates, template],
+      }
       persistStore(storageKey, next)
       return next
     })
     setActiveTemplateId(template.id)
-    if (template.folderId) setOpenFolders((prev) => new Set(prev).add(template.folderId as string))
+    if (folderId)
+      setCollapsedFolders((prev) => {
+        if (!prev.has(folderId)) return prev
+        const next = new Set(prev)
+        next.delete(folderId)
+        return next
+      })
     setSaveName("")
+    setSaveGroupName("")
+    setSaveFolderId("")
     setShowSave(false)
   }
 
@@ -686,6 +734,7 @@ export function TrendWorkspace({
       setStartTime(now - template.durationMs)
     }
     setActiveTemplateId(template.id)
+    setTemplateMenuOpen(false)
   }
 
   const deleteTemplate = (id: string) => {
@@ -711,7 +760,7 @@ export function TrendWorkspace({
   }
 
   const toggleFolderOpen = (id: string) => {
-    setOpenFolders((prev) => {
+    setCollapsedFolders((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
@@ -730,6 +779,31 @@ export function TrendWorkspace({
     })
     return map
   }, [store.templates])
+
+  // ---- 模板 picker search (fuzzy) ----
+  const trimmedQuery = templateQuery.trim()
+  const searching = trimmedQuery.length > 0
+  const generalLabel = zh ? "通用模板" : "General"
+  const generalVisible = fuzzyMatch(trimmedQuery, generalLabel)
+  const visibleRootTemplates = useMemo(
+    () => rootTemplates.filter((item) => fuzzyMatch(trimmedQuery, item.name)),
+    [rootTemplates, trimmedQuery]
+  )
+  // Each group + the templates to show under it. When the group name matches the
+  // query, keep all its templates; otherwise keep only the templates that match.
+  // A group is shown if it has any visible template (or, with no query, always).
+  const visibleGroups = useMemo(() => {
+    return store.folders
+      .map((folder) => {
+        const all = templatesByFolder.get(folder.id) ?? []
+        const nameHit = fuzzyMatch(trimmedQuery, folder.name)
+        const items = nameHit ? all : all.filter((item) => fuzzyMatch(trimmedQuery, item.name))
+        return { folder, items, show: trimmedQuery ? nameHit || items.length > 0 : true }
+      })
+      .filter((entry) => entry.show)
+  }, [store.folders, templatesByFolder, trimmedQuery])
+  const noResults =
+    searching && !generalVisible && visibleRootTemplates.length === 0 && visibleGroups.length === 0
 
   const handleExport = () => {
     if (!result || result.series.length === 0) return
@@ -758,18 +832,17 @@ export function TrendWorkspace({
         : "No data")
 
   const ColTitleIcon = isStatus ? Gauge : TrendingUp
-  const RootIcon = isStatus ? Gauge : LineChartIcon
   const colTitle = titleZh && titleEn ? (zh ? titleZh : titleEn) : isStatus ? (zh ? "设备监测" : "Device Monitoring") : zh ? "历史数据" : "Historical Data"
-  const rootLabel = isStatus ? (zh ? "今日趋势" : "Today") : zh ? "趋势" : "Trend"
   // 设备监测（status）下数据按固定节奏自动刷新，故该间隔语义为"刷新间隔"。
   const intervalLabel = isStatus ? (zh ? "刷新间隔" : "Refresh interval") : zh ? "采样间隔" : "Interval"
 
-  // Name shown on the collapsed 模板 bar so the active preset stays visible.
+  // Name shown on the 模板 picker trigger so the active preset stays visible.
+  // null = no template active (manual variable selection) → render a placeholder.
   const activeTemplateName = useMemo(() => {
     if (activeTemplateId === GENERAL_TEMPLATE_ID) return zh ? "通用模板" : "General"
-    if (activeTemplateId === null) return rootLabel
-    return store.templates.find((item) => item.id === activeTemplateId)?.name ?? rootLabel
-  }, [activeTemplateId, store.templates, rootLabel, zh])
+    if (activeTemplateId === null) return null
+    return store.templates.find((item) => item.id === activeTemplateId)?.name ?? null
+  }, [activeTemplateId, store.templates, zh])
 
   const renderTemplateRow = (template: TrendTemplate) => {
     const active = activeTemplateId === template.id
@@ -816,128 +889,102 @@ export function TrendWorkspace({
                 {colTitle}
               </h3>
             </div>
-            <button
-              type="button"
-              onClick={() => setRailCollapsed(true)}
-              className="flex shrink-0 items-center justify-center rounded-md border border-[#27496f] bg-[#101840]/80 p-1 text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
-              title={zh ? "折叠面板" : "Collapse panel"}
-              aria-label={zh ? "折叠面板" : "Collapse panel"}
-            >
-              <MenuFoldIcon className="h-4 w-4" />
-            </button>
+            <RailCollapseButton onClick={() => setRailCollapsed(true)} zh={zh} />
           </div>
 
-          {/* 模板 area: one-line bar (shows active template); expands to the tree */}
-          <div className="border-b border-[#1a2654]">
-            <div className="flex items-center">
-              <button
-                type="button"
-                onClick={() => setTemplatesOpen((value) => !value)}
-                className="flex min-w-0 flex-1 items-center gap-1.5 px-2.5 py-2 text-left transition-colors hover:bg-[#16213f]/60"
-                aria-expanded={templatesOpen}
+          {/* 模板 picker: dropdown trigger (shows active template) → overlay menu
+              with fuzzy search + grouped templates + inline 新建分组. The trigger
+              is a bordered control so it reads as a real dropdown and lines up
+              visually with the 设备变量 search box directly below it. */}
+          <div className="relative border-b border-[#1a2654] px-2.5 py-2" ref={templatePickerRef}>
+            <button
+              type="button"
+              onClick={() => setTemplateMenuOpen((value) => !value)}
+              className={`flex w-full min-w-0 items-center gap-2 rounded-lg border bg-[#101840]/70 px-2.5 py-1.5 text-left transition-colors ${
+                templateMenuOpen
+                  ? "border-[#45f1d0]/75 bg-[#101840]"
+                  : "border-[#4f86c8] hover:border-[#45f1d0]/55"
+              }`}
+              aria-haspopup="listbox"
+              aria-expanded={templateMenuOpen}
+            >
+              <Star
+                className="h-3.5 w-3.5 shrink-0 text-[#78bfd1]"
+                fill={activeTemplateId === GENERAL_TEMPLATE_ID ? "currentColor" : "none"}
+              />
+              <span className="shrink-0 text-[#7b8ab8]" style={{ fontSize: labelSize - 1 }}>
+                {zh ? "模板" : "Templates"}
+              </span>
+              <span
+                className="min-w-0 flex-1 truncate font-medium"
+                style={{ fontSize: labelSize, color: activeTemplateName ? "#d6ecff" : "#5d7299" }}
+                title={activeTemplateName ?? undefined}
               >
-                <ChevronRight
-                  className={`h-3.5 w-3.5 shrink-0 text-[#6f86ad] transition-transform ${templatesOpen ? "rotate-90" : ""}`}
-                />
-                <Star
-                  className="h-3.5 w-3.5 shrink-0 text-[#78bfd1]"
-                  fill={activeTemplateId === GENERAL_TEMPLATE_ID ? "currentColor" : "none"}
-                />
-                <span className="shrink-0 font-medium text-[#9bc4e8]" style={{ fontSize: labelSize }}>
-                  {zh ? "模板" : "Templates"}
-                </span>
-                <span className="truncate text-[#bff8f2]" style={{ fontSize: labelSize }} title={activeTemplateName}>
-                  {activeTemplateName}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTemplatesOpen(true)
-                  setShowNewFolder((value) => !value)
-                }}
-                className="mr-1.5 flex shrink-0 items-center justify-center rounded-md border border-[#27496f] bg-[#101840]/80 p-1 text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
-                title={zh ? "新建文件夹" : "New folder"}
-                aria-label={zh ? "新建文件夹" : "New folder"}
-              >
-                <FolderPlus className="h-3.5 w-3.5" />
-              </button>
-            </div>
+                {activeTemplateName ?? (zh ? "未选择" : "None")}
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-[#8db7ff] transition-transform ${templateMenuOpen ? "rotate-180" : ""}`}
+              />
+            </button>
 
-            {templatesOpen && (
-              <div className="px-1.5 pb-2">
-                {showNewFolder && (
-                  <div className="mb-1.5 flex items-center gap-1 px-1">
+            {templateMenuOpen && (
+              <div className="absolute left-2.5 right-2.5 top-full z-50 mt-1 overflow-hidden rounded-lg border border-[#45f1d0]/35 bg-[#0c163a] shadow-[0_10px_30px_rgba(0,0,0,0.55)]">
+                {/* fuzzy-search input */}
+                <div className="border-b border-[#1a2654] p-2">
+                  <div className="flex items-center gap-2 rounded-lg border border-[#4f86c8] bg-[#101840]/70 px-2.5 py-1.5 transition-colors focus-within:border-[#45f1d0]/75">
+                    <Search className="h-3.5 w-3.5 shrink-0 text-[#6f86ad]" />
                     <input
                       autoFocus
-                      value={newFolderName}
-                      onChange={(event) => setNewFolderName(event.target.value)}
+                      value={templateQuery}
+                      onChange={(event) => setTemplateQuery(event.target.value)}
                       onKeyDown={(event) => {
-                        if (event.key === "Enter") handleCreateFolder()
-                        if (event.key === "Escape") setShowNewFolder(false)
+                        if (event.key === "Escape") setTemplateMenuOpen(false)
                       }}
-                      placeholder={zh ? "文件夹名称" : "Folder name"}
-                      className="w-full rounded-md border border-[#27496f] bg-[#101840] px-2 py-1 text-[#dbeaff] outline-none placeholder:text-[#5d7299]"
+                      placeholder={zh ? "搜索模板 / 分组" : "Search templates / groups"}
+                      className="w-full bg-transparent text-[#dbeaff] outline-none placeholder:text-[#5d7299]"
                       style={{ fontSize: controlSize }}
                     />
+                  </div>
+                </div>
+
+                <div className={`max-h-[46vh] overflow-y-auto p-1.5 ${SCROLLBAR}`}>
+                  {generalVisible && (
                     <button
                       type="button"
-                      onClick={handleCreateFolder}
-                      disabled={!newFolderName.trim()}
-                      className="shrink-0 rounded-md bg-[#00d4aa] px-1.5 py-1 text-[#04241c] disabled:opacity-40"
+                      onClick={applyGeneralTemplate}
+                      disabled={generalTemplateNodeIds.length === 0}
+                      className={`mb-0.5 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                        activeTemplateId === GENERAL_TEMPLATE_ID ? "bg-[rgba(38,240,220,0.12)]" : "hover:bg-[#16213f]/70"
+                      }`}
                     >
-                      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                      <Star
+                        className={`h-4 w-4 shrink-0 ${activeTemplateId === GENERAL_TEMPLATE_ID ? "text-[#26f0dc]" : "text-[#78bfd1]"}`}
+                        fill={activeTemplateId === GENERAL_TEMPLATE_ID ? "currentColor" : "none"}
+                      />
+                      <span
+                        className="truncate font-medium"
+                        style={{ fontSize: labelSize, color: activeTemplateId === GENERAL_TEMPLATE_ID ? "#bff8f2" : "#cfe4ff" }}
+                      >
+                        {generalLabel}
+                      </span>
                     </button>
-                  </div>
-                )}
+                  )}
 
-                <div className={`max-h-[34vh] overflow-y-auto ${SCROLLBAR}`}>
-                  <button
-                    type="button"
-                    onClick={startNew}
-                    className={`mb-0.5 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
-                      activeTemplateId === null ? "bg-[rgba(38,240,220,0.12)]" : "hover:bg-[#16213f]/70"
-                    }`}
-                  >
-                    <RootIcon className={`h-4 w-4 shrink-0 ${activeTemplateId === null ? "text-[#26f0dc]" : "text-[#78bfd1]"}`} />
-                    <span
-                      className="truncate font-medium"
-                      style={{ fontSize: labelSize, color: activeTemplateId === null ? "#bff8f2" : "#cfe4ff" }}
-                    >
-                      {rootLabel}
-                    </span>
-                  </button>
+                  {visibleRootTemplates.map((template) => renderTemplateRow(template))}
 
-                  <button
-                    type="button"
-                    onClick={applyGeneralTemplate}
-                    disabled={generalTemplateNodeIds.length === 0}
-                    className={`mb-0.5 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                      activeTemplateId === GENERAL_TEMPLATE_ID ? "bg-[rgba(38,240,220,0.12)]" : "hover:bg-[#16213f]/70"
-                    }`}
-                  >
-                    <Star
-                      className={`h-4 w-4 shrink-0 ${activeTemplateId === GENERAL_TEMPLATE_ID ? "text-[#26f0dc]" : "text-[#78bfd1]"}`}
-                      fill={activeTemplateId === GENERAL_TEMPLATE_ID ? "currentColor" : "none"}
-                    />
-                    <span
-                      className="truncate font-medium"
-                      style={{ fontSize: labelSize, color: activeTemplateId === GENERAL_TEMPLATE_ID ? "#bff8f2" : "#cfe4ff" }}
-                    >
-                      {zh ? "通用模板" : "General"}
-                    </span>
-                  </button>
-
-                  {rootTemplates.map((template) => renderTemplateRow(template))}
-
-                  {store.folders.map((folder) => {
-                    const open = openFolders.has(folder.id)
-                    const folderTemplates = templatesByFolder.get(folder.id) ?? []
+                  {visibleGroups.map(({ folder, items }) => {
+                    const open = searching || !collapsedFolders.has(folder.id)
                     return (
                       <div key={folder.id} className="mb-0.5">
                         <div className="group/folder flex items-center rounded-md px-1 hover:bg-[#16213f]/70">
-                          <button type="button" onClick={() => toggleFolderOpen(folder.id)} className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 text-left">
-                            <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-[#6f86ad] transition-transform ${open ? "rotate-90" : ""}`} />
+                          <button
+                            type="button"
+                            onClick={() => toggleFolderOpen(folder.id)}
+                            className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 text-left"
+                          >
+                            <ChevronRight
+                              className={`h-3.5 w-3.5 shrink-0 text-[#6f86ad] transition-transform ${open ? "rotate-90" : ""}`}
+                            />
                             <FolderIcon className="h-3.5 w-3.5 shrink-0 text-[#5d9fd6]" />
                             <span className="truncate font-medium text-[#cfe4ff]" style={{ fontSize: labelSize }}>
                               {folder.name}
@@ -947,15 +994,15 @@ export function TrendWorkspace({
                             type="button"
                             onClick={() => deleteFolder(folder.id)}
                             className="shrink-0 p-0.5 text-[#46618a] opacity-0 transition-opacity hover:text-[#ff8da3] group-hover/folder:opacity-100"
-                            title={zh ? "删除文件夹" : "Delete folder"}
+                            title={zh ? "删除分组" : "Delete group"}
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>
                         </div>
                         {open && (
                           <div className="ml-3 border-l border-[#1a2654] pl-1.5">
-                            {folderTemplates.length > 0 ? (
-                              folderTemplates.map((template) => renderTemplateRow(template))
+                            {items.length > 0 ? (
+                              items.map((template) => renderTemplateRow(template))
                             ) : (
                               <div className="px-2 py-1.5 text-[#46618a]" style={{ fontSize: labelSize - 1 }}>
                                 {zh ? "（空）" : "(empty)"}
@@ -966,6 +1013,50 @@ export function TrendWorkspace({
                       </div>
                     )
                   })}
+
+                  {noResults && (
+                    <div className="px-2 py-3 text-center text-[#5d7299]" style={{ fontSize: labelSize }}>
+                      {zh ? "无匹配结果" : "No matches"}
+                    </div>
+                  )}
+                </div>
+
+                {/* footer: inline 新建分组 */}
+                <div className="border-t border-[#1a2654] p-1.5">
+                  {showNewFolder ? (
+                    <div className="flex items-center gap-1 px-1">
+                      <input
+                        autoFocus
+                        value={newFolderName}
+                        onChange={(event) => setNewFolderName(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") handleCreateFolder()
+                          if (event.key === "Escape") setShowNewFolder(false)
+                        }}
+                        placeholder={zh ? "分组名称" : "Group name"}
+                        className="w-full rounded-md border border-[#27496f] bg-[#101840] px-2 py-1 text-[#dbeaff] outline-none placeholder:text-[#5d7299]"
+                        style={{ fontSize: controlSize }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCreateFolder}
+                        disabled={!newFolderName.trim()}
+                        className="shrink-0 rounded-md bg-[#00d4aa] px-1.5 py-1 text-[#04241c] disabled:opacity-40"
+                      >
+                        <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowNewFolder(true)}
+                      className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[#9bc4e8] transition-colors hover:bg-[#16213f]/70 hover:text-[#cffcf2]"
+                      style={{ fontSize: labelSize }}
+                    >
+                      <FolderPlus className="h-3.5 w-3.5 shrink-0" />
+                      {zh ? "新建分组" : "New group"}
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -995,15 +1086,11 @@ export function TrendWorkspace({
         {/* Floating restore handle, mirroring the app sidebar's expander — only
             shown while the rail is collapsed; straddles the chart's left edge. */}
         {railCollapsed && (
-          <button
-            type="button"
+          <RailRestoreHandle
             onClick={() => setRailCollapsed(false)}
-            className="absolute left-0 top-1/2 z-20 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#27496f] bg-[#0d1233] text-[#9bc4e8] shadow-[0_2px_10px_rgba(0,0,0,0.45)] transition-colors hover:border-[#45f1d0]/60 hover:text-[#cffcf2]"
+            zh={zh}
             title={zh ? "展开变量面板" : "Expand panel"}
-            aria-label={zh ? "展开变量面板" : "Expand panel"}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
+          />
         )}
         <div className="flex flex-wrap items-center gap-2 border-b border-[#1a2654] px-3 py-2.5">
           {!isStatus ? (
@@ -1118,6 +1205,7 @@ export function TrendWorkspace({
               type="button"
               onClick={() => {
                 setSaveFolderId("")
+                setSaveGroupName("")
                 setShowSave((value) => !value)
               }}
               disabled={selectedNodes.size === 0}
@@ -1145,21 +1233,37 @@ export function TrendWorkspace({
                   style={{ fontSize: controlSize }}
                 />
                 <div className="mb-1 text-[#7b8ab8]" style={{ fontSize: controlSize - 0.5 }}>
-                  {zh ? "保存到" : "Save to"}
+                  {zh ? "保存到分组" : "Save to group"}
                 </div>
                 <select
                   value={saveFolderId}
                   onChange={(event) => setSaveFolderId(event.target.value)}
-                  className="mb-2.5 w-full rounded-md border border-[#27496f] bg-[#101840] px-2 py-1.5 text-[#dbeaff] outline-none"
+                  className="mb-2 w-full rounded-md border border-[#27496f] bg-[#101840] px-2 py-1.5 text-[#dbeaff] outline-none"
                   style={{ fontSize: controlSize, colorScheme: "dark" }}
                 >
-                  <option value="">{zh ? "根目录" : "Root"}</option>
+                  <option value="">{zh ? "未分组" : "Ungrouped"}</option>
                   {store.folders.map((folder) => (
                     <option key={folder.id} value={folder.id}>
                       {folder.name}
                     </option>
                   ))}
+                  <option value={NEW_GROUP_VALUE}>{zh ? "＋ 新建分组…" : "＋ New group…"}</option>
                 </select>
+                {saveFolderId === NEW_GROUP_VALUE && (
+                  <input
+                    autoFocus
+                    value={saveGroupName}
+                    onChange={(event) => setSaveGroupName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") handleSaveTemplate()
+                      if (event.key === "Escape") setShowSave(false)
+                    }}
+                    placeholder={zh ? "新分组名称" : "New group name"}
+                    className="mb-2.5 w-full rounded-md border border-[#27496f] bg-[#101840] px-2 py-1.5 text-[#dbeaff] outline-none placeholder:text-[#5d7299]"
+                    style={{ fontSize: controlSize }}
+                  />
+                )}
+                {saveFolderId !== NEW_GROUP_VALUE && <div className="mb-0.5" />}
                 <div className="flex items-center justify-end gap-1.5">
                   <button type="button" onClick={() => setShowSave(false)} className="rounded-md px-2.5 py-1 text-[#9bc4e8] hover:text-[#cfe4ff]" style={{ fontSize: controlSize }}>
                     {zh ? "取消" : "Cancel"}
@@ -1167,7 +1271,7 @@ export function TrendWorkspace({
                   <button
                     type="button"
                     onClick={handleSaveTemplate}
-                    disabled={!saveName.trim()}
+                    disabled={!saveName.trim() || (saveFolderId === NEW_GROUP_VALUE && !saveGroupName.trim())}
                     className="rounded-md bg-[#00d4aa] px-3 py-1 font-semibold text-[#04241c] transition-opacity disabled:opacity-40"
                     style={{ fontSize: controlSize }}
                   >

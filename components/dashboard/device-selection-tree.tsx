@@ -222,7 +222,7 @@ export function DeviceVariableTree({
       )}
 
       <div className={`flex items-center gap-1.5 px-2.5 pb-1.5 ${embedded ? "pt-1.5" : "pt-2"}`}>
-        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#27496f] bg-[#101840]/70 px-2.5 py-1.5 transition-colors focus-within:border-[#2aa7b3]">
+        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#4f86c8] bg-[#101840]/70 px-2.5 py-1.5 transition-colors focus-within:border-[#45f1d0]/75">
           <Search className="h-3.5 w-3.5 shrink-0 text-[#5d7299]" />
           <input
             value={search}
