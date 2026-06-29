@@ -2422,7 +2422,7 @@ export function CellHistoryReplayPanel({
           <button
             type="button"
             onClick={() => setIsTrendCardFullscreen((current) => !current)}
-            title={isTrendCardFullscreen ? (zh ? "退出全屏" : "Exit fullscreen") : (zh ? "全屏放大" : "Fullscreen")}
+            title={isTrendCardFullscreen ? (zh ? "退出全屏" : "Exit fullscreen") : (zh ? "全屏" : "Fullscreen")}
             className="flex h-7 items-center gap-1 rounded-lg border border-[#1e3a70] bg-[#070e28] px-2 text-[#7ab4f8] transition-all hover:bg-[#0d1e48] hover:text-[#b7e3ff]"
             style={{ fontSize: panelScale.fluid(10, 14) }}
           >
