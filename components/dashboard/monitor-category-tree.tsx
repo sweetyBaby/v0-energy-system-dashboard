@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { BatteryCharging, ChevronDown, Cpu, Layers, Zap } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
+import { RailCollapseButton } from "@/components/dashboard/rail-collapse-controls"
 import type { MonitorDevice } from "@/lib/device-selection"
 import type { MonitorDeviceKind } from "@/lib/api/trend-analysis"
 
@@ -41,6 +42,8 @@ type MonitorCategoryTreeProps = {
   /** Optional per-device badge (e.g. active alarm count). */
   badgeCounts?: Record<string, number>
   title?: string
+  /** When provided, a fold button appears in the header to collapse the panel. */
+  onCollapse?: () => void
 }
 
 export function MonitorCategoryTree({
@@ -49,6 +52,7 @@ export function MonitorCategoryTree({
   onSelect,
   badgeCounts,
   title,
+  onCollapse,
 }: MonitorCategoryTreeProps) {
   const { language } = useLanguage()
   const zh = language === "zh"
@@ -188,9 +192,10 @@ export function MonitorCategoryTree({
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[14px] border border-[#1c4263] bg-[linear-gradient(180deg,rgba(9,21,36,0.96),rgba(6,14,26,0.98))] shadow-[inset_0_1px_0_rgba(120,200,255,0.06)]">
       <div className="flex items-center gap-2 border-b border-[#16344f] px-3 py-2.5">
         <span className="h-1.5 w-1.5 rounded-full bg-[#26f0dc] shadow-[0_0_8px_rgba(38,240,220,0.7)]" />
-        <span className="text-[12px] font-semibold tracking-[0.06em] text-[#d9f6ff]">
+        <span className="flex-1 truncate text-[12px] font-semibold tracking-[0.06em] text-[#d9f6ff]">
           {title ?? (zh ? "设备拓扑" : "Topology")}
         </span>
+        {onCollapse && <RailCollapseButton onClick={onCollapse} zh={zh} />}
       </div>
 
       <nav className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden px-1.5 py-2">

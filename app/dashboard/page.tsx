@@ -16,6 +16,7 @@ import { DashboardHeader, ProjectProvider, useProject } from "@/components/dashb
 import { DashboardSidebar, type SidebarTab } from "@/components/dashboard/dashboard-sidebar"
 import { HistoryDatePicker } from "@/components/dashboard/history-date-picker"
 import { MonitorCategoryTree } from "@/components/dashboard/monitor-category-tree"
+import { RailRestoreHandle } from "@/components/dashboard/rail-collapse-controls"
 import { OperationsOverview } from "@/components/dashboard/operations-overview"
 import { PowerCurveQuery } from "@/components/dashboard/power-curve-query"
 import { ProjectOverviewInfoCard } from "@/components/dashboard/project-overview-info-card"
@@ -226,6 +227,10 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
   // device list) — `pageBcuOptions` already is exactly that list.
   const [runningStatusDeviceId, setRunningStatusDeviceId] = useState(firstPageBcuId)
   const [alarmDeviceId, setAlarmDeviceId] = useState(firstPageBcuId)
+  // Left-rail (category tree) collapse for the 运行总览 / 告警分类 views, mirroring
+  // 设备监测's collapsible rail.
+  const [runningStatusRailCollapsed, setRunningStatusRailCollapsed] = useState(false)
+  const [alarmRailCollapsed, setAlarmRailCollapsed] = useState(false)
   const [cellHistoryDeviceId, setCellHistoryDeviceId] = useState(firstPageBcuId)
   const [analysisDeviceId, setAnalysisDeviceId] = useState(firstPageBcuId)
   const [reportsDeviceId, setReportsDeviceId] = useState(firstPageBcuId)
@@ -397,15 +402,18 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
   const renderRunningStatusPage = () => {
     const selected = getMonitorDevice(runningStatusDeviceId)
     return (
-      <div className="flex h-full min-h-0 gap-3 overflow-hidden">
-        <div className={`${isCompactViewport ? "w-[154px]" : "w-[206px]"} shrink-0`}>
-          <MonitorCategoryTree
-            devices={monitorDevices}
-            selectedDeviceId={runningStatusDeviceId}
-            onSelect={setRunningStatusDeviceId}
-            title={zh ? "运行总览" : "Operations"}
-          />
-        </div>
+      <div className="relative flex h-full min-h-0 gap-3">
+        {!runningStatusRailCollapsed && (
+          <div className={`${isCompactViewport ? "w-[154px]" : "w-[206px]"} shrink-0`}>
+            <MonitorCategoryTree
+              devices={monitorDevices}
+              selectedDeviceId={runningStatusDeviceId}
+              onSelect={setRunningStatusDeviceId}
+              title={zh ? "运行总览" : "Operations"}
+              onCollapse={() => setRunningStatusRailCollapsed(true)}
+            />
+          </div>
+        )}
         <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
           <OperationsOverview
             deviceId={runningStatusDeviceId || undefined}
@@ -414,6 +422,9 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
             projectId={selectedProject.projectId}
           />
         </div>
+        {runningStatusRailCollapsed && (
+          <RailRestoreHandle onClick={() => setRunningStatusRailCollapsed(false)} zh={zh} />
+        )}
       </div>
     )
   }
@@ -449,15 +460,18 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
     const selected = getMonitorDevice(alarmDeviceId)
     const isBatteryKind = !selected || selected.deviceKind === "rack" || selected.deviceKind === "other"
     return (
-      <div className="no-scrollbar flex h-full min-h-0 min-w-0 gap-3 overflow-hidden overscroll-none">
-        <div className={`${isCompactViewport ? "w-[154px]" : "w-[206px]"} shrink-0`}>
-          <MonitorCategoryTree
-            devices={monitorDevices}
-            selectedDeviceId={alarmDeviceId}
-            onSelect={setAlarmDeviceId}
-            title={zh ? "告警分类" : "Alarms"}
-          />
-        </div>
+      <div className="no-scrollbar relative flex h-full min-h-0 min-w-0 gap-3 overscroll-none">
+        {!alarmRailCollapsed && (
+          <div className={`${isCompactViewport ? "w-[154px]" : "w-[206px]"} shrink-0`}>
+            <MonitorCategoryTree
+              devices={monitorDevices}
+              selectedDeviceId={alarmDeviceId}
+              onSelect={setAlarmDeviceId}
+              title={zh ? "告警分类" : "Alarms"}
+              onCollapse={() => setAlarmRailCollapsed(true)}
+            />
+          </div>
+        )}
         <div className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden overscroll-none">
           <div
             className="relative z-20 flex min-w-0 shrink-0 items-center gap-3 overflow-visible border border-[#22d3ee]/20 bg-[#020810] px-3 py-2"
@@ -534,6 +548,9 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
             {bcuMode === "realtime" && renderAlarmComingSoonMask()}
           </div>
         </div>
+        {alarmRailCollapsed && (
+          <RailRestoreHandle onClick={() => setAlarmRailCollapsed(false)} zh={zh} />
+        )}
       </div>
     )
   }
@@ -762,7 +779,7 @@ function DashboardTabs({ activeTab, onNavigateTab }: { activeTab: DashboardTab; 
         )}
 
         {activeTab === "alarm-monitoring" && (
-          <div className="relative h-full min-h-0 overflow-hidden">
+          <div className="relative h-full min-h-0">
             {renderAlarmMonitoringPage()}
           </div>
         )}
