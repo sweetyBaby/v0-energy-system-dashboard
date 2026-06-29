@@ -1112,17 +1112,7 @@ export function TrendWorkspace({
             {zh ? "导出" : "Export"}
           </button>
 
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="flex items-center gap-1.5 rounded-lg border border-[#27496f] bg-[#101840]/80 px-2.5 py-1.5 font-medium text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
-            style={{ fontSize: controlSize }}
-            title={isFullscreen ? (zh ? "退出全屏" : "Exit fullscreen") : (zh ? "全屏" : "Fullscreen")}
-          >
-            {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-            {isFullscreen ? (zh ? "退出全屏" : "Exit") : (zh ? "全屏" : "Fullscreen")}
-          </button>
-
+       
           <div className="relative" ref={saveRef}>
             <button
               type="button"
@@ -1187,6 +1177,17 @@ export function TrendWorkspace({
               </div>
             )}
           </div>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="flex items-center gap-1.5 rounded-lg border border-[#27496f] bg-[#101840]/80 px-2.5 py-1.5 font-medium text-[#9bc4e8] transition-colors hover:border-[#45f1d0]/55 hover:text-[#cffcf2]"
+            style={{ fontSize: controlSize }}
+            title={isFullscreen ? (zh ? "退出全屏" : "Exit fullscreen") : (zh ? "全屏" : "Fullscreen")}
+          >
+            {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            {isFullscreen ? (zh ? "退出全屏" : "Exit fullscreen") : (zh ? "全屏" : "Fullscreen")}
+          </button>
+
         </div>
 
         {/* Legend */}
