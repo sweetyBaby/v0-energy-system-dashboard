@@ -136,11 +136,17 @@ export function DashboardSidebar({
   const backToMapHref = selectedProject.projectId
     ? `/project-map?projectId=${encodeURIComponent(selectedProject.projectId)}`
     : "/project-map"
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
+  const [groupsHydrated, setGroupsHydrated] = useState(false)
   const labelWidth = useMemo(() => {
-    // Children are indented (guide rail + padding), so reserve extra room for their labels.
-    const childIndent = 22
+    // Closed groups should not reserve space for hidden children; include them only when visible.
+    const childIndent = 18
     const widths = SIDEBAR_ITEMS.flatMap((item) => {
       if (isGroup(item)) {
+        if (!openGroups.has(item.groupKey)) {
+          return [getSidebarLabelWidth(zh ? item.zh : item.en, zh)]
+        }
+
         return [
           getSidebarLabelWidth(zh ? item.zh : item.en, zh),
           ...item.children.map((child) => getSidebarLabelWidth(zh ? child.zh : child.en, zh) + childIndent),
@@ -149,12 +155,9 @@ export function DashboardSidebar({
       return [getSidebarLabelWidth(zh ? item.zh : item.en, zh)]
     })
     return Math.max(...widths)
-  }, [zh])
-  const textWidth = labelWidth + (zh ? 4 : 8)
-  const expandedW = textWidth + 58
-
-  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
-  const [groupsHydrated, setGroupsHydrated] = useState(false)
+  }, [openGroups, zh])
+  const textWidth = labelWidth + (zh ? 2 : 4)
+  const expandedW = textWidth + 40
 
   // Restore which groups were left open across reloads.
   useEffect(() => {
@@ -229,7 +232,7 @@ export function DashboardSidebar({
       title={!expanded ? label : undefined}
       className={`relative flex w-full items-center rounded-md transition-all ${
         expanded
-          ? `gap-2 rounded-lg ${isChild ? "py-2 pl-2.5 pr-2.5" : "px-2.5 py-2.5"}`
+          ? `gap-1 rounded-lg ${isChild ? "py-2 pl-2 pr-1.5" : "px-1.5 py-2.5"}`
           : "justify-center rounded-lg px-0 py-3"
       } ${
         isActive
@@ -283,7 +286,7 @@ export function DashboardSidebar({
           letterSpacing: zh ? "0.04em" : "0.03em",
           opacity: expanded ? 1 : 0,
           maxWidth: expanded ? `${textWidth}px` : "0px",
-          overflow: "hidden",
+          overflow: expanded ? "visible" : "hidden",
           transition: "opacity 0.2s ease, max-width 0.25s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
@@ -456,7 +459,7 @@ export function DashboardSidebar({
                 ),
               })}
               {open && (
-                <div className="ml-3 flex flex-col gap-1 border-l border-[#214a60]/70 pl-2 pt-0.5">
+                <div className="ml-2 flex flex-col gap-1 border-l border-[#214a60]/70 pl-1.5 pt-0.5">
                   {item.children.map((child) => (
                     <div key={child.key} className="group relative">
                       {renderNavButton({
@@ -475,15 +478,15 @@ export function DashboardSidebar({
         })}
       </nav>
 
-      <div className="relative border-t border-[#16344f] px-1.5 pb-2 pt-2">
+      <div className="relative px-1.5 pb-2 pt-2">
         <div className="group relative">
           <button
             type="button"
             onClick={() => router.push(backToMapHref)}
             title={!expanded ? backToMapLabel : undefined}
-            className={`relative inline-flex w-full items-center overflow-hidden rounded-lg border border-[#2f9bb0]/55 bg-[linear-gradient(135deg,rgba(13,86,102,0.55),rgba(8,40,60,0.5))] text-[11px] font-semibold text-[#cdf6f0] shadow-[inset_0_1px_0_rgba(152,232,255,0.1)] outline-none transition-all hover:border-[#45f1d0]/80 hover:bg-[linear-gradient(135deg,rgba(15,108,126,0.72),rgba(8,50,70,0.66))] hover:text-[#eafdff] hover:shadow-[0_0_14px_rgba(38,240,220,0.28)] focus:outline-none focus-visible:outline-none ${
+            className={`relative inline-flex w-full items-center overflow-hidden rounded-lg bg-[linear-gradient(135deg,rgba(13,86,102,0.55),rgba(8,40,60,0.5))] text-[11px] font-semibold text-[#cdf6f0] shadow-[inset_0_1px_0_rgba(152,232,255,0.1)] outline-none transition-all hover:bg-[linear-gradient(135deg,rgba(15,108,126,0.72),rgba(8,50,70,0.66))] hover:text-[#eafdff] hover:shadow-[0_0_14px_rgba(38,240,220,0.28)] focus:outline-none focus-visible:outline-none ${
               expanded
-                ? "h-[36px] justify-start gap-2 px-3"
+                ? "h-[36px] justify-start gap-1.5 px-2.5"
                 : "h-[40px] justify-center px-0"
             }`}
           >
